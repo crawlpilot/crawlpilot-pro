@@ -105,3 +105,11 @@ The extension uses `content_scripts` with `matches: ["<all_urls>"]` because it i
 2.  Zip the `contents` of the `dist` folder (not the folder itself, select all files inside `dist` -> Compress).
 3.  Upload the `.zip` file to the Chrome Web Store Developer Dashboard.
 4.  Fill in the "Privacy" tab with the justifications above.
+
+## 6. Single Purpose Description
+
+## 7. Support & Contact
+
+*   **Support URL**: `https://crawlpilot.github.io/crawlpilot/support`
+*   **Contact Email**: `crawlpilot6365@gmail.com`
+*   **Issue Tracker**: `https://github.com/RahulBisht/crawlPilot/issues`
