@@ -29,13 +29,75 @@ The extension uses `content_scripts` with `matches: ["<all_urls>"]` because it i
 
 *   **Privacy Policy URL**: `https://crawlpilot.github.io/crawlpilot/privacy` (Ensure this live URL is provided in the "Privacy" tab of the Store Dashboard).
 *   **Description**: "Visual web scraper to extract data from any website into Excel/JSON. AI-powered, point-and-click interface. No coding required."
-    *   *Extended Description (for Store Listing)*:
-        Crawl Pilot is the ultimate browser-based web scraper.
-        - **Visual Selector**: Point and click to select elements.
-        - **Intelligent Extraction**: Automatically detects lists and repetitive patterns.
-        - **Pagination Handling**: Scrape multiple pages automatically.
-        - **Export**: Save data instantly as CSV (Excel compatible) or JSON.
-        - **Privacy First**: All data runs locally in your browser.
+    *   *Detailed Description (For Store Listing - Copy & Paste)*:
+
+        **Turn any website into a spreadsheet. Extract data instantly with a visual point-and-click interface. No coding required.**
+
+        ⚡️ **Crawl Pilot - The Visual Web Scraper for Everyone**
+
+        Tired of copy-pasting? Crawl Pilot automates data collection from the web. Whether it's a list of leads, product prices, or real estate listings, Crawl Pilot extracts it for you in seconds.
+
+        **🚀 KEY FEATURES**
+        ---------------------
+
+        👇 **Visual "Point & Click" Scraper**
+        Don't know code? No problem. Simply click on the data you want (like a product title or price), and Crawl Pilot automatically identifies similar items on the page.
+
+        🔄 **Smart Pagination & Infinite Scroll**
+        Most scrapers break on multi-page lists. Crawl Pilot handles it automatically:
+        *   **Next Button Mode**: Clicks through pages for you.
+        *   **Infinite Scroll Mode**: Automatically scrolls down to load more items.
+
+        �️ **Privacy-First & Local**
+        Unlike cloud scrapers, Crawl Pilot runs 100% in your browser. Your data never leaves your machine until you export it. No accounts, no tracking, no hidden servers.
+
+        � **Export to Excel, CSV, or JSON**
+        Download your extracted data instantly. Compatible with Google Sheets, Microsoft Excel, and any data analysis tool.
+
+        🧠 **Intelligent List Detection**
+        Our algorithm detects repeating patterns (lists, tables, grids) instantly, saving you hours of manual work.
+
+
+        **💡 USE CASES**
+        ------------------
+
+        📈 **For Sales & Growth**
+        *   Build targeted lead lists from directories.
+        *   Extract email addresses and phone numbers for outreach.
+        *   Scrape business profiles for B2B prospecting.
+
+        🛒 **For E-Commerce**
+        *   Monitor competitor prices and stock levels.
+        *   Extract product reviews and ratings for analysis.
+        *   Download product images in bulk.
+
+        � **For Research & Data Science**
+        *   Gather training datasets for AI models.
+        *   Collect public data for academic research.
+        *   Aggregate news articles and blog posts.
+
+        🎯 **For Recruiters**
+        *   Standardize candidate profiles from job boards.
+        *   Create lists of potential hires with skills and roles.
+
+
+        **🛠️ POWERFUL TOOLS INCLUDED**
+        --------------------------------
+
+        *   **Right-Click Unlocker**: Enable right-click and copy on sites that block it.
+        *   **Auto-Resume**: Scrapes are saved locally; if you close the tab, you can resume right where you left off.
+        *   **Visual Element Picker**: High-precision selection tool.
+
+
+        **🔒 PRIVACY & SECURITY**
+        -------------------------
+
+        Crawl Pilot is built with privacy at its core.
+        *   **Zero Remote Code**: All logic is bundled in the extension.
+        *   **Local Storage**: Data is stored in your browser's IndexedDB.
+        *   **No Data Selling**: We do not collect or sell your scraped data.
+
+        � **Start scraping for free today with Crawl Pilot!**
 
 ## 5. Deployment Steps
 
