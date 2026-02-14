@@ -82,22 +82,31 @@ export function useAllTableData() {
 }
 
 /**
- * Hook for CSV export
+ * Hook for Data Export
  */
-export function useExportCSV() {
-    const exportToCSV = (tableData: TableData, rows: TableRow[]) => {
+/**
+ * Hook for Data Export
+ */
+export function useExportData() {
+    const exportToCSV = (columns: { id: string, name: string }[], data: any[], fileName: string) => {
         try {
             // Create CSV header
-            const headers = tableData.columns.map((col) => col.name).join(',');
+            const headers = columns.map((col) => col.name).join(',');
 
             // Create CSV rows
-            const csvRows = rows.map((row) => {
-                return tableData.columns
+            const csvRows = data.map((row) => {
+                return columns
                     .map((col) => {
-                        const value = row.data[col.id];
-                        // Handle values with commas or quotes
-                        if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-                            return `"${value.replace(/"/g, '""')}"`;
+                        const value = row[col.id];
+                        // Handle values with commas, quotes, or newlines
+                        if (typeof value === 'string') {
+                            // Escape quotes by doubling them
+                            const escaped = value.replace(/"/g, '""');
+                            // Wrap in quotes if it contains comma, quote, or newline
+                            if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+                                return `"${escaped}"`;
+                            }
+                            return value;
                         }
                         return value ?? '';
                     })
@@ -108,23 +117,57 @@ export function useExportCSV() {
             const csv = [headers, ...csvRows].join('\n');
 
             // Download
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-
-            link.setAttribute('href', url);
-            link.setAttribute('download', `${tableData.name}-${timestamp}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            downloadFile(csv, `${fileName}.csv`, 'text/csv;charset=utf-8;');
         } catch (err) {
-            console.error('Export failed:', err);
+            console.error('Export CSV failed:', err);
             throw err;
         }
     };
 
-    return { exportToCSV };
+    const exportToJSON = (columns: { id: string, name: string }[], data: any[], fileName: string) => {
+        try {
+            // Construct array of objects with proper column names
+            const jsonData = data.map(row => {
+                const obj: Record<string, any> = {};
+                columns.forEach(col => {
+                    obj[col.name] = row[col.id];
+                });
+                return obj;
+            });
+
+            const jsonString = JSON.stringify(jsonData, null, 2);
+            downloadFile(jsonString, `${fileName}.json`, 'application/json');
+
+        } catch (err) {
+            console.error('Export JSON failed:', err);
+            throw err;
+        }
+    };
+
+    const downloadFile = (content: string, fileName: string, contentType: string) => {
+        const blob = new Blob([content], { type: contentType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        // If filename already has extension, insert timestamp before it, else append
+        const nameParts = fileName.split('.');
+        let finalFileName = fileName;
+        if (nameParts.length > 1) {
+            const ext = nameParts.pop();
+            finalFileName = `${nameParts.join('.')}_${timestamp}.${ext}`;
+        } else {
+            finalFileName = `${fileName}_${timestamp}`;
+        }
+
+        link.setAttribute('href', url);
+        link.setAttribute('download', finalFileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    return { exportToCSV, exportToJSON };
 }
 
 /**

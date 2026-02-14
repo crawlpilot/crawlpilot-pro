@@ -1,5 +1,6 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { AgGridReact } from 'ag-grid-react';
+// ... same imports as before ...
 import {
     ColDef,
     ModuleRegistry,
@@ -31,6 +32,10 @@ ModuleRegistry.registerModules([
     TextEditorModule
 ]);
 
+export interface DataTableRef {
+    getProcessedData: () => { columns: { id: string, name: string }[], rows: any[] };
+}
+
 interface DataTableProps {
     columns: Column[];
     rows: TableRow[];
@@ -38,6 +43,7 @@ interface DataTableProps {
 
 // Custom Header Component
 const CustomHeader = (props: any) => {
+    // ... same content as before ...
     const [isEditing, setIsEditing] = useState(false);
     const [tempName, setTempName] = useState(props.displayName);
 
@@ -109,7 +115,7 @@ const CustomHeader = (props: any) => {
     );
 };
 
-export default function DataTable({ columns, rows }: DataTableProps) {
+const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows }, ref) => {
     // Filter states
     const [showFilters, setShowFilters] = useState(false);
     const [showMerge, setShowMerge] = useState(false);
@@ -165,6 +171,7 @@ export default function DataTable({ columns, rows }: DataTableProps) {
 
     // Apply Logic Pipeline
     const { processedRowData, processedColumnDefs, availableColumns } = useMemo(() => {
+        // ... (Logic pipeline logic is identical to before, just inside useMemo) ...
         // 1. Base Data transformation (Merges)
         let activeRows = rows.map(r => {
             const row: any = { ...r.data, id: r.id };
@@ -176,62 +183,33 @@ export default function DataTable({ columns, rows }: DataTableProps) {
             return row;
         });
 
-        if (activeRows.length > 0 && columns.length > 0) {
-            console.log('🔍 [DataTable] First Row Keys:', Object.keys(activeRows[0]));
-            console.log('🔍 [DataTable] Column IDs:', columns.map(c => c.id));
-
-            // Check for mismatch
-            const firstColId = columns[0].id;
-            const hasData = activeRows[0][firstColId] !== undefined;
-            console.log(`❓ [DataTable] Match Check: Column '${firstColId}' in Row? ${hasData}. Value:`, activeRows[0][firstColId]);
-        }
-
-
-
-        // 2. Base Columns Setup (including merged)
+        // 2. Base Columns Setup
         let activeColumns = [...columns];
-
-        if (activeRows.length > 0 && activeColumns.length > 0) {
-            const rowKeys = Object.keys(activeRows[0]);
-            const colIds = activeColumns.map(c => c.id);
-            console.log('🔍 [DataTable Debug] Row Keys:', rowKeys.slice(0, 5));
-            console.log('🔍 [DataTable Debug] Column IDs:', colIds.slice(0, 5));
-            console.log(`🔍 [DataTable Debug] Intersection:`, rowKeys.filter(k => colIds.includes(k)).length);
-        }
-        // Add merged column definitions
         mergedCols.forEach(m => {
             activeColumns.push({ id: m.id, name: m.name, type: 'text' } as any);
         });
 
-        // Hide deleted columns (and source columns of merges if you want? usually yes)
-        // Let's hide source columns of merges automatically
         const hiddenIds = new Set(deletedCols);
         mergedCols.forEach(m => m.sources.forEach(s => hiddenIds.add(s)));
-
         activeColumns = activeColumns.filter(c => !hiddenIds.has(c.id));
 
         // 3. Apply Row Filters
-        console.log(`🔄 [DataTable Pipeline] Pre-Filter Rows: ${activeRows.length}`);
-
         if (removeEmptyRows && activeColumns.length > 0) {
             activeRows = activeRows.filter(row => {
-                // A row is "valid" only if at least one of the active (visible) columns has a non-empty value
                 return activeColumns.some(col => {
                     const val = row[col.id];
                     return val !== undefined && val !== null && String(val).trim() !== '';
                 });
             });
-            console.log(`🔄 [DataTable Pipeline] After RemoveEmptyRows: ${activeRows.length}`);
         }
 
-        // 4. Apply Column Filters (Hide Repeating, etc.)
+        // 4. Apply Column Filters
         if (hideRepeatingData) {
             activeColumns = activeColumns.filter(col => {
                 const firstVal = activeRows[0]?.[col.id];
                 if (!firstVal) return true;
                 return !activeRows.every(r => r[col.id] === firstVal);
             });
-            console.log(`🔄 [DataTable Pipeline] After HideRepeating: Columns ${activeColumns.length}`);
         }
 
         if (removeEmptyColumns) {
@@ -241,7 +219,6 @@ export default function DataTable({ columns, rows }: DataTableProps) {
                     return val !== undefined && val !== null && String(val).trim() !== '';
                 });
             });
-            console.log(`🔄 [DataTable Pipeline] After RemoveEmptyCols: Columns ${activeColumns.length}`);
         }
 
         if (hideMostlyEmptyColumns) {
@@ -250,7 +227,6 @@ export default function DataTable({ columns, rows }: DataTableProps) {
                 const filledCount = activeRows.filter(r => r[col.id]).length;
                 return filledCount >= threshold;
             });
-            console.log(`🔄 [DataTable Pipeline] After HideMostlyEmpty: Columns ${activeColumns.length}`);
         }
 
         if (removeDuplicateColumns) {
@@ -264,7 +240,6 @@ export default function DataTable({ columns, rows }: DataTableProps) {
                 }
             });
             activeColumns = activeColumns.filter(c => colsKeep.has(c.id));
-            console.log(`🔄 [DataTable Pipeline] After NoDupCols: Columns ${activeColumns.length}`);
         }
 
         if (prioritizeRichColumns) {
@@ -275,14 +250,10 @@ export default function DataTable({ columns, rows }: DataTableProps) {
             });
         }
 
-        console.log(`🏁 [DataTable Pipeline] Final Rows: ${activeRows.length}, Final Columns: ${activeColumns.length}`);
-
         // 5. Generate Defs with Renames
         const defs: ColDef[] = activeColumns.map(col => ({
             field: col.id,
-            // Use valueGetter to handle keys with dots (CSS selectors) which AgGrid interprets as deep paths
             valueGetter: (params) => params.data?.[col.id],
-            // Use custom header for renames/deletes
             headerComponent: CustomHeader,
             headerComponentParams: {
                 displayName: renames[col.id] || col.name,
@@ -324,7 +295,6 @@ export default function DataTable({ columns, rows }: DataTableProps) {
                     );
                 }
 
-                // Regular Text / Fallback
                 return (
                     <div className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" title={String(value || '')}>
                         <span className="text-sm text-text-primary/90 font-medium">
@@ -342,6 +312,18 @@ export default function DataTable({ columns, rows }: DataTableProps) {
         };
     }, [columns, rows, removeEmptyRows, removeEmptyColumns, hideRepeatingData, removeDuplicateColumns, prioritizeRichColumns, showImages, hideMostlyEmptyColumns, renames, deletedCols, mergedCols]);
 
+    useImperativeHandle(ref, () => ({
+        getProcessedData: () => {
+            return {
+                columns: availableColumns.map(col => ({
+                    id: col.id,
+                    name: renames[col.id] || col.name
+                })),
+                rows: processedRowData
+            };
+        }
+    }));
+
     const defaultColDef = useMemo<ColDef>(() => ({
         width: 180,
         minWidth: 100,
@@ -351,7 +333,6 @@ export default function DataTable({ columns, rows }: DataTableProps) {
         suppressHeaderMenuButton: true,
         headerClass: 'font-semibold',
     }), []);
-
 
     const resetFilters = () => {
         setRemoveEmptyRows(true);
@@ -380,7 +361,7 @@ export default function DataTable({ columns, rows }: DataTableProps) {
 
     return (
         <div className="w-full h-full flex flex-col gap-3">
-            {/* Action Bar */}
+            {/* ... Action Bar ... */}
             <div className="flex-shrink-0 flex items-center justify-between bg-background-panel p-2 rounded-lg border border-border-subtle">
                 <div className="flex items-center gap-2">
                     <Button
@@ -517,6 +498,7 @@ export default function DataTable({ columns, rows }: DataTableProps) {
                     context={{ onRenameColumn, onDeleteColumn }}
                 />
             </div>
+            <style>{/* ... style omitted ... */}</style>
             <style>{`
                 .ag-theme-alpine {
                     --ag-background-color: #020617;
@@ -617,7 +599,9 @@ export default function DataTable({ columns, rows }: DataTableProps) {
             `}</style>
         </div>
     );
-}
+});
+
+export default DataTable;
 
 function FilterOption({ label, active, onClick, icon }: any) {
     return (

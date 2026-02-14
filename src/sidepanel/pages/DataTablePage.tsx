@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useTableData, useAllTableData } from '../hooks/useDatabase';
+import { useState, useEffect, useRef } from 'react';
+import { useTableData, useAllTableData, useExportData } from '../hooks/useDatabase';
 import DataTable from '../components/ui/DataTable';
 import Select from '../components/ui/Select';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
-import { Database, Calendar } from 'lucide-react';
+import { Database, Calendar, Download, FileText, FileJson } from 'lucide-react';
 
 interface DataTablePageProps {
     initialTableId?: number | null;
@@ -15,6 +15,22 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
     const { tableDatas, loading: loadingAll, error: loadError } = useAllTableData();
     const [selectedId, setSelectedId] = useState<number | null>(initialTableId);
     const { tableData, rows, loading, error } = useTableData(selectedId);
+    const { exportToCSV, exportToJSON } = useExportData();
+    const tableRef = useRef<any>(null);
+
+    const handleExportCSV = () => {
+        if (tableRef.current) {
+            const { columns, rows } = tableRef.current.getProcessedData();
+            exportToCSV(columns, rows, tableData?.name || 'export');
+        }
+    };
+
+    const handleExportJSON = () => {
+        if (tableRef.current) {
+            const { columns, rows } = tableRef.current.getProcessedData();
+            exportToJSON(columns, rows, tableData?.name || 'export');
+        }
+    };
 
     // Auto-select first table if available
     useEffect(() => {
@@ -119,6 +135,31 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
                                 </a>
                             )}
+
+                            {/* Export Button */}
+                            <div className="relative group">
+                                <button
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-colors shadow-sm"
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>Export</span>
+                                </button>
+                                {/* Dropdown */}
+                                <div className="absolute right-0 top-full mt-1 w-32 bg-background-panel border border-border-subtle rounded-lg shadow-xl overflow-hidden hidden group-hover:block z-50">
+                                    <button
+                                        onClick={handleExportCSV}
+                                        className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
+                                    >
+                                        <FileText className="w-3 h-3 text-green-400" /> CSV / Excel
+                                    </button>
+                                    <button
+                                        onClick={handleExportJSON}
+                                        className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
+                                    >
+                                        <FileJson className="w-3 h-3 text-yellow-400" /> JSON
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -139,7 +180,11 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                     </div>
                 ) : tableData && rows.length > 0 ? (
                     <div className="h-full w-full">
-                        <DataTable columns={tableData.columns} rows={rows} />
+                        <DataTable
+                            ref={tableRef}
+                            columns={tableData.columns}
+                            rows={rows}
+                        />
                     </div>
                 ) : (
                     <div className="h-full flex items-center justify-center">
