@@ -183,7 +183,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                             fontSize: '0.8rem'
                         }}
                     >
-                        History
+                        Jobs
                     </Button>
                     <Button
                         fullWidth
@@ -204,7 +204,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                             fontSize: '0.8rem'
                         }}
                     >
-                        View Data
+                        History
                     </Button>
                 </Stack>
             </Box>

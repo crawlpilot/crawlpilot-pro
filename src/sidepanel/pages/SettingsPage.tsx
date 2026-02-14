@@ -206,11 +206,11 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                 <Section title="Support & Community" icon={<Globe size={18} />}>
                     <Paper variant="outlined" sx={{ borderRadius: 3, bgcolor: 'background.paper', overflow: 'hidden' }}>
                         <List disablePadding>
-                            <ListItemButton component="a" href="mailto:support@crawlpilot.com">
+                            <ListItemButton component="a" href="mailto:crawlpilot6365@gmail.com">
                                 <ListItemIcon><Mail size={20} /></ListItemIcon>
                                 <ListItemText
                                     primary="Contact Support"
-                                    secondary="Email us for help or feature requests"
+                                    secondary="Email us for help  raise issues or feature requests"
                                     primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
                                 />
                             </ListItemButton>
