@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Crawl Pilot",
   "version": "1.0.0",
-  "description": "Your intelligent web crawling companion",
+  "description": "Visual web scraper to extract data from any website into Excel/JSON. AI-powered, point-and-click interface. No coding required.",
   "icons": {
     "16": "public/icons/icon16.png",
     "32": "public/icons/icon32.png",
@@ -11,17 +11,10 @@
   },
   "permissions": [
     "activeTab",
-    "scripting",
     "storage",
-    "webRequest",
-    "sidePanel",
-    "tabs",
-    "downloads",
-    "cookies"
+    "sidePanel"
   ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  "host_permissions": [],
   "side_panel": {
     "default_path": "sidepanel.html"
   },
