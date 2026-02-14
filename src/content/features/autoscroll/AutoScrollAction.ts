@@ -82,7 +82,7 @@ export class AutoScrollAction extends BaseAction {
         const config = {
             maxNoChanges: 2,
             contentLoadDelay: 2000,
-            scrollDelay: 100,
+            scrollDelay: 10, // [SPEED] Drastically reduced for faster scraping
             minScrollChange: 100,
             minHeightChange: 100,
             sampleSize: 10,
@@ -400,11 +400,11 @@ export class AutoScrollAction extends BaseAction {
 
             scores.sort((a, b) => b.score - a.score);
 
-            if (scores.length > 0 && scores[0].score >= 40) { // [STRICTER] Increased threshold to prevent "fat offset" skipping
+            if (scores.length > 0 && scores[0].score >= 65) { // [FIX] Increased threshold from 40 to 65 to avoid common false positives (score ~55)
                 console.log(`[AutoScrollAction] Fuzzy match found at index ${scores[0].index} with score ${scores[0].score}`);
                 return {
                     index: scores[0].index,
-                    confidence: scores[0].score >= 60 ? 'medium' : 'low'
+                    confidence: scores[0].score >= 70 ? 'high' : 'medium'
                 };
             }
         }
@@ -413,7 +413,7 @@ export class AutoScrollAction extends BaseAction {
     }
 
     public async scrollByRows(options: AutoScrollConfig) {
-        const { parentSelector = '', selectorType = 'selector', scrollDelay = 100, startIndex = 0, selectionMode = 'container', rootElement, childHash } = options;
+        const { parentSelector = '', selectorType = 'selector', scrollDelay = 10, startIndex = 0, selectionMode = 'container', rootElement, childHash } = options; // [SPEED] Default delay 10ms
 
         let container: HTMLElement | null = null;
 
@@ -479,7 +479,7 @@ export class AutoScrollAction extends BaseAction {
                     } else {
                         window.scrollBy(0, 100);
                     }
-                    await this.wait(800);
+                    await this.wait(200); // [SPEED] Reduced wait time for new items check
                     continue;
                 }
                 break;
@@ -489,10 +489,16 @@ export class AutoScrollAction extends BaseAction {
             // If we have a hash for the previous item, find where it is now to ensure we don't skip items if the DOM shifted
             if (lastProcessedHashData) {
                 const syncMatch = this.findChildByHash(children, JSON.stringify(lastProcessedHashData));
+                // [FIX] Require 'high' confidence OR strict index proximity to re-sync backwards
                 if (syncMatch.confidence !== 'none' && syncMatch.index !== -1) {
                     const expectedIdx = syncMatch.index + 1;
-                    if (currentIdx !== expectedIdx) {
-                        console.log(`[AutoScrollAction] Re-syncing index: ${currentIdx} -> ${expectedIdx} (DOM shift detected)`);
+
+                    // Only re-sync if the jump is reasonable or confidence is very high
+                    const isReasonableJump = Math.abs(currentIdx - expectedIdx) < 5;
+                    const isHighConfidence = syncMatch.confidence === 'high';
+
+                    if (currentIdx !== expectedIdx && (isReasonableJump || isHighConfidence)) {
+                        console.log(`[AutoScrollAction] Re-syncing index: ${currentIdx} -> ${expectedIdx} (DOM shift detected, conf: ${syncMatch.confidence})`);
                         currentIdx = expectedIdx;
 
                         // If re-sync put us out of bounds, restart checks
@@ -510,7 +516,8 @@ export class AutoScrollAction extends BaseAction {
             // Generate hash
             lastProcessedHashData = this.generateChildHash(child, currentIdx);
 
-            child.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // [SPEED] Changed 'smooth' to 'auto' for instant scrolling
+            child.scrollIntoView({ behavior: 'auto', block: 'center' });
 
             if (options.scrollCallback) {
                 try {
@@ -520,7 +527,10 @@ export class AutoScrollAction extends BaseAction {
                 }
             }
 
-            await this.wait(scrollDelay);
+            // [SPEED] Only wait if delay > 0
+            if (scrollDelay > 0) {
+                await this.wait(scrollDelay);
+            }
 
             currentIdx++;
             consecutiveNoNewItems = 0; // Reset counter after successful advance

@@ -18,26 +18,26 @@ export default defineConfig({
     },
     build: {
         // Use terser for better minification and obfuscation
-        // minify: 'terser',
-        // terserOptions: {
-        //     compress: {
-        //         drop_console: true,     // Remove all console.* calls
-        //         drop_debugger: true,    // Remove debugger statements
-        //         ecma: 2020,
-        //         module: true,
-        //         passes: 3,              // Run compression 3 times for better results
-        //         unsafe: true,           // Apply unsafe transformations
-        //         pure_getters: true,
-        //     },
-        //     mangle: {
-        //         toplevel: true,         // Mangle variables in top-level scope
-        //         module: true,
-        //     },
-        //     format: {
-        //         comments: false,        // Remove all comments
-        //         ecma: 2020,
-        //     },
-        // },
+        minify: 'terser',
+        terserOptions: {
+            compress: {
+                drop_console: true,     // Remove all console.* calls
+                drop_debugger: true,    // Remove debugger statements
+                ecma: 2020,
+                module: true,
+                passes: 3,              // Run compression 3 times for better results
+                unsafe: true,           // Apply unsafe transformations
+                pure_getters: true,
+            },
+            mangle: {
+                toplevel: true,         // Mangle variables in top-level scope
+                module: true,
+            },
+            format: {
+                comments: false,        // Remove all comments
+                ecma: 2020,
+            },
+        },
         rollupOptions: {
             input: {
                 sidepanel: 'sidepanel.html',

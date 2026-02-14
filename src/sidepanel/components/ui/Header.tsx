@@ -12,7 +12,7 @@ export default function Header({ onNavigate, activeView, disabled }: HeaderProps
 
     const handleSettingsClick = () => {
         if (disabled) return;
-        console.log('Open settings');
+        onNavigate('settings');
     };
 
     return (
@@ -98,19 +98,19 @@ export default function Header({ onNavigate, activeView, disabled }: HeaderProps
                 }}>
                     <NavPill
                         icon={<Dashboard sx={{ fontSize: 16 }} />}
-                        label="Dashboard"
+                        label="Home"
                         active={activeView === 'home' || (Boolean(activeView) && (activeView!.includes('-extractor') || activeView === 'image-downloader' || activeView === 'page-extractor'))}
                         onClick={() => onNavigate('home')}
                     />
                     <NavPill
                         icon={<History sx={{ fontSize: 16 }} />}
-                        label="History"
+                        label="Jobs"
                         active={activeView === 'history'}
                         onClick={() => onNavigate('history')}
                     />
                     <NavPill
                         icon={<Storage sx={{ fontSize: 16 }} />}
-                        label="Data"
+                        label="History"
                         active={activeView === 'data-table'}
                         onClick={() => {
                             const url = chrome.runtime.getURL('sidepanel.html?view=data-table');

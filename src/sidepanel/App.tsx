@@ -9,6 +9,7 @@ import ImageDownloaderPage from './pages/ImageDownloaderPage';
 import EmailExtractorPage from './pages/EmailExtractorPage';
 import UtilitiesPage from './pages/UtilitiesPage';
 import DataTablePage from './pages/DataTablePage'; // Assuming this import exists or I will create it
+import SettingsPage from './pages/SettingsPage';
 import Header from './components/ui/Header';
 
 function App() {
@@ -49,6 +50,8 @@ function App() {
                 />;
             case 'data-table':
                 return <DataTablePage />;
+            case 'settings':
+                return <SettingsPage onBack={() => setCurrentView('home')} />;
             default:
                 return <HomePage onNavigate={setCurrentView} />;
         }

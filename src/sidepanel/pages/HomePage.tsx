@@ -1,5 +1,5 @@
 import { Box, Typography, Card, CardActionArea, Button, Stack } from '@mui/material';
-import { Sparkles, List, FileText, Clock, Database, ChevronRight, Image as ImageIcon } from 'lucide-react';
+import { Sparkles, List, Clock, Database, ChevronRight, Image as ImageIcon } from 'lucide-react';
 
 interface HomePageProps {
     onNavigate: (view: string) => void;
@@ -82,43 +82,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                     </CardActionArea>
                 </Card>
 
-                {/* Secondary: Page Extractor */}
-                <Card
-                    elevation={0}
-                    sx={{
-                        borderRadius: 3,
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        bgcolor: 'transparent',
-                        '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' }
-                    }}
-                >
-                    <CardActionArea onClick={() => onNavigate('page-extractor')} sx={{ p: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Box sx={{
-                                    p: 1,
-                                    borderRadius: 1.5,
-                                    bgcolor: 'rgba(255,255,255,0.05)',
-                                    color: 'text.secondary',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}>
-                                    <FileText size={20} />
-                                </Box>
-                                <Box>
-                                    <Typography variant="body2" fontWeight="500">
-                                        Single Page Analysis
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1 }}>
-                                        Extract details from this specific page
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </Box>
-                    </CardActionArea>
-                </Card>
+
 
                 {/* Image Downloader */}
                 <Card
