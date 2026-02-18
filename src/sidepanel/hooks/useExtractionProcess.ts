@@ -129,11 +129,24 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             extractionTabIdRef.current = activeTabId || null; // [NEW] Persist the tab ID for stop requests
 
             // Build a meaningful job name: "LISTING - Page Title - Feb 18, 6:05 PM"
-            // Use sourceTab (the page the user picked elements from) not currentTab
+            // Use sourceTab (the page the user picked elements from) not currentTab.
+            // Final fallback: look up the preview table's name from DB — it was saved with
+            // the correct title during element selection, so it's the most reliable source.
+            let previewTableName: string | null = null;
+            if (options?.tableDataId) {
+                try {
+                    const previewRecord = await db.getTableData(options.tableDataId);
+                    // Strip the "Preview: " prefix that saveExtraction prepends
+                    previewTableName = previewRecord?.name?.replace(/^Preview:\s*/i, '') || null;
+                } catch { /* ignore */ }
+            }
+
             const rawTitle = customName
                 || sourceTab?.title
                 || (sourceTab?.url ? new URL(sourceTab.url).hostname : null)
-                || (currentTab?.url ? new URL(currentTab.url).hostname : 'Unknown Page');
+                || previewTableName
+                || (currentTab?.url ? new URL(currentTab.url).hostname : null)
+                || 'Page';
 
             // Clean the title: strip anything that looks like a Chrome extension ID
             // (32-char lowercase alphanumeric strings) and trim to 40 chars
