@@ -214,6 +214,8 @@ export class PaginationAction extends BaseAction {
 
         this.context?.onProgress?.({ type: 'extract', page: pageCount, message: 'Scrolling and extracting data...' });
 
+        // Use 'indexed' strategy: the container is a static DOM element during pagination,
+        // not an infinite feed. MutationAware would wait unnecessarily for new nodes.
         const autoScroll = new AutoScrollAction({
             rootElement: container,
             scrollDelay: this.config.scrollDelay || 400,
@@ -246,7 +248,7 @@ export class PaginationAction extends BaseAction {
                     });
                 }
             }
-        });
+        }, 'indexed');
 
         await autoScroll.execute(this.context!);
 
@@ -334,8 +336,11 @@ export class PaginationAction extends BaseAction {
         }
     }
 
-    private handleError(error: any, pageCount: number, totalItems: number) {
+    private async handleError(error: any, pageCount: number, totalItems: number) {
         if (error.message === 'Action aborted') {
+            // Clear persisted state so the next page load does NOT auto-resume.
+            // Previously this was missing, causing pagination to restart after user stopped.
+            await this.clearState();
             this.context?.onProgress?.({ type: 'complete', reason: 'cancelled', message: `Stopped by user after ${pageCount} pages` });
             return { success: true, reason: 'stopped_by_user', pageCount, totalItems };
         }
