@@ -25,8 +25,10 @@ import {
     HardDrive,
     User,
     ShieldCheck,
-    Globe
+    Globe,
+    AlertTriangle
 } from 'lucide-react';
+import { db } from '../../shared/db/db-manager';
 import { useJobHistory } from '../hooks/useDatabase';
 
 interface SettingsPageProps {
@@ -39,6 +41,9 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     const [daysRetain, setDaysRetain] = useState<number>(30);
     const [confirmClearOpen, setConfirmClearOpen] = useState(false);
     const [clearing, setClearing] = useState(false);
+    const [confirmNukeOpen, setConfirmNukeOpen] = useState(false);
+    const [nuking, setNuking] = useState(false);
+    const [nukeConfirmText, setNukeConfirmText] = useState('');
 
     useEffect(() => {
         // Estimate storage usage
@@ -73,6 +78,22 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
             alert("Failed to clear some data.");
         } finally {
             setClearing(false);
+        }
+    };
+
+    const handleNukeAllData = async () => {
+        if (nukeConfirmText !== 'DELETE') return;
+        setNuking(true);
+        try {
+            await db.clearAllData();
+            await refresh();
+            setConfirmNukeOpen(false);
+            setNukeConfirmText('');
+        } catch (e) {
+            console.error('Failed to nuke data', e);
+            alert('Failed to delete all data.');
+        } finally {
+            setNuking(false);
         }
     };
 
@@ -202,6 +223,45 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     </Paper>
                 </Section>
 
+                {/* Danger Zone */}
+                <Section title="Danger Zone" icon={<AlertTriangle size={18} />}>
+                    <Paper
+                        variant="outlined"
+                        sx={{
+                            p: 2,
+                            borderRadius: 3,
+                            bgcolor: 'background.paper',
+                            borderColor: 'error.dark',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 1.5
+                        }}
+                    >
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                            <AlertTriangle size={20} color="#f44336" style={{ flexShrink: 0, marginTop: 2 }} />
+                            <Box>
+                                <Typography variant="subtitle2" fontWeight={700} color="error.main">
+                                    Delete All Data
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    Permanently wipes every job, table, and extraction result from local storage.
+                                    This cannot be undone.
+                                </Typography>
+                            </Box>
+                        </Box>
+                        <Button
+                            variant="contained"
+                            color="error"
+                            fullWidth
+                            startIcon={<Trash2 size={16} />}
+                            onClick={() => { setNukeConfirmText(''); setConfirmNukeOpen(true); }}
+                            sx={{ fontWeight: 700 }}
+                        >
+                            Delete All Data
+                        </Button>
+                    </Paper>
+                </Section>
+
                 {/* About & Support */}
                 <Section title="Support & Community" icon={<Globe size={18} />}>
                     <Paper variant="outlined" sx={{ borderRadius: 3, bgcolor: 'background.paper', overflow: 'hidden' }}>
@@ -253,7 +313,52 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     </Button>
                 </DialogActions>
             </Dialog>
-        </Box>
+
+            {/* Nuke All Data Dialog */}
+            <Dialog open={confirmNukeOpen} onClose={() => setConfirmNukeOpen(false)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
+                    <AlertTriangle size={20} />
+                    Delete All Data?
+                </DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" mb={2}>
+                        This will permanently delete <b>all jobs, tables, and extracted data</b> from your local storage.
+                        There is <b>no way to recover</b> this data.
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+                        Type <b>DELETE</b> to confirm:
+                    </Typography>
+                    <input
+                        autoFocus
+                        value={nukeConfirmText}
+                        onChange={e => setNukeConfirmText(e.target.value.toUpperCase())}
+                        placeholder="DELETE"
+                        style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '1px solid #f44336',
+                            borderRadius: 6,
+                            background: 'transparent',
+                            color: 'inherit',
+                            fontSize: 14,
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                        }}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setConfirmNukeOpen(false)} color="inherit">Cancel</Button>
+                    <Button
+                        onClick={handleNukeAllData}
+                        color="error"
+                        variant="contained"
+                        disabled={nuking || nukeConfirmText !== 'DELETE'}
+                    >
+                        {nuking ? 'Deleting...' : 'Delete Everything'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </Box >
     );
 }
 

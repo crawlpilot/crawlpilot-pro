@@ -604,6 +604,29 @@ export class DBManager {
             getRequest.onerror = () => reject(getRequest.error);
         });
     }
+
+    /**
+     * Nuclear option: wipe ALL data from every IndexedDB store.
+     * Used by the "Delete All Data" button in Settings.
+     */
+    async clearAllData(): Promise<void> {
+        await this.ensureConnection();
+        const storeNames = [
+            TABLE_NAMES.TABLE_DATA,
+            TABLE_NAMES.TABLE_ROWS,
+            NEW_TABLE_NAMES.RECIPES,
+            NEW_TABLE_NAMES.JOBS
+        ];
+        return new Promise((resolve, reject) => {
+            const transaction = this.db!.transaction(storeNames, 'readwrite');
+            transaction.oncomplete = () => {
+                console.log('🗑️ [DBManager] All data cleared.');
+                resolve();
+            };
+            transaction.onerror = () => reject(transaction.error);
+            storeNames.forEach(name => transaction.objectStore(name).clear());
+        });
+    }
 }
 
 // Create singleton instance
