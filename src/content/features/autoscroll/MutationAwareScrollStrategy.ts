@@ -82,37 +82,47 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
         console.log('[MutationAwareScrollStrategy] Container resolved:', container.tagName, container.className);
 
         // --- 2. Determine scroll target ---
-        // Instagram/Twitter scroll the window, not the container.
-        // Detect if the container itself is scrollable.
         const isContainerScrollable = this.isScrollable(container);
         const scrollTarget: HTMLElement | Window = isContainerScrollable ? container : window;
         console.log(`[MutationAwareScrollStrategy] Scroll target: ${isContainerScrollable ? 'container' : 'window'}`);
 
-        // --- 3. Attach MutationObserver to detect new items ---
-        let newItemsDetected = false;
-        let newItemCount = 0;
+        // --- 3. Initialize Tracking Queue & Seen Set ---
+        const seenSet = new Set<Element>();
+        const pendingQueue: HTMLElement[] = [];
+        let currentIdx = 0; // Absolute count of processed items
+        let lastChildHashData: string | null = null;
 
-        // Observe the container OR document.body (for feeds that append to body/root)
+        const addToQueue = (elements: HTMLElement[]) => {
+            for (const el of elements) {
+                if (!seenSet.has(el)) {
+                    seenSet.add(el);
+                    pendingQueue.push(el);
+                }
+            }
+        };
+
+        // --- 4. Attach MutationObserver to populate queue ---
+        let newItemsDetected = false;
         const observeTarget = container.children.length > 0 ? container : document.body;
         const observer = new MutationObserver((mutations) => {
             for (const mutation of mutations) {
                 if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                    // Only count element nodes (not text/comment nodes)
-                    const addedElements = Array.from(mutation.addedNodes).filter(n => n.nodeType === Node.ELEMENT_NODE);
+                    const addedElements = Array.from(mutation.addedNodes)
+                        .filter(n => n.nodeType === Node.ELEMENT_NODE) as HTMLElement[];
+
                     if (addedElements.length > 0) {
                         newItemsDetected = true;
-                        newItemCount += addedElements.length;
-                        console.log(`[MutationAwareScrollStrategy] MutationObserver: ${addedElements.length} new element(s) added`);
+                        addToQueue(addedElements);
+                        console.log(`[MutationAwareScrollStrategy] Queued ${addedElements.length} new element(s)`);
                     }
                 }
             }
         });
 
         observer.observe(observeTarget, { childList: true, subtree: false });
-        console.log('[MutationAwareScrollStrategy] MutationObserver attached to:', observeTarget.tagName);
 
-        // --- 4. Helper to get current children ---
-        const getChildren = (): HTMLElement[] => {
+        // --- 5. Initial Population ---
+        const getInitialChildren = (): HTMLElement[] => {
             if (selectionMode === 'items' && selectorType === 'selector') {
                 const selectorItems = Array.from(document.querySelectorAll(parentSelector)) as HTMLElement[];
                 const containerItems = Array.from(container!.children) as HTMLElement[];
@@ -120,89 +130,96 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
             }
             return Array.from(container!.children) as HTMLElement[];
         };
+        addToQueue(getInitialChildren());
 
-        // --- 5. Main scroll loop ---
-        let currentIdx = startIndex;
+        // Respect startIndex if provided
+        if (startIndex > 0 && startIndex < pendingQueue.length) {
+            console.log(`[MutationAwareScrollStrategy] Skipping ${startIndex} items based on startIndex`);
+            const skipped = pendingQueue.splice(0, startIndex);
+            currentIdx = startIndex;
+            for (const el of skipped) seenSet.add(el);
+        }
+
+        // --- 6. Main Execution Loop ---
         let consecutiveNoChanges = 0;
-        let lastChildHashData: string | null = null;
 
         try {
             while (consecutiveNoChanges < maxNoChanges) {
                 this.throwIfAborted();
 
-                const children = getChildren();
+                // DRAIN THE QUEUE
+                if (pendingQueue.length > 0) {
+                    console.log(`[MutationAwareScrollStrategy] Draining queue (${pendingQueue.length} items pending)`);
 
-                if (currentIdx < children.length) {
-                    // We have an item to scroll to
-                    const child = children[currentIdx];
+                    while (pendingQueue.length > 0) {
+                        this.throwIfAborted();
+                        const child = pendingQueue.shift()!;
 
-                    // Scroll item into view
-                    child.scrollIntoView({ behavior: 'auto', block: 'center' });
+                        // Scroll item into view (block: center helps ensure it's fully loaded/visible)
+                        child.scrollIntoView({ behavior: 'auto', block: 'center' });
 
-                    // Also scroll the window down a bit to trigger lazy loading
-                    // (some sites only load new content when the viewport bottom is near the page bottom)
-                    if (!isContainerScrollable) {
-                        window.scrollBy({ top: child.getBoundingClientRect().height, behavior: 'auto' });
-                    }
-
-                    // Generate a simple hash for resume capability
-                    lastChildHashData = this.generateSimpleHash(child, currentIdx);
-
-                    // Fire callback
-                    if (config.scrollCallback) {
-                        try {
-                            await config.scrollCallback({
-                                scrolledToIndex: currentIdx,
-                                element: child,
-                                totalCount: children.length
-                            });
-                        } catch (err) {
-                            console.error(`[MutationAwareScrollStrategy] Callback error at index ${currentIdx}:`, err);
-                        }
-                    }
-
-                    if (scrollDelay > 0) await this.wait(scrollDelay);
-                    currentIdx++;
-                    consecutiveNoChanges = 0; // Reset since we made progress
-
-                } else {
-                    // We've reached the end of known children — try to trigger more content
-                    console.log(`[MutationAwareScrollStrategy] Reached end at index ${currentIdx}. Triggering scroll to load more...`);
-
-                    // Reset detection flag before triggering scroll
-                    newItemsDetected = false;
-                    newItemCount = 0;
-
-                    // Scroll down to trigger lazy loading
-                    this.triggerScroll(scrollTarget, container);
-
-                    // Wait for new items to appear (up to contentLoadDelay ms)
-                    const gotNewItems = await this.waitForNewItems(contentLoadDelay, () => newItemsDetected);
-
-                    if (gotNewItems) {
-                        console.log(`[MutationAwareScrollStrategy] New items detected (${newItemCount}), continuing...`);
-                        consecutiveNoChanges = 0;
-                        // Don't increment currentIdx — let the loop re-check children.length
-                    } else {
-                        // No new items appeared — check if a "Load More" button exists
-                        if (config.loadMoreSelector) {
-                            const clicked = await this.clickLoadMore(config.loadMoreSelector, config.loadMoreSelectorType);
-                            if (clicked) {
-                                console.log('[MutationAwareScrollStrategy] Clicked Load More, waiting for content...');
-                                consecutiveNoChanges = 0;
-                                await this.wait(contentLoadDelay);
-                                continue;
+                        // Callback
+                        if (config.scrollCallback) {
+                            try {
+                                await config.scrollCallback({
+                                    scrolledToIndex: currentIdx,
+                                    element: child,
+                                    totalCount: seenSet.size
+                                });
+                            } catch (err) {
+                                console.error(`[MutationAwareScrollStrategy] Callback failed at index ${currentIdx}:`, err);
                             }
                         }
 
-                        consecutiveNoChanges++;
-                        console.log(`[MutationAwareScrollStrategy] No new items (${consecutiveNoChanges}/${maxNoChanges})`);
+                        lastChildHashData = this.generateSimpleHash(child, currentIdx);
+                        currentIdx++;
+
+                        if (scrollDelay > 0) await this.wait(scrollDelay);
                     }
+
+                    consecutiveNoChanges = 0; // Progress made
+                }
+
+                // TRIGGER LOAD MORE
+                console.log(`[MutationAwareScrollStrategy] Queue empty. Triggering scroll to load more...`);
+                newItemsDetected = false;
+                this.triggerScroll(scrollTarget, container);
+
+                const gotNewItems = await this.waitForNewItems(contentLoadDelay, () => newItemsDetected);
+
+                if (gotNewItems) {
+                    console.log(`[MutationAwareScrollStrategy] New items appeared via MutationObserver.`);
+                    consecutiveNoChanges = 0;
+                } else {
+                    // Fallback: Check if children count increased without MutationObserver firing correctly
+                    // (sometimes nodes are added to a parent of our container)
+                    const currentChildrenCount = getInitialChildren().length;
+                    if (currentChildrenCount > seenSet.size) {
+                        console.log(`[MutationAwareScrollStrategy] More items found via DOM check (MutationObserver missed some).`);
+                        addToQueue(getInitialChildren());
+                        consecutiveNoChanges = 0;
+                        continue;
+                    }
+
+                    // Try clicking Load More if configured
+                    if (config.loadMoreSelector) {
+                        const clicked = await this.clickLoadMore(config.loadMoreSelector, config.loadMoreSelectorType);
+                        if (clicked) {
+                            console.log('[MutationAwareScrollStrategy] Clicked Load More, waiting...');
+                            consecutiveNoChanges = 0;
+                            await this.wait(contentLoadDelay);
+                            addToQueue(getInitialChildren());
+                            continue;
+                        }
+                    }
+
+                    consecutiveNoChanges++;
+                    console.log(`[MutationAwareScrollStrategy] No progress (${consecutiveNoChanges}/${maxNoChanges})`);
                 }
             }
         } finally {
             observer.disconnect();
-            console.log('[MutationAwareScrollStrategy] MutationObserver disconnected.');
+            console.log('[MutationAwareScrollStrategy] Cleanup complete.');
         }
 
         return {
@@ -213,10 +230,6 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
             }
         };
     }
-
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
 
     /**
      * Checks if an element has its own scroll (overflow: auto/scroll).
@@ -234,26 +247,19 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
     }
 
     /**
-     * Triggers a scroll event on the target to prompt lazy loading.
-     * Uses multiple strategies to maximize compatibility:
-     * - scrollBy on the element/window
-     * - Dispatches a 'scroll' event (some sites listen for this)
+     * Triggers a scroll event to trigger lazy loading. 
+     * Uses incremental scrolling only to avoid jumping past items.
      */
     private triggerScroll(target: HTMLElement | Window, container: HTMLElement): void {
         try {
             if (target instanceof Window) {
-                // Scroll to near the bottom of the page
-                const scrollAmount = Math.max(window.innerHeight * 0.8, 500);
-                window.scrollBy({ top: scrollAmount, behavior: 'auto' });
-                // Also try scrolling to the very bottom
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' });
+                // Scroll by one viewport height
+                window.scrollBy({ top: window.innerHeight, behavior: 'auto' });
             } else {
-                const scrollAmount = Math.max(target.clientHeight * 0.8, 300);
-                target.scrollTop += scrollAmount;
-                target.scrollTo({ top: target.scrollHeight, behavior: 'auto' });
+                target.scrollTop += target.clientHeight;
             }
 
-            // Dispatch a scroll event — some React/Vue apps use synthetic scroll listeners
+            // Fire scroll event for synthetic listeners
             container.dispatchEvent(new Event('scroll', { bubbles: true }));
             window.dispatchEvent(new Event('scroll', { bubbles: false }));
         } catch (e) {
