@@ -152,7 +152,8 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                             </Box>
                         </Box>
                         <Typography variant="body2" color="text.secondary">
-                            You are currently using the free experimentation tier. Enjoy unlimited access to basic features.
+                            This is an <strong>experimental build</strong> — features may change or behave unexpectedly.
+                            If you run into any issues, please raise them via <strong>Contact Support</strong> below so we can improve the experience.
                         </Typography>
                     </Paper>
                 </Section>
