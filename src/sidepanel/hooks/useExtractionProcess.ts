@@ -98,12 +98,21 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             const referenceTabId = selectors[0]?.sourceTabId;
             let activeTabId = currentTab?.id;
 
+            // Resolve the actual source tab — this is the page the user set up in preview.
+            // We need its title, not the title of whatever tab happens to be active right now.
+            let sourceTab = currentTab;
+            if (referenceTabId) {
+                try {
+                    sourceTab = await chrome.tabs.get(referenceTabId) || currentTab;
+                } catch {
+                    // Source tab closed — sourceTab stays as currentTab
+                }
+            }
+
             if (referenceTabId && activeTabId && referenceTabId !== activeTabId) {
                 console.log(`[Context] Tab mismatch. Current: ${activeTabId}, Source: ${referenceTabId}. Switch requested.`);
 
                 try {
-                    // Attempt to switch to source tab
-                    const sourceTab = await chrome.tabs.get(referenceTabId);
                     if (sourceTab) {
                         await chrome.tabs.update(referenceTabId, { active: true });
                         // Wait for switch
@@ -117,13 +126,51 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                 }
             }
 
-            // Re-query after potential switch
-            if (activeTabId !== currentTab?.id) {
-                // Tab changed, good.
-            }
             extractionTabIdRef.current = activeTabId || null; // [NEW] Persist the tab ID for stop requests
 
-            const pageTitle = customName || currentTab.title || new URL(currentTab.url || window.location.href).hostname;
+            // Build a meaningful job name: "LISTING - Page Title - Feb 18, 6:05 PM"
+            // Use sourceTab (the page the user picked elements from) not currentTab.
+            // Final fallback: look up the preview table's name from DB — it was saved with
+            // the correct title during element selection, so it's the most reliable source.
+            let previewTableName: string | null = null;
+            if (options?.tableDataId) {
+                try {
+                    const previewRecord = await db.getTableData(options.tableDataId);
+                    // Strip the "Preview: " prefix that saveExtraction prepends
+                    previewTableName = previewRecord?.name?.replace(/^Preview:\s*/i, '') || null;
+                } catch { /* ignore */ }
+            }
+
+            const rawTitle = customName
+                || sourceTab?.title
+                || (sourceTab?.url ? new URL(sourceTab.url).hostname : null)
+                || previewTableName
+                || (currentTab?.url ? new URL(currentTab.url).hostname : null)
+                || 'Page';
+
+            // Clean the title: strip anything that looks like a Chrome extension ID
+            // (32-char lowercase alphanumeric strings) and trim to 40 chars
+            const cleanTitle = rawTitle
+                .replace(/\b[a-z]{32}\b/g, '')   // remove extension IDs
+                .replace(/\s+/g, ' ')
+                .trim()
+                .substring(0, 40)
+                || (currentTab.url ? new URL(currentTab.url).hostname : 'Page');
+
+            const now = new Date();
+            const dateStr = now.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+
+            const modePrefix = pagination.mode === 'pagination' ? 'PAGINATION'
+                : pagination.mode === 'loadMore' ? 'LOAD-MORE'
+                    : 'LISTING';
+
+            const pageTitle = customName || `${modePrefix} - ${cleanTitle} - ${dateStr}`;
             const automationTitle = pageTitle;
 
             // 0. Use existing or create new Recipe
@@ -155,7 +202,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                 recipeId: recipeId,
                 name: customName || undefined,
                 status: 'running',
-                sourceUrl: currentTab.url || '',
+                sourceUrl: sourceTab?.url || currentTab?.url || '',
                 configSnapshot: {
                     type: 'list-extraction',
                     selectors: selectors.map(s => s.containerSelector),

@@ -164,19 +164,18 @@ export class DBManager {
         if (tableDataId) {
             console.log(`Update existing TableData ${tableDataId}`);
 
-            // Safeguard: If this table already has production data (not a preview)
-            // and we are starting a new job, we MUST NOT overwrite it.
+            // Safeguard: only block overwriting PRODUCTION records that belong to a different job.
+            // Preview records (isPreview === true) are always safe to overwrite — they exist
+            // precisely to be replaced by the real extraction result.
             const existing = await this.getTableData(tableDataId);
             if (existing && existing.metadata?.isPreview !== true) {
-                // Check if the existing data belongs to a different job (or if we're starting a new job logic)
-                // Use existing.jobId (new field) or fallback to metadata.automationId (old field) for legacy data
                 const existingJobId = existing.jobId || (existing.metadata as any)?.automationId;
-
                 if (options?.jobId !== existingJobId) {
                     console.log(`⚠️ [DBManager] Safeguard: tableData ${tableDataId} is a production run for job ${existingJobId}. Creating NEW record instead of overwriting.`);
                     tableDataId = undefined; // Force create new
                 }
             }
+            // If existing is a preview, fall through and overwrite it below.
         }
 
         if (tableDataId) {
@@ -602,6 +601,29 @@ export class DBManager {
                 store.put(updated).onsuccess = () => resolve();
             };
             getRequest.onerror = () => reject(getRequest.error);
+        });
+    }
+
+    /**
+     * Nuclear option: wipe ALL data from every IndexedDB store.
+     * Used by the "Delete All Data" button in Settings.
+     */
+    async clearAllData(): Promise<void> {
+        await this.ensureConnection();
+        const storeNames = [
+            TABLE_NAMES.TABLE_DATA,
+            TABLE_NAMES.TABLE_ROWS,
+            NEW_TABLE_NAMES.RECIPES,
+            NEW_TABLE_NAMES.JOBS
+        ];
+        return new Promise((resolve, reject) => {
+            const transaction = this.db!.transaction(storeNames, 'readwrite');
+            transaction.oncomplete = () => {
+                console.log('🗑️ [DBManager] All data cleared.');
+                resolve();
+            };
+            transaction.onerror = () => reject(transaction.error);
+            storeNames.forEach(name => transaction.objectStore(name).clear());
         });
     }
 }

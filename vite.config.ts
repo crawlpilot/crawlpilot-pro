@@ -21,8 +21,8 @@ export default defineConfig({
         minify: 'terser',
         terserOptions: {
             compress: {
-                drop_console: true,     // Remove all console.* calls
-                drop_debugger: true,    // Remove debugger statements
+                drop_console: false,     // Allow console.* calls
+                drop_debugger: false,    // Allow debugger statements
                 ecma: 2020,
                 module: true,
                 passes: 3,              // Run compression 3 times for better results

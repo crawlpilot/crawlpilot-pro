@@ -98,8 +98,12 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                         if (payload.data && payload.data.items && payload.data.items.length > 0) {
                             (async () => {
                                 try {
-                                    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-                                    const pageTitle = tab?.title || new URL(payload.data.source_url || window.location.href).hostname;
+                                    // Use sender.tab — this is the actual page the user picked from,
+                                    // not whatever tab happens to be active in the window right now.
+                                    const sourceTabInfo = sender.tab;
+                                    const pageTitle = sourceTabInfo?.title
+                                        || (sourceTabInfo?.url ? new URL(sourceTabInfo.url).hostname : null)
+                                        || new URL(payload.data.source_url || window.location.href).hostname;
 
                                     // Create a temporary list of all selectors including the new one to generate a complete preview
                                     const newSelector: SelectorState = {
@@ -116,19 +120,15 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                                         selectionMode: 'list'
                                     };
 
-                                    // Use shared logic to consolidate data from ALL selectors (current + new)
-                                    // Note: 'selectors' state might not define 'data' fully if it's lightweight, 
-                                    // but we assume for now we want to preview what we just selected + existing.
-                                    // However, existing selectors in 'selectors' might not have 'data' populated if we didn't store it.
-                                    // If 'selectors' in state don't keep data, we might only be able to preview the NEW data.
-                                    // Checking useSelectorManager: it stores SelectorState.
-                                    // If previous selectors have data, this will merge them.
+                                    const previewData = consolidateSelectors([...selectors, newSelector], sourceTabInfo?.url);
 
-                                    const previewData = consolidateSelectors([...selectors, newSelector], tab?.url);
-
+                                    // Pass the existing previewTableId so we UPDATE the same record
+                                    // instead of creating a new one each time the user picks elements.
                                     const tableId = await db.saveExtraction(previewData, {
                                         name: pageTitle,
-                                        isPreview: true
+                                        isPreview: true,
+                                        tableDataId: previewTableId || undefined,
+                                        clearExisting: !!previewTableId
                                     });
                                     setPreviewTableId(tableId);
 
