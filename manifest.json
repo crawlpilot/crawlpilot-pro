@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Crawl Pilot",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Visual web scraper to extract data from any website into Excel/JSON. AI-powered, point-and-click interface. No coding required.",
   "icons": {
     "16": "public/icons/icon16.png",
