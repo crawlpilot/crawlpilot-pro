@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
+import contentScriptPath from '../../content/element-selector?script';
+
 export function useTabSync() {
     const [isTabConnected, setIsTabConnected] = useState(true);
     const [activeTabId, setActiveTabId] = useState<number | null>(null);
@@ -28,16 +30,25 @@ export function useTabSync() {
 
         setIsConnecting(true);
         try {
-            // Use dynamic import to load the ESM content script
-            const scriptPath = 'assets/element-selector.ts-BLvas6yh.js';
-            const scriptUrl = chrome.runtime.getURL(scriptPath);
+            // Request host permission dynamically before injecting
+            const hasPermission = await chrome.permissions.contains({
+                origins: ['<all_urls>']
+            });
+
+            if (!hasPermission) {
+                const granted = await chrome.permissions.request({
+                    origins: ['<all_urls>']
+                });
+
+                if (!granted) {
+                    setIsConnecting(false);
+                    return;
+                }
+            }
 
             await chrome.scripting.executeScript({
                 target: { tabId: tab.id },
-                func: (url) => {
-                    import(url).catch(err => console.error('Failed to import content script:', err));
-                },
-                args: [scriptUrl]
+                files: [contentScriptPath]
             });
 
             // Wait a bit then check

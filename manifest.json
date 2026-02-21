@@ -11,10 +11,14 @@
   },
   "permissions": [
     "activeTab",
+    "scripting",
     "storage",
     "sidePanel"
   ],
   "host_permissions": [],
+  "optional_host_permissions": [
+    "<all_urls>"
+  ],
   "side_panel": {
     "default_path": "sidepanel.html"
   },
@@ -31,17 +35,6 @@
     "service_worker": "src/background/index.ts",
     "type": "module"
   },
-  "content_scripts": [
-    {
-      "js": [
-        "src/content/element-selector.ts"
-      ],
-      "matches": [
-        "<all_urls>"
-      ],
-      "run_at": "document_start"
-    }
-  ],
   "web_accessible_resources": [
     {
       "resources": [
