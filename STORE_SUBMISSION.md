@@ -6,6 +6,7 @@
 | :--- | :--- |
 | `sidePanel` | **Core Feature**: The extension's primary interface is a Side Panel that allows users to interact with the scraper while viewing the target webpage. |
 | `activeTab` | **Context Awareness**: Required to identify the current tab URL and title when saving extraction results, and to facilitate interaction between the side panel and the current page. |
+| `scripting` | **Dynamic Injection**: Required to strategically inject the scraping interface (`element-selector.ts`) only when the user explicitly triggers it via the side panel, preventing unnecessary background execution and respecting user privacy. |
 | `storage` | **State Persistence**: Required to save and retrieve the scraper's state (e.g., pagination progress) locally, allowing the extension to auto-resume scraping tasks if the page reloads. |
 | `content_scripts` | **Functionality**: The extension injects a content script (`element-selector.ts`) to allow users to visually select elements on the page for scraping. This is the core functionality of "Crawl Pilot". |
 

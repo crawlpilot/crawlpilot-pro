@@ -62,26 +62,60 @@ export function useTabSync() {
         }
     };
 
+    const autoConnect = useCallback(async (tabId: number) => {
+        try {
+            const hasPermission = await chrome.permissions.contains({
+                origins: ['<all_urls>']
+            });
+
+            if (hasPermission) {
+                await chrome.scripting.executeScript({
+                    target: { tabId },
+                    files: [contentScriptPath]
+                });
+
+                setTimeout(() => {
+                    checkConnection(tabId);
+                }, 500);
+            }
+        } catch (e) {
+            console.error('Auto-connect failed:', e);
+        }
+    }, [checkConnection]);
+
     useEffect(() => {
         // Initial check
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs[0]?.id) {
                 setActiveTabId(tabs[0].id);
-                checkConnection(tabs[0].id);
+                checkConnection(tabs[0].id).then(() => {
+                    // Try auto-connect if disconnected on load
+                    if (!isTabConnected) {
+                        autoConnect(tabs[0].id!);
+                    }
+                });
             }
         });
 
         // Listen for tab activation
         const onActivated = (activeInfo: any) => {
             setActiveTabId(activeInfo.tabId);
-            checkConnection(activeInfo.tabId);
+            checkConnection(activeInfo.tabId).then(() => {
+                // Try auto-connect if we switch to a disconnected tab
+                if (!isTabConnected) {
+                    autoConnect(activeInfo.tabId);
+                }
+            });
         };
 
         // Listen for tab updates (URL change)
         const onUpdated = (tabId: number, changeInfo: any, tab: chrome.tabs.Tab) => {
             if (changeInfo.status === 'complete' && tab.active) {
                 setActiveTabId(tabId);
-                checkConnection(tabId);
+                checkConnection(tabId).then(() => {
+                    // If checkConnection sets state to disconnected, try injecting
+                    autoConnect(tabId);
+                });
             }
         };
 
@@ -92,7 +126,7 @@ export function useTabSync() {
             chrome.tabs.onActivated.removeListener(onActivated);
             chrome.tabs.onUpdated.removeListener(onUpdated);
         };
-    }, [checkConnection]);
+    }, [checkConnection, autoConnect, isTabConnected]);
 
     return { isTabConnected, isConnecting, connectTab, activeTabId };
 }
