@@ -45,6 +45,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
     const [pendingElement, setPendingElement] = useState<any>(null);
     const [editingElementId, setEditingElementId] = useState<string | null>(null);
     const [elementName, setElementName] = useState('');
+    const [elementAction, setElementAction] = useState<'extract' | 'click'>('extract');
 
     // [NEW] Extraction State
     const [isExtracting, setIsExtracting] = useState(false);
@@ -151,7 +152,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             id: editingElementId || Date.now().toString(),
             name: elementName,
             selectors: [{ type: 'css', value: pendingElement.selector }, { type: 'xpath', value: pendingElement.xpath }],
-            action: 'extract',
+            action: elementAction,
             type: 'text',
             value: pendingElement.value // preview
         };
@@ -166,6 +167,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         setPendingElement(null);
         setEditingElementId(null);
         setElementName('');
+        setElementAction('extract');
     };
 
     const handleDeleteElement = (id: string) => {
@@ -224,13 +226,18 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                     <Step2Schema
                         elements={elements}
                         selectionStatus={selectionStatus}
-                        startSelection={startSelection}
+                        startSelection={(mode, action) => {
+                            if (action) setElementAction(action);
+                            startSelection(mode);
+                        }}
                         handleDeleteElement={handleDeleteElement}
                         showEditModal={showEditModal}
                         setShowEditModal={setShowEditModal}
                         pendingElement={pendingElement}
                         elementName={elementName}
                         setElementName={setElementName}
+                        elementAction={elementAction}
+                        setElementAction={setElementAction}
                         handleSaveElement={handleSaveElement}
                         onBack={() => setStep(1)}
                         onNext={() => setStep(3)}

@@ -5,13 +5,15 @@ import Input from '../../ui/Input';
 interface Step2SchemaProps {
     elements: any[];
     selectionStatus: 'idle' | 'selecting' | 'ready';
-    startSelection: (mode: 'list' | 'nextButton' | 'detail') => void;
+    startSelection: (mode: 'list' | 'nextButton' | 'detail', action?: 'extract' | 'click') => void;
     handleDeleteElement: (id: string) => void;
     showEditModal: boolean;
     setShowEditModal: (show: boolean) => void;
     pendingElement: any;
     elementName: string;
     setElementName: (name: string) => void;
+    elementAction: 'extract' | 'click';
+    setElementAction: (action: 'extract' | 'click') => void;
     handleSaveElement: () => void;
     onBack: () => void;
     onNext: () => void;
@@ -27,6 +29,8 @@ export function Step2Schema({
     pendingElement,
     elementName,
     setElementName,
+    elementAction,
+    setElementAction,
     handleSaveElement,
     onBack,
     onNext
@@ -45,7 +49,7 @@ export function Step2Schema({
                     <div className="grid grid-cols-2 gap-3">
                         <div
                             className="p-4 border border-dashed border-border-subtle rounded-lg bg-surface-lighter/50 flex flex-col items-center justify-center text-center group cursor-pointer hover:border-primary/50 transition-colors"
-                            onClick={() => startSelection('detail')}
+                            onClick={() => startSelection('detail', 'extract')}
                         >
                             <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
                                 <MousePointerClick className="w-4 h-4 text-primary" />
@@ -58,7 +62,7 @@ export function Step2Schema({
 
                         <div
                             className="p-4 border border-dashed border-border-subtle rounded-lg bg-surface-lighter/50 flex flex-col items-center justify-center text-center group cursor-pointer hover:border-accent-warning/50 transition-colors"
-                            onClick={() => startSelection('detail')}
+                            onClick={() => startSelection('detail', 'click')}
                         >
                             <div className="w-8 h-8 bg-accent-warning/10 rounded-lg flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-warning">
@@ -76,8 +80,8 @@ export function Step2Schema({
                         {elements.map((el) => (
                             <div key={el.id} className="p-2.5 bg-surface-lighter border border-border-subtle rounded-md flex items-center justify-between group">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-primary font-mono text-[10px] font-bold">
-                                        Tx
+                                    <div className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold ${el.action === 'click' ? 'bg-accent-warning/10 text-accent-warning' : 'bg-primary/10 text-primary font-mono'}`}>
+                                        {el.action === 'click' ? <MousePointerClick className="w-3 h-3" /> : 'Tx'}
                                     </div>
                                     <div>
                                         <div className="font-medium text-xs text-text-primary">{el.name}</div>
@@ -93,13 +97,24 @@ export function Step2Schema({
                             </div>
                         ))}
 
-                        <button
-                            onClick={() => startSelection('detail')}
-                            className="w-full py-2 border border-dashed border-border-subtle rounded-md text-xs text-text-muted hover:text-text-primary hover:border-text-secondary transition-colors flex items-center justify-center gap-2 mt-4"
-                        >
-                            <MousePointerClick className="w-3 h-3" />
-                            Add Field
-                        </button>
+                        <div className="flex gap-2 mt-4">
+                            <button
+                                onClick={() => startSelection('detail', 'extract')}
+                                className="flex-1 py-2 border border-dashed border-border-subtle rounded-md text-xs text-text-muted hover:text-text-primary hover:border-text-secondary transition-colors flex items-center justify-center gap-2"
+                            >
+                                <MousePointerClick className="w-3 h-3" />
+                                Add Field
+                            </button>
+                            <button
+                                onClick={() => startSelection('detail', 'click')}
+                                className="flex-1 py-2 border border-dashed border-border-subtle rounded-md text-xs text-text-muted hover:text-accent-warning hover:border-accent-warning/50 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-current">
+                                    <path d="M14 9l6 6-6 6"></path><path d="M4 4v5"></path><path d="M4 4h5"></path><path d="M4 4l16 16"></path>
+                                </svg>
+                                Register Click
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
@@ -127,6 +142,16 @@ export function Step2Schema({
                                     className="font-mono text-xs"
                                     autoFocus
                                 />
+                            </div>
+                            <div className="flex items-center gap-2 mb-2 p-2 bg-surface-lighter rounded-md border border-border-subtle">
+                                <label className="flex items-center gap-2 cursor-pointer flex-1">
+                                    <input type="radio" className="radio text-primary radio-xs" name="actionType" checked={elementAction === 'extract'} onChange={() => setElementAction('extract')} />
+                                    <span className="text-xs text-text-primary font-medium">Extract Data</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer flex-1">
+                                    <input type="radio" className="radio text-accent-warning radio-xs" name="actionType" checked={elementAction === 'click'} onChange={() => setElementAction('click')} />
+                                    <span className="text-xs text-text-primary font-medium">Click Element</span>
+                                </label>
                             </div>
                             <div className="bg-background-app p-3 rounded border border-border-subtle">
                                 <div className="text-[10px] text-text-muted mb-1 uppercase tracking-wide">Preview Value</div>
