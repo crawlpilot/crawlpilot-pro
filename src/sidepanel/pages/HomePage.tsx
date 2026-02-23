@@ -1,5 +1,5 @@
 import { Box, Typography, Card, CardActionArea, Button, Stack } from '@mui/material';
-import { Sparkles, List, Clock, Database, ChevronRight, Image as ImageIcon } from 'lucide-react';
+import { Sparkles, List, Clock, Database, ChevronRight, Image as ImageIcon, FileText } from 'lucide-react';
 
 interface HomePageProps {
     onNavigate: (view: string) => void;
@@ -82,7 +82,94 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                     </CardActionArea>
                 </Card>
 
+                {/* Text Summarizer */}
+                <Card
+                    elevation={0}
+                    sx={{
+                        borderRadius: 3,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        bgcolor: 'background.paper',
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                            borderColor: 'primary.main',
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
+                        }
+                    }}
+                >
+                    <CardActionArea onClick={() => onNavigate('text-summarizer')} sx={{ p: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <Box sx={{
+                                    p: 1.5,
+                                    borderRadius: 2,
+                                    bgcolor: 'rgba(37, 99, 235, 0.1)',
+                                    color: 'primary.main',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <FileText size={24} />
+                                </Box>
+                                <Box>
+                                    <Typography variant="subtitle1" fontWeight="600" sx={{ lineHeight: 1.2 }}>
+                                        Text Summarizer
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Summarize and chat with text
+                                    </Typography>
+                                </Box>
+                            </Box>
+                            <ChevronRight size={20} className="text-gray-500" />
+                        </Box>
+                    </CardActionArea>
+                </Card>
 
+
+                {/* Page Extractor */}
+                <Card
+                    elevation={0}
+                    sx={{
+                        borderRadius: 3,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        bgcolor: 'background.paper',
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                            borderColor: 'primary.main',
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
+                        }
+                    }}
+                >
+                    <CardActionArea onClick={() => onNavigate('page-extractor')} sx={{ p: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <Box sx={{
+                                    p: 1.5,
+                                    borderRadius: 2,
+                                    bgcolor: 'rgba(37, 99, 235, 0.1)',
+                                    color: 'primary.main',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <Database size={24} />
+                                </Box>
+                                <Box>
+                                    <Typography variant="subtitle1" fontWeight="600" sx={{ lineHeight: 1.2 }}>
+                                        Page Extractor
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Bulk extract data from pages
+                                    </Typography>
+                                </Box>
+                            </Box>
+                            <ChevronRight size={20} className="text-gray-500" />
+                        </Box>
+                    </CardActionArea>
+                </Card>
 
                 {/* Image Downloader */}
                 <Card
