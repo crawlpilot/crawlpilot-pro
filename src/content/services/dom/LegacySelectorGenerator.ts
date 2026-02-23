@@ -576,6 +576,8 @@ export class LegacySelectorGenerator {
     }
 
     private static escapeQuotes(str: string): string {
-        return str.replace(/"/g, '\\"');
+        // XPath 1.0 does not support backslash escaping for quotes inside literals. 
+        // We strip them to avoid InvalidExpression errors from document.evaluate.
+        return str.replace(/'/g, '').replace(/"/g, '');
     }
 }

@@ -7,9 +7,11 @@ interface Step2SchemaProps {
     selectionStatus: 'idle' | 'selecting' | 'ready';
     startSelection: (mode: 'list' | 'nextButton' | 'detail', action?: 'extract' | 'click') => void;
     handleDeleteElement: (id: string) => void;
+    handleEditElement: (el: any) => void;
     showEditModal: boolean;
     setShowEditModal: (show: boolean) => void;
     pendingElement: any;
+    setPendingElement: (el: any) => void;
     elementName: string;
     setElementName: (name: string) => void;
     elementAction: 'extract' | 'click';
@@ -24,9 +26,11 @@ export function Step2Schema({
     selectionStatus,
     startSelection,
     handleDeleteElement,
+    handleEditElement,
     showEditModal,
     setShowEditModal,
     pendingElement,
+    setPendingElement,
     elementName,
     setElementName,
     elementAction,
@@ -87,13 +91,24 @@ export function Step2Schema({
                                         <div className="font-medium text-xs text-text-primary">{el.name}</div>
                                         <div className="text-[10px] text-text-muted truncate max-w-[180px] font-mono">{el.value || 'No preview'}</div>
                                     </div>
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+                                        <button
+                                            onClick={() => handleEditElement(el)}
+                                            className="p-1 hover:bg-background-card rounded text-text-muted hover:text-primary transition-colors"
+                                        >
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-current">
+                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                            </svg>
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteElement(el.id)}
+                                            className="p-1 hover:bg-background-card rounded text-text-muted hover:text-accent-error transition-colors"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </div>
                                 </div>
-                                <button
-                                    onClick={() => handleDeleteElement(el.id)}
-                                    className="p-1 hover:bg-background-card rounded text-text-muted hover:text-accent-error opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-                                >
-                                    <X className="w-3 h-3" />
-                                </button>
                             </div>
                         ))}
 
@@ -156,10 +171,24 @@ export function Step2Schema({
                             <div className="bg-background-app p-3 rounded border border-border-subtle">
                                 <div className="text-[10px] text-text-muted mb-1 uppercase tracking-wide">Preview Value</div>
                                 <div className="text-xs text-text-primary font-mono truncate">{pendingElement?.value || 'No content'}</div>
-                                {pendingElement?.selector && (
-                                    <div className="mt-2 pt-2 border-t border-border-subtle">
-                                        <div className="text-[10px] text-text-muted mb-0.5">CSS Selector</div>
-                                        <div className="text-[10px] text-accent-ai font-mono truncate">{pendingElement.selector}</div>
+                                {pendingElement && (
+                                    <div className="mt-4 space-y-3">
+                                        <div>
+                                            <div className="text-[10px] text-text-muted mb-1">CSS Selector</div>
+                                            <input
+                                                value={pendingElement.containerSelector || ''}
+                                                onChange={(e) => setPendingElement({ ...pendingElement, containerSelector: e.target.value })}
+                                                className="w-full text-[10px] text-accent-ai font-mono bg-surface-lighter border border-border-subtle rounded px-2 py-1.5 focus:outline-none focus:border-primary transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] text-text-muted mb-1">XPath</div>
+                                            <input
+                                                value={pendingElement.containerXPath || ''}
+                                                onChange={(e) => setPendingElement({ ...pendingElement, containerXPath: e.target.value })}
+                                                className="w-full text-[10px] text-accent-ai font-mono bg-surface-lighter border border-border-subtle rounded px-2 py-1.5 focus:outline-none focus:border-primary transition-colors"
+                                            />
+                                        </div>
                                     </div>
                                 )}
                             </div>

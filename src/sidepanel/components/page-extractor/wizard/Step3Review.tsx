@@ -6,6 +6,7 @@ interface Step3ReviewProps {
     isExtracting: boolean;
     currentUrlIndex: number;
     handleStartExtraction: () => void;
+    onStop: () => void;
     onBack: () => void;
 }
 
@@ -15,6 +16,7 @@ export function Step3Review({
     isExtracting,
     currentUrlIndex,
     handleStartExtraction,
+    onStop,
     onBack
 }: Step3ReviewProps) {
     return (
@@ -55,23 +57,24 @@ export function Step3Review({
                     </div>
                 )}
 
-                <button
-                    onClick={handleStartExtraction}
-                    disabled={isExtracting || selectedUrls.length === 0 || elements.length === 0}
-                    className={`btn btn-primary w-full max-w-sm mx-auto h-12 shadow-lg shadow-primary/20 text-base ${isExtracting ? 'opacity-80 cursor-wait' : ''}`}
-                >
-                    {isExtracting ? (
-                        <>
-                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                            Analyzing & Extracting...
-                        </>
-                    ) : (
-                        <>
-                            <Database className="w-5 h-5 mr-2" />
-                            Start Bulk Extraction
-                        </>
-                    )}
-                </button>
+                {isExtracting ? (
+                    <button
+                        onClick={onStop}
+                        className="btn btn-secondary text-accent-error border-accent-error/30 hover:bg-accent-error/10 w-full max-w-sm mx-auto h-12 shadow-lg text-base transition-colors"
+                    >
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin text-accent-error" />
+                        Stop Extraction
+                    </button>
+                ) : (
+                    <button
+                        onClick={handleStartExtraction}
+                        disabled={selectedUrls.length === 0 || elements.length === 0}
+                        className="btn btn-primary w-full max-w-sm mx-auto h-12 shadow-lg shadow-primary/20 text-base"
+                    >
+                        <Database className="w-5 h-5 mr-2" />
+                        Start Bulk Extraction
+                    </button>
+                )}
 
                 {!isExtracting && (
                     <button

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DataSourceSelector from '../components/DataSourceSelector';
 import { db } from '../../shared/db/db-manager';
 import { useSelectionMode } from '../hooks/useSelectionMode';
@@ -50,6 +50,11 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
     // [NEW] Extraction State
     const [isExtracting, setIsExtracting] = useState(false);
     const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
+    const shouldStopRef = useRef(false);
+
+    const handleStopExtraction = () => {
+        shouldStopRef.current = true;
+    };
 
     const handleStartExtraction = async () => {
         if (selectedUrls.length === 0 || elements.length === 0) return;
@@ -61,6 +66,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         const columns = elements.map(el => ({ id: el.id, name: el.name, type: el.type }));
 
         try {
+            shouldStopRef.current = false;
             // Get settings
             const { extraction_settings: settings } = await chrome.storage.local.get(['extraction_settings']) as { extraction_settings?: any };
             const config = settings || { loadTimeout: 3000, requestDelay: 1000 };
@@ -69,30 +75,121 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (!tab?.id) throw new Error("No active tab");
 
+            // [NEW] Recipe and Job Creation
+            const pageTitle = tab.title || (tab.url ? new URL(tab.url).hostname : 'Page Extractor');
+
+            const extractionAction = {
+                type: 'EXTRACT_PAGES',
+                urls: selectedUrls,
+                elements: elements,
+                config: config
+            };
+
+            const recipeId = await db.createRecipe({
+                name: `Page Extraction - ${pageTitle}`,
+                description: "Auto-generated page extraction",
+                type: 'bulk-extraction',
+                version: 1,
+                config: {
+                    type: 'bulk-extraction',
+                    urls: selectedUrls,
+                    options: { actions: [extractionAction] }
+                },
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            });
+
+            let currentJobId: number | undefined;
+            const job = await db.createJob({
+                recipeId: recipeId,
+                name: `Extraction - ${pageTitle}`,
+                status: 'running',
+                sourceUrl: tab.url || '',
+                configSnapshot: {
+                    type: 'bulk-extraction',
+                    urls: selectedUrls,
+                    options: { actions: [extractionAction] }
+                },
+                stats: {
+                    startTime: Date.now(),
+                    itemsExtracted: 0,
+                    pagesVisited: 0,
+                    errors: 0
+                },
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            } as any);
+            currentJobId = job;
+
             for (let i = 0; i < selectedUrls.length; i++) {
+                if (shouldStopRef.current) break;
+
                 setCurrentUrlIndex(i);
                 const url = selectedUrls[i];
 
                 // Navigate
                 await chrome.tabs.update(tab.id, { url });
 
-                // Wait for load
+                // Wait for initial load
                 await new Promise(resolve => setTimeout(resolve, config.loadTimeout || 3000));
 
-                // Execute Extraction via Message
-                const response = await new Promise<any>((resolve) => {
-                    chrome.tabs.sendMessage(tab.id!, {
-                        type: 'EXTRACT_FROM_SCHEMA',
-                        payload: { schema: elements }
-                    }, (res) => resolve(res));
-                });
+                let itemData: any = { source_url: url };
 
-                if (response && response.success && response.data) {
-                    const extractedItem = { ...response.data, source_url: url };
-                    allItems.push(extractedItem);
-                } else {
-                    console.warn(`Failed to extract from ${url}`, response?.error);
+                const sendMessageWithRetry = async (tabId: number, message: any, maxRetries = 15, interval = 1000) => {
+                    for (let attempt = 0; attempt < maxRetries; attempt++) {
+                        if (shouldStopRef.current) break;
+                        const response = await new Promise<any>((resolve) => {
+                            chrome.tabs.sendMessage(tabId, message, (res) => {
+                                if (chrome.runtime.lastError) {
+                                    resolve({ success: false, error: chrome.runtime.lastError.message, isConnectionError: true });
+                                } else {
+                                    resolve(res);
+                                }
+                            });
+                        });
+
+                        if (response?.isConnectionError) {
+                            console.log(`[Attempt ${attempt + 1}/${maxRetries}] Content script not ready: ${response.error}. Retrying in ${interval}ms...`);
+                            await new Promise(r => setTimeout(r, interval));
+                        } else {
+                            return response;
+                        }
+                    }
+                    return { success: false, error: "Max retries reached. Content script did not respond." };
+                };
+
+                // Execute elements sequentially in the order they were defined
+                for (const element of elements) {
+                    if (shouldStopRef.current) break;
+
+                    // Execute Extraction via Message for a SINGLE element with RETRY logic
+                    const response = await sendMessageWithRetry(tab.id!, {
+                        type: 'CMD_EXTRACT_PAGE',
+                        payload: {
+                            actionType: 'EXTRACT_PAGES',
+                            url: url,
+                            elements: [element], // Send ONE element at a time
+                            config: config
+                        }
+                    });
+
+                    if (response && response.success && response.result && response.result.item) {
+                        itemData = { ...itemData, ...response.result.item };
+                    } else {
+                        console.warn(`Failed to process element ${element.name} on ${url}`, response?.error || response?.result?.error);
+                    }
+
+                    if (element.action === 'click') {
+                        // Crucial: Wait longer after a click because it might trigger navigation or AJAX
+                        await new Promise(resolve => setTimeout(resolve, config.requestDelay > 0 ? config.requestDelay * 2 : 2000));
+                    } else {
+                        // Short delay between regular sequential extracts
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
                 }
+
+                // Add the accumulated data for this page
+                allItems.push(itemData);
 
                 // Request delay between pages
                 if (i < selectedUrls.length - 1 && config.requestDelay > 0) {
@@ -100,24 +197,55 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                 }
             }
 
-            const finalData = {
-                type: 'bulk-page',
-                items: allItems,
-                columns: columns,
-                source_url: selectedUrls[0] + ` (+${selectedUrls.length - 1} more)`,
-                count: allItems.length,
-                timestamp: new Date().toISOString()
-            };
+            if (allItems.length > 0) {
+                const finalData = {
+                    type: 'bulk-page',
+                    items: allItems,
+                    columns: columns,
+                    source_url: selectedUrls[0] + (selectedUrls.length > 1 ? ` (+${selectedUrls.length - 1} more)` : ''),
+                    count: allItems.length,
+                    timestamp: new Date().toISOString()
+                };
 
-            const tableId = await db.saveExtraction(finalData, {
-                name: `Bulk Extraction (${selectedUrls.length} pages)`
-            });
+                const tableId = await db.saveExtraction(finalData, {
+                    name: `Bulk Extraction (${allItems.length} pages)`,
+                    jobId: currentJobId
+                });
 
-            // Redirect to results (New Tab)
-            const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`);
-            chrome.tabs.create({ url });
+                if (currentJobId) {
+                    await db.updateJob(currentJobId, {
+                        status: shouldStopRef.current ? 'paused' : 'completed',
+                        result: {
+                            tableDataId: tableId
+                        },
+                        stats: {
+                            startTime: Date.now(), // Keeps the typing happy
+                            endTime: Date.now(),
+                            itemsExtracted: allItems.length,
+                            pagesVisited: allItems.length,
+                            stoppedByUser: shouldStopRef.current
+                        }
+                    });
+                }
 
-            // Reset after success
+                // Redirect to results (New Tab)
+                const targetUrl = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`);
+                chrome.tabs.create({ url: targetUrl });
+            } else if (currentJobId) {
+                // If it was stopped before any items, mark it as stopped
+                await db.updateJob(currentJobId, {
+                    status: 'paused',
+                    stats: {
+                        startTime: Date.now(),
+                        endTime: Date.now(),
+                        itemsExtracted: 0,
+                        pagesVisited: 0,
+                        stoppedByUser: true
+                    }
+                });
+            }
+
+            // Reset after success or stop
             setStep(1);
             setSelectedUrls([]);
             setElements([]);
@@ -131,19 +259,44 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         }
     };
 
+    const elementActionRef = useRef(elementAction);
+    useEffect(() => {
+        elementActionRef.current = elementAction;
+    }, [elementAction]);
+
     useEffect(() => {
         const handleMessage = (message: any) => {
             if (message.type === 'ELEMENT_SELECTED' && message.payload.selectionMode === 'detail') {
                 console.log('Element selected:', message.payload);
-                setPendingElement(message.payload);
-                setElementName(message.payload.tagName || 'New Element');
-                setShowEditModal(true);
+
+                const newElement = {
+                    id: Date.now().toString(),
+                    name: message.payload.tagName || 'New Element',
+                    selectors: [{ type: 'css', value: message.payload.containerSelector }, { type: 'xpath', value: message.payload.containerXPath }],
+                    action: elementActionRef.current,
+                    type: message.payload.extractionType || 'text',
+                    value: message.payload.previewValue
+                };
+
+                setElements(prev => [...prev, newElement]);
                 setSelectionStatus('idle'); // Picker auto-deactivates
             }
         };
         chrome.runtime.onMessage.addListener(handleMessage);
         return () => chrome.runtime.onMessage.removeListener(handleMessage);
-    }, [setSelectionStatus]);
+    }, [setSelectionStatus, setElements]);
+
+    const handleEditElement = (el: any) => {
+        setPendingElement({
+            containerSelector: el.selectors.find((s: any) => s.type === 'css')?.value,
+            containerXPath: el.selectors.find((s: any) => s.type === 'xpath')?.value,
+            value: el.value
+        });
+        setElementName(el.name);
+        setElementAction(el.action);
+        setEditingElementId(el.id);
+        setShowEditModal(true);
+    };
 
     const handleSaveElement = () => {
         if (!pendingElement) return;
@@ -151,7 +304,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         const newElement = {
             id: editingElementId || Date.now().toString(),
             name: elementName,
-            selectors: [{ type: 'css', value: pendingElement.selector }, { type: 'xpath', value: pendingElement.xpath }],
+            selectors: [{ type: 'css', value: pendingElement.containerSelector }, { type: 'xpath', value: pendingElement.containerXPath }],
             action: elementAction,
             type: 'text',
             value: pendingElement.value // preview
@@ -226,14 +379,13 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                     <Step2Schema
                         elements={elements}
                         selectionStatus={selectionStatus}
-                        startSelection={(mode, action) => {
-                            if (action) setElementAction(action);
-                            startSelection(mode);
-                        }}
+                        startSelection={startSelection}
                         handleDeleteElement={handleDeleteElement}
+                        handleEditElement={handleEditElement}
                         showEditModal={showEditModal}
                         setShowEditModal={setShowEditModal}
                         pendingElement={pendingElement}
+                        setPendingElement={setPendingElement}
                         elementName={elementName}
                         setElementName={setElementName}
                         elementAction={elementAction}
@@ -251,6 +403,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                         isExtracting={isExtracting}
                         currentUrlIndex={currentUrlIndex}
                         handleStartExtraction={handleStartExtraction}
+                        onStop={handleStopExtraction}
                         onBack={() => setStep(2)}
                     />
                 );
