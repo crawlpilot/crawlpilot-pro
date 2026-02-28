@@ -1,11 +1,13 @@
 import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
-import { generateCssSelector, generateXPath } from '../../../services/dom/domUtils';
+import { generateCssSelector, generateXPath, clickElementRobust } from '../../../services/dom/domUtils';
 import { PaginationSelectorGenerator } from '../../../services/dom/selectors/PaginationSelectorGenerator';
 
 export class SingleSelectionStrategy implements ISelectionStrategy {
     private extractor: DataExtractor;
+
+    public preferredAction?: 'extract' | 'click' = 'extract';
 
     constructor() {
         this.extractor = new DataExtractor();
@@ -60,5 +62,19 @@ export class SingleSelectionStrategy implements ISelectionStrategy {
         });
 
         picker.deactivate();
+
+        if (this.preferredAction === 'click') {
+            console.log('👆 Triggering robust click on element (SingleStrategy):', element);
+
+            // Synchronous native click FIRST to preserve User Gesture (Transient Activation)
+            if (typeof element.click === 'function') {
+                element.click();
+            }
+
+            setTimeout(async () => {
+                await clickElementRobust(element);
+            }, 100);
+        }
+
     }
 }

@@ -27,51 +27,103 @@ class Aggregator {
             data: result.data
         });
 
-        if (result.success && result.data) {
-            this.addSuccessfulResult(result);
-        } else {
-            this.addFailedResult(result);
-        }
-    }
-
-    addSuccessfulResult(result: ProcessedElementResult) {
         const { data, columns } = result;
         if (columns) {
-            this.columns.push(...columns);
-        }
-
-        if (data.columns && data.item) {
-            // Nested or complex result?
-            Object.entries(data.item).forEach(([key, value]) => {
-                this.item[key] = value;
+            // Avoid duplicates in columns
+            columns.forEach(col => {
+                if (!this.columns.find(c => c.id === col.id)) {
+                    this.columns.push(col);
+                }
             });
-            this.totalItemCount += Object.keys(data.item).length;
-        } else {
-            // Simple value result
-            // Use elementId as key for the item object
-            this.item[result.elementId] = data.value;
-            this.totalItemCount += 1;
         }
-    }
 
-    addFailedResult(result: ProcessedElementResult) {
-        this.columns.push({
-            id: result.elementId,
-            originalId: result.elementId,
-            name: result.elementName,
-            type: 'text',
-            elementId: result.elementId,
-            elementName: result.elementName
-        });
-        this.item[result.elementId] = null;
+        if (result.success && data) {
+            if (data.type === 'list' && data.items) {
+                // This element produced a list of items
+                // Store it separately to handle "explosion" in getResult
+                this.item[result.elementId] = data.items;
+                this.totalItemCount = Math.max(this.totalItemCount, data.items.length);
+            } else {
+                // Simple value result
+                this.item[result.elementId] = data.value;
+                if (this.totalItemCount === 0) this.totalItemCount = 1;
+            }
+        } else {
+            // Failed element
+            this.item[result.elementId] = null;
+            if (!this.columns.find(c => c.id === result.elementId)) {
+                this.columns.push({
+                    id: result.elementId,
+                    originalId: result.elementId,
+                    name: result.elementName,
+                    type: 'text',
+                    elementId: result.elementId,
+                    elementName: result.elementName
+                });
+            }
+        }
     }
 
     getResult() {
+        // "Explosion" logic: 
+        // If we have any list fields, we want to create N items where N is the max list length.
+        // Single fields should be repeated for each item, but the user requested:
+        // 1. Add a unique id to track what rows belong to a particular record.
+        // 2. Avoid duplicate content in rows (parent fields only in first row).
+
+        const hasList = Object.values(this.item).some(v => Array.isArray(v));
+        const recordId = `rec_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+        const recordIdColumn = {
+            id: 'recordId',
+            originalId: 'recordId',
+            name: 'RECORD ID',
+            type: 'text',
+            elementId: 'recordId',
+            elementName: 'Record Identifier'
+        };
+
+        if (!hasList) {
+            return {
+                columns: [recordIdColumn, ...this.columns],
+                item: { ...this.item, recordId },
+                elementResults: this.elementResults,
+                totalItemCount: this.totalItemCount,
+                successfulElements: this.elementResults.filter(r => r.success).length,
+                failedElements: this.elementResults.filter(r => !r.success).length
+            };
+        }
+
+        // ... We have lists ...
+        const rows: any[] = [];
+        const maxRows = this.totalItemCount;
+
+        for (let i = 0; i < maxRows; i++) {
+            const row: any = { recordId };
+            Object.entries(this.item).forEach(([key, value]) => {
+                if (Array.isArray(value)) {
+                    // It's a list. Use item at index i if it exists.
+                    const item = value[i];
+                    if (item && typeof item === 'object') {
+                        Object.assign(row, item);
+                    } else {
+                        row[key] = item || null;
+                    }
+                } else {
+                    // It's a single value (parent field).
+                    // User requested: avoid duplicate content in rows for explosion.
+                    // Only include in the first row.
+                    row[key] = (i === 0) ? value : null;
+                }
+            });
+            rows.push(row);
+        }
+
         return {
-            columns: this.columns,
-            item: this.item,
+            columns: [recordIdColumn, ...this.columns],
+            items: rows,
             elementResults: this.elementResults,
-            totalItemCount: this.totalItemCount,
+            totalItemCount: rows.length,
             successfulElements: this.elementResults.filter(r => r.success).length,
             failedElements: this.elementResults.filter(r => !r.success).length
         };
@@ -140,6 +192,25 @@ export class PageExtractionStrategy {
             elementName: 'Source URL'
         }, ...aggregatedResult.columns];
 
+        if (aggregatedResult.items) {
+            // Multi-row result (list expansion)
+            const items = aggregatedResult.items.map((item: any, index: number) => ({
+                url: index === 0 ? url : null,
+                ...item
+            }));
+
+            return {
+                url,
+                success: true,
+                extractedAt: Date.now(),
+                itemCount: aggregatedResult.totalItemCount,
+                columns,
+                items, // Return array
+                elementResults: aggregatedResult.elementResults
+            };
+        }
+
+        // Single row result
         const item = {
             url,
             ...aggregatedResult.item
@@ -151,7 +222,7 @@ export class PageExtractionStrategy {
             extractedAt: Date.now(),
             itemCount: aggregatedResult.totalItemCount,
             columns,
-            item,
+            item, // Return single object
             elementResults: aggregatedResult.elementResults
         };
     }

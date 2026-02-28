@@ -31,8 +31,8 @@ export class ContentScriptController {
 
     private initializeListeners() {
         this.messageClient.on('START_PICKER', (_msg, sendResponse) => {
-            const { mode } = _msg.payload || { mode: 'list' };
-            this.startPicker(mode);
+            const { mode, action } = _msg.payload || { mode: 'list', action: 'extract' };
+            this.startPicker(mode, action);
             sendResponse({ success: true });
         });
 
@@ -107,7 +107,7 @@ export class ContentScriptController {
         });
     }
 
-    public startPicker(mode: 'list' | 'single' | 'detail' = 'list') {
+    public startPicker(mode: 'list' | 'single' | 'detail' = 'list', action: 'extract' | 'click' = 'extract') {
         if (this.picker) this.picker.deactivate();
 
         this.picker = new VisualElementPicker();
@@ -129,6 +129,10 @@ export class ContentScriptController {
             default:
                 strategy = new ListSelectionStrategy();
                 break;
+        }
+
+        if (strategy) {
+            strategy.preferredAction = action;
         }
 
         this.picker.activate(strategy, () => {

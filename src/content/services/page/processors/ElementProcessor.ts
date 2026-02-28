@@ -1,7 +1,15 @@
 import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult } from '../types';
+import { ContainerDetector } from '../../../features/picker/ContainerDetector';
+import { DataExtractor } from '../../../services/extraction/DataExtractor';
 
 export class ElementProcessor {
-    constructor(private config: ExtractionConfig) { }
+    private detector: ContainerDetector;
+    private extractor: DataExtractor;
+
+    constructor(private config: ExtractionConfig) {
+        this.detector = new ContainerDetector();
+        this.extractor = new DataExtractor();
+    }
 
     async processElement(elementDef: ElementDefinition): Promise<ProcessedElementResult> {
         const result: ProcessedElementResult = {
@@ -147,6 +155,21 @@ export class ElementProcessor {
                 };
                 // "value" is primary
                 value = element.innerText;
+                break;
+            case 'list':
+                // Smart List Extraction
+                const containerInfo = this.detector.findInternalContainer(element);
+                if (containerInfo.isContainer && containerInfo.container) {
+                    const listData = this.extractor.extract(element, containerInfo);
+                    return {
+                        success: true,
+                        data: listData, // This will be the full list object {items, columns, ...}
+                        columns: listData.columns // Signal to the strategy that we have columns
+                    };
+                } else {
+                    // Fallback to text if no list found
+                    value = element.innerText || element.textContent;
+                }
                 break;
             default:
                 value = element.innerText;

@@ -6,4 +6,6 @@ export interface ISelectionStrategy {
 
     // NEW: Optional keyboard handling
     handleKeyboard?(event: KeyboardEvent, picker: VisualElementPicker): void;
+
+    preferredAction?: 'extract' | 'click';
 }

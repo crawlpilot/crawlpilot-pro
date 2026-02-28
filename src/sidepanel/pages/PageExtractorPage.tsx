@@ -63,7 +63,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         setCurrentUrlIndex(0);
 
         const allItems: any[] = [];
-        const columns = elements.map(el => ({ id: el.id, name: el.name, type: el.type }));
+        let finalColumns: any[] = [];
 
         try {
             shouldStopRef.current = false;
@@ -133,7 +133,9 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                 // Wait for initial load
                 await new Promise(resolve => setTimeout(resolve, config.loadTimeout || 3000));
 
-                let itemData: any = { source_url: url };
+                // Add initial tracker
+                const batchRecordId = `rec_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                let itemData: any = { source_url: url, recordId: batchRecordId };
 
                 const sendMessageWithRetry = async (tabId: number, message: any, maxRetries = 15, interval = 1000) => {
                     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -173,8 +175,51 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                         }
                     });
 
-                    if (response && response.success && response.result && response.result.item) {
-                        itemData = { ...itemData, ...response.result.item };
+                    if (response && response.success && response.result) {
+                        const { item, items, columns: resultColumns } = response.result;
+
+                        // Update Columns dynamically
+                        if (resultColumns && Array.isArray(resultColumns)) {
+                            resultColumns.forEach(newCol => {
+                                if (!finalColumns.find(c => c.id === newCol.id)) {
+                                    finalColumns.push(newCol);
+                                }
+                            });
+                        }
+
+                        if (items && Array.isArray(items)) {
+                            // Multiple items returned (List expansion)
+                            if (Array.isArray(itemData)) {
+                                // We already have a list, merge index-wise
+                                // Don't repeat parent fields from itemData[0] onto subsequent rows
+                                itemData = items.map((newItem, idx) => ({
+                                    ...(itemData[idx] || { recordId: batchRecordId }),
+                                    ...newItem,
+                                    recordId: batchRecordId // Force consistency
+                                }));
+                            } else {
+                                // We had a single primitive row, explode it
+                                // Only the first row gets the full parent data
+                                const baseData = { ...itemData };
+                                itemData = items.map((newItem, idx) => ({
+                                    ...(idx === 0 ? baseData : { recordId: batchRecordId }),
+                                    ...newItem,
+                                    recordId: batchRecordId // Force consistency
+                                }));
+                            }
+                        } else if (item) {
+                            // Single item returned
+                            if (Array.isArray(itemData)) {
+                                // User requested: avoid duplicate content in rows for explosion.
+                                // Add this single field ONLY to the first row.
+                                itemData = itemData.map((row, idx) => ({
+                                    ...row,
+                                    ...(idx === 0 ? item : {})
+                                }));
+                            } else {
+                                itemData = { ...itemData, ...item };
+                            }
+                        }
                     } else {
                         console.warn(`Failed to process element ${element.name} on ${url}`, response?.error || response?.result?.error);
                     }
@@ -189,7 +234,11 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                 }
 
                 // Add the accumulated data for this page
-                allItems.push(itemData);
+                if (Array.isArray(itemData)) {
+                    allItems.push(...itemData);
+                } else {
+                    allItems.push(itemData);
+                }
 
                 // Request delay between pages
                 if (i < selectedUrls.length - 1 && config.requestDelay > 0) {
@@ -201,7 +250,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                 const finalData = {
                     type: 'bulk-page',
                     items: allItems,
-                    columns: columns,
+                    columns: finalColumns,
                     source_url: selectedUrls[0] + (selectedUrls.length > 1 ? ` (+${selectedUrls.length - 1} more)` : ''),
                     count: allItems.length,
                     timestamp: new Date().toISOString()
@@ -379,7 +428,10 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                     <Step2Schema
                         elements={elements}
                         selectionStatus={selectionStatus}
-                        startSelection={startSelection}
+                        startSelection={(mode, action) => {
+                            if (action) setElementAction(action);
+                            startSelection(mode, action || elementAction);
+                        }}
                         handleDeleteElement={handleDeleteElement}
                         handleEditElement={handleEditElement}
                         showEditModal={showEditModal}

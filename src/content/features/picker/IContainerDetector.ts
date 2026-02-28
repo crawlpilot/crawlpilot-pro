@@ -16,4 +16,5 @@ export interface ContainerResult {
  */
 export interface IContainerDetector {
     findContainer(element: HTMLElement): ContainerResult;
+    findInternalContainer(element: HTMLElement): ContainerResult;
 }

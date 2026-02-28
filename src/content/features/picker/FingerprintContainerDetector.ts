@@ -138,4 +138,10 @@ export class FingerprintContainerDetector implements IContainerDetector {
         const baseScore = 80;
         return Math.min(100, baseScore + (coverage * 20));
     }
+
+    public findInternalContainer(_element: HTMLElement): ContainerResult {
+        console.log('[FingerprintContainerDetector] findInternalContainer for:', _element);
+        // Fingerprint-based internal detection is a future enhancement.
+        return { isContainer: false, container: null, childCount: 0, siblings: [], confidence: 0 };
+    }
 }

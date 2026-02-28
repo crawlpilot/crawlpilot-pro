@@ -117,6 +117,51 @@ export class GroupParentContainerDetector implements IContainerDetector {
         return false;
     }
 
+    /**
+     * Looks within the element or its descendants for repeating items.
+     * Prioritizes elements with visible text content.
+     */
+    public findInternalContainer(element: HTMLElement): ContainerResult {
+        // 1. Check if the element itself is a container of repeating items
+        const children = Array.from(element.children) as HTMLElement[];
+        const visibleChildrenWithText = children.filter(c =>
+            (c as HTMLElement).offsetHeight > 0 &&
+            this.isValidGroupElement(c as HTMLElement) &&
+            (c.innerText || c.textContent || '').trim().length > 0
+        ) as HTMLElement[];
+
+        if (visibleChildrenWithText.length >= 2) {
+            return {
+                isContainer: true,
+                container: element,
+                siblings: visibleChildrenWithText,
+                childCount: visibleChildrenWithText.length,
+                confidence: 95
+            };
+        }
+
+        // 2. Look for the first dominant list descendant (e.g. UL, TABLE, or [role="list"])
+        const deepLists = element.querySelectorAll('ul, ol, table, tbody, [role="list"]');
+        for (const list of Array.from(deepLists) as HTMLElement[]) {
+            const listChildren = Array.from(list.children) as HTMLElement[];
+            const valid = listChildren.filter(c =>
+                (c as HTMLElement).offsetHeight > 0 &&
+                (c.innerText || c.textContent || '').trim().length > 0
+            ) as HTMLElement[];
+            if (valid.length >= 2) {
+                return {
+                    isContainer: true,
+                    container: list,
+                    siblings: valid,
+                    childCount: valid.length,
+                    confidence: 90
+                };
+            }
+        }
+
+        return { isContainer: false, container: null, childCount: 0, siblings: [], confidence: 0 };
+    }
+
     // -------------------------------------------------------------------------
     // Phase 2: Multi-signal isListContainer Fallback
     // -------------------------------------------------------------------------
