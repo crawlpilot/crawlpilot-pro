@@ -248,7 +248,10 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
 
                 const worker = async () => {
                     while (queue.length > 0 && !shouldStopRef.current) {
-                        const url = queue.shift()!;
+                        // Atomically grab the next URL from the queue
+                        const url = queue.shift();
+                        if (!url) break;
+
                         let bgTabId: number | undefined;
 
                         try {
@@ -269,12 +272,11 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                             console.error(`Error processing ${url} in parallel:`, e);
                         } finally {
                             if (bgTabId) {
+                                // Don't block the next iteration on tab removal
                                 chrome.tabs.remove(bgTabId).catch(console.warn);
                             }
+                            // Update progress atomically
                             setCompletedPages(prev => prev + 1);
-
-                            // Courtesy delay between popping tasks
-                            await new Promise(resolve => setTimeout(resolve, config.requestDelay || 1000));
                         }
                     }
                 };
