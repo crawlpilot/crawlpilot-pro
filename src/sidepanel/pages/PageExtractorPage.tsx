@@ -49,7 +49,9 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
 
     // [NEW] Extraction State
     const [isExtracting, setIsExtracting] = useState(false);
-    const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
+    const [completedPages, setCompletedPages] = useState(0);
+    const [useParallel, setUseParallel] = useState(false);
+    const [maxConcurrent, setMaxConcurrent] = useState(3);
     const shouldStopRef = useRef(false);
 
     const handleStopExtraction = () => {
@@ -60,7 +62,10 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         if (selectedUrls.length === 0 || elements.length === 0) return;
 
         setIsExtracting(true);
-        setCurrentUrlIndex(0);
+        setCompletedPages(0);
+
+        // [NEW] Deduplicate URLs to prevent redundant work
+        const uniqueUrls = Array.from(new Set(selectedUrls));
 
         const allItems: any[] = [];
         let finalColumns: any[] = [];
@@ -76,11 +81,14 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             if (!tab?.id) throw new Error("No active tab");
 
             // [NEW] Recipe and Job Creation
-            const pageTitle = tab.title || (tab.url ? new URL(tab.url).hostname : 'Page Extractor');
+            // Trim page title to avoid massive names if it comes from a long descriptive `<title>`
+            let pageTitle = tab.title || (tab.url ? new URL(tab.url).hostname : 'Page Extractor');
+            if (pageTitle.length > 50) pageTitle = pageTitle.substring(0, 47) + '...';
 
             const extractionAction = {
                 type: 'EXTRACT_PAGES',
-                urls: selectedUrls,
+                // Removed redundant `urls` array here to optimize schema size, 
+                // it is stored at the root of the config object.
                 elements: elements,
                 config: config
             };
@@ -92,7 +100,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                 version: 1,
                 config: {
                     type: 'bulk-extraction',
-                    urls: selectedUrls,
+                    urls: uniqueUrls,
                     options: { actions: [extractionAction] }
                 },
                 createdAt: Date.now(),
@@ -107,7 +115,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                 sourceUrl: tab.url || '',
                 configSnapshot: {
                     type: 'bulk-extraction',
-                    urls: selectedUrls,
+                    urls: uniqueUrls,
                     options: { actions: [extractionAction] }
                 },
                 stats: {
@@ -121,19 +129,8 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             } as any);
             currentJobId = job;
 
-            for (let i = 0; i < selectedUrls.length; i++) {
-                if (shouldStopRef.current) break;
-
-                setCurrentUrlIndex(i);
-                const url = selectedUrls[i];
-
-                // Navigate
-                await chrome.tabs.update(tab.id, { url });
-
-                // Wait for initial load
-                await new Promise(resolve => setTimeout(resolve, config.loadTimeout || 3000));
-
-                // Add initial tracker
+            // [NEW] Centralized Page Processor
+            const processUrlOnTab = async (targetTabId: number, url: string) => {
                 const batchRecordId = `rec_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
                 let itemData: any = { source_url: url, recordId: batchRecordId };
 
@@ -157,20 +154,18 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                             return response;
                         }
                     }
-                    return { success: false, error: "Max retries reached. Content script did not respond." };
+                    return { success: false, error: "Max retries reached." };
                 };
 
-                // Execute elements sequentially in the order they were defined
                 for (const element of elements) {
                     if (shouldStopRef.current) break;
 
-                    // Execute Extraction via Message for a SINGLE element with RETRY logic
-                    const response = await sendMessageWithRetry(tab.id!, {
+                    const response = await sendMessageWithRetry(targetTabId, {
                         type: 'CMD_EXTRACT_PAGE',
                         payload: {
                             actionType: 'EXTRACT_PAGES',
                             url: url,
-                            elements: [element], // Send ONE element at a time
+                            elements: [element],
                             config: config
                         }
                     });
@@ -178,7 +173,6 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                     if (response && response.success && response.result) {
                         const { item, items, columns: resultColumns } = response.result;
 
-                        // Update Columns dynamically
                         if (resultColumns && Array.isArray(resultColumns)) {
                             resultColumns.forEach(newCol => {
                                 if (!finalColumns.find(c => c.id === newCol.id)) {
@@ -188,30 +182,22 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                         }
 
                         if (items && Array.isArray(items)) {
-                            // Multiple items returned (List expansion)
                             if (Array.isArray(itemData)) {
-                                // We already have a list, merge index-wise
-                                // Don't repeat parent fields from itemData[0] onto subsequent rows
                                 itemData = items.map((newItem, idx) => ({
                                     ...(itemData[idx] || { recordId: batchRecordId }),
                                     ...newItem,
-                                    recordId: batchRecordId // Force consistency
+                                    recordId: batchRecordId
                                 }));
                             } else {
-                                // We had a single primitive row, explode it
-                                // Only the first row gets the full parent data
                                 const baseData = { ...itemData };
                                 itemData = items.map((newItem, idx) => ({
                                     ...(idx === 0 ? baseData : { recordId: batchRecordId }),
                                     ...newItem,
-                                    recordId: batchRecordId // Force consistency
+                                    recordId: batchRecordId
                                 }));
                             }
                         } else if (item) {
-                            // Single item returned
                             if (Array.isArray(itemData)) {
-                                // User requested: avoid duplicate content in rows for explosion.
-                                // Add this single field ONLY to the first row.
                                 itemData = itemData.map((row, idx) => ({
                                     ...row,
                                     ...(idx === 0 ? item : {})
@@ -220,30 +206,82 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                                 itemData = { ...itemData, ...item };
                             }
                         }
-                    } else {
-                        console.warn(`Failed to process element ${element.name} on ${url}`, response?.error || response?.result?.error);
                     }
 
                     if (element.action === 'click') {
-                        // Crucial: Wait longer after a click because it might trigger navigation or AJAX
                         await new Promise(resolve => setTimeout(resolve, config.requestDelay > 0 ? config.requestDelay * 2 : 2000));
                     } else {
-                        // Short delay between regular sequential extracts
                         await new Promise(resolve => setTimeout(resolve, 500));
                     }
                 }
 
-                // Add the accumulated data for this page
-                if (Array.isArray(itemData)) {
-                    allItems.push(...itemData);
-                } else {
-                    allItems.push(itemData);
-                }
+                return itemData;
+            };
 
-                // Request delay between pages
-                if (i < selectedUrls.length - 1 && config.requestDelay > 0) {
-                    await new Promise(resolve => setTimeout(resolve, config.requestDelay));
+            // [NEW] Execution Router (Sequential vs Parallel)
+            if (!useParallel) {
+                // SEQUENTIAL: Run in active tab
+                for (let i = 0; i < uniqueUrls.length; i++) {
+                    if (shouldStopRef.current) break;
+
+                    const url = uniqueUrls[i];
+                    await chrome.tabs.update(tab.id, { url });
+                    await new Promise(resolve => setTimeout(resolve, config.loadTimeout || 3000));
+
+                    const extractedData = await processUrlOnTab(tab.id, url);
+
+                    if (Array.isArray(extractedData)) {
+                        allItems.push(...extractedData);
+                    } else {
+                        allItems.push(extractedData);
+                    }
+
+                    setCompletedPages(prev => prev + 1);
+
+                    if (i < uniqueUrls.length - 1 && config.requestDelay > 0) {
+                        await new Promise(resolve => setTimeout(resolve, config.requestDelay));
+                    }
                 }
+            } else {
+                // PARALLEL: Create background tabs
+                const queue = [...uniqueUrls];
+
+                const worker = async () => {
+                    while (queue.length > 0 && !shouldStopRef.current) {
+                        const url = queue.shift()!;
+                        let bgTabId: number | undefined;
+
+                        try {
+                            const bgTab = await chrome.tabs.create({ url, active: false });
+                            bgTabId = bgTab.id;
+                            if (!bgTabId) continue;
+
+                            await new Promise(resolve => setTimeout(resolve, config.loadTimeout || 3000));
+
+                            const extractedData = await processUrlOnTab(bgTabId, url);
+
+                            if (Array.isArray(extractedData)) {
+                                allItems.push(...extractedData);
+                            } else {
+                                allItems.push(extractedData);
+                            }
+                        } catch (e) {
+                            console.error(`Error processing ${url} in parallel:`, e);
+                        } finally {
+                            if (bgTabId) {
+                                chrome.tabs.remove(bgTabId).catch(console.warn);
+                            }
+                            setCompletedPages(prev => prev + 1);
+
+                            // Courtesy delay between popping tasks
+                            await new Promise(resolve => setTimeout(resolve, config.requestDelay || 1000));
+                        }
+                    }
+                };
+
+                // Launch workers up to maxConccurent or queue size
+                const workers = Array(Math.min(maxConcurrent, uniqueUrls.length)).fill(null).map(() => worker());
+                await Promise.all(workers);
             }
 
             if (allItems.length > 0) {
@@ -257,7 +295,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                 };
 
                 const tableId = await db.saveExtraction(finalData, {
-                    name: `Bulk Extraction (${allItems.length} pages)`,
+                    name: `Bulk Extraction (${uniqueUrls.length} pages)`,
                     jobId: currentJobId
                 });
 
@@ -304,7 +342,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             alert("Extraction failed: " + error);
         } finally {
             setIsExtracting(false);
-            setCurrentUrlIndex(0);
+            setCompletedPages(0);
         }
     };
 
@@ -451,9 +489,13 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                 return (
                     <Step3Review
                         elements={elements}
-                        selectedUrls={selectedUrls}
+                        selectedUrls={selectedUrls} // Pass original for UI count, dedupe is internal
                         isExtracting={isExtracting}
-                        currentUrlIndex={currentUrlIndex}
+                        completedPages={completedPages}
+                        useParallel={useParallel}
+                        setUseParallel={setUseParallel}
+                        maxConcurrent={maxConcurrent}
+                        setMaxConcurrent={setMaxConcurrent}
                         handleStartExtraction={handleStartExtraction}
                         onStop={handleStopExtraction}
                         onBack={() => setStep(2)}

@@ -144,25 +144,25 @@ export class DataExtractor {
 
 
     private extractSingle(element: HTMLElement) {
-        const data: any = {};
-        // Use processNode directly for single element
-        this.processNode(element, [], {}, data);
+        // [NEW] Smart Extraction for Single Elements (e.g., Buyboxes)
+        // Instead of returning a single text blob, we extract the entire hierarchical DOM 
+        // structure under this element, just like we do for a row in a list.
+        const rowData = this.extractRow(element);
 
-        // For single extraction, we create pseduo-columns from the keys
-        const rows = [data];
+        // For single extraction, we create pseudo-columns from the keys
+        const rows = [rowData];
 
-        // Generate columns using SchemaGenerator
+        // Generate columns using SchemaGenerator so it looks identical to a list of 1
         const schemaResult = this.schemaGenerator.generateSchema(rows);
         const columns = schemaResult.columns;
 
         // Map raw rows to new schema IDs
-        // Map raw rows to new schema IDs
         const items = this.normalizeData(rows, columns);
 
         return {
-            type: 'single',
+            type: 'list', // [CRITICAL] Fake it as a 'list' so PageExtractionStrategy explodes the columns
             columns: columns,
-            items: items, // Return normalized items
+            items: items, // Return normalized items (array of 1)
             source_url: window.location.href,
             timestamp: new Date().toISOString()
         };

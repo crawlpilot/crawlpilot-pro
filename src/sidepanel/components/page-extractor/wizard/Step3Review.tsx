@@ -1,10 +1,14 @@
-import { Database, Loader2 } from 'lucide-react';
+import { Database, Loader2, Settings2 } from 'lucide-react';
 
 interface Step3ReviewProps {
     elements: any[];
     selectedUrls: string[];
     isExtracting: boolean;
-    currentUrlIndex: number;
+    completedPages: number;
+    useParallel: boolean;
+    setUseParallel: (val: boolean) => void;
+    maxConcurrent: number;
+    setMaxConcurrent: (val: number) => void;
     handleStartExtraction: () => void;
     onStop: () => void;
     onBack: () => void;
@@ -14,7 +18,11 @@ export function Step3Review({
     elements,
     selectedUrls,
     isExtracting,
-    currentUrlIndex,
+    completedPages,
+    useParallel,
+    setUseParallel,
+    maxConcurrent,
+    setMaxConcurrent,
     handleStartExtraction,
     onStop,
     onBack
@@ -28,7 +36,7 @@ export function Step3Review({
                     Will extract {elements.length} fields from {selectedUrls.length} pages.
                 </p>
 
-                <div className="max-w-xs mx-auto text-left mb-8 bg-surface-lighter rounded-lg p-4 text-sm border border-border-subtle shadow-sm">
+                <div className="max-w-xs mx-auto text-left mb-6 bg-surface-lighter rounded-lg p-4 text-sm border border-border-subtle shadow-sm">
                     <div className="flex justify-between mb-3 border-b border-border-subtle pb-2">
                         <span className="text-text-muted">Target URLs:</span>
                         <span className="font-bold text-primary">{selectedUrls.length} pages</span>
@@ -39,19 +47,65 @@ export function Step3Review({
                     </div>
                 </div>
 
+                {!isExtracting && (
+                    <div className="max-w-xs mx-auto text-left mb-8 bg-surface-lighter rounded-lg p-4 text-sm border border-border-subtle shadow-sm">
+                        <div className="flex items-center mb-4">
+                            <Settings2 className="w-4 h-4 mr-2 text-text-muted" />
+                            <span className="font-semibold text-text-primary">Execution Settings</span>
+                        </div>
+
+                        <div className="flex items-center justify-between mb-4">
+                            <label className="text-text-muted cursor-pointer select-none" htmlFor="parallel-toggle">
+                                Parallel Processing
+                            </label>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    id="parallel-toggle"
+                                    type="checkbox"
+                                    className="sr-only peer"
+                                    checked={useParallel}
+                                    onChange={(e) => setUseParallel(e.target.checked)}
+                                />
+                                <div className="w-9 h-5 bg-surface-darker peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                            </label>
+                        </div>
+
+                        {useParallel && (
+                            <div className="animate-fade-in-up">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-text-muted text-xs">Max Concurrent Tabs</span>
+                                    <span className="font-bold text-primary text-xs">{maxConcurrent}</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="5"
+                                    step="1"
+                                    value={maxConcurrent}
+                                    onChange={(e) => setMaxConcurrent(parseInt(e.target.value))}
+                                    className="w-full accent-primary"
+                                />
+                                <p className="text-[10px] text-text-muted mt-2 leading-tight">
+                                    Warning: High values may consume significant memory or trigger website rate limits.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {isExtracting && (
                     <div className="mb-8 p-5 rounded-lg border border-accent-ai/30 bg-accent-ai/5 text-left max-w-sm mx-auto">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-xs font-medium text-text-primary flex items-center">
                                 <Loader2 className="w-4 h-4 text-accent-ai animate-spin mr-2" />
-                                Processing URL
+                                Extracting Items...
                             </span>
-                            <span className="text-xs font-bold text-accent-ai">{currentUrlIndex + 1} / {selectedUrls.length}</span>
+                            <span className="text-xs font-bold text-accent-ai">{completedPages} / {selectedUrls.length}</span>
                         </div>
                         <div className="w-full bg-surface-darker h-2.5 rounded-full overflow-hidden shadow-inner">
                             <div
                                 className="bg-gradient-to-r from-accent-ai to-primary h-full transition-all duration-300 rounded-full"
-                                style={{ width: `${Math.max(5, ((currentUrlIndex + 1) / selectedUrls.length) * 100)}%` }}
+                                style={{ width: `${Math.max(5, (completedPages / selectedUrls.length) * 100)}%` }}
                             />
                         </div>
                     </div>

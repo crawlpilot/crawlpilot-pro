@@ -157,17 +157,21 @@ export class ElementProcessor {
                 value = element.innerText;
                 break;
             case 'list':
-                // Smart List Extraction
+                // Smart List / Smart Single Extraction
                 const containerInfo = this.detector.findInternalContainer(element);
-                if (containerInfo.isContainer && containerInfo.container) {
-                    const listData = this.extractor.extract(element, containerInfo);
+
+                // We use DataExtractor for BOTH lists and smart singles now
+                // Even if not a true "container", it will extract structured data and return a list of length 1
+                const extractedData = this.extractor.extract(element, containerInfo);
+
+                if (extractedData && extractedData.items && extractedData.items.length > 0) {
                     return {
                         success: true,
-                        data: listData, // This will be the full list object {items, columns, ...}
-                        columns: listData.columns // Signal to the strategy that we have columns
+                        data: extractedData,
+                        columns: extractedData.columns // Signal to aggregator to map columns
                     };
                 } else {
-                    // Fallback to text if no list found
+                    // Ultimate fallback
                     value = element.innerText || element.textContent;
                 }
                 break;
