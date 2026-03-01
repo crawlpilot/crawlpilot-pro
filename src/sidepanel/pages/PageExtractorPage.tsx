@@ -379,7 +379,8 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         setPendingElement({
             containerSelector: el.selectors.find((s: any) => s.type === 'css')?.value,
             containerXPath: el.selectors.find((s: any) => s.type === 'xpath')?.value,
-            value: el.value
+            value: el.value,
+            type: el.type || 'text'
         });
         setElementName(el.name);
         setElementAction(el.action);
@@ -395,7 +396,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             name: elementName,
             selectors: [{ type: 'css', value: pendingElement.containerSelector }, { type: 'xpath', value: pendingElement.containerXPath }],
             action: elementAction,
-            type: 'text',
+            type: pendingElement.type || 'text',
             value: pendingElement.value // preview
         };
 

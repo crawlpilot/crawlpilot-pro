@@ -164,6 +164,21 @@ export function Step2Schema({
                                         autoFocus
                                     />
                                 </div>
+                                {elementAction === 'extract' && pendingElement && (
+                                    <div>
+                                        <div className="text-[10px] text-text-muted mb-1 font-medium">Extraction Type</div>
+                                        <select
+                                            value={pendingElement.type || 'text'}
+                                            onChange={(e) => setPendingElement({ ...pendingElement, type: e.target.value })}
+                                            className="w-full h-[36px] bg-background-app border border-border-subtle rounded text-xs text-text-primary px-3 focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all outline-none"
+                                        >
+                                            <option value="text">Text Content (Default)</option>
+                                            <option value="link">Link Target (href)</option>
+                                            <option value="image">Image Source (src)</option>
+                                            <option value="list">Structured Fields (Smart)</option>
+                                        </select>
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-2 mb-2 p-2 bg-surface-lighter rounded-md border border-border-subtle">
                                     <label className="flex items-center gap-2 cursor-pointer flex-1">
                                         <input type="radio" className="radio text-primary radio-xs" name="actionType" checked={elementAction === 'extract'} onChange={() => setElementAction('extract')} />

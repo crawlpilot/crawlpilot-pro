@@ -3,7 +3,7 @@ import { VisualElementPicker } from '../VisualElementPicker';
 import { ContainerDetector } from '../ContainerDetector';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { ItemSelectorRefiner } from '../ItemSelectorRefiner';
-import { generateCssSelector, generateXPath, generateRobustSelectors, clickElementRobust } from '../../../services/dom/domUtils';
+import { generateCssSelector, generateXPath, generateRobustSelectors } from '../../../services/dom/domUtils';
 import { CommonSelectorGenerator } from '../../../services/dom/selectors/CommonSelectorGenerator';
 
 export class ListSelectionStrategy implements ISelectionStrategy {
@@ -197,14 +197,7 @@ export class ListSelectionStrategy implements ISelectionStrategy {
             });
         }
 
-        // [NEW] If action is click, actually perform it so user can proceed
-        if (this.preferredAction === 'click') {
-            const target = containerInfo.isContainer && containerInfo.container ? containerInfo.container : element;
-            console.log('👆 Triggering robust click (ListStrategy):', target.tagName, target.className);
-            setTimeout(async () => {
-                await clickElementRobust(target);
-            }, 100);
-        }
+        // Click logic removed from selection phase to prevent unintended navigation
 
         picker.deactivate();
     }

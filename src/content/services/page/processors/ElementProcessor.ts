@@ -145,17 +145,6 @@ export class ElementProcessor {
                 }
                 break;
             case 'smart':
-                // "Smart" extraction usually implies getting both text, link, image if available
-                // simpler version: get all attrs
-                data = {
-                    text: element.innerText,
-                    tagName: element.tagName,
-                    href: (element as HTMLAnchorElement).href,
-                    src: (element as HTMLImageElement).src
-                };
-                // "value" is primary
-                value = element.innerText;
-                break;
             case 'list':
                 // Smart List / Smart Single Extraction
                 const containerInfo = this.detector.findInternalContainer(element);
