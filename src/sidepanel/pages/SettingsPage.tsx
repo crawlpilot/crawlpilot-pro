@@ -148,11 +148,11 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                                 fontSize: '0.7rem',
                                 fontWeight: 'bold'
                             }}>
-                                FREE EXPERIMENTATION
+                                FREE TRIAL
                             </Box>
                         </Box>
                         <Typography variant="body2" color="text.secondary">
-                            This is an <strong>experimental build</strong> — features may change or behave unexpectedly.
+                            This is a <strong>FREE TRIAL</strong> — features may change or behave unexpectedly.
                             If you run into any issues, please raise them via <strong>Contact Support</strong> below so we can improve the experience.
                         </Typography>
                     </Paper>

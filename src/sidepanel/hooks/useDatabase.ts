@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/shared/db/db-manager';
 import { NEW_TABLE_NAMES, TableData, TableRow, Job, AutomationRecipe } from '@/shared/types/database';
+import { TableUnifier } from '@/shared/utils/TableUnifier';
 
 /**
  * Hook for managing table data
@@ -23,8 +24,14 @@ export function useTableData(tableDataId?: number | null) {
                 setLoading(true);
                 setError(null);
 
-                const data = await db.getTableData(tableDataId);
-                const tableRows = await db.getTableRows(tableDataId);
+                let data = await db.getTableData(tableDataId);
+                let tableRows = await db.getTableRows(tableDataId);
+
+                if (data && data.columns && tableRows) {
+                    const unified = TableUnifier.unifyTableData(data.columns, tableRows);
+                    data.columns = unified.columns;
+                    tableRows = unified.rows;
+                }
 
                 console.log(`✅ [useTableData] Loaded. Rows: ${tableRows.length}, Columns: ${data?.columns?.length}`);
 
