@@ -111,7 +111,7 @@ export class ListSelectionStrategy implements ISelectionStrategy {
             // DEDUCTIVE APPROACH: Strictly use selectors that match the visual capture
             // Our CommonSelectorGenerator is now powerful enough to derive these from the siblings.
             const commonGen = new CommonSelectorGenerator();
-            const validResults = commonGen.deriveCommonSelector(containerInfo.siblings, containerInfo.container);
+            const validResults = commonGen.deriveCommonSelector(containerInfo.siblings, containerInfo.container, targetItem);
 
             let candidates: any[] = [];
             if (validResults.length > 0) {

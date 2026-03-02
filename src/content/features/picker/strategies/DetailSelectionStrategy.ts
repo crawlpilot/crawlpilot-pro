@@ -50,7 +50,7 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
             containerXPath = generateXPath(containerInfo.container!);
 
             const commonGen = new CommonSelectorGenerator();
-            const validResults = commonGen.deriveCommonSelector(containerInfo.siblings, containerInfo.container!);
+            const validResults = commonGen.deriveCommonSelector(containerInfo.siblings, containerInfo.container!, target);
 
             if (validResults.length > 0) {
                 itemSelector = validResults[0].selector;

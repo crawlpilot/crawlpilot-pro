@@ -77,7 +77,7 @@ export class GroupParentContainerDetector implements IContainerDetector {
                 const validChildren: HTMLElement[] = [];
 
                 for (const child of Array.from(current.children) as HTMLElement[]) {
-                    if (this.isValidGroupElement(child) && child.offsetHeight > 0) {
+                    if (this.isValidGroupElement(child) && this.isVisible(child)) {
                         validChildren.push(child);
                     }
                 }
@@ -98,6 +98,25 @@ export class GroupParentContainerDetector implements IContainerDetector {
         }
 
         return bestCandidate;
+    }
+
+    /**
+     * More robust visibility check that handles display: contents and SPAs.
+     */
+    private isVisible(el: HTMLElement): boolean {
+        // Physical height is the primary signal
+        if (el.offsetHeight > 0) return true;
+
+        // display: contents elements have 0 offsetHeight but are "visible" to users
+        try {
+            const style = window.getComputedStyle(el);
+            if (style.display === 'contents' || el.hasAttribute('data-display-contents')) {
+                // If it's display:contents, check if it has any visible children
+                return Array.from(el.children).some(child => this.isVisible(child as HTMLElement));
+            }
+        } catch (e) { /* ignore */ }
+
+        return false;
     }
 
     /**
@@ -125,7 +144,7 @@ export class GroupParentContainerDetector implements IContainerDetector {
         // 1. Check if the element itself is a container of repeating items
         const children = Array.from(element.children) as HTMLElement[];
         const visibleChildrenWithText = children.filter(c =>
-            (c as HTMLElement).offsetHeight > 0 &&
+            this.isVisible(c as HTMLElement) &&
             this.isValidGroupElement(c as HTMLElement) &&
             (c.innerText || c.textContent || '').trim().length > 0
         ) as HTMLElement[];
@@ -145,7 +164,7 @@ export class GroupParentContainerDetector implements IContainerDetector {
         for (const list of Array.from(deepLists) as HTMLElement[]) {
             const listChildren = Array.from(list.children) as HTMLElement[];
             const valid = listChildren.filter(c =>
-                (c as HTMLElement).offsetHeight > 0 &&
+                this.isVisible(c as HTMLElement) && // Use the new isVisible method
                 (c.innerText || c.textContent || '').trim().length > 0
             ) as HTMLElement[];
             if (valid.length >= 2) {
@@ -192,7 +211,7 @@ export class GroupParentContainerDetector implements IContainerDetector {
         if (!bestContainer) return null;
 
         const siblings = Array.from(bestContainer.children).filter(
-            c => (c as HTMLElement).offsetHeight > 0
+            c => this.isVisible(c as HTMLElement)
         ) as HTMLElement[];
 
         return {
