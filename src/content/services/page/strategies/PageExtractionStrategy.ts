@@ -38,13 +38,35 @@ class Aggregator {
         }
 
         if (result.success && data) {
-            if (data.type === 'list' && data.items) {
-                // This element produced a list of items
-                // Store it separately to handle "explosion" in getResult
-                this.item[result.elementId] = data.items;
+            if (data.type === 'table' && data.items) {
+                // TABLE: each item becomes its own output row
+                this.item[result.elementId] = { __type: 'table', items: data.items, columns: data.columns || [] };
                 this.totalItemCount = Math.max(this.totalItemCount, data.items.length);
+            } else if (data.type === 'list' && data.items) {
+                // LIST: all items flattened into ONE row as indexed columns
+                // e.g. [{title:"A",price:"10"},{title:"B"}] → {list_1_title:"A",list_1_price:"10",list_2_title:"B"}
+                const flatRow: any = {};
+                const flatColumns: any[] = [];
+                data.items.forEach((item: any, idx: number) => {
+                    const prefix = `${result.elementName}_${idx + 1}`;
+                    Object.entries(item).forEach(([key, val]) => {
+                        const colId = `${result.elementId}_${idx + 1}_${key}`;
+                        flatRow[colId] = val;
+                        flatColumns.push({
+                            id: colId,
+                            originalId: colId,
+                            name: `${prefix} ${key}`,
+                            type: 'text',
+                            elementId: result.elementId,
+                            elementName: result.elementName
+                        });
+                    });
+                });
+                // Store as a flat single value (merge into item record)
+                this.item[result.elementId] = { __type: 'list_flat', flatRow, flatColumns };
+                if (this.totalItemCount === 0) this.totalItemCount = 1;
             } else {
-                // Simple value result
+                // Simple scalar value result
                 this.item[result.elementId] = data.value;
                 if (this.totalItemCount === 0) this.totalItemCount = 1;
             }
@@ -65,13 +87,6 @@ class Aggregator {
     }
 
     getResult() {
-        // "Explosion" logic: 
-        // If we have any list fields, we want to create N items where N is the max list length.
-        // Single fields should be repeated for each item, but the user requested:
-        // 1. Add a unique id to track what rows belong to a particular record.
-        // 2. Avoid duplicate content in rows (parent fields only in first row).
-
-        const hasList = Object.values(this.item).some(v => Array.isArray(v));
         const recordId = `rec_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
         const recordIdColumn = {
@@ -83,47 +98,82 @@ class Aggregator {
             elementName: 'Record Identifier'
         };
 
-        if (!hasList) {
+        // Check if any element returned table rows (needs row explosion)
+        const hasTableElement = Object.values(this.item).some(
+            (v: any) => v && typeof v === 'object' && v.__type === 'table'
+        );
+
+        if (hasTableElement) {
+            // TABLE mode: explode table items into individual rows (all sharing recordId)
+            // Other scalar / list_flat fields are merged into every row
+            const rows: any[] = [];
+            let allColumns: any[] = [recordIdColumn];
+
+            // First, collect all non-table fields (scalars + list_flat) for merging
+            const baseRow: any = { recordId };
+            const baseColumns: any[] = [];
+
+            Object.entries(this.item).forEach(([key, value]: [string, any]) => {
+                if (!value || value.__type !== 'table') {
+                    if (value && value.__type === 'list_flat') {
+                        Object.assign(baseRow, value.flatRow);
+                        baseColumns.push(...value.flatColumns);
+                    } else {
+                        baseRow[key] = value;
+                        const existingCol = this.columns.find(c => c.id === key);
+                        if (existingCol) baseColumns.push(existingCol);
+                    }
+                }
+            });
+
+            // Now explode each table element into rows
+            Object.entries(this.item).forEach(([, value]: [string, any]) => {
+                if (value && value.__type === 'table') {
+                    // Merge table-level columns
+                    (value.columns || []).forEach((col: any) => {
+                        if (!allColumns.find(c => c.id === col.id)) allColumns.push(col);
+                    });
+                    // Each item in the table is a row
+                    value.items.forEach((tableRow: any) => {
+                        rows.push({ ...baseRow, ...tableRow });
+                    });
+                }
+            });
+
+            allColumns = [recordIdColumn, ...baseColumns, ...allColumns.filter(c => c.id !== 'recordId')];
+
             return {
-                columns: [recordIdColumn, ...this.columns],
-                item: { ...this.item, recordId },
+                columns: allColumns,
+                items: rows.length > 0 ? rows : [{ ...baseRow }],
                 elementResults: this.elementResults,
-                totalItemCount: this.totalItemCount,
+                totalItemCount: rows.length,
                 successfulElements: this.elementResults.filter(r => r.success).length,
                 failedElements: this.elementResults.filter(r => !r.success).length
             };
         }
 
-        // ... We have lists ...
-        const rows: any[] = [];
-        const maxRows = this.totalItemCount;
+        // No table: build a single row from scalars and list_flat columns
+        const singleRow: any = { recordId };
+        const singleColumns: any[] = [recordIdColumn];
 
-        for (let i = 0; i < maxRows; i++) {
-            const row: any = { recordId };
-            Object.entries(this.item).forEach(([key, value]) => {
-                if (Array.isArray(value)) {
-                    // It's a list. Use item at index i if it exists.
-                    const item = value[i];
-                    if (item && typeof item === 'object') {
-                        Object.assign(row, item);
-                    } else {
-                        row[key] = item || null;
-                    }
-                } else {
-                    // It's a single value (parent field).
-                    // User requested: avoid duplicate content in rows for explosion.
-                    // Only include in the first row.
-                    row[key] = (i === 0) ? value : null;
-                }
-            });
-            rows.push(row);
-        }
+        Object.entries(this.item).forEach(([key, value]: [string, any]) => {
+            if (value && typeof value === 'object' && value.__type === 'list_flat') {
+                // LIST mode: all items flattened into columns of this one row
+                Object.assign(singleRow, value.flatRow);
+                singleColumns.push(...value.flatColumns);
+            } else {
+                // Scalar
+                singleRow[key] = value;
+                const col = this.columns.find(c => c.id === key);
+                if (col) singleColumns.push(col);
+            }
+        });
 
         return {
-            columns: [recordIdColumn, ...this.columns],
-            items: rows,
+            columns: singleColumns,
+            item: singleRow,
             elementResults: this.elementResults,
-            totalItemCount: rows.length,
+            totalItemCount: 1,
             successfulElements: this.elementResults.filter(r => r.success).length,
             failedElements: this.elementResults.filter(r => !r.success).length
         };

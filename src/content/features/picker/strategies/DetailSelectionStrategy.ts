@@ -72,10 +72,18 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
         // Calculate simple preview value based on extraction type
         let previewValue = '';
         let finalValue = '';
-        let autoExtractionType: 'text' | 'link' | 'image' | 'list' = isList ? 'list' : 'text';
+        let autoExtractionType: 'text' | 'link' | 'image' | 'list' | 'table' = 'text';
 
-        if (isList) {
-            previewValue = `List / Table (${containerInfo.childCount || data?.items?.length || 0} items)`;
+        const columnCount = data?.columns?.length || 0;
+        const itemCount = isList ? (containerInfo.childCount || data?.items?.length || 0) : 1;
+
+        if (columnCount > 1) {
+            autoExtractionType = 'table';
+            previewValue = `Table (${columnCount} fields)`;
+            finalValue = previewValue;
+        } else if (isList) {
+            autoExtractionType = 'list';
+            previewValue = `List (${itemCount} items)`;
             finalValue = previewValue;
         } else if (element.tagName === 'IMG') {
             autoExtractionType = 'image';
@@ -86,19 +94,9 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
             previewValue = (element as HTMLAnchorElement).href;
             finalValue = previewValue;
         } else {
-            // [NEW] Smart Fallback
-            // If DataExtractor found multiple child fields/columns in our single element,
-            // we should treat it as a 'list' of 1 item to force the full schema into the UI.
-            if (this.preferredAction !== 'click' && data?.items && Array.isArray(data.items) && data.items.length > 0 && Object.keys(data.items[0]).length > 1) {
-                autoExtractionType = 'list';
-                previewValue = `Container (${Object.keys(data.items[0]).length} fields)`;
-                finalValue = previewValue;
-            } else {
-                autoExtractionType = 'text';
-                // Auto fallback
-                previewValue = element.textContent?.trim().substring(0, 50) || '';
-                finalValue = element.textContent?.trim() || '';
-            }
+            autoExtractionType = 'text';
+            previewValue = element.textContent?.trim().substring(0, 50) || '';
+            finalValue = element.textContent?.trim() || '';
         }
 
         sendResponse({

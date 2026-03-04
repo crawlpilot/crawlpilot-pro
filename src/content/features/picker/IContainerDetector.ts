@@ -3,6 +3,7 @@
  */
 export interface ContainerResult {
     isContainer: boolean;
+    containerType?: 'list' | 'table';
     container: HTMLElement | null;
     childCount: number;
     siblings: HTMLElement[];

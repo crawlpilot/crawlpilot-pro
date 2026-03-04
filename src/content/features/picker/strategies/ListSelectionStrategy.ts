@@ -67,8 +67,9 @@ export class ListSelectionStrategy implements ISelectionStrategy {
             this.lastItemUnit = itemUnit;
 
             // Hint user about keyboard nav?
-            const label = `📋 List Container (${containerInfo.childCount} items) ${this.candidates.length > 1 ? '↕' : ''}`;
-            const sub = this.candidates.length > 1 ? 'Use ↑/↓ to adjust scope • Click to select' : 'Click to select entire list';
+            const typeLabel = containerInfo.containerType === 'table' ? 'Table' : 'List';
+            const label = `📋 ${typeLabel} Container (${containerInfo.childCount} items) ${this.candidates.length > 1 ? '↕' : ''}`;
+            const sub = this.candidates.length > 1 ? 'Use ↑/↓ to adjust scope • Click to select' : `Click to select entire ${typeLabel.toLowerCase()}`;
 
             picker.updateHighlightManual(
                 containerInfo.container,

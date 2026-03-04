@@ -147,23 +147,39 @@ export class ElementProcessor {
             case 'smart':
             case 'list':
                 // Smart List / Smart Single Extraction
-                const containerInfo = this.detector.findInternalContainer(element);
+                {
+                    const containerInfo = this.detector.findInternalContainer(element);
+                    const extractedData = this.extractor.extract(element, containerInfo);
 
-                // We use DataExtractor for BOTH lists and smart singles now
-                // Even if not a true "container", it will extract structured data and return a list of length 1
+                    if (extractedData && extractedData.items && extractedData.items.length > 0) {
+                        return {
+                            success: true,
+                            data: extractedData,
+                            columns: extractedData.columns
+                        };
+                    } else {
+                        value = element.innerText || element.textContent;
+                    }
+                }
+                break;
+
+            case 'table': {
+                // Table Extraction — same pipeline as list, but tagged 'table' so the
+                // Aggregator explodes rows. Each sibling child = one row with N columns.
+                const containerInfo = this.detector.findInternalContainer(element);
                 const extractedData = this.extractor.extract(element, containerInfo);
 
                 if (extractedData && extractedData.items && extractedData.items.length > 0) {
                     return {
                         success: true,
-                        data: extractedData,
-                        columns: extractedData.columns // Signal to aggregator to map columns
+                        data: { ...extractedData, type: 'table' },
+                        columns: extractedData.columns
                     };
-                } else {
-                    // Ultimate fallback
-                    value = element.innerText || element.textContent;
                 }
+                // Fallback
+                value = element.innerText || element.textContent;
                 break;
+            }
             default:
                 value = element.innerText;
         }

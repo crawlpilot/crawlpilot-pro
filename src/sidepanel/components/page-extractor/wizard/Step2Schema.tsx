@@ -84,14 +84,14 @@ export function Step2Schema({
                         {elements.map((el) => (
                             <div key={el.id} className="p-2.5 bg-surface-lighter border border-border-subtle rounded-md flex items-center justify-between group">
                                 <div className="flex items-center gap-3">
-                                    {el.action === 'click' ? <MousePointerClick className="w-3 h-3" /> : (el.type === 'list' ? 'L' : 'Tx')}
+                                    {el.action === 'click' ? <MousePointerClick className="w-3 h-3" /> : (el.type === 'list' ? 'L' : (el.type === 'table' ? 'Tb' : 'Tx'))}
                                 </div>
                                 <div>
                                     <div className="font-medium text-xs text-text-primary flex items-center gap-2">
                                         {el.name}
-                                        {el.type === 'list' && (
+                                        {(el.type === 'list' || el.type === 'table') && (
                                             <span className="text-[9px] px-1.5 py-0.5 bg-surface-base border border-border-subtle rounded-full text-text-muted">
-                                                List
+                                                {el.type === 'table' ? 'Table' : 'List'}
                                             </span>
                                         )}
                                     </div>
@@ -176,6 +176,7 @@ export function Step2Schema({
                                             <option value="link">Link Target (href)</option>
                                             <option value="image">Image Source (src)</option>
                                             <option value="list">Structured Fields (Smart)</option>
+                                            <option value="table">Table Data</option>
                                         </select>
                                     </div>
                                 )}
