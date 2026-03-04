@@ -320,7 +320,8 @@ export class GroupParentContainerDetector implements IContainerDetector {
         if (!container) return 'list';
 
         const tag = container.tagName.toUpperCase();
-        if (tag === 'TABLE' || tag === 'TBODY' || tag === 'THEAD') {
+        // Semantic table AND ordered/unordered list tags → each child is a distinct row
+        if (tag === 'TABLE' || tag === 'TBODY' || tag === 'THEAD' || tag === 'UL' || tag === 'OL') {
             return 'table';
         }
 

@@ -15,7 +15,6 @@ interface Step2SchemaProps {
     elementName: string;
     setElementName: (name: string) => void;
     elementAction: 'extract' | 'click';
-    setElementAction: (action: 'extract' | 'click') => void;
     handleSaveElement: () => void;
     onBack: () => void;
     onNext: () => void;
@@ -34,7 +33,6 @@ export function Step2Schema({
     elementName,
     setElementName,
     elementAction,
-    setElementAction,
     handleSaveElement,
     onBack,
     onNext
@@ -180,16 +178,7 @@ export function Step2Schema({
                                         </select>
                                     </div>
                                 )}
-                                <div className="flex items-center gap-2 mb-2 p-2 bg-surface-lighter rounded-md border border-border-subtle">
-                                    <label className="flex items-center gap-2 cursor-pointer flex-1">
-                                        <input type="radio" className="radio text-primary radio-xs" name="actionType" checked={elementAction === 'extract'} onChange={() => setElementAction('extract')} />
-                                        <span className="text-xs text-text-primary font-medium">Extract Data</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer flex-1">
-                                        <input type="radio" className="radio text-accent-warning radio-xs" name="actionType" checked={elementAction === 'click'} onChange={() => setElementAction('click')} />
-                                        <span className="text-xs text-text-primary font-medium">Click Element</span>
-                                    </label>
-                                </div>
+
                                 <div className="bg-background-app p-3 rounded border border-border-subtle">
                                     <div className="text-[10px] text-text-muted mb-1 uppercase tracking-wide">Preview Value</div>
                                     <div className="text-xs text-text-primary font-mono truncate">{pendingElement?.value || 'No content'}</div>

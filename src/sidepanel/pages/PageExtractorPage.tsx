@@ -482,7 +482,6 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                         elementName={elementName}
                         setElementName={setElementName}
                         elementAction={elementAction}
-                        setElementAction={setElementAction}
                         handleSaveElement={handleSaveElement}
                         onBack={() => setStep(1)}
                         onNext={() => setStep(3)}

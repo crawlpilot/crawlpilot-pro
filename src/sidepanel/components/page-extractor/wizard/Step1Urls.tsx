@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Check, Database, Upload, X } from 'lucide-react';
 import Badge from '../../ui/Badge';
 
@@ -16,6 +17,34 @@ export function Step1Urls({
     handleRemoveUrl,
     onNext
 }: Step1UrlsProps) {
+    const csvInputRef = useRef<HTMLInputElement>(null);
+
+    const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const text = event.target?.result as string;
+            const lines = text.split(/\r?\n/);
+            const newUrls: string[] = [];
+            for (const line of lines) {
+                // Support comma or tab separated — take the first column
+                const parts = line.split(/[,\t]/);
+                for (const part of parts) {
+                    const url = part.trim().replace(/^"|"$/g, '');
+                    if (url.startsWith('http://') || url.startsWith('https://')) {
+                        newUrls.push(url);
+                    }
+                }
+            }
+            // Deduplicate and merge with existing
+            const merged = Array.from(new Set([...selectedUrls, ...newUrls]));
+            setSelectedUrls(merged);
+        };
+        reader.readAsText(file);
+        // Reset so same file can be re-uploaded if needed
+        e.target.value = '';
+    };
     return (
         <div className="space-y-4 animate-fade-in-up">
             <div className={`card transition-all duration-300 ${selectedUrls.length > 0 ? 'border-accent-success/30' : ''}`}>
@@ -79,7 +108,10 @@ export function Step1Urls({
                         </p>
 
                         <div className="space-y-2">
-                            <button className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border-subtle hover:border-primary/50 hover:bg-surface-lighter transition-all text-left group">
+                            <button
+                                className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border-subtle hover:border-primary/50 hover:bg-surface-lighter transition-all text-left group"
+                                onClick={() => csvInputRef.current?.click()}
+                            >
                                 <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center">
                                     <Upload className="w-5 h-5 text-primary" />
                                 </div>
@@ -88,6 +120,13 @@ export function Step1Urls({
                                     <p className="text-xs text-text-muted mt-0.5">Import URLs from a file</p>
                                 </div>
                             </button>
+                            <input
+                                ref={csvInputRef}
+                                type="file"
+                                accept=".csv,.tsv,.txt"
+                                className="hidden"
+                                onChange={handleCsvUpload}
+                            />
 
                             <button
                                 className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border-subtle hover:border-accent-ai/50 hover:bg-surface-lighter transition-all text-left group"

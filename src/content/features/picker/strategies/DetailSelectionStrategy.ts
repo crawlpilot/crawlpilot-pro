@@ -74,16 +74,14 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
         let finalValue = '';
         let autoExtractionType: 'text' | 'link' | 'image' | 'list' | 'table' = 'text';
 
-        const columnCount = data?.columns?.length || 0;
         const itemCount = isList ? (containerInfo.childCount || data?.items?.length || 0) : 1;
 
-        if (columnCount > 1) {
-            autoExtractionType = 'table';
-            previewValue = `Table (${columnCount} fields)`;
-            finalValue = previewValue;
-        } else if (isList) {
-            autoExtractionType = 'list';
-            previewValue = `List (${itemCount} items)`;
+        if (isList) {
+            // containerType is computed by determineContainerType using structural analysis:
+            // TABLE/UL/OL/TBODY → 'table' (rows), everything else → 'list' (columns)
+            autoExtractionType = containerInfo.containerType === 'table' ? 'table' : 'list';
+            const typeStr = autoExtractionType === 'table' ? 'Table' : 'List';
+            previewValue = `${typeStr} (${itemCount} items)`;
             finalValue = previewValue;
         } else if (element.tagName === 'IMG') {
             autoExtractionType = 'image';
