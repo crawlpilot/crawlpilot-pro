@@ -2,7 +2,6 @@ import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { ContainerDetector } from '../ContainerDetector';
-import { CommonSelectorGenerator } from '../../../services/dom/selectors/CommonSelectorGenerator';
 import { generateCssSelector, generateXPath, clickElementRobust } from '../../../services/dom/domUtils';
 
 export class DetailSelectionStrategy implements ISelectionStrategy {
@@ -49,15 +48,13 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
             containerSelector = generateCssSelector(containerInfo.container!);
             containerXPath = generateXPath(containerInfo.container!);
 
-            const commonGen = new CommonSelectorGenerator();
-            const validResults = commonGen.deriveCommonSelector(containerInfo.siblings, containerInfo.container!, target);
+            // In Detail Selection (Page Extraction), we must generate a STRICT selector 
+            // scoped to the specific target element to avoid broad matching that hangs large pages (e.g. Amazon)
+            const itemSpecificSelector = generateCssSelector(target, false);
+            const itemSpecificXPath = generateXPath(target);
 
-            if (validResults.length > 0) {
-                itemSelector = validResults[0].selector;
-            } else {
-                itemSelector = generateCssSelector(target, true);
-            }
-            itemXPath = generateXPath(target);
+            itemSelector = itemSpecificSelector;
+            itemXPath = itemSpecificXPath;
 
             // Extract all items in the list
             data = this.extractor.extract(target, containerInfo);
@@ -92,7 +89,7 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
             // [NEW] Smart Fallback
             // If DataExtractor found multiple child fields/columns in our single element,
             // we should treat it as a 'list' of 1 item to force the full schema into the UI.
-            if (data?.items && Array.isArray(data.items) && data.items.length > 0 && Object.keys(data.items[0]).length > 1) {
+            if (this.preferredAction !== 'click' && data?.items && Array.isArray(data.items) && data.items.length > 0 && Object.keys(data.items[0]).length > 1) {
                 autoExtractionType = 'list';
                 previewValue = `Container (${Object.keys(data.items[0]).length} fields)`;
                 finalValue = previewValue;
