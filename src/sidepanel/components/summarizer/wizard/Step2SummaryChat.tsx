@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Box, Typography, Paper, TextField, IconButton, CircularProgress, Button, LinearProgress } from '@mui/material';
 import { Send, ChevronLeft, Bot, User, Download, RefreshCw } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 interface Step2SummaryChatProps {
     selectedText: string;
@@ -208,11 +209,6 @@ export function Step2SummaryChat({ selectedText, onBack }: Step2SummaryChatProps
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Button startIcon={<ChevronLeft size={16} />} onClick={onBack} size="small" color="inherit">
-                    Back to Selection
-                </Button>
-            </Box>
 
             {/* Chat History Area */}
             <Paper
@@ -275,12 +271,21 @@ export function Step2SummaryChat({ selectedText, onBack }: Step2SummaryChatProps
                                 color: msg.role === 'user' ? 'primary.contrastText' : 'text.primary',
                                 border: msg.role === 'model' ? '1px solid' : 'none',
                                 borderColor: 'divider',
-                                maxWidth: '85%'
+                                maxWidth: '85%',
+                                '& p': { m: 0, mb: 1, '&:last-child': { mb: 0 } },
+                                '& ul, & ol': { m: 0, pl: 2, mb: 1 },
+                                '& li': { mb: 0.5 }
                             }}
                         >
-                            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-                                {msg.content}
-                            </Typography>
+                            {msg.role === 'model' ? (
+                                <Box sx={{ fontSize: '0.875rem', lineHeight: 1.5, whiteSpace: 'normal', wordBreak: 'break-word', typography: 'body2' }}>
+                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                </Box>
+                            ) : (
+                                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                                    {msg.content}
+                                </Typography>
+                            )}
                         </Paper>
                     </Box>
                 ))}
