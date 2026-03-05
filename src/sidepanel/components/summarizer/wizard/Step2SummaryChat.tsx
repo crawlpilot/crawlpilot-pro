@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Box, Typography, Paper, TextField, IconButton, CircularProgress, Button, LinearProgress } from '@mui/material';
-import { Send, ChevronLeft, Bot, User, Download, RefreshCw } from 'lucide-react';
+import { Send, Bot, User, Download, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface Step2SummaryChatProps {
