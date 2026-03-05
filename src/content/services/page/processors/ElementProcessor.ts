@@ -79,8 +79,8 @@ export class ElementProcessor {
         const originalOutline = element.style.outline;
         const originalBg = element.style.backgroundColor;
 
-        element.style.outline = '2px solid #FFC700'; // CrawlPilot Yellow
-        element.style.backgroundColor = 'rgba(255, 199, 0, 0.2)';
+        element.style.outline = '2px solid #22D3EE'; // Theme Accent Blue
+        element.style.backgroundColor = 'rgba(34, 211, 238, 0.2)'; // Theme Accent Blue transparent
 
         return new Promise(resolve => {
             setTimeout(() => {

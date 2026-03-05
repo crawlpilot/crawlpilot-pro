@@ -315,67 +315,39 @@ export class GroupParentContainerDetector implements IContainerDetector {
 
     /**
      * Identifies whether the container acts more like a traditional table/grid or a simple list.
+     * Returns 'table' → each child becomes its own output row.
+     * Returns 'list'  → all children are flattened into indexed columns on one row.
+     * This function IS required — the return value drives the Aggregator's row-explosion logic.
      */
     private determineContainerType(container: HTMLElement, siblings: HTMLElement[]): 'list' | 'table' {
         if (!container) return 'list';
 
         const tag = container.tagName.toUpperCase();
-        // Semantic table AND ordered/unordered list tags → each child is a distinct row
-        if (tag === 'TABLE' || tag === 'TBODY' || tag === 'THEAD' || tag === 'UL' || tag === 'OL') {
-            return 'table';
-        }
 
-        // Check if css display is grid or table
+        // 1. Semantic tags: TABLE/THEAD/TBODY always tabular; UL/OL treat each <li> as a row.
+        if (['TABLE', 'TBODY', 'THEAD', 'UL', 'OL'].includes(tag)) return 'table';
+
+        // 2. CSS display: table | grid | inline-grid → tabular layout
         try {
             const display = window.getComputedStyle(container).display;
             if (display.includes('table') || display === 'grid' || display === 'inline-grid') {
                 return 'table';
             }
-        } catch (e) { /* ignore */ }
+        } catch (_) { /* ignore */ }
 
-        // Heuristic 1: If the container itself has display: grid and columns, it's highly likely a table/grid representation
-        try {
-            const computedStyle = window.getComputedStyle(container);
-            if (computedStyle.display === 'grid' || computedStyle.display === 'inline-grid') {
-                const gridTemplateColumns = computedStyle.gridTemplateColumns;
-                if (gridTemplateColumns && gridTemplateColumns !== 'none' && gridTemplateColumns.split(' ').length > 1) {
-                    return 'table';
-                }
-            }
-        } catch (e) { /* ignore */ }
-
-        // Heuristic 2: If siblings (rows) consist of multiple distinct cells/columns
-        // For example, a specifications table where each row is a div containing a label and a value,
-        // or a data grid implemented with flexbox rows.
+        // 3. Structural heuristic: ≥80% of sibling rows have 2–10 children AND
+        //    the dominant child-count is consistent across ≥70% of rows.
+        //    Catches div-based key-value spec tables and flex/grid row layouts.
         if (siblings.length >= 2) {
-            let multiCellRowCount = 0;
-            const childCounts: number[] = [];
+            const childCounts = siblings.map(s => s.children.length);
+            const multiCellRows = childCounts.filter(n => n >= 2 && n <= 10).length;
 
-            for (const sibling of siblings) {
-                const childCount = sibling.children.length;
-                childCounts.push(childCount);
-                // A row with 2 to 10 distinct top-level element children usually implies columns
-                if (childCount >= 2 && childCount <= 10) {
-                    multiCellRowCount++;
-                }
-            }
-
-            // If almost all rows have multiple children, let's check for structural uniformity
-            if (multiCellRowCount / siblings.length >= 0.8) {
-                // Determine the mode (most common number of children per row)
-                const counts = childCounts;
-                const mode = counts.sort((a, b) =>
-                    counts.filter(v => v === a).length - counts.filter(v => v === b).length
-                ).pop();
-
-                // If it's a tight row structure (e.g., exactly 2 elements per row like Key-Value, or 3-5 columns)
-                // and there's a strong consistency across rows, identify it as a table.
-                if (mode !== undefined && mode >= 2) {
-                    const consistency = counts.filter(c => c === mode).length / counts.length;
-                    if (consistency > 0.7) {
-                        return 'table';
-                    }
-                }
+            if (multiCellRows / siblings.length >= 0.8) {
+                const freq: Record<number, number> = {};
+                childCounts.forEach(n => { freq[n] = (freq[n] || 0) + 1; });
+                const mode = Number(Object.keys(freq).reduce((a, b) => freq[+a] >= freq[+b] ? a : b));
+                const consistency = freq[mode] / childCounts.length;
+                if (mode >= 2 && consistency >= 0.7) return 'table';
             }
         }
 

@@ -69,9 +69,9 @@ export class VisualElementPicker {
             position: fixed !important;
             z-index: 2147483646 !important;
             pointer-events: none !important;
-            border: 2px solid #2563EB !important;
-            background-color: rgba(37, 99, 235, 0.1) !important;
-            box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.3), 0 0 10px rgba(37, 99, 235, 0.7) !important;
+            border: 2px solid #22D3EE !important;
+            background-color: rgba(34, 211, 238, 0.1) !important;
+            box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.3), 0 0 10px rgba(34, 211, 238, 0.7) !important;
             transition: all 0.1s ease-out !important;
             display: none !important;
             border-radius: 4px !important;
@@ -84,8 +84,8 @@ export class VisualElementPicker {
             position: fixed !important;
             z-index: 2147483647 !important;
             padding: 8px 12px !important;
-            background-color: #2563EB !important;
-            color: white !important;
+            background-color: #22D3EE !important;
+            color: black !important;
             border-radius: 6px !important;
             font-weight: bold !important;
             font-size: 13px !important;
@@ -217,8 +217,8 @@ export class VisualElementPicker {
                     position: fixed !important;
                     z-index: 2147483646 !important;
                     pointer-events: none !important;
-                    border: 2px dashed rgba(37, 99, 235, 0.8) !important;
-                    background-color: rgba(37, 99, 235, 0.05) !important;
+                    border: 2px dashed rgba(34, 211, 238, 0.8) !important;
+                    background-color: rgba(34, 211, 238, 0.05) !important;
                     top: ${sRect.top}px !important;
                     left: ${sRect.left}px !important;
                     width: ${sRect.width}px !important;

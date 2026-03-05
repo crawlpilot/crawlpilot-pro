@@ -10,14 +10,54 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
 
     public preferredAction?: 'extract' | 'click' = 'extract';
 
+    // Shared state: computed once in handleHover, reused by handleClick.
+    // This guarantees the highlighted element = the selected element.
+    private lastContainerInfo: any = null;
+    private lastHighlightedElement: HTMLElement | null = null;
+
     constructor() {
         this.extractor = new DataExtractor();
         this.detector = new ContainerDetector();
     }
 
+    /**
+     * Detect the container for this element (inside-first, then walk up).
+     * Shared logic used by both hover and click.
+     */
+    private detectContainer(element: HTMLElement) {
+        // Phase A: look inside
+        let containerInfo = this.detector.findInternalContainer(element);
+
+        // Phase B: walk up if nothing inside (user is hovering/clicking a child)
+        if (!containerInfo.isContainer) {
+            let ancestor: HTMLElement | null = element.parentElement;
+            for (let up = 0; up < 6 && ancestor && ancestor !== document.body; up++) {
+                const parentInfo = this.detector.findInternalContainer(ancestor);
+                if (parentInfo.isContainer) {
+                    containerInfo = parentInfo;
+                    break;
+                }
+                ancestor = ancestor.parentElement;
+            }
+        }
+        return containerInfo;
+    }
+
     handleHover(element: HTMLElement, picker: VisualElementPicker): void {
+        const containerInfo = this.detectContainer(element);
+
+        // Highlight the actual container so what you see = what you get on click
+        const highlightTarget =
+            containerInfo.isContainer && containerInfo.container
+                ? containerInfo.container as HTMLElement
+                : element;
+
+        // Cache for handleClick — no need to recalculate
+        this.lastContainerInfo = containerInfo;
+        this.lastHighlightedElement = highlightTarget;
+
         picker.updateHighlightManual(
-            element,
+            highlightTarget,
             'Select Element',
             'Click to edit & extract',
             undefined,
@@ -28,13 +68,15 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
     handleClick(element: HTMLElement, picker: VisualElementPicker, sendResponse: (msg: any) => void): void {
         console.log('Detail Strategy Clicked:', element);
 
-        // We explicitly use the EXACT element for selectors, bypassing any "Smart Ancestor" logic 
-        // to ensure Data Extractors match the exact node the user pointed to.
-        const target = element;
+        // Use the container that was highlighted to the user.
+        // If no hover ran (e.g. touch/keyboard click), fall back to fresh detection.
+        const containerInfo =
+            this.lastContainerInfo ?? this.detectContainer(element);
+        const target =
+            (containerInfo.isContainer && containerInfo.container)
+                ? containerInfo.container as HTMLElement
+                : (this.lastHighlightedElement ?? element);
 
-        // Use ContainerDetector to see if this is a list/table.
-        // We look INSIDE the selected element first.
-        const containerInfo = this.detector.findInternalContainer(target);
         const isList = containerInfo.isContainer && containerInfo.container;
 
         let containerSelector = '';
@@ -48,15 +90,12 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
             containerSelector = generateCssSelector(containerInfo.container!);
             containerXPath = generateXPath(containerInfo.container!);
 
-            // In Detail Selection (Page Extraction), we must generate a STRICT selector 
-            // scoped to the specific target element to avoid broad matching that hangs large pages (e.g. Amazon)
             const itemSpecificSelector = generateCssSelector(target, false);
             const itemSpecificXPath = generateXPath(target);
 
             itemSelector = itemSpecificSelector;
             itemXPath = itemSpecificXPath;
 
-            // Extract all items in the list
             data = this.extractor.extract(target, containerInfo);
 
         } else {
@@ -77,24 +116,22 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
         const itemCount = isList ? (containerInfo.childCount || data?.items?.length || 0) : 1;
 
         if (isList) {
-            // containerType is computed by determineContainerType using structural analysis:
-            // TABLE/UL/OL/TBODY → 'table' (rows), everything else → 'list' (columns)
             autoExtractionType = containerInfo.containerType === 'table' ? 'table' : 'list';
             const typeStr = autoExtractionType === 'table' ? 'Table' : 'List';
             previewValue = `${typeStr} (${itemCount} items)`;
             finalValue = previewValue;
-        } else if (element.tagName === 'IMG') {
+        } else if (target.tagName === 'IMG') {
             autoExtractionType = 'image';
-            previewValue = (element as HTMLImageElement).src;
+            previewValue = (target as HTMLImageElement).src;
             finalValue = previewValue;
-        } else if (element.tagName === 'A') {
+        } else if (target.tagName === 'A') {
             autoExtractionType = 'link';
-            previewValue = (element as HTMLAnchorElement).href;
+            previewValue = (target as HTMLAnchorElement).href;
             finalValue = previewValue;
         } else {
             autoExtractionType = 'text';
-            previewValue = element.textContent?.trim().substring(0, 50) || '';
-            finalValue = element.textContent?.trim() || '';
+            previewValue = target.textContent?.trim().substring(0, 50) || '';
+            finalValue = target.textContent?.trim() || '';
         }
 
         sendResponse({
@@ -109,9 +146,9 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
                 itemXPath: itemXPath,
                 value: finalValue,
                 previewValue: previewValue,
-                tagName: element.tagName.toLowerCase(),
+                tagName: target.tagName.toLowerCase(),
                 selectionMode: 'detail',
-                action: this.preferredAction || 'extract', // Use preferred action
+                action: this.preferredAction || 'extract',
                 extractionType: autoExtractionType,
                 waitTime: 0,
                 patternFound: isList,
@@ -121,21 +158,25 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
 
         picker.deactivate();
 
+        // Reset shared state after use
+        this.lastContainerInfo = null;
+        this.lastHighlightedElement = null;
+
         // [NEW] If action is click, actually perform it so user can proceed
         if (this.preferredAction === 'click') {
-            console.log('👆 Triggering robust click on element:', element);
+            console.log('👆 Triggering robust click on element:', target);
 
-            // Synchronous native click FIRST to preserve User Gesture (Transient Activation)
-            // This is required for navigating <a> tags or triggering native popups.
-            if (typeof element.click === 'function') {
-                element.click();
+            if (typeof target.click === 'function') {
+                target.click();
             }
 
-            // Slightly longer delay to ensure overlay is gone and DOM is stable for JS-bound events
             setTimeout(async () => {
-                await clickElementRobust(element);
+                await clickElementRobust(target);
             }, 100);
         }
 
     }
 }
+
+
+
