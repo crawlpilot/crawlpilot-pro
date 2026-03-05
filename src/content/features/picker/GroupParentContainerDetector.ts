@@ -150,7 +150,7 @@ export class GroupParentContainerDetector implements IContainerDetector {
             (c.innerText || c.textContent || '').trim().length > 0
         ) as HTMLElement[];
 
-        if (visibleChildrenWithText.length >= 2) {
+        if (visibleChildrenWithText.length >= this.minRows) {
             return {
                 isContainer: true,
                 containerType: this.determineContainerType(element, visibleChildrenWithText),
@@ -194,7 +194,7 @@ export class GroupParentContainerDetector implements IContainerDetector {
                 const validChildren = (Array.from(desc.children) as HTMLElement[]).filter(
                     c => this.isValidGroupElement(c) && this.isVisible(c) && (c.innerText || c.textContent || '').trim().length > 0
                 );
-                if (validChildren.length >= this.minRows && validChildren.length > bestCount) {
+                if (validChildren.length >= 2 && validChildren.length > bestCount) {
                     bestCount = validChildren.length;
                     bestContainer = desc;
                     bestChildren = validChildren;

@@ -129,12 +129,70 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             } as any);
             currentJobId = job;
 
-            // [NEW] Centralized Page Processor
+            // ─── Tab Load Helper ────────────────────────────────────────────
+            // Waits for tabs.onUpdated status='complete' instead of a fixed delay.
+            // Falls back to loadTimeout as a safety cap so we never hang forever.
+            const waitForTabLoaded = (tabId: number): Promise<void> => {
+                return new Promise((resolve) => {
+                    const cap = setTimeout(resolve, (config.loadTimeout || 10000) + 5000);
+
+                    const onUpdated = (id: number, info: { status?: string }) => {
+                        if (id === tabId && info.status === 'complete') {
+                            clearTimeout(cap);
+                            chrome.tabs.onUpdated.removeListener(onUpdated);
+                            resolve();
+                        }
+                    };
+                    chrome.tabs.onUpdated.addListener(onUpdated);
+
+                    // Handle race — tab may already be complete before we register
+                    chrome.tabs.get(tabId, (t) => {
+                        if (chrome.runtime.lastError) return;
+                        if (t?.status === 'complete') {
+                            clearTimeout(cap);
+                            chrome.tabs.onUpdated.removeListener(onUpdated);
+                            resolve();
+                        }
+                    });
+                });
+            };
+
+            // ─── Click Dispatcher ────────────────────────────────────────────
+            // Fires the full mouse event sequence via executeScript.
+            // Works on inactive/background tabs — does not require visual rendering.
+            const dispatchClickInTab = async (tabId: number, selector: string) => {
+                try {
+                    await chrome.scripting.executeScript({
+                        target: { tabId },
+                        func: (sel: string) => {
+                            const el = document.querySelector(sel) as HTMLElement | null;
+                            if (!el) return;
+                            // Full sequence: hover → press → release → click
+                            // Sites that gate content behind mouseover (e.g. dropdowns) need this.
+                            (['mouseover', 'mouseenter', 'mousemove', 'mousedown', 'mouseup', 'click'] as const)
+                                .forEach(type => el.dispatchEvent(new MouseEvent(type, {
+                                    bubbles: true, cancelable: true, view: window, button: 0
+                                })));
+                            // For inputs / selects, also fire focus + change
+                            if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) {
+                                el.focus();
+                                el.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        },
+                        args: [selector]
+                    });
+                } catch (e) {
+                    console.warn('[dispatchClickInTab] executeScript failed:', e);
+                }
+            };
+
+            // ─── Centralized Page Processor ──────────────────────────────────
             const processUrlOnTab = async (targetTabId: number, url: string) => {
                 const batchRecordId = `rec_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
                 let itemData: any = { source_url: url, recordId: batchRecordId };
 
-                const sendMessageWithRetry = async (tabId: number, message: any, maxRetries = 15, interval = 1000) => {
+                // Tightened from 15×1000ms → 10×500ms (5s max, sufficient post status:'complete')
+                const sendMessageWithRetry = async (tabId: number, message: any, maxRetries = 10, interval = 500) => {
                     for (let attempt = 0; attempt < maxRetries; attempt++) {
                         if (shouldStopRef.current) break;
                         const response = await new Promise<any>((resolve) => {
@@ -148,88 +206,94 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                         });
 
                         if (response?.isConnectionError) {
-                            console.log(`[Attempt ${attempt + 1}/${maxRetries}] Content script not ready: ${response.error}. Retrying in ${interval}ms...`);
+                            console.log(`[Attempt ${attempt + 1}/${maxRetries}] Content script not ready. Retrying in ${interval}ms...`);
                             await new Promise(r => setTimeout(r, interval));
                         } else {
                             return response;
                         }
                     }
-                    return { success: false, error: "Max retries reached." };
+                    return { success: false, error: 'Max retries reached.' };
                 };
 
                 for (const element of elements) {
                     if (shouldStopRef.current) break;
 
-                    const response = await sendMessageWithRetry(targetTabId, {
-                        type: 'CMD_EXTRACT_PAGE',
-                        payload: {
-                            actionType: 'EXTRACT_PAGES',
-                            url: url,
-                            elements: [element],
-                            config: config
-                        }
-                    });
-
-                    if (response && response.success && response.result) {
-                        const { item, items, columns: resultColumns } = response.result;
-
-                        if (resultColumns && Array.isArray(resultColumns)) {
-                            resultColumns.forEach(newCol => {
-                                if (!finalColumns.find(c => c.id === newCol.id)) {
-                                    finalColumns.push(newCol);
-                                }
-                            });
-                        }
-
-                        if (items && Array.isArray(items)) {
-                            if (Array.isArray(itemData)) {
-                                itemData = items.map((newItem, idx) => ({
-                                    ...(itemData[idx] || { recordId: batchRecordId }),
-                                    ...newItem,
-                                    recordId: batchRecordId
-                                }));
-                            } else {
-                                const baseData = { ...itemData };
-                                itemData = items.map((newItem, idx) => ({
-                                    ...(idx === 0 ? baseData : { recordId: batchRecordId }),
-                                    ...newItem,
-                                    recordId: batchRecordId
-                                }));
-                            }
-                        } else if (item) {
-                            if (Array.isArray(itemData)) {
-                                itemData = itemData.map((row, idx) => ({
-                                    ...row,
-                                    ...(idx === 0 ? item : {})
-                                }));
-                            } else {
-                                itemData = { ...itemData, ...item };
-                            }
-                        }
-                    }
-
                     if (element.action === 'click') {
+                        // Click elements: dispatch via executeScript (works on inactive tabs)
+                        const clickSelector = element.selector || element.containerSelector;
+                        if (clickSelector) {
+                            await dispatchClickInTab(targetTabId, clickSelector);
+                        }
                         await new Promise(resolve => setTimeout(resolve, config.requestDelay > 0 ? config.requestDelay * 2 : 2000));
                     } else {
-                        await new Promise(resolve => setTimeout(resolve, 500));
+                        // Extract elements: send to content script
+                        const response = await sendMessageWithRetry(targetTabId, {
+                            type: 'CMD_EXTRACT_PAGE',
+                            payload: {
+                                actionType: 'EXTRACT_PAGES',
+                                url,
+                                elements: [element],
+                                config
+                            }
+                        });
+
+                        if (response && response.success && response.result) {
+                            const { item, items, columns: resultColumns } = response.result;
+
+                            if (resultColumns && Array.isArray(resultColumns)) {
+                                resultColumns.forEach((newCol: any) => {
+                                    if (!finalColumns.find((c: any) => c.id === newCol.id)) {
+                                        finalColumns.push(newCol);
+                                    }
+                                });
+                            }
+
+                            if (items && Array.isArray(items)) {
+                                if (Array.isArray(itemData)) {
+                                    itemData = items.map((newItem, idx) => ({
+                                        ...(itemData[idx] || { recordId: batchRecordId }),
+                                        ...newItem,
+                                        recordId: batchRecordId
+                                    }));
+                                } else {
+                                    const baseData = { ...itemData };
+                                    itemData = items.map((newItem, idx) => ({
+                                        ...(idx === 0 ? baseData : { recordId: batchRecordId }),
+                                        ...newItem,
+                                        recordId: batchRecordId
+                                    }));
+                                }
+                            } else if (item) {
+                                if (Array.isArray(itemData)) {
+                                    itemData = itemData.map((row: any, idx: number) => ({
+                                        ...row,
+                                        ...(idx === 0 ? item : {})
+                                    }));
+                                } else {
+                                    itemData = { ...itemData, ...item };
+                                }
+                            }
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 300));
                     }
                 }
 
                 return itemData;
             };
 
-            // [NEW] Execution Router (Sequential vs Parallel)
+            // ─── Execution Router ────────────────────────────────────────────
             if (!useParallel) {
-                // SEQUENTIAL: Run in active tab
+                // SEQUENTIAL: navigate the active tab, wait for real load completion
                 for (let i = 0; i < uniqueUrls.length; i++) {
                     if (shouldStopRef.current) break;
 
                     const url = uniqueUrls[i];
                     await chrome.tabs.update(tab.id, { url });
-                    await new Promise(resolve => setTimeout(resolve, config.loadTimeout || 3000));
+                    await waitForTabLoaded(tab.id);
+                    // Small extra settle time for post-load JS (React hydration etc.)
+                    await new Promise(resolve => setTimeout(resolve, 500));
 
                     const extractedData = await processUrlOnTab(tab.id, url);
-
                     if (Array.isArray(extractedData)) {
                         allItems.push(...extractedData);
                     } else {
@@ -243,12 +307,11 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                     }
                 }
             } else {
-                // PARALLEL: Create background tabs
+                // PARALLEL: background tabs with event-driven load + flash-activate
                 const queue = [...uniqueUrls];
 
                 const worker = async () => {
                     while (queue.length > 0 && !shouldStopRef.current) {
-                        // Atomically grab the next URL from the queue
                         const url = queue.shift();
                         if (!url) break;
 
@@ -259,10 +322,18 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                             bgTabId = bgTab.id;
                             if (!bgTabId) continue;
 
-                            await new Promise(resolve => setTimeout(resolve, config.loadTimeout || 3000));
+                            // Fix 1: Wait for actual load completion
+                            await waitForTabLoaded(bgTabId);
+
+                            // Fix 2: Flash-activate for ~300ms to trigger viewport rendering,
+                            // lazy loading (IntersectionObserver), visibility events etc.
+                            await chrome.tabs.update(bgTabId, { active: true });
+                            await new Promise(r => setTimeout(r, 300));
+                            // Restore focus back to the sidepanel's tab
+                            await chrome.tabs.update(tab.id, { active: true });
+                            await new Promise(r => setTimeout(r, 200));
 
                             const extractedData = await processUrlOnTab(bgTabId, url);
-
                             if (Array.isArray(extractedData)) {
                                 allItems.push(...extractedData);
                             } else {
@@ -272,16 +343,13 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                             console.error(`Error processing ${url} in parallel:`, e);
                         } finally {
                             if (bgTabId) {
-                                // Don't block the next iteration on tab removal
                                 chrome.tabs.remove(bgTabId).catch(console.warn);
                             }
-                            // Update progress atomically
                             setCompletedPages(prev => prev + 1);
                         }
                     }
                 };
 
-                // Launch workers up to maxConccurent or queue size
                 const workers = Array(Math.min(maxConcurrent, uniqueUrls.length)).fill(null).map(() => worker());
                 await Promise.all(workers);
             }
