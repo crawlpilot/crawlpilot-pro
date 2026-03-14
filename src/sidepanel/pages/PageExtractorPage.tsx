@@ -19,7 +19,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
     const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
 
     // [NEW] Selection Logic
-    const { startSelection, status: selectionStatus, setStatus: setSelectionStatus } = useSelectionMode();
+    const { startSelection, stopSelection, status: selectionStatus, setStatus: setSelectionStatus } = useSelectionMode();
     const [elements, setElements] = useState<any[]>([]);
 
     // Persist state across unmounts (session-only)
@@ -437,11 +437,25 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
 
                 setElements(prev => [...prev, newElement]);
                 setSelectionStatus('idle'); // Picker auto-deactivates
+            } else if (message.type === 'PICKER_CANCELLED') {
+                setSelectionStatus('idle');
             }
         };
         chrome.runtime.onMessage.addListener(handleMessage);
-        return () => chrome.runtime.onMessage.removeListener(handleMessage);
-    }, [setSelectionStatus, setElements]);
+
+        // Handle ESC key cancellation from the side panel
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                stopSelection();
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            chrome.runtime.onMessage.removeListener(handleMessage);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [setSelectionStatus, setElements, stopSelection]);
 
     const handleEditElement = (el: any) => {
         setPendingElement({
@@ -553,6 +567,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                         handleSaveElement={handleSaveElement}
                         onBack={() => setStep(1)}
                         onNext={() => setStep(3)}
+                        onCancel={stopSelection}
                     />
                 );
             case 3:

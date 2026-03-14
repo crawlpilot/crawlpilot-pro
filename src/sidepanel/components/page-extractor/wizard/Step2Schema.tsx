@@ -18,6 +18,7 @@ interface Step2SchemaProps {
     handleSaveElement: () => void;
     onBack: () => void;
     onNext: () => void;
+    onCancel: () => void;
 }
 
 export function Step2Schema({
@@ -35,7 +36,8 @@ export function Step2Schema({
     elementAction,
     handleSaveElement,
     onBack,
-    onNext
+    onNext,
+    onCancel
 }: Step2SchemaProps) {
     return (
         <div className="space-y-4 animate-fade-in-up">
@@ -47,7 +49,27 @@ export function Step2Schema({
                     <h2 className="font-semibold text-sm text-text-primary">Extraction Schema</h2>
                 </div>
 
-                {elements.length === 0 ? (
+                {selectionStatus === 'selecting' && (
+                    <div className="mb-4 p-6 border-2 border-dashed border-primary bg-primary/5 text-center rounded-xl">
+                        <div className="flex justify-center mb-4 text-primary animate-pulse">
+                            <MousePointerClick className="w-10 h-10" />
+                        </div>
+                        <h3 className="text-base font-semibold text-primary mb-1">
+                            Selection Mode Active
+                        </h3>
+                        <p className="text-sm text-text-muted mb-4">
+                            Click on an element in the page to select it.
+                        </p>
+                        <button
+                            onClick={onCancel}
+                            className="text-sm text-text-muted hover:text-text-primary underline transition-colors"
+                        >
+                            Press ESC to cancel
+                        </button>
+                    </div>
+                )}
+
+                {elements.length === 0 && selectionStatus !== 'selecting' ? (
                     <div className="grid grid-cols-2 gap-3">
                         <div
                             className="p-4 border border-dashed border-border-subtle rounded-lg bg-surface-lighter/50 flex flex-col items-center justify-center text-center group cursor-pointer hover:border-primary/50 transition-colors"
@@ -57,7 +79,7 @@ export function Step2Schema({
                                 <MousePointerClick className="w-4 h-4 text-primary" />
                             </div>
                             <h3 className="text-xs font-medium text-text-primary mb-0.5">
-                                {selectionStatus === 'selecting' ? 'Selecting...' : 'Select Elements'}
+                                Select Elements
                             </h3>
                             <p className="text-[10px] text-text-muted">Extract data fields</p>
                         </div>
@@ -135,6 +157,7 @@ export function Step2Schema({
                         </div>
                     </div>
                 )}
+
             </div>
 
             {/* Edit Modal Custom */}
