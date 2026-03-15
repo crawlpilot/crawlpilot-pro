@@ -39,6 +39,7 @@ export interface DataTableRef {
 interface DataTableProps {
     columns: Column[];
     rows: TableRow[];
+    defaultHideMostlyEmptyColumns?: boolean;
 }
 
 // Custom Header Component
@@ -115,7 +116,7 @@ const CustomHeader = (props: any) => {
     );
 };
 
-const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows }, ref) => {
+const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, defaultHideMostlyEmptyColumns = true }, ref) => {
     // Filter states
     const [showFilters, setShowFilters] = useState(false);
     const [showMerge, setShowMerge] = useState(false);
@@ -127,7 +128,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows }, r
     const [removeDuplicateColumns, setRemoveDuplicateColumns] = useState(true);
     const [prioritizeRichColumns, setPrioritizeRichColumns] = useState(true);
     const [showImages, setShowImages] = useState(true);
-    const [hideMostlyEmptyColumns, setHideMostlyEmptyColumns] = useState(true);
+    const [hideMostlyEmptyColumns, setHideMostlyEmptyColumns] = useState(defaultHideMostlyEmptyColumns);
 
     // Column Management States
     const [renames, setRenames] = useState<Record<string, string>>({});
@@ -358,7 +359,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows }, r
         setRemoveDuplicateColumns(true);
         setPrioritizeRichColumns(true);
         setShowImages(true);
-        setHideMostlyEmptyColumns(true);
+        setHideMostlyEmptyColumns(defaultHideMostlyEmptyColumns);
         setRenames({});
         setDeletedCols(new Set());
         setMergedCols([]);
