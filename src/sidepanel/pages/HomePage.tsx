@@ -187,33 +187,39 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                             borderRadius: 3,
                             border: '1px solid',
                             borderColor: 'divider',
-                            bgcolor: 'transparent',
-                            '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' }
+                            bgcolor: 'background.paper',
+                            transition: 'all 0.2s',
+                            '&:hover': {
+                                borderColor: 'primary.main',
+                                transform: 'translateY(-2px)',
+                                boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
+                            }
                         }}
                     >
                         <CardActionArea onClick={() => onNavigate('image-downloader')} sx={{ p: 2 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                     <Box sx={{
-                                        p: 1,
-                                        borderRadius: 1.5,
-                                        bgcolor: 'rgba(255,255,255,0.05)',
-                                        color: 'text.secondary',
+                                        p: 1.5,
+                                        borderRadius: 2,
+                                        bgcolor: 'rgba(37, 99, 235, 0.1)',
+                                        color: 'primary.main',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center'
                                     }}>
-                                        <ImageIcon size={20} />
+                                        <ImageIcon size={24} />
                                     </Box>
                                     <Box>
-                                        <Typography variant="body2" fontWeight="500">
+                                        <Typography variant="subtitle1" fontWeight="600" sx={{ lineHeight: 1.2 }}>
                                             Image Downloader
                                         </Typography>
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1 }}>
+                                        <Typography variant="caption" color="text.secondary">
                                             Bulk download images from page
                                         </Typography>
                                     </Box>
                                 </Box>
+                                <ChevronRight size={20} className="text-gray-500" />
                             </Box>
                         </CardActionArea>
                     </Card>
@@ -225,33 +231,39 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                             borderRadius: 3,
                             border: '1px solid',
                             borderColor: 'divider',
-                            bgcolor: 'transparent',
-                            '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' }
+                            bgcolor: 'background.paper',
+                            transition: 'all 0.2s',
+                            '&:hover': {
+                                borderColor: 'primary.main',
+                                transform: 'translateY(-2px)',
+                                boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
+                            }
                         }}
                     >
                         <CardActionArea onClick={() => onNavigate('utilities')} sx={{ p: 2 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                     <Box sx={{
-                                        p: 1,
-                                        borderRadius: 1.5,
-                                        bgcolor: 'rgba(255,255,255,0.05)',
-                                        color: 'text.secondary',
+                                        p: 1.5,
+                                        borderRadius: 2,
+                                        bgcolor: 'rgba(37, 99, 235, 0.1)',
+                                        color: 'primary.main',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center'
                                     }}>
-                                        <Sparkles size={20} />
+                                        <Sparkles size={24} />
                                     </Box>
                                     <Box>
-                                        <Typography variant="body2" fontWeight="500">
+                                        <Typography variant="subtitle1" fontWeight="600" sx={{ lineHeight: 1.2 }}>
                                             Browser Utilities
                                         </Typography>
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1 }}>
+                                        <Typography variant="caption" color="text.secondary">
                                             Right-click unlocker & tools
                                         </Typography>
                                     </Box>
                                 </Box>
+                                <ChevronRight size={20} className="text-gray-500" />
                             </Box>
                         </CardActionArea>
                     </Card>
