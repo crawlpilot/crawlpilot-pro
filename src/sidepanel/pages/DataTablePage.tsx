@@ -15,7 +15,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
     const { tableDatas, loading: loadingAll, error: loadError } = useAllTableData();
     const [selectedId, setSelectedId] = useState<number | null>(initialTableId);
     const { tableData, rows, loading, error } = useTableData(selectedId);
-    const { exportToCSV, exportToJSON } = useExportData();
+    const { exportToCSV, exportToJSON, exportToWebhook, exportToAirtable, exportToGoogleSheets } = useExportData();
     const tableRef = useRef<any>(null);
     const [userPlan, setUserPlan] = useState<string>('free');
 
@@ -54,6 +54,33 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
         if (tableRef.current) {
             const { columns, rows } = tableRef.current.getProcessedData();
             exportToJSON(columns, rows, tableData?.name || 'export');
+        }
+    };
+
+    const handlePremiumExport = async (type: 'webhook' | 'zapier' | 'airtable' | 'google-sheets') => {
+        if (!isPaid) {
+            handleUpgradeClick();
+            return;
+        }
+        if (!tableRef.current) return;
+
+        try {
+            const { columns, rows } = tableRef.current.getProcessedData();
+            let success = false;
+
+            if (type === 'webhook' || type === 'zapier') {
+                success = await exportToWebhook(columns, rows, type);
+            } else if (type === 'airtable') {
+                success = await exportToAirtable(columns, rows);
+            } else if (type === 'google-sheets') {
+                success = await exportToGoogleSheets(columns, rows);
+            }
+
+            if (success) {
+                alert(`Successfully exported data to ${type.charAt(0).toUpperCase() + type.slice(1)}!`);
+            }
+        } catch (err: any) {
+            alert(`Export failed: ${err.message}`);
         }
     };
 
@@ -166,8 +193,8 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                                 <button
                                     onClick={!isPaid ? handleUpgradeClick : undefined}
                                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm ${isPaid
-                                            ? "bg-primary hover:bg-primary-hover text-white"
-                                            : "bg-gray-700/50 text-gray-400 cursor-pointer hover:bg-gray-700"
+                                        ? "bg-primary hover:bg-primary-hover text-white"
+                                        : "bg-gray-700/50 text-gray-400 cursor-pointer hover:bg-gray-700"
                                         }`}
                                 >
                                     <Download className="w-3.5 h-3.5" />
@@ -197,25 +224,25 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                                             Integrations (PRO)
                                         </div>
                                         <button
-                                            onClick={() => alert("Coming Soon: Google Sheets Integration")}
+                                            onClick={() => handlePremiumExport('google-sheets')}
                                             className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
                                         >
                                             <Share2 className="w-3 h-3 text-blue-400" /> Google Sheets
                                         </button>
                                         <button
-                                            onClick={() => alert("Coming Soon: Webhooks Integration")}
+                                            onClick={() => handlePremiumExport('webhook')}
                                             className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
                                         >
                                             <Webhook className="w-3 h-3 text-purple-400" /> Webhook
                                         </button>
                                         <button
-                                            onClick={() => alert("Coming Soon: Airtable Integration")}
+                                            onClick={() => handlePremiumExport('airtable')}
                                             className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
                                         >
                                             <Database className="w-3 h-3 text-cyan-400" /> Airtable
                                         </button>
                                         <button
-                                            onClick={() => alert("Coming Soon: Zapier Integration")}
+                                            onClick={() => handlePremiumExport('zapier')}
                                             className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
                                         >
                                             <Zap className="w-3 h-3 text-orange-400" /> Zapier
