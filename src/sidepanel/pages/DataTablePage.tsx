@@ -5,7 +5,7 @@ import Select from '../components/ui/Select';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
-import { Database, Calendar, Download, FileText, FileJson } from 'lucide-react';
+import { Database, Calendar, Download, FileText, FileJson, Share2, Webhook, Zap } from 'lucide-react';
 
 interface DataTablePageProps {
     initialTableId?: number | null;
@@ -165,12 +165,10 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                             <div className="relative group">
                                 <button
                                     onClick={!isPaid ? handleUpgradeClick : undefined}
-                                    className={cn(
-                                        "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm",
-                                        isPaid
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm ${isPaid
                                             ? "bg-primary hover:bg-primary-hover text-white"
                                             : "bg-gray-700/50 text-gray-400 cursor-pointer hover:bg-gray-700"
-                                    )}
+                                        }`}
                                 >
                                     <Download className="w-3.5 h-3.5" />
                                     <span>Export</span>
@@ -178,7 +176,10 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                                 </button>
                                 {/* Dropdown - only show if paid */}
                                 {isPaid && (
-                                    <div className="absolute right-0 top-full mt-1 w-32 bg-background-panel border border-border-subtle rounded-lg shadow-xl overflow-hidden hidden group-hover:block z-50">
+                                    <div className="absolute right-0 top-full mt-1 w-48 bg-background-panel border border-border-subtle rounded-lg shadow-xl overflow-hidden hidden group-hover:block z-50">
+                                        <div className="px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase border-bottom border-border-subtle bg-white/5">
+                                            Local Export
+                                        </div>
                                         <button
                                             onClick={handleExportCSV}
                                             className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
@@ -190,6 +191,34 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                                             className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
                                         >
                                             <FileJson className="w-3 h-3 text-yellow-400" /> JSON
+                                        </button>
+
+                                        <div className="px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase border-y border-border-subtle bg-white/5">
+                                            Integrations (PRO)
+                                        </div>
+                                        <button
+                                            onClick={() => alert("Coming Soon: Google Sheets Integration")}
+                                            className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
+                                        >
+                                            <Share2 className="w-3 h-3 text-blue-400" /> Google Sheets
+                                        </button>
+                                        <button
+                                            onClick={() => alert("Coming Soon: Webhooks Integration")}
+                                            className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
+                                        >
+                                            <Webhook className="w-3 h-3 text-purple-400" /> Webhook
+                                        </button>
+                                        <button
+                                            onClick={() => alert("Coming Soon: Airtable Integration")}
+                                            className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
+                                        >
+                                            <Database className="w-3 h-3 text-cyan-400" /> Airtable
+                                        </button>
+                                        <button
+                                            onClick={() => alert("Coming Soon: Zapier Integration")}
+                                            className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
+                                        >
+                                            <Zap className="w-3 h-3 text-orange-400" /> Zapier
                                         </button>
                                     </div>
                                 )}
