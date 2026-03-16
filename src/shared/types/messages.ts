@@ -24,7 +24,9 @@ export type MessageType =
     | 'PICKER_CANCELLED'
     | 'CMD_EXTRACT_PAGE'
     | 'CMD_PAGINATION_ACTION'
-    | 'TEST_SELECTOR';
+    | 'TEST_SELECTOR'
+    | 'AUTH_SUCCESS'
+    | 'AUTH_LOGOUT';
 
 export interface BaseMessage {
     type: MessageType;

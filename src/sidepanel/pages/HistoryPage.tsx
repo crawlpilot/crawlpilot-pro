@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useJobHistory } from '../hooks/useDatabase';
 import { useExtractionProcess } from '../hooks/useExtractionProcess';
 import {
@@ -68,6 +68,23 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
 
     // Rerun Dialog State
     const [rerunDialogOpen, setRerunDialogOpen] = useState(false);
+    const [userPlan, setUserPlan] = useState<string>('free');
+
+    useEffect(() => {
+        chrome.storage.local.get(['user_plan'], (result) => {
+            if (typeof result.user_plan === 'string') {
+                setUserPlan(result.user_plan);
+            }
+        });
+    }, []);
+
+    const isPaid = userPlan === 'paid';
+
+    const handleUpgradeClick = () => {
+        if (confirm('This is a PRO feature. Upgrade to unlock reruns, export and more. Would you like to visit the website to upgrade?')) {
+            window.open('https://crawlpilot.tech/profile', '_blank');
+        }
+    };
     const [rerunTarget, setRerunTarget] = useState<JobWithRecipe | null>(null);
     const [rerunName, setRerunName] = useState('');
     const [rerunMaxPages, setRerunMaxPages] = useState<number>(10);
@@ -382,10 +399,24 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                                             size="small"
                                                             variant="outlined"
                                                             color="inherit"
-                                                            onClick={(e) => { e.stopPropagation(); openRerunDialog(job); }}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (!isPaid) {
+                                                                    handleUpgradeClick();
+                                                                } else {
+                                                                    openRerunDialog(job);
+                                                                }
+                                                            }}
                                                             disabled={extractionStatus.isExtracting}
-                                                            startIcon={isRunning ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}
-                                                            sx={{ minWidth: 'auto', px: 1.5, py: 0.2, borderColor: 'divider' }}
+                                                            startIcon={isRunning ? <Loader2 size={14} className="animate-spin" /> : (!isPaid ? <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg> : <RefreshCcw size={14} />)}
+                                                            sx={{
+                                                                minWidth: 'auto',
+                                                                px: 1.5,
+                                                                py: 0.2,
+                                                                borderColor: 'divider',
+                                                                opacity: !isPaid ? 0.7 : 1,
+                                                                bgcolor: !isPaid ? alpha(theme.palette.action.disabledBackground, 0.05) : 'transparent'
+                                                            }}
                                                         >
                                                             Rerun
                                                         </Button>
@@ -561,12 +592,17 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                 <DialogActions sx={{ p: 2, borderTop: 1, borderColor: 'divider', justifyContent: 'space-between' }}>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                         <Button
-                            startIcon={<Copy size={16} />}
+                            startIcon={!isPaid ? <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg> : <Copy size={16} />}
                             color="inherit"
                             onClick={() => {
+                                if (!isPaid) {
+                                    handleUpgradeClick();
+                                    return;
+                                }
                                 navigator.clipboard.writeText(JSON.stringify(detailsJob, null, 2));
                                 alert("Copied to clipboard");
                             }}
+                            sx={{ opacity: !isPaid ? 0.7 : 1 }}
                         >
                             Export
                         </Button>
@@ -589,12 +625,23 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                             variant="contained"
                             color="secondary"
                             onClick={() => {
+                                if (!isPaid) {
+                                    handleUpgradeClick();
+                                    return;
+                                }
                                 const job = detailsJob;
                                 setDetailsJob(null);
                                 openRerunDialog(job);
                             }}
+                            sx={{
+                                opacity: !isPaid ? 0.8 : 1,
+                                bgcolor: !isPaid ? 'grey.700' : 'secondary.main',
+                                '&:hover': {
+                                    bgcolor: !isPaid ? 'grey.600' : 'secondary.dark',
+                                }
+                            }}
                         >
-                            Rerun
+                            {!isPaid ? 'Upgrade' : 'Rerun'}
                         </Button>
                     </Box>
                 </DialogActions>

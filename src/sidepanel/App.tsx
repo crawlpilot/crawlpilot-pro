@@ -11,11 +11,30 @@ import UtilitiesPage from './pages/UtilitiesPage';
 import DataTablePage from './pages/DataTablePage'; // Assuming this import exists or I will create it
 import SettingsPage from './pages/SettingsPage';
 import TextSummarizerPage from './pages/TextSummarizerPage';
+import AuthPage from './pages/AuthPage';
 import Header from './components/ui/Header';
 
 function App() {
     const [currentView, setCurrentView] = useState('home');
     const [isGlobalExtracting, setIsGlobalExtracting] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        // Check initial auth state
+        chrome.storage.local.get(['session_token'], (result) => {
+            setIsAuthenticated(!!result.session_token);
+        });
+
+        // Listen for auth changes
+        const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+            if (changes.session_token) {
+                setIsAuthenticated(!!changes.session_token.newValue);
+            }
+        };
+
+        chrome.storage.onChanged.addListener(handleStorageChange);
+        return () => chrome.storage.onChanged.removeListener(handleStorageChange);
+    }, []);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -60,15 +79,24 @@ function App() {
         }
     };
 
+    // Show nothing while checking initial auth state
+    if (isAuthenticated === null) {
+        return null;
+    }
+
     return (
         <ThemeProvider theme={muiTheme}>
             <CssBaseline />
-            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-                {currentView !== 'data-table' && <Header onNavigate={setCurrentView} activeView={currentView} disabled={isGlobalExtracting} />}
-                <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-                    {renderView()}
+            {!isAuthenticated ? (
+                <AuthPage />
+            ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+                    {currentView !== 'data-table' && <Header onNavigate={setCurrentView} activeView={currentView} disabled={isGlobalExtracting} />}
+                    <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                        {renderView()}
+                    </Box>
                 </Box>
-            </Box>
+            )}
         </ThemeProvider>
     );
 }

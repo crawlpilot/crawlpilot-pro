@@ -20,6 +20,72 @@ chrome.sidePanel
     .setPanelBehavior({ openPanelOnActionClick: true })
     .catch((error) => console.error('Side panel setup error:', error));
 
+// Helper to save auth data
+const saveAuthData = (token: string, profile?: any) => {
+    const storageData: any = { session_token: token };
+    if (profile) {
+        storageData.user_plan = profile.plan;
+        storageData.last_login = profile.lastLogin;
+        storageData.user_email = profile.email;
+    }
+
+    return new Promise((resolve) => {
+        chrome.storage.local.set(storageData, () => {
+            console.log('✅ Auth token and profile saved securely in storage.');
+            // Notify other extension parts (like the sidepanel) to refresh
+            chrome.runtime.sendMessage({
+                type: 'AUTH_SUCCESS',
+                token,
+                profile
+            }, () => {
+                // Ignore empty response errors from inactive parts
+                if (chrome.runtime.lastError) { /* ignore */ }
+            });
+            resolve({ success: true, message: 'Token and profile saved' });
+        });
+    });
+};
+
+// Helper to remove auth data
+const clearAuthData = () => {
+    return new Promise((resolve) => {
+        chrome.storage.local.remove(['session_token', 'user_plan', 'last_login', 'user_email'], () => {
+            console.log('🚪 User logged out. Local data removed.');
+            resolve({ success: true });
+        });
+    });
+};
+
+// External message handling (Legacy / Optional Direct Connect)
+chrome.runtime.onMessageExternal.addListener(
+    (request, sender, sendResponse) => {
+        console.log('🌐 Received external message from:', sender.url, request);
+
+        // Verify sender is authorized
+        const senderUrl = sender.url || '';
+        const isAuthorized =
+            senderUrl.startsWith('https://crawlpilot.tech') ||
+            senderUrl.startsWith('https://www.crawlpilot.tech') ||
+            senderUrl.startsWith('https://crawlpilot.github.io') ||
+            senderUrl.startsWith('http://localhost');
+
+        if (!isAuthorized) {
+            console.warn('Blocked unauthorized external message from:', senderUrl);
+            return;
+        }
+
+        if (request.type === 'AUTH_SUCCESS' && request.token) {
+            saveAuthData(request.token, request.profile).then(sendResponse);
+            return true;
+        }
+
+        if (request.type === 'AUTH_LOGOUT') {
+            clearAuthData().then(sendResponse);
+            return true;
+        }
+    }
+);
+
 // Message handling
 onMessage(async (message: Message, _sender) => {
     console.log('📨 Background received:', message.type, message);
@@ -69,6 +135,12 @@ onMessage(async (message: Message, _sender) => {
             // These are handled by other parts of the extension (content script / sidepanel)
             // We just ignore them here to prevent warning logs
             return undefined;
+
+        case 'AUTH_SUCCESS':
+            return await saveAuthData((message as any).token, (message as any).profile);
+
+        case 'AUTH_LOGOUT':
+            return await clearAuthData();
 
 
 

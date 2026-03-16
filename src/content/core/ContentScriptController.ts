@@ -27,6 +27,34 @@ export class ContentScriptController {
         this.messageClient = MessageClient.getInstance();
         this.initializeListeners();
         this.checkAutoResume();
+        this.initializeBridge();
+    }
+
+    private initializeBridge() {
+        if ((window as any).__CRAWLPILOT_BRIDGE_INITIALIZED__) return;
+        (window as any).__CRAWLPILOT_BRIDGE_INITIALIZED__ = true;
+
+        console.log('🌉 [CrawlPilot] Auth Bridge initialized');
+
+        window.addEventListener('message', (event) => {
+            // Log all incoming postMessages for debugging (filtered for our source)
+            const data = event.data;
+            if (data && data.source === 'crawlpilot-auth') {
+                console.log('📨 [CrawlPilot] Bridge received auth signal:', data.type);
+
+                if (data.type === 'AUTH_SUCCESS' && data.token) {
+                    console.log('🛡️ [CrawlPilot] Forwarding token to background script...');
+                    // Forward to background script
+                    chrome.runtime.sendMessage({
+                        type: 'AUTH_SUCCESS',
+                        token: data.token,
+                        profile: data.profile
+                    }, (response) => {
+                        console.log('✅ [CrawlPilot] Auth bridge sync complete. Response:', response);
+                    });
+                }
+            }
+        });
     }
 
     private initializeListeners() {

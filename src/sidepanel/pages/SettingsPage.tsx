@@ -28,7 +28,8 @@ import {
     Globe,
     AlertTriangle,
     Share2,
-    Star
+    Star,
+    LogOut
 } from 'lucide-react';
 import { db } from '../../shared/db/db-manager';
 import { useJobHistory } from '../hooks/useDatabase';
@@ -47,7 +48,26 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     const [nuking, setNuking] = useState(false);
     const [nukeConfirmText, setNukeConfirmText] = useState('');
 
+    const [userProfile, setUserProfile] = useState<{
+        email: string;
+        plan: string;
+        lastLogin: string;
+    }>({
+        email: 'Authenticated User',
+        plan: 'FREE TRIAL',
+        lastLogin: ''
+    });
+
     useEffect(() => {
+        // Fetch user profile from storage
+        chrome.storage.local.get(['user_email', 'user_plan', 'last_login'], (result) => {
+            setUserProfile({
+                email: (result.user_email as string) || 'Authenticated User',
+                plan: (result.user_plan as string) || 'free',
+                lastLogin: result.last_login ? new Date(result.last_login as string).toLocaleString() : ''
+            });
+        });
+
         // Estimate storage usage
         if (navigator.storage && navigator.storage.estimate) {
             navigator.storage.estimate().then(estimate => {
@@ -99,6 +119,14 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         }
     };
 
+    const handleLogout = () => {
+        chrome.runtime.sendMessage({ type: 'AUTH_LOGOUT' }, (response) => {
+            if (response?.success) {
+                console.log('Logged out successfully');
+            }
+        });
+    };
+
     const formatBytes = (bytes: number, decimals = 2) => {
         if (!+bytes) return '0 Bytes';
         const k = 1024;
@@ -140,23 +168,42 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                 {/* Account / User Section */}
                 <Section title="Account & Plan" icon={<User size={18} />}>
                     <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper' }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                            <Typography variant="subtitle2" fontWeight="700">Current Plan</Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                            <Box>
+                                <Typography variant="subtitle2" fontWeight="700">Account</Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {userProfile.email}
+                                </Typography>
+                                {userProfile.lastLogin && (
+                                    <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.5 }}>
+                                        Last login: {userProfile.lastLogin}
+                                    </Typography>
+                                )}
+                            </Box>
                             <Box sx={{
                                 px: 1.5, py: 0.5,
-                                bgcolor: 'success.dark',
+                                bgcolor: userProfile.plan === 'paid' ? 'primary.main' : 'success.dark',
                                 color: 'white',
                                 borderRadius: 999,
-                                fontSize: '0.7rem',
-                                fontWeight: 'bold'
+                                fontSize: '0.65rem',
+                                fontWeight: 'bold',
+                                textTransform: 'uppercase'
                             }}>
-                                FREE TRIAL
+                                {userProfile.plan === 'paid' ? 'PRO PLAN' : 'FREE VERSION'}
                             </Box>
                         </Box>
-                        <Typography variant="body2" color="text.secondary">
-                            This is a <strong>FREE TRIAL</strong> — features may change or behave unexpectedly.
-                            If you run into any issues, please raise them via <strong>Contact Support</strong> below so we can improve the experience.
-                        </Typography>
+                        <Divider sx={{ my: 1.5 }} />
+                        <Button
+                            variant="outlined"
+                            color="inherit"
+                            size="small"
+                            fullWidth
+                            startIcon={<LogOut size={16} />}
+                            onClick={handleLogout}
+                            sx={{ borderColor: 'divider', textTransform: 'none', fontWeight: 600 }}
+                        >
+                            Sign Out
+                        </Button>
                     </Paper>
                 </Section>
 

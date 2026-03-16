@@ -17,8 +17,29 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
     const { tableData, rows, loading, error } = useTableData(selectedId);
     const { exportToCSV, exportToJSON } = useExportData();
     const tableRef = useRef<any>(null);
+    const [userPlan, setUserPlan] = useState<string>('free');
+
+    useEffect(() => {
+        chrome.storage.local.get(['user_plan'], (result) => {
+            if (typeof result.user_plan === 'string') {
+                setUserPlan(result.user_plan);
+            }
+        });
+    }, []);
+
+    const isPaid = userPlan === 'paid';
+
+    const handleUpgradeClick = () => {
+        if (confirm('Exporting is a PRO feature. Upgrade to unlock unlimited exports and more. Would you like to visit the website to upgrade?')) {
+            window.open('https://crawlpilot.tech/profile', '_blank');
+        }
+    };
 
     const handleExportCSV = () => {
+        if (!isPaid) {
+            handleUpgradeClick();
+            return;
+        }
         if (tableRef.current) {
             const { columns, rows } = tableRef.current.getProcessedData();
             exportToCSV(columns, rows, tableData?.name || 'export');
@@ -26,6 +47,10 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
     };
 
     const handleExportJSON = () => {
+        if (!isPaid) {
+            handleUpgradeClick();
+            return;
+        }
         if (tableRef.current) {
             const { columns, rows } = tableRef.current.getProcessedData();
             exportToJSON(columns, rows, tableData?.name || 'export');
@@ -139,26 +164,35 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                             {/* Export Button */}
                             <div className="relative group">
                                 <button
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-colors shadow-sm"
+                                    onClick={!isPaid ? handleUpgradeClick : undefined}
+                                    className={cn(
+                                        "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm",
+                                        isPaid
+                                            ? "bg-primary hover:bg-primary-hover text-white"
+                                            : "bg-gray-700/50 text-gray-400 cursor-pointer hover:bg-gray-700"
+                                    )}
                                 >
                                     <Download className="w-3.5 h-3.5" />
                                     <span>Export</span>
+                                    {!isPaid && <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1 opacity-70"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>}
                                 </button>
-                                {/* Dropdown */}
-                                <div className="absolute right-0 top-full mt-1 w-32 bg-background-panel border border-border-subtle rounded-lg shadow-xl overflow-hidden hidden group-hover:block z-50">
-                                    <button
-                                        onClick={handleExportCSV}
-                                        className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
-                                    >
-                                        <FileText className="w-3 h-3 text-green-400" /> CSV / Excel
-                                    </button>
-                                    <button
-                                        onClick={handleExportJSON}
-                                        className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
-                                    >
-                                        <FileJson className="w-3 h-3 text-yellow-400" /> JSON
-                                    </button>
-                                </div>
+                                {/* Dropdown - only show if paid */}
+                                {isPaid && (
+                                    <div className="absolute right-0 top-full mt-1 w-32 bg-background-panel border border-border-subtle rounded-lg shadow-xl overflow-hidden hidden group-hover:block z-50">
+                                        <button
+                                            onClick={handleExportCSV}
+                                            className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
+                                        >
+                                            <FileText className="w-3 h-3 text-green-400" /> CSV / Excel
+                                        </button>
+                                        <button
+                                            onClick={handleExportJSON}
+                                            className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-white/5 flex items-center gap-2"
+                                        >
+                                            <FileJson className="w-3 h-3 text-yellow-400" /> JSON
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
