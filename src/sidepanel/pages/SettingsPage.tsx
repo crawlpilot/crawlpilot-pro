@@ -29,7 +29,6 @@ import {
     Globe,
     AlertTriangle,
     Share2,
-    Star,
     LogOut,
     Webhook,
     Link2,
