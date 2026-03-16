@@ -41,7 +41,10 @@ import {
     Toolbar,
     useTheme,
     CircularProgress,
-    alpha
+    alpha,
+    Switch,
+    FormControlLabel,
+    FormHelperText
 } from '@mui/material';
 import { Job, AutomationRecipe } from '@/shared/types/database';
 
@@ -90,6 +93,8 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
     const [rerunTarget, setRerunTarget] = useState<JobWithRecipe | null>(null);
     const [rerunName, setRerunName] = useState('');
     const [rerunMaxPages, setRerunMaxPages] = useState<number>(10);
+    const [rerunParallel, setRerunParallel] = useState(false);
+    const [rerunConcurrent, setRerunConcurrent] = useState(3);
 
     const stats = useMemo(() => {
         return {
@@ -166,8 +171,11 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
 
     const openRerunDialog = (job: JobWithRecipe) => {
         setRerunTarget(job);
-        setRerunName(`Rerun: ${job.recipe?.name || 'Untitled'}`);
-        setRerunMaxPages(job.configSnapshot?.options?.pagination?.maxPages || 10);
+        const config = job.configSnapshot || job.recipe?.config;
+        setRerunName(job.name ? `${job.name} (Rerun)` : `Rerun: ${job.recipe?.name || 'Untitled'}`);
+        setRerunMaxPages(config?.options?.pagination?.maxPages || 10);
+        setRerunParallel(config?.options?.useParallel || false);
+        setRerunConcurrent(config?.options?.maxConcurrent || 3);
         setRerunDialogOpen(true);
     };
 
@@ -215,6 +223,9 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
 
                 await startBulkExtraction(urls, elements, {
                     recipeId: job.recipeId,
+                    customName: rerunName,
+                    useParallel: rerunParallel,
+                    maxConcurrent: rerunConcurrent,
                     onStart: () => {
                         refresh();
                     },
@@ -345,7 +356,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
             }}>
                 {filteredJobs.length > 0 ? (
                     filteredJobs.map((job: JobWithRecipe) => {
-                        const isRunning = reRunningId === job.id;
+                        const isRunning = reRunningId === job.id || job.status === 'running';
                         const title = job.name || job.recipe?.name || 'Untitled Job';
                         const url = job.sourceUrl || 'Unknown URL';
 
@@ -430,7 +441,8 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                                             color="error"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                if (job.recipe?.type === 'bulk-extraction') {
+                                                                const isBulk = job.recipe?.type === 'bulk-extraction' || job.configSnapshot?.type === 'bulk-extraction' || job.configSnapshot?.options?.actions?.[0]?.type === 'EXTRACT_PAGES';
+                                                                if (isBulk) {
                                                                     stopBulkExtraction();
                                                                 } else {
                                                                     stopExtraction();
@@ -544,6 +556,41 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                 />
                             </Box>
                         )}
+
+                        {(rerunTarget?.configSnapshot?.type === 'bulk-extraction' || rerunTarget?.recipe?.type === 'bulk-extraction') && (
+                            <>
+                                <Box>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={rerunParallel}
+                                                onChange={(e) => setRerunParallel(e.target.checked)}
+                                                color="secondary"
+                                            />
+                                        }
+                                        label={<Typography variant="body2">Parallel Mode</Typography>}
+                                    />
+                                    <FormHelperText>Extract multiple URLs simultaneously</FormHelperText>
+                                </Box>
+
+                                {rerunParallel && (
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={1}>
+                                            CONCURRENCY LIMIT
+                                        </Typography>
+                                        <TextField
+                                            type="number"
+                                            fullWidth
+                                            size="small"
+                                            value={rerunConcurrent}
+                                            onChange={(e) => setRerunConcurrent(parseInt(e.target.value) || 1)}
+                                            InputProps={{ inputProps: { min: 1, max: 10 } }}
+                                            helperText="Number of tabs to run in parallel"
+                                        />
+                                    </Box>
+                                )}
+                            </>
+                        )}
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ p: 2, pt: 0 }}>
@@ -599,6 +646,12 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                         ? `${Math.round((detailsJob.stats.endTime - detailsJob.stats.startTime) / 1000)}s`
                                         : 'N/A'}
                                     />
+                                    {detailsJob.configSnapshot?.type === 'bulk-extraction' && (
+                                        <>
+                                            <DetailItem label="Parallel" value={detailsJob.configSnapshot.options?.useParallel ? 'Yes' : 'No'} />
+                                            <DetailItem label="Concurrency" value={detailsJob.configSnapshot.options?.maxConcurrent || 1} />
+                                        </>
+                                    )}
                                 </Box>
                             </Box>
 
@@ -624,12 +677,14 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                 <Stack spacing={1}>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                         <Typography variant="caption" color="text.secondary">Recipe Type</Typography>
-                                        <Typography variant="caption" fontFamily="monospace">{detailsJob.recipe?.type || 'N/A'}</Typography>
+                                        <Typography variant="caption" fontFamily="monospace">{detailsJob.recipe?.type || detailsJob.configSnapshot?.type || 'N/A'}</Typography>
                                     </Box>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <Typography variant="caption" color="text.secondary">Pagination Mode</Typography>
-                                        <Typography variant="caption" fontFamily="monospace">{detailsJob.configSnapshot?.options?.pagination?.mode || 'none'}</Typography>
-                                    </Box>
+                                    {(detailsJob.recipe?.type !== 'bulk-extraction' && detailsJob.configSnapshot?.type !== 'bulk-extraction') && (
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <Typography variant="caption" color="text.secondary">Pagination Mode</Typography>
+                                            <Typography variant="caption" fontFamily="monospace">{detailsJob.configSnapshot?.options?.pagination?.mode || 'none'}</Typography>
+                                        </Box>
+                                    )}
                                 </Stack>
                             </Box>
                         </>

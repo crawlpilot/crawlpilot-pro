@@ -9,6 +9,7 @@ interface BulkExtractionOptions {
     onStart?: (jobId: number) => void;
     jobId?: number;
     recipeId?: number;
+    customName?: string;
 }
 
 export function useBulkExtraction() {
@@ -18,6 +19,18 @@ export function useBulkExtraction() {
 
     const stopBulkExtraction = () => {
         shouldStopRef.current = true;
+        // Also set a global flag in storage for robustness across page navigations
+        chrome.storage.local.set({ stop_bulk_extraction_running: true });
+    };
+
+    const checkStop = async () => {
+        if (shouldStopRef.current) return true;
+        const { stop_bulk_extraction_running } = await chrome.storage.local.get(['stop_bulk_extraction_running']);
+        if (stop_bulk_extraction_running) {
+            shouldStopRef.current = true;
+            return true;
+        }
+        return false;
     };
 
     const startBulkExtraction = async (
@@ -32,7 +45,8 @@ export function useBulkExtraction() {
             onComplete,
             onStart,
             jobId: existingJobId,
-            recipeId: passedRecipeId
+            recipeId: passedRecipeId,
+            customName
         } = options;
 
         if (urls.length === 0 || elements.length === 0) return;
@@ -40,6 +54,7 @@ export function useBulkExtraction() {
         setIsExtracting(true);
         setCompletedPages(0);
         shouldStopRef.current = false;
+        await chrome.storage.local.remove(['stop_bulk_extraction_running']);
 
         const uniqueUrls = Array.from(new Set(urls));
         const allItems: any[] = [];
@@ -84,7 +99,7 @@ export function useBulkExtraction() {
 
                 jobId = await db.createJob({
                     recipeId: recipeId,
-                    name: `Extraction - ${pageTitle}`,
+                    name: customName || `Extraction - ${pageTitle}`,
                     status: 'running',
                     sourceUrl: tab.url || '',
                     configSnapshot: {
@@ -171,7 +186,7 @@ export function useBulkExtraction() {
 
                 const sendMessageWithRetry = async (tabId: number, message: any, maxRetries = 10, interval = 500) => {
                     for (let attempt = 0; attempt < maxRetries; attempt++) {
-                        if (shouldStopRef.current) break;
+                        if (await checkStop()) break;
                         const response = await new Promise<any>((resolve) => {
                             chrome.tabs.sendMessage(tabId, message, (res) => {
                                 if (chrome.runtime.lastError) {
@@ -192,7 +207,7 @@ export function useBulkExtraction() {
                 };
 
                 for (const element of elements) {
-                    if (shouldStopRef.current) break;
+                    if (await checkStop()) break;
 
                     if (element.action === 'click') {
                         const clickSelector = element.selector || element.containerSelector;
@@ -255,7 +270,7 @@ export function useBulkExtraction() {
             // Execution
             if (!useParallel) {
                 for (let i = 0; i < uniqueUrls.length; i++) {
-                    if (shouldStopRef.current) break;
+                    if (await checkStop()) break;
                     const url = uniqueUrls[i];
                     await chrome.tabs.update(tab.id, { url });
                     await waitForTabLoaded(tab.id);
@@ -273,7 +288,7 @@ export function useBulkExtraction() {
             } else {
                 const queue = [...uniqueUrls];
                 const worker = async () => {
-                    while (queue.length > 0 && !shouldStopRef.current) {
+                    while (queue.length > 0 && !(await checkStop())) {
                         const url = queue.shift();
                         if (!url) break;
                         let bgTabId: number | undefined;
@@ -320,14 +335,14 @@ export function useBulkExtraction() {
 
                 if (jobId) {
                     await db.updateJob(jobId, {
-                        status: shouldStopRef.current ? 'paused' : 'completed',
+                        status: (await checkStop()) ? 'paused' : 'completed',
                         result: { tableDataId: tableId },
                         stats: {
                             startTime: Date.now(),
                             endTime: Date.now(),
                             itemsExtracted: allItems.length,
                             pagesVisited: uniqueUrls.length,
-                            stoppedByUser: shouldStopRef.current
+                            stoppedByUser: await checkStop()
                         }
                     });
                 }
