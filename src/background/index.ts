@@ -8,7 +8,49 @@ console.log('🔧 Background service worker loaded');
 chrome.runtime.onInstalled.addListener(async () => {
     console.log('📦 Extension installed/updated');
     await db.init();
+    await setupDNRRules();
 });
+
+// Setup Declarative Net Request rules to bypass CORS/CORP
+async function setupDNRRules() {
+    const rules: chrome.declarativeNetRequest.Rule[] = [
+        {
+            id: 1,
+            priority: 1,
+            action: {
+                type: chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
+                responseHeaders: [
+                    { header: 'Access-Control-Allow-Origin', operation: chrome.declarativeNetRequest.HeaderOperation.SET, value: '*' },
+                    { header: 'Access-Control-Allow-Methods', operation: chrome.declarativeNetRequest.HeaderOperation.SET, value: 'GET, POST, OPTIONS' },
+                    { header: 'Cross-Origin-Resource-Policy', operation: chrome.declarativeNetRequest.HeaderOperation.REMOVE },
+                    { header: 'Cross-Origin-Embedder-Policy', operation: chrome.declarativeNetRequest.HeaderOperation.REMOVE },
+                    { header: 'Cross-Origin-Opener-Policy', operation: chrome.declarativeNetRequest.HeaderOperation.REMOVE }
+                ]
+            },
+            condition: {
+                urlFilter: '*',
+                resourceTypes: [
+                    chrome.declarativeNetRequest.ResourceType.IMAGE,
+                    chrome.declarativeNetRequest.ResourceType.MEDIA,
+                    chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST
+                ]
+            }
+        }
+    ];
+
+    try {
+        const oldRules = await chrome.declarativeNetRequest.getDynamicRules();
+        const oldRuleIds = oldRules.map(rule => rule.id);
+
+        await chrome.declarativeNetRequest.updateDynamicRules({
+            removeRuleIds: oldRuleIds,
+            addRules: rules
+        });
+        console.log('✅ CORS/CORP bypass rules registered successfully');
+    } catch (error) {
+        console.error('❌ Failed to register DNR rules:', error);
+    }
+}
 
 // Initialize database on startup
 (async () => {

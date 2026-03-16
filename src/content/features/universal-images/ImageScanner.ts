@@ -14,8 +14,10 @@ export class ImageScanner {
     private static images: Map<string, ImageMeta> = new Map();
     private static pageUrl: string = '';
 
-    public static scan(): ImageMeta[] {
-        this.images.clear();
+    public static scan(options: { accumulate?: boolean } = {}): ImageMeta[] {
+        if (!options.accumulate) {
+            this.images.clear();
+        }
         this.pageUrl = window.location.href;
 
         // Start scanning from the body

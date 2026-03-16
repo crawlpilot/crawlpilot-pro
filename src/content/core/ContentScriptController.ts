@@ -22,6 +22,8 @@ export class ContentScriptController {
     private schemaGenerator = new SchemaGenerator();
     private extractor = new DataExtractor();
     private pageExtractor = new PageExtractor();
+    private discoveryObserver: MutationObserver | null = null;
+    private discoveryDebounceTimer: any = null;
 
     constructor() {
         this.messageClient = MessageClient.getInstance();
@@ -105,6 +107,16 @@ export class ContentScriptController {
             if (enable) RightClickUnlocker.enable();
             else RightClickUnlocker.disable();
             sendResponse({ success: true, enabled: RightClickUnlocker.isEnabled() });
+        });
+
+        this.messageClient.on('START_IMAGE_DISCOVERY', (_, sendResponse) => {
+            this.startImageDiscovery();
+            sendResponse({ success: true });
+        });
+
+        this.messageClient.on('STOP_IMAGE_DISCOVERY', (_, sendResponse) => {
+            this.stopImageDiscovery();
+            sendResponse({ success: true });
         });
 
         this.messageClient.on('CMD_EXTRACT_PAGE', async (msg, sendResponse) => {
@@ -515,6 +527,46 @@ export class ContentScriptController {
             });
         } catch (e) {
             console.error('Test selector failed', e);
+        }
+    }
+
+    private startImageDiscovery() {
+        if (this.discoveryObserver) return;
+
+        console.log('🔍 [ContentScript] Starting Image Discovery Mode');
+
+        // Initial scan
+        const initialImages = ImageScanner.scan({ accumulate: true });
+        this.messageClient.send({ type: 'IMAGE_DISCOVERY_UPDATE', payload: { images: initialImages } });
+
+        this.discoveryObserver = new MutationObserver((mutations) => {
+            // Check if any interesting nodes were added
+            const hasNewNodes = mutations.some(m => m.addedNodes.length > 0);
+            if (!hasNewNodes) return;
+
+            // Debounce the scan to avoid performance issues during fast scrolling
+            if (this.discoveryDebounceTimer) clearTimeout(this.discoveryDebounceTimer);
+            this.discoveryDebounceTimer = setTimeout(() => {
+                const updatedImages = ImageScanner.scan({ accumulate: true });
+                this.messageClient.send({ type: 'IMAGE_DISCOVERY_UPDATE', payload: { images: updatedImages } });
+            }, 200);
+        });
+
+        this.discoveryObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    private stopImageDiscovery() {
+        if (this.discoveryObserver) {
+            console.log('🛑 [ContentScript] Stopping Image Discovery Mode');
+            this.discoveryObserver.disconnect();
+            this.discoveryObserver = null;
+        }
+        if (this.discoveryDebounceTimer) {
+            clearTimeout(this.discoveryDebounceTimer);
+            this.discoveryDebounceTimer = null;
         }
     }
 
