@@ -199,6 +199,10 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                 await new Promise(r => setTimeout(r, 3000));
             }
 
+            // [NEW] RE-QUERY active tab after any navigation/creation
+            // This ensures we have the up-to-date tab ID (especially if a new tab was opened)
+            const [finalActiveTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
             if (config.type === 'bulk-extraction') {
                 const actions = config.options?.actions;
                 const elements = actions?.[0]?.elements;
@@ -227,8 +231,14 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                     return;
                 }
 
+                // [NEW] Use the ACTUAL active tab ID to sanitize selectors
+                const sanitizedSelectors = config.options.fullSelectors.map((s: any) => ({
+                    ...s,
+                    sourceTabId: finalActiveTab?.id
+                }));
+
                 await startExtraction(
-                    config.options.fullSelectors,
+                    sanitizedSelectors,
                     config.options.pagination,
                     {
                         tableDataId: undefined, // Create NEW dataset
