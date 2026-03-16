@@ -61,8 +61,10 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
     const theme = useTheme();
     const { jobs, loading: jobsLoading, refresh, deleteJob } = useJobHistory();
     const { startExtraction, stopExtraction, status: extractionStatus } = useExtractionProcess(() => {
+        setReRunningId(null);
         refresh();
-    }, () => {
+    }, (jobId) => {
+        setReRunningId(jobId);
         refresh();
     });
     const { startBulkExtraction, stopBulkExtraction } = useBulkExtraction();
@@ -226,13 +228,16 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                     customName: rerunName,
                     useParallel: rerunParallel,
                     maxConcurrent: rerunConcurrent,
-                    onStart: () => {
+                    onStart: (newId) => {
+                        setReRunningId(newId);
                         refresh();
                     },
                     onComplete: () => {
+                        setReRunningId(null);
                         refresh();
                     }
                 }).catch(err => {
+                    setReRunningId(null);
                     console.error("Bulk re-run failed:", err);
                     alert("Bulk re-run failed: " + err.message);
                 });
