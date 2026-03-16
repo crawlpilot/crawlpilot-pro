@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useJobHistory } from '../hooks/useDatabase';
 import { useExtractionProcess } from '../hooks/useExtractionProcess';
+import { useBulkExtraction } from '../hooks/useBulkExtraction';
 import {
     RefreshCcw,
     Search,
@@ -61,6 +62,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
     }, () => {
         refresh();
     });
+    const { startBulkExtraction } = useBulkExtraction();
     const [filter, setFilter] = useState<FilterStatus>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [reRunningId, setReRunningId] = useState<number | null>(null);
@@ -173,8 +175,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
         if (!rerunTarget) return;
         const job = rerunTarget;
         const config = job.configSnapshot || job.recipe?.config;
-
-        if (!config?.options?.fullSelectors || !config?.options?.pagination) {
+        if (!config) {
             alert("This job doesn't have enough configuration to re-run.");
             return;
         }
@@ -186,7 +187,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
             const isFullPageExtension = window.location.protocol === 'chrome-extension:';
             // @ts-ignore
             const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            const targetUrl = job.sourceUrl || job.recipe?.config?.options?.url;
+            const targetUrl = job.sourceUrl || (config.type === 'bulk-extraction' ? config.urls?.[0] : config.options?.url);
 
             if (isFullPageExtension && targetUrl) {
                 // @ts-ignore
@@ -198,16 +199,39 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                 await new Promise(r => setTimeout(r, 3000));
             }
 
-            await startExtraction(
-                config.options.fullSelectors,
-                config.options.pagination,
-                {
-                    tableDataId: undefined, // Create NEW dataset
-                    recipeId: job.recipeId, // REUSE existing recipe
-                    customName: rerunName,
-                    maxPages: rerunMaxPages
+            if (config.type === 'bulk-extraction') {
+                const actions = config.options?.actions;
+                const elements = actions?.[0]?.elements;
+                const urls = config.urls;
+
+                if (!elements || !urls || urls.length === 0) {
+                    alert("This bulk extraction job doesn't have enough configuration to re-run.");
+                    return;
                 }
-            );
+
+                await startBulkExtraction(urls, elements, {
+                    recipeId: job.recipeId,
+                    onComplete: () => {
+                        refresh();
+                    }
+                });
+            } else {
+                if (!config?.options?.fullSelectors || !config?.options?.pagination) {
+                    alert("This job doesn't have enough configuration to re-run.");
+                    return;
+                }
+
+                await startExtraction(
+                    config.options.fullSelectors,
+                    config.options.pagination,
+                    {
+                        tableDataId: undefined, // Create NEW dataset
+                        recipeId: job.recipeId, // REUSE existing recipe
+                        customName: rerunName,
+                        maxPages: rerunMaxPages
+                    }
+                );
+            }
 
             console.log("Re-run started successfully");
         } catch (err) {
