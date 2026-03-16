@@ -62,7 +62,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
     }, () => {
         refresh();
     });
-    const { startBulkExtraction } = useBulkExtraction();
+    const { startBulkExtraction, stopBulkExtraction } = useBulkExtraction();
     const [filter, setFilter] = useState<FilterStatus>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [reRunningId, setReRunningId] = useState<number | null>(null);
@@ -211,9 +211,15 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
 
                 await startBulkExtraction(urls, elements, {
                     recipeId: job.recipeId,
+                    onStart: () => {
+                        refresh();
+                    },
                     onComplete: () => {
                         refresh();
                     }
+                }).catch(err => {
+                    console.error("Bulk re-run failed:", err);
+                    alert("Bulk re-run failed: " + err.message);
                 });
             } else {
                 if (!config?.options?.fullSelectors || !config?.options?.pagination) {
@@ -412,7 +418,14 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                                             size="small"
                                                             variant="outlined"
                                                             color="error"
-                                                            onClick={(e) => { e.stopPropagation(); stopExtraction(); }}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (job.recipe?.type === 'bulk-extraction') {
+                                                                    stopBulkExtraction();
+                                                                } else {
+                                                                    stopExtraction();
+                                                                }
+                                                            }}
                                                             startIcon={<XCircle size={14} />}
                                                             sx={{ minWidth: 'auto', px: 1.5, py: 0.2 }}
                                                         >

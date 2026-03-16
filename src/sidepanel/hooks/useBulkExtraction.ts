@@ -6,6 +6,7 @@ interface BulkExtractionOptions {
     maxConcurrent?: number;
     onProgress?: (completed: number) => void;
     onComplete?: (tableId: number) => void;
+    onStart?: (jobId: number) => void;
     jobId?: number;
     recipeId?: number;
 }
@@ -29,6 +30,7 @@ export function useBulkExtraction() {
             maxConcurrent = 3,
             onProgress,
             onComplete,
+            onStart,
             jobId: existingJobId,
             recipeId: passedRecipeId
         } = options;
@@ -111,6 +113,9 @@ export function useBulkExtraction() {
                     }
                 });
             }
+
+            // [NEW] Trigger onStart immediately after job record is ready
+            if (onStart && jobId) onStart(jobId);
 
             // Tab Load Helper
             const waitForTabLoaded = (tabId: number): Promise<void> => {
