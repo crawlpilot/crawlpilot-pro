@@ -13,8 +13,7 @@
     "activeTab",
     "scripting",
     "storage",
-    "sidePanel",
-    "declarativeNetRequest"
+    "sidePanel"
   ],
   "content_scripts": [
     {
@@ -29,10 +28,10 @@
       "all_frames": false
     }
   ],
-  "host_permissions": [
+  "host_permissions": [],
+  "optional_host_permissions": [
     "<all_urls>"
   ],
-  "optional_host_permissions": [],
   "side_panel": {
     "default_path": "sidepanel.html"
   },

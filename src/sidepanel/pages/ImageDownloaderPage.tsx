@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import {
     Box, Typography, Paper, Button, IconButton, Chip, Stack, Grid,
     TextField, InputAdornment, Fade, Switch,
@@ -63,9 +63,6 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [downloading, setDownloading] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
-    const [discoveryMode, setDiscoveryMode] = useState(true);
-    const [isSyncing, setIsSyncing] = useState(false);
-    const syncTimerRef = useRef<any>(null);
 
     // Advanced Filters State
     const [searchQuery, setSearchQuery] = useState('');
@@ -165,20 +162,14 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
         return true;
     });
 
-    const scanImages = async (accumulate = false) => {
+    const scanImages = async () => {
         setLoading(true);
-        if (!accumulate) {
-            setImages([]); // Clear previous results
-            setSelected(new Set()); // Clear selection
-        }
+        setImages([]); // Clear previous results
+        setSelected(new Set()); // Clear selection
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (tab?.id) {
-                const response = await chrome.tabs.sendMessage(tab.id, {
-                    type: 'SCAN_IMAGES',
-                    action: 'SCAN_IMAGES',
-                    payload: { accumulate }
-                });
+                const response = await chrome.tabs.sendMessage(tab.id, { type: 'SCAN_IMAGES', action: 'SCAN_IMAGES' });
                 if (response && response.data) {
                     setImages(response.data);
                 }
@@ -189,54 +180,6 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
             setLoading(false);
         }
     };
-
-    // Discovery Mode Listener
-    useEffect(() => {
-        const listener = (message: any) => {
-            if (message.type === 'IMAGE_DISCOVERY_UPDATE' && message.payload?.images) {
-                setImages(message.payload.images);
-
-                // Show sync indicator
-                setIsSyncing(true);
-                if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-                syncTimerRef.current = setTimeout(() => {
-                    setIsSyncing(false);
-                }, 1000);
-            }
-        };
-
-        chrome.runtime.onMessage.addListener(listener);
-
-        return () => {
-            chrome.runtime.onMessage.removeListener(listener);
-        };
-    }, []);
-
-    // Discovery Mode Effect
-    useEffect(() => {
-        const toggleDiscovery = async () => {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tab?.id) {
-                if (discoveryMode) {
-                    await chrome.tabs.sendMessage(tab.id, { type: 'START_IMAGE_DISCOVERY' });
-                } else {
-                    await chrome.tabs.sendMessage(tab.id, { type: 'STOP_IMAGE_DISCOVERY' });
-                }
-            }
-        };
-        toggleDiscovery();
-
-        return () => {
-            // Clean up discovery on unmount
-            const cleanup = async () => {
-                const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-                if (tab?.id) {
-                    await chrome.tabs.sendMessage(tab.id, { type: 'STOP_IMAGE_DISCOVERY' });
-                }
-            };
-            cleanup();
-        };
-    }, [discoveryMode]);
 
     const groupedImages = useMemo(() => {
         if (grouping === 'none') return { 'All Images': filteredImages };
@@ -634,33 +577,9 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                                 Image Downloader
                             </Typography>
                             {loading && <RefreshCw size={16} className="animate-spin text-cyan-400" />}
-                            <Tooltip title="Discovery Mode: Automatically finds images as you scroll">
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            size="small"
-                                            checked={discoveryMode}
-                                            onChange={(e) => setDiscoveryMode(e.target.checked)}
-                                            color="secondary"
-                                        />
-                                    }
-                                    label={
-                                        <Typography variant="caption" sx={{ color: discoveryMode ? 'secondary.main' : 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
-                                            Discovery
-                                        </Typography>
-                                    }
-                                    sx={{ ml: 2, mr: 0 }}
-                                />
-                            </Tooltip>
                         </Box>
-                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {images.length} images discovered ({filteredImages.length} filtered)
-                            {isSyncing && (
-                                <Box component="span" sx={{ color: 'secondary.main', display: 'flex', alignItems: 'center', gap: 0.5, animation: 'pulse 1.5s infinite' }}>
-                                    <Box sx={{ width: 6, height: 6, bgcolor: 'currentColor', borderRadius: '50%' }} />
-                                    Syncing...
-                                </Box>
-                            )}
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                            {filteredImages.length} images found
                         </Typography>
                     </Box>
                 </Box>
@@ -668,7 +587,7 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                 <Stack direction="row" spacing={1.5}>
                     <Tooltip title="Deep Scan">
                         <IconButton
-                            onClick={() => scanImages(discoveryMode)}
+                            onClick={scanImages}
                             disabled={loading}
                             sx={{
                                 color: 'white',
@@ -733,7 +652,7 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                                 Run a deep scan to extract media from this page.
                             </Typography>
                         </Box>
-                        <Button variant="outlined" onClick={() => scanImages(discoveryMode)} size="large" startIcon={<RefreshCw size={18} />} sx={{ borderRadius: '16px', px: 4, py: 1.5, border: '2px solid rgba(255, 255, 255, 0.1)', color: 'white', fontWeight: 700, textTransform: 'none', '&:hover': { border: '2px solid primary.main', bgcolor: 'rgba(6, 182, 212, 0.05)' } }}>
+                        <Button variant="outlined" onClick={scanImages} size="large" startIcon={<RefreshCw size={18} />} sx={{ borderRadius: '16px', px: 4, py: 1.5, border: '2px solid rgba(255, 255, 255, 0.1)', color: 'white', fontWeight: 700, textTransform: 'none', '&:hover': { border: '2px solid primary.main', bgcolor: 'rgba(6, 182, 212, 0.05)' } }}>
                             Start Deep Scan
                         </Button>
                     </Box>
