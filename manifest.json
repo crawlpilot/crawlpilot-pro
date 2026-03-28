@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Crawl Pilot",
-  "version": "1.2.0",
+  "name": "Crawl Pilot Web Scraper",
+  "version": "1.3.0",
   "description": "Structured Web Data Scraping — Simplified. Turn any website into clean, structured data in seconds.",
   "icons": {
     "16": "public/icons/icon16.png",
