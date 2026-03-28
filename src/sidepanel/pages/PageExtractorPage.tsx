@@ -1,31 +1,25 @@
-import {
-    RotateCcw,
-    X,
-    Upload,
-    Database,
-    MousePointerClick,
-    Info,
-    Loader2,
-    Settings
-} from 'lucide-react';
-import Badge from '../components/ui/Badge';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DataSourceSelector from '../components/DataSourceSelector';
 import { db } from '../../shared/db/db-manager';
-import { useSelectionMode } from '../hooks/useSelectionMode'; // [NEW]
-import Input from '../components/ui/Input'; // [NEW]
+import { useSelectionMode } from '../hooks/useSelectionMode';
+import { WizardLayout } from '../components/wizard/WizardLayout';
+
+import { Step1Urls } from '../components/page-extractor/wizard/Step1Urls';
+import { Step2Schema } from '../components/page-extractor/wizard/Step2Schema';
+import { Step3Review } from '../components/page-extractor/wizard/Step3Review';
 
 interface PageExtractorPageProps {
     onBack: () => void;
     onSettings?: () => void;
 }
 
-export default function PageExtractorPage({ onBack, onSettings }: PageExtractorPageProps) {
+export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
+    const [step, setStep] = useState(1);
     const [showDataSourceSelector, setShowDataSourceSelector] = useState(false);
     const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
 
     // [NEW] Selection Logic
-    const { startSelection, status: selectionStatus, setStatus: setSelectionStatus } = useSelectionMode();
+    const { startSelection, stopSelection, status: selectionStatus, setStatus: setSelectionStatus } = useSelectionMode();
     const [elements, setElements] = useState<any[]>([]);
 
     // Persist state across unmounts (session-only)
@@ -51,29 +45,33 @@ export default function PageExtractorPage({ onBack, onSettings }: PageExtractorP
     const [pendingElement, setPendingElement] = useState<any>(null);
     const [editingElementId, setEditingElementId] = useState<string | null>(null);
     const [elementName, setElementName] = useState('');
+    const [elementAction, setElementAction] = useState<'extract' | 'click'>('extract');
 
     // [NEW] Extraction State
     const [isExtracting, setIsExtracting] = useState(false);
-    const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
+    const [completedPages, setCompletedPages] = useState(0);
+    const [useParallel, setUseParallel] = useState(false);
+    const [maxConcurrent, setMaxConcurrent] = useState(3);
+    const shouldStopRef = useRef(false);
 
-    // DB Import (lazy or top level)
-    // Importing db (assuming top level import is added or available via closure if I add it)
-    // I need to add import { db } from '../../shared/db/db-manager'; at the top. 
-    // Since I can't add imports easily with this tool without checking top, I will do it in a separate step or assume I can replace the top.
-
-    // Actually, I should use the `db` from imports. 
-    // Let's implement the logic assuming `db` needs to be imported. I'll check imports later.
+    const handleStopExtraction = () => {
+        shouldStopRef.current = true;
+    };
 
     const handleStartExtraction = async () => {
         if (selectedUrls.length === 0 || elements.length === 0) return;
 
         setIsExtracting(true);
-        setCurrentUrlIndex(0);
+        setCompletedPages(0);
+
+        // [NEW] Deduplicate URLs to prevent redundant work
+        const uniqueUrls = Array.from(new Set(selectedUrls));
 
         const allItems: any[] = [];
-        const columns = elements.map(el => ({ id: el.id, name: el.name, type: el.type }));
+        let finalColumns: any[] = [];
 
         try {
+            shouldStopRef.current = false;
             // Get settings
             const { extraction_settings: settings } = await chrome.storage.local.get(['extraction_settings']) as { extraction_settings?: any };
             const config = settings || { loadTimeout: 3000, requestDelay: 1000 };
@@ -82,76 +80,395 @@ export default function PageExtractorPage({ onBack, onSettings }: PageExtractorP
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (!tab?.id) throw new Error("No active tab");
 
-            for (let i = 0; i < selectedUrls.length; i++) {
-                setCurrentUrlIndex(i);
-                const url = selectedUrls[i];
+            // [NEW] Recipe and Job Creation
+            // Trim page title to avoid massive names if it comes from a long descriptive `<title>`
+            let pageTitle = tab.title || (tab.url ? new URL(tab.url).hostname : 'Page Extractor');
+            if (pageTitle.length > 50) pageTitle = pageTitle.substring(0, 47) + '...';
 
-                // Navigate
-                await chrome.tabs.update(tab.id, { url });
-
-                // Wait for load
-                await new Promise(resolve => setTimeout(resolve, config.loadTimeout || 3000));
-
-                // Execute Extraction via Message
-                const response = await new Promise<any>((resolve) => {
-                    chrome.tabs.sendMessage(tab.id!, {
-                        type: 'EXTRACT_FROM_SCHEMA',
-                        payload: { schema: elements }
-                    }, (res) => resolve(res));
-                });
-
-                if (response && response.success && response.data) {
-                    const extractedItem = { ...response.data, source_url: url };
-                    allItems.push(extractedItem);
-                } else {
-                    console.warn(`Failed to extract from ${url}`, response?.error);
-                }
-
-                // Request delay between pages
-                if (i < selectedUrls.length - 1 && config.requestDelay > 0) {
-                    await new Promise(resolve => setTimeout(resolve, config.requestDelay));
-                }
-            }
-
-            const finalData = {
-                type: 'bulk-page',
-                items: allItems,
-                columns: columns,
-                source_url: selectedUrls[0] + ` (+${selectedUrls.length - 1} more)`,
-                count: allItems.length,
-                timestamp: new Date().toISOString()
+            const extractionAction = {
+                type: 'EXTRACT_PAGES',
+                // Removed redundant `urls` array here to optimize schema size, 
+                // it is stored at the root of the config object.
+                elements: elements,
+                config: config
             };
 
-            const tableId = await db.saveExtraction(finalData, {
-                name: `Bulk Extraction (${selectedUrls.length} pages)`
+            const recipeId = await db.createRecipe({
+                name: `Page Extraction - ${pageTitle}`,
+                description: "Auto-generated page extraction",
+                type: 'bulk-extraction',
+                version: 1,
+                config: {
+                    type: 'bulk-extraction',
+                    urls: uniqueUrls,
+                    options: { actions: [extractionAction] }
+                },
+                createdAt: Date.now(),
+                updatedAt: Date.now()
             });
 
-            // Redirect to results (New Tab)
-            const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`);
-            chrome.tabs.create({ url });
+            let currentJobId: number | undefined;
+            const job = await db.createJob({
+                recipeId: recipeId,
+                name: `Extraction - ${pageTitle}`,
+                status: 'running',
+                sourceUrl: tab.url || '',
+                configSnapshot: {
+                    type: 'bulk-extraction',
+                    urls: uniqueUrls,
+                    options: { actions: [extractionAction] }
+                },
+                stats: {
+                    startTime: Date.now(),
+                    itemsExtracted: 0,
+                    pagesVisited: 0,
+                    errors: 0
+                },
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            } as any);
+            currentJobId = job;
+
+            // ─── Tab Load Helper ────────────────────────────────────────────
+            // Waits for tabs.onUpdated status='complete' instead of a fixed delay.
+            // Falls back to loadTimeout as a safety cap so we never hang forever.
+            const waitForTabLoaded = (tabId: number): Promise<void> => {
+                return new Promise((resolve) => {
+                    const cap = setTimeout(resolve, (config.loadTimeout || 10000) + 5000);
+
+                    const onUpdated = (id: number, info: { status?: string }) => {
+                        if (id === tabId && info.status === 'complete') {
+                            clearTimeout(cap);
+                            chrome.tabs.onUpdated.removeListener(onUpdated);
+                            resolve();
+                        }
+                    };
+                    chrome.tabs.onUpdated.addListener(onUpdated);
+
+                    // Handle race — tab may already be complete before we register
+                    chrome.tabs.get(tabId, (t) => {
+                        if (chrome.runtime.lastError) return;
+                        if (t?.status === 'complete') {
+                            clearTimeout(cap);
+                            chrome.tabs.onUpdated.removeListener(onUpdated);
+                            resolve();
+                        }
+                    });
+                });
+            };
+
+            // ─── Click Dispatcher ────────────────────────────────────────────
+            // Fires the full mouse event sequence via executeScript.
+            // Works on inactive/background tabs — does not require visual rendering.
+            const dispatchClickInTab = async (tabId: number, selector: string) => {
+                try {
+                    await chrome.scripting.executeScript({
+                        target: { tabId },
+                        func: (sel: string) => {
+                            const el = document.querySelector(sel) as HTMLElement | null;
+                            if (!el) return;
+                            // Full sequence: hover → press → release → click
+                            // Sites that gate content behind mouseover (e.g. dropdowns) need this.
+                            (['mouseover', 'mouseenter', 'mousemove', 'mousedown', 'mouseup', 'click'] as const)
+                                .forEach(type => el.dispatchEvent(new MouseEvent(type, {
+                                    bubbles: true, cancelable: true, view: window, button: 0
+                                })));
+                            // For inputs / selects, also fire focus + change
+                            if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) {
+                                el.focus();
+                                el.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        },
+                        args: [selector]
+                    });
+                } catch (e) {
+                    console.warn('[dispatchClickInTab] executeScript failed:', e);
+                }
+            };
+
+            // ─── Centralized Page Processor ──────────────────────────────────
+            const processUrlOnTab = async (targetTabId: number, url: string) => {
+                const batchRecordId = `rec_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                let itemData: any = { source_url: url, recordId: batchRecordId };
+
+                // Tightened from 15×1000ms → 10×500ms (5s max, sufficient post status:'complete')
+                const sendMessageWithRetry = async (tabId: number, message: any, maxRetries = 10, interval = 500) => {
+                    for (let attempt = 0; attempt < maxRetries; attempt++) {
+                        if (shouldStopRef.current) break;
+                        const response = await new Promise<any>((resolve) => {
+                            chrome.tabs.sendMessage(tabId, message, (res) => {
+                                if (chrome.runtime.lastError) {
+                                    resolve({ success: false, error: chrome.runtime.lastError.message, isConnectionError: true });
+                                } else {
+                                    resolve(res);
+                                }
+                            });
+                        });
+
+                        if (response?.isConnectionError) {
+                            console.log(`[Attempt ${attempt + 1}/${maxRetries}] Content script not ready. Retrying in ${interval}ms...`);
+                            await new Promise(r => setTimeout(r, interval));
+                        } else {
+                            return response;
+                        }
+                    }
+                    return { success: false, error: 'Max retries reached.' };
+                };
+
+                for (const element of elements) {
+                    if (shouldStopRef.current) break;
+
+                    if (element.action === 'click') {
+                        // Click elements: dispatch via executeScript (works on inactive tabs)
+                        const clickSelector = element.selector || element.containerSelector;
+                        if (clickSelector) {
+                            await dispatchClickInTab(targetTabId, clickSelector);
+                        }
+                        await new Promise(resolve => setTimeout(resolve, config.requestDelay > 0 ? config.requestDelay * 2 : 2000));
+                    } else {
+                        // Extract elements: send to content script
+                        const response = await sendMessageWithRetry(targetTabId, {
+                            type: 'CMD_EXTRACT_PAGE',
+                            payload: {
+                                actionType: 'EXTRACT_PAGES',
+                                url,
+                                elements: [element],
+                                config
+                            }
+                        });
+
+                        if (response && response.success && response.result) {
+                            const { item, items, columns: resultColumns } = response.result;
+
+                            if (resultColumns && Array.isArray(resultColumns)) {
+                                resultColumns.forEach((newCol: any) => {
+                                    if (!finalColumns.find((c: any) => c.id === newCol.id)) {
+                                        finalColumns.push(newCol);
+                                    }
+                                });
+                            }
+
+                            if (items && Array.isArray(items)) {
+                                if (Array.isArray(itemData)) {
+                                    itemData = items.map((newItem, idx) => ({
+                                        ...(itemData[idx] || { recordId: batchRecordId }),
+                                        ...newItem,
+                                        recordId: batchRecordId
+                                    }));
+                                } else {
+                                    const baseData = { ...itemData };
+                                    itemData = items.map((newItem, idx) => ({
+                                        ...(idx === 0 ? baseData : { recordId: batchRecordId }),
+                                        ...newItem,
+                                        recordId: batchRecordId
+                                    }));
+                                }
+                            } else if (item) {
+                                if (Array.isArray(itemData)) {
+                                    itemData = itemData.map((row: any, idx: number) => ({
+                                        ...row,
+                                        ...(idx === 0 ? item : {})
+                                    }));
+                                } else {
+                                    itemData = { ...itemData, ...item };
+                                }
+                            }
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                    }
+                }
+
+                return itemData;
+            };
+
+            // ─── Execution Router ────────────────────────────────────────────
+            if (!useParallel) {
+                // SEQUENTIAL: navigate the active tab, wait for real load completion
+                for (let i = 0; i < uniqueUrls.length; i++) {
+                    if (shouldStopRef.current) break;
+
+                    const url = uniqueUrls[i];
+                    await chrome.tabs.update(tab.id, { url });
+                    await waitForTabLoaded(tab.id);
+                    // Small extra settle time for post-load JS (React hydration etc.)
+                    await new Promise(resolve => setTimeout(resolve, 500));
+
+                    const extractedData = await processUrlOnTab(tab.id, url);
+                    if (Array.isArray(extractedData)) {
+                        allItems.push(...extractedData);
+                    } else {
+                        allItems.push(extractedData);
+                    }
+
+                    setCompletedPages(prev => prev + 1);
+
+                    if (i < uniqueUrls.length - 1 && config.requestDelay > 0) {
+                        await new Promise(resolve => setTimeout(resolve, config.requestDelay));
+                    }
+                }
+            } else {
+                // PARALLEL: background tabs with event-driven load + flash-activate
+                const queue = [...uniqueUrls];
+
+                const worker = async () => {
+                    while (queue.length > 0 && !shouldStopRef.current) {
+                        const url = queue.shift();
+                        if (!url) break;
+
+                        let bgTabId: number | undefined;
+
+                        try {
+                            const bgTab = await chrome.tabs.create({ url, active: false });
+                            bgTabId = bgTab.id;
+                            if (!bgTabId) continue;
+
+                            // Fix 1: Wait for actual load completion
+                            await waitForTabLoaded(bgTabId);
+
+                            // Fix 2: Flash-activate for ~300ms to trigger viewport rendering,
+                            // lazy loading (IntersectionObserver), visibility events etc.
+                            await chrome.tabs.update(bgTabId, { active: true });
+                            await new Promise(r => setTimeout(r, 300));
+                            // Restore focus back to the sidepanel's tab
+                            await chrome.tabs.update(tab.id, { active: true });
+                            await new Promise(r => setTimeout(r, 200));
+
+                            const extractedData = await processUrlOnTab(bgTabId, url);
+                            if (Array.isArray(extractedData)) {
+                                allItems.push(...extractedData);
+                            } else {
+                                allItems.push(extractedData);
+                            }
+                        } catch (e) {
+                            console.error(`Error processing ${url} in parallel:`, e);
+                        } finally {
+                            if (bgTabId) {
+                                chrome.tabs.remove(bgTabId).catch(console.warn);
+                            }
+                            setCompletedPages(prev => prev + 1);
+                        }
+                    }
+                };
+
+                const workers = Array(Math.min(maxConcurrent, uniqueUrls.length)).fill(null).map(() => worker());
+                await Promise.all(workers);
+            }
+
+            if (allItems.length > 0) {
+                const finalData = {
+                    type: 'bulk-page',
+                    items: allItems,
+                    columns: finalColumns,
+                    source_url: selectedUrls[0] + (selectedUrls.length > 1 ? ` (+${selectedUrls.length - 1} more)` : ''),
+                    count: allItems.length,
+                    timestamp: new Date().toISOString()
+                };
+
+                const tableId = await db.saveExtraction(finalData, {
+                    name: `Bulk Extraction (${uniqueUrls.length} pages)`,
+                    jobId: currentJobId
+                });
+
+                if (currentJobId) {
+                    await db.updateJob(currentJobId, {
+                        status: shouldStopRef.current ? 'paused' : 'completed',
+                        result: {
+                            tableDataId: tableId
+                        },
+                        stats: {
+                            startTime: Date.now(), // Keeps the typing happy
+                            endTime: Date.now(),
+                            itemsExtracted: allItems.length,
+                            pagesVisited: allItems.length,
+                            stoppedByUser: shouldStopRef.current
+                        }
+                    });
+                }
+
+                // Redirect to results (New Tab)
+                const targetUrl = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`);
+                chrome.tabs.create({ url: targetUrl });
+            } else if (currentJobId) {
+                // If it was stopped before any items, mark it as stopped
+                await db.updateJob(currentJobId, {
+                    status: 'paused',
+                    stats: {
+                        startTime: Date.now(),
+                        endTime: Date.now(),
+                        itemsExtracted: 0,
+                        pagesVisited: 0,
+                        stoppedByUser: true
+                    }
+                });
+            }
+
+            // Reset after success or stop
+            setStep(1);
+            setSelectedUrls([]);
+            setElements([]);
 
         } catch (error) {
             console.error("Extraction failed", error);
             alert("Extraction failed: " + error);
         } finally {
             setIsExtracting(false);
-            setCurrentUrlIndex(0);
+            setCompletedPages(0);
         }
     };
+
+    const elementActionRef = useRef(elementAction);
+    useEffect(() => {
+        elementActionRef.current = elementAction;
+    }, [elementAction]);
 
     useEffect(() => {
         const handleMessage = (message: any) => {
             if (message.type === 'ELEMENT_SELECTED' && message.payload.selectionMode === 'detail') {
                 console.log('Element selected:', message.payload);
-                setPendingElement(message.payload);
-                setElementName(message.payload.tagName || 'New Element');
-                setShowEditModal(true);
+
+                const newElement = {
+                    id: Date.now().toString(),
+                    name: message.payload.tagName || 'New Element',
+                    selectors: [{ type: 'css', value: message.payload.containerSelector }, { type: 'xpath', value: message.payload.containerXPath }],
+                    action: elementActionRef.current,
+                    type: message.payload.extractionType || 'text',
+                    value: message.payload.previewValue
+                };
+
+                setElements(prev => [...prev, newElement]);
                 setSelectionStatus('idle'); // Picker auto-deactivates
+            } else if (message.type === 'PICKER_CANCELLED') {
+                setSelectionStatus('idle');
             }
         };
         chrome.runtime.onMessage.addListener(handleMessage);
-        return () => chrome.runtime.onMessage.removeListener(handleMessage);
-    }, [setSelectionStatus]);
+
+        // Handle ESC key cancellation from the side panel
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                stopSelection();
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            chrome.runtime.onMessage.removeListener(handleMessage);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [setSelectionStatus, setElements, stopSelection]);
+
+    const handleEditElement = (el: any) => {
+        setPendingElement({
+            containerSelector: el.selectors.find((s: any) => s.type === 'css')?.value,
+            containerXPath: el.selectors.find((s: any) => s.type === 'xpath')?.value,
+            value: el.value,
+            type: el.type || 'text'
+        });
+        setElementName(el.name);
+        setElementAction(el.action);
+        setEditingElementId(el.id);
+        setShowEditModal(true);
+    };
 
     const handleSaveElement = () => {
         if (!pendingElement) return;
@@ -159,9 +476,9 @@ export default function PageExtractorPage({ onBack, onSettings }: PageExtractorP
         const newElement = {
             id: editingElementId || Date.now().toString(),
             name: elementName,
-            selectors: [{ type: 'css', value: pendingElement.selector }, { type: 'xpath', value: pendingElement.xpath }],
-            action: 'extract',
-            type: 'text',
+            selectors: [{ type: 'css', value: pendingElement.containerSelector }, { type: 'xpath', value: pendingElement.containerXPath }],
+            action: elementAction,
+            type: pendingElement.type || 'text',
             value: pendingElement.value // preview
         };
 
@@ -175,6 +492,7 @@ export default function PageExtractorPage({ onBack, onSettings }: PageExtractorP
         setPendingElement(null);
         setEditingElementId(null);
         setElementName('');
+        setElementAction('extract');
     };
 
     const handleDeleteElement = (id: string) => {
@@ -216,304 +534,76 @@ export default function PageExtractorPage({ onBack, onSettings }: PageExtractorP
         );
     }
 
+    const renderStep = () => {
+        switch (step) {
+            case 1:
+                return (
+                    <Step1Urls
+                        selectedUrls={selectedUrls}
+                        setSelectedUrls={setSelectedUrls}
+                        setShowDataSourceSelector={setShowDataSourceSelector}
+                        handleRemoveUrl={handleRemoveUrl}
+                        onNext={() => setStep(2)}
+                    />
+                );
+            case 2:
+                return (
+                    <Step2Schema
+                        elements={elements}
+                        selectionStatus={selectionStatus}
+                        startSelection={(mode, action) => {
+                            if (action) setElementAction(action);
+                            startSelection(mode, action || elementAction);
+                        }}
+                        handleDeleteElement={handleDeleteElement}
+                        handleEditElement={handleEditElement}
+                        showEditModal={showEditModal}
+                        setShowEditModal={setShowEditModal}
+                        pendingElement={pendingElement}
+                        setPendingElement={setPendingElement}
+                        elementName={elementName}
+                        setElementName={setElementName}
+                        elementAction={elementAction}
+                        handleSaveElement={handleSaveElement}
+                        onBack={() => setStep(1)}
+                        onNext={() => setStep(3)}
+                        onCancel={stopSelection}
+                    />
+                );
+            case 3:
+                return (
+                    <Step3Review
+                        elements={elements}
+                        selectedUrls={selectedUrls} // Pass original for UI count, dedupe is internal
+                        isExtracting={isExtracting}
+                        completedPages={completedPages}
+                        useParallel={useParallel}
+                        setUseParallel={setUseParallel}
+                        maxConcurrent={maxConcurrent}
+                        setMaxConcurrent={setMaxConcurrent}
+                        handleStartExtraction={handleStartExtraction}
+                        onStop={handleStopExtraction}
+                        onBack={() => setStep(2)}
+                    />
+                );
+            default:
+                return null;
+        }
+    };
+
     return (
-        <div className="flex flex-col h-full bg-app text-text-primary overflow-y-auto custom-scrollbar">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-border-subtle bg-app sticky top-0 z-10">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-surface-lighter flex items-center justify-center">
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="text-primary"
-                        >
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="17 8 12 3 7 8" />
-                            <line x1="12" y1="3" x2="12" y2="15" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h1 className="font-bold text-sm leading-none tracking-wide text-text-primary uppercase">Page Extractor</h1>
-                        <p className="text-xs text-text-muted mt-0.5 font-mono">Bulk data extraction</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-1">
-                    <button className="btn btn-ghost p-1.5 h-8 w-8">
-                        <Info className="w-4 h-4" />
-                    </button>
-                    <button className="btn btn-ghost p-1.5 h-8 w-8">
-                        <RotateCcw className="w-4 h-4" />
-                    </button>
-                    <button
-                        onClick={onSettings}
-                        className="btn btn-ghost p-1.5 h-8 w-8 text-primary"
-                    >
-                        <Settings className="w-4 h-4" />
-                    </button>
-                    <button
-                        onClick={onBack}
-                        className="btn btn-ghost p-1.5 h-8 w-8"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
-
-            <div className="p-4 space-y-4">
-                {/* Video Banner (Placeholder for future tutorial) */}
-                {/* <div className="relative group overflow-hidden rounded-xl bg-gray-900 border border-gray-800 p-3 flex items-center gap-4 cursor-pointer hover:border-gray-700 transition-colors">...</div> */}
-
-                {/* Step 1: Select URLs */}
-                <div className={`card transition-all duration-300 ${selectedUrls.length > 0 ? 'border-accent-success/30' : ''}`}>
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white transition-colors ${selectedUrls.length > 0 ? 'bg-accent-success' : 'bg-primary'}`}>
-                                {selectedUrls.length > 0 ? '✓' : '1'}
-                            </div>
-                            <h2 className="font-semibold text-sm text-text-primary">Target URLs</h2>
-                        </div>
-                        {selectedUrls.length > 0 && (
-                            <Badge variant="success">
-                                Ready
-                            </Badge>
-                        )}
-                    </div>
-
-                    {selectedUrls.length > 0 ? (
-                        <div className="space-y-4 animate-fade-in">
-                            <div className="bg-surface-lighter rounded-lg p-3 border border-border-subtle">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <Database className="w-3.5 h-3.5 text-accent-ai" />
-                                        <span className="text-xs font-medium text-text-primary">Source Data</span>
-                                    </div>
-                                    <button
-                                        onClick={() => setSelectedUrls([])}
-                                        className="text-[10px] text-accent-error hover:text-red-400 uppercase tracking-wider font-medium"
-                                    >
-                                        Clear
-                                    </button>
-                                </div>
-
-                                <div className="max-h-[120px] overflow-y-auto custom-scrollbar border border-border-subtle rounded bg-background-app/50 p-2">
-                                    {selectedUrls.map((url, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-1.5 text-xs border-b border-border-subtle last:border-0 group">
-                                            <span className="truncate text-text-muted font-mono flex-1 mr-4">{url}</span>
-                                            <button
-                                                onClick={() => handleRemoveUrl(idx)}
-                                                className="text-text-muted hover:text-accent-error opacity-0 group-hover:opacity-100 transition-all"
-                                            >
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={() => setShowDataSourceSelector(true)}
-                                className="w-full btn btn-secondary text-xs"
-                            >
-                                <Database className="w-3 h-3 mr-2" />
-                                Change Data Source
-                            </button>
-                        </div>
-                    ) : (
-                        <>
-                            <p className="text-xs text-center text-text-muted mb-4 px-4">
-                                Select source URLs to begin extraction
-                            </p>
-
-                            <div className="space-y-2">
-                                <button className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border-subtle hover:border-primary/50 hover:bg-surface-lighter transition-all text-left group">
-                                    <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
-                                        <Upload className="w-4 h-4 text-primary" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xs font-semibold text-text-primary group-hover:text-primary transition-colors">Upload CSV</h3>
-                                        <p className="text-[10px] text-text-muted">Import from file</p>
-                                    </div>
-                                </button>
-
-                                <button
-                                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border-subtle hover:border-accent-ai/50 hover:bg-surface-lighter transition-all text-left group"
-                                    onClick={() => setShowDataSourceSelector(true)}
-                                >
-                                    <div className="w-8 h-8 rounded bg-accent-ai/10 flex items-center justify-center">
-                                        <Database className="w-4 h-4 text-accent-ai" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xs font-semibold text-text-primary group-hover:text-accent-ai transition-colors">Select Data Source</h3>
-                                        <p className="text-[10px] text-text-muted">Use extracted links</p>
-                                    </div>
-                                </button>
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                {/* Step 2: Select What To Extract */}
-                <div className="card">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-6 h-6 rounded-md bg-surface-lighter text-text-secondary border border-border-subtle flex items-center justify-center text-xs font-bold">
-                            2
-                        </div>
-                        <h2 className="font-semibold text-sm text-text-primary">Extraction Schema</h2>
-                    </div>
-
-                    {elements.length === 0 ? (
-                        <div className="grid grid-cols-2 gap-3">
-                            <div
-                                className="p-4 border border-dashed border-border-subtle rounded-lg bg-surface-lighter/50 flex flex-col items-center justify-center text-center group cursor-pointer hover:border-primary/50 transition-colors"
-                                onClick={() => startSelection('detail')}
-                            >
-                                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
-                                    <MousePointerClick className="w-4 h-4 text-primary" />
-                                </div>
-                                <h3 className="text-xs font-medium text-text-primary mb-0.5">
-                                    {selectionStatus === 'selecting' ? 'Selecting...' : 'Select Elements'}
-                                </h3>
-                                <p className="text-[10px] text-text-muted">Extract data fields</p>
-                            </div>
-
-                            <div
-                                className="p-4 border border-dashed border-border-subtle rounded-lg bg-surface-lighter/50 flex flex-col items-center justify-center text-center group cursor-pointer hover:border-accent-warning/50 transition-colors"
-                                onClick={() => startSelection('detail')}
-                            >
-                                <div className="w-8 h-8 bg-accent-warning/10 rounded-lg flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-warning">
-                                        <path d="M14 9l6 6-6 6"></path><path d="M4 4v5"></path><path d="M4 4h5"></path><path d="M4 4l16 16"></path>
-                                    </svg>
-                                </div>
-                                <h3 className="text-xs font-medium text-text-primary mb-0.5">
-                                    Register Click
-                                </h3>
-                                <p className="text-[10px] text-text-muted">Interactions/Pagination</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {elements.map((el) => (
-                                <div key={el.id} className="p-2.5 bg-surface-lighter border border-border-subtle rounded-md flex items-center justify-between group">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-primary font-mono text-[10px] font-bold">
-                                            Tx
-                                        </div>
-                                        <div>
-                                            <div className="font-medium text-xs text-text-primary">{el.name}</div>
-                                            <div className="text-[10px] text-text-muted truncate max-w-[180px] font-mono">{el.value || 'No preview'}</div>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => handleDeleteElement(el.id)}
-                                        className="p-1 hover:bg-background-card rounded text-text-muted hover:text-accent-error opacity-0 group-hover:opacity-100 transition-all"
-                                    >
-                                        <X className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            ))}
-
-                            <button
-                                onClick={() => startSelection('detail')}
-                                className="w-full py-2 border border-dashed border-border-subtle rounded-md text-xs text-text-muted hover:text-text-primary hover:border-text-secondary transition-colors flex items-center justify-center gap-2"
-                            >
-                                <MousePointerClick className="w-3 h-3" />
-                                Add Field
-                            </button>
-                        </div>
-                    )}
-                </div>
-
-                {/* Edit Modal - Technical Dark Theme */}
-                {showEditModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-                        <div className="bg-background-card border border-border-subtle rounded-lg w-full max-w-sm overflow-hidden shadow-2xl">
-                            <div className="p-3 border-b border-border-subtle flex items-center justify-between bg-surface-lighter">
-                                <div className="flex items-center gap-2">
-                                    <Badge variant="ai">Detected</Badge>
-                                    <span className="text-xs font-mono text-text-muted">Confidence: High</span>
-                                </div>
-                                <button onClick={() => setShowEditModal(false)} className="text-text-muted hover:text-text-primary">
-                                    <X className="w-4 h-4" />
-                                </button>
-                            </div>
-                            <div className="p-4 space-y-4">
-                                <div>
-                                    <Input
-                                        label="Field Name"
-                                        value={elementName}
-                                        onChange={(e) => setElementName(e.target.value)}
-                                        placeholder="e.g. title, price, description"
-                                        className="font-mono text-xs"
-                                        autoFocus
-                                    />
-                                </div>
-                                <div className="bg-background-app p-3 rounded border border-border-subtle">
-                                    <div className="text-[10px] text-text-muted mb-1 uppercase tracking-wide">Preview Value</div>
-                                    <div className="text-xs text-text-primary font-mono truncate">{pendingElement?.value || 'No content'}</div>
-                                    {pendingElement?.selector && (
-                                        <div className="mt-2 pt-2 border-t border-border-subtle">
-                                            <div className="text-[10px] text-text-muted mb-0.5">CSS Selector</div>
-                                            <div className="text-[10px] text-accent-ai font-mono truncate">{pendingElement.selector}</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="p-3 border-t border-border-subtle bg-surface-lighter flex justify-end gap-2">
-                                <button
-                                    onClick={() => setShowEditModal(false)}
-                                    className="btn btn-ghost text-xs h-8"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleSaveElement}
-                                    disabled={!elementName.trim()}
-                                    className="btn btn-primary text-xs h-8"
-                                >
-                                    Save Field
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Step 3: Action Footer */}
-            <div className="p-4 border-t border-border-subtle bg-surface-lighter sticky bottom-0 z-20">
-                <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs text-text-muted">
-                        {isExtracting ? (
-                            <span className="text-accent-ai animate-pulse">Processing URL {currentUrlIndex + 1} of {selectedUrls.length}...</span>
-                        ) : (
-                            <span>Ready to extract {elements.length} fields from {selectedUrls.length} pages</span>
-                        )}
-                    </div>
-                </div>
-                <button
-                    onClick={handleStartExtraction}
-                    disabled={selectedUrls.length === 0 || elements.length === 0 || isExtracting}
-                    className={`btn btn-primary w-full h-10 shadow-lg shadow-primary/10 text-sm ${isExtracting ? 'opacity-80 cursor-wait' : ''}`}
-                >
-                    {isExtracting ? (
-                        <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Extracting...
-                        </>
-                    ) : (
-                        <>
-                            <Database className="w-4 h-4 mr-2" />
-                            Start Bulk Extraction
-                        </>
-                    )}
-                </button>
-            </div>
-        </div>
+        <WizardLayout
+            title="Page Extractor"
+            subtitle={
+                step === 1 ? "Select target web pages" :
+                    step === 2 ? "Configure extraction fields" :
+                        "Review and extract data"
+            }
+            currentStep={step}
+            totalSteps={3}
+            onBack={step === 1 ? onBack : () => setStep(step - 1)}
+        >
+            {renderStep()}
+        </WizardLayout>
     );
 }

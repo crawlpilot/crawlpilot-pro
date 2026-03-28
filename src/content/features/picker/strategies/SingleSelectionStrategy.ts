@@ -7,6 +7,8 @@ import { PaginationSelectorGenerator } from '../../../services/dom/selectors/Pag
 export class SingleSelectionStrategy implements ISelectionStrategy {
     private extractor: DataExtractor;
 
+    public preferredAction?: 'extract' | 'click' = 'extract';
+
     constructor() {
         this.extractor = new DataExtractor();
     }
@@ -60,5 +62,8 @@ export class SingleSelectionStrategy implements ISelectionStrategy {
         });
 
         picker.deactivate();
+
+        // Click logic removed from selection phase to prevent unintended navigation
+
     }
 }

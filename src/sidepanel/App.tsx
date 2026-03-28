@@ -10,6 +10,7 @@ import EmailExtractorPage from './pages/EmailExtractorPage';
 import UtilitiesPage from './pages/UtilitiesPage';
 import DataTablePage from './pages/DataTablePage'; // Assuming this import exists or I will create it
 import SettingsPage from './pages/SettingsPage';
+import TextSummarizerPage from './pages/TextSummarizerPage';
 import Header from './components/ui/Header';
 
 function App() {
@@ -34,6 +35,8 @@ function App() {
                 />;
             case 'page-extractor':
                 return <PageExtractorPage onBack={() => setCurrentView('home')} />;
+            case 'text-summarizer':
+                return <TextSummarizerPage onBack={() => setCurrentView('home')} />;
             case 'image-downloader':
                 return <ImageDownloaderPage onBack={() => setCurrentView('home')} />;
             case 'email-extractor':

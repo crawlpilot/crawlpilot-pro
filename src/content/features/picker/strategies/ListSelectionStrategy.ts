@@ -12,6 +12,7 @@ export class ListSelectionStrategy implements ISelectionStrategy {
     private refiner: ItemSelectorRefiner;
     private lastContainerInfo: any = null;
     private lastItemUnit: HTMLElement | null = null;
+    public preferredAction?: 'extract' | 'click' = 'extract';
 
     constructor() {
         this.detector = new ContainerDetector();
@@ -66,8 +67,9 @@ export class ListSelectionStrategy implements ISelectionStrategy {
             this.lastItemUnit = itemUnit;
 
             // Hint user about keyboard nav?
-            const label = `📋 List Container (${containerInfo.childCount} items) ${this.candidates.length > 1 ? '↕' : ''}`;
-            const sub = this.candidates.length > 1 ? 'Use ↑/↓ to adjust scope • Click to select' : 'Click to select entire list';
+            const typeLabel = containerInfo.containerType === 'table' ? 'Table' : 'List';
+            const label = `📋 ${typeLabel} Container (${containerInfo.childCount} items) ${this.candidates.length > 1 ? '↕' : ''}`;
+            const sub = this.candidates.length > 1 ? 'Use ↑/↓ to adjust scope • Click to select' : `Click to select entire ${typeLabel.toLowerCase()}`;
 
             picker.updateHighlightManual(
                 containerInfo.container,
@@ -110,7 +112,7 @@ export class ListSelectionStrategy implements ISelectionStrategy {
             // DEDUCTIVE APPROACH: Strictly use selectors that match the visual capture
             // Our CommonSelectorGenerator is now powerful enough to derive these from the siblings.
             const commonGen = new CommonSelectorGenerator();
-            const validResults = commonGen.deriveCommonSelector(containerInfo.siblings, containerInfo.container);
+            const validResults = commonGen.deriveCommonSelector(containerInfo.siblings, containerInfo.container, targetItem);
 
             let candidates: any[] = [];
             if (validResults.length > 0) {
@@ -195,6 +197,8 @@ export class ListSelectionStrategy implements ISelectionStrategy {
                 }
             });
         }
+
+        // Click logic removed from selection phase to prevent unintended navigation
 
         picker.deactivate();
     }

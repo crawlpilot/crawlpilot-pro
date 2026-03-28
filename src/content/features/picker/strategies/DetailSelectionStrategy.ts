@@ -1,14 +1,18 @@
 import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
-import { LegacySelectorGenerator } from '../../../services/dom/LegacySelectorGenerator';
-import { ElementEditorPopup } from '../../../ui/ElementEditorPopup';
+import { ContainerDetector } from '../ContainerDetector';
+import { generateCssSelector, generateXPath, clickElementRobust } from '../../../services/dom/domUtils';
 
 export class DetailSelectionStrategy implements ISelectionStrategy {
     private extractor: DataExtractor;
+    private detector: ContainerDetector;
+
+    public preferredAction?: 'extract' | 'click' = 'extract';
 
     constructor() {
         this.extractor = new DataExtractor();
+        this.detector = new ContainerDetector();
     }
 
     handleHover(element: HTMLElement, picker: VisualElementPicker): void {
@@ -24,119 +28,114 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
     handleClick(element: HTMLElement, picker: VisualElementPicker, sendResponse: (msg: any) => void): void {
         console.log('Detail Strategy Clicked:', element);
 
-        // Smart Target Logic: Prefer interactive ancestors (a, button)
-        let target = element;
-        let curr: HTMLElement | null = element;
-        for (let i = 0; i < 4; i++) {
-            if (!curr) break;
-            const tag = curr.tagName.toLowerCase();
-            const role = curr.getAttribute('role');
-            if (['a', 'button', 'input', 'select', 'details', 'summary'].includes(tag) || role === 'button' || role === 'link') {
-                target = curr;
-                console.log('⚡️ Adjusted selection to interactive ancestor:', target);
-                break;
-            }
-            curr = curr.parentElement;
+        // We explicitly use the EXACT element for selectors, bypassing any "Smart Ancestor" logic 
+        // to ensure Data Extractors match the exact node the user pointed to.
+        const target = element;
+
+        // Use ContainerDetector to see if this is a list/table.
+        // We look INSIDE the selected element first.
+        const containerInfo = this.detector.findInternalContainer(target);
+        const isList = containerInfo.isContainer && containerInfo.container;
+
+        let containerSelector = '';
+        let containerXPath = '';
+        let itemSelector = '';
+        let itemXPath = '';
+        let data: any = {};
+
+        if (isList) {
+            console.log('[DetailStrategy] Detected list/table container:', containerInfo);
+            containerSelector = generateCssSelector(containerInfo.container!);
+            containerXPath = generateXPath(containerInfo.container!);
+
+            // In Detail Selection (Page Extraction), we must generate a STRICT selector 
+            // scoped to the specific target element to avoid broad matching that hangs large pages (e.g. Amazon)
+            const itemSpecificSelector = generateCssSelector(target, false);
+            const itemSpecificXPath = generateXPath(target);
+
+            itemSelector = itemSpecificSelector;
+            itemXPath = itemSpecificXPath;
+
+            // Extract all items in the list
+            data = this.extractor.extract(target, containerInfo);
+
+        } else {
+            console.log('[DetailStrategy] No list detected. Extracting single element.');
+            containerSelector = generateCssSelector(target);
+            containerXPath = generateXPath(target);
+            itemSelector = containerSelector;
+            itemXPath = containerXPath;
+
+            data = this.extractor.extract(target, { isContainer: false, siblings: [], container: null });
         }
 
-        // Use LegacySelectorGenerator for strict port of reference logic (on the interactive target)
-        const cssSelectors = LegacySelectorGenerator.generateCssSelectors(target);
-        const xpathSelectors = LegacySelectorGenerator.generateXPathSelectors(target);
+        // Calculate simple preview value based on extraction type
+        let previewValue = '';
+        let finalValue = '';
+        let autoExtractionType: 'text' | 'link' | 'image' | 'list' | 'table' = 'text';
 
-        const selector = cssSelectors.length > 0 ? cssSelectors[0] : '';
-        const xpath = xpathSelectors.length > 0 ? xpathSelectors[0] : '';
+        const itemCount = isList ? (containerInfo.childCount || data?.items?.length || 0) : 1;
 
-        // Pause picker visual updates implicitly by covering with popup
-        if (picker['overlay']) picker['overlay'].style.pointerEvents = 'none';
+        if (isList) {
+            // containerType is computed by determineContainerType using structural analysis:
+            // TABLE/UL/OL/TBODY → 'table' (rows), everything else → 'list' (columns)
+            autoExtractionType = containerInfo.containerType === 'table' ? 'table' : 'list';
+            const typeStr = autoExtractionType === 'table' ? 'Table' : 'List';
+            previewValue = `${typeStr} (${itemCount} items)`;
+            finalValue = previewValue;
+        } else if (element.tagName === 'IMG') {
+            autoExtractionType = 'image';
+            previewValue = (element as HTMLImageElement).src;
+            finalValue = previewValue;
+        } else if (element.tagName === 'A') {
+            autoExtractionType = 'link';
+            previewValue = (element as HTMLAnchorElement).href;
+            finalValue = previewValue;
+        } else {
+            autoExtractionType = 'text';
+            previewValue = element.textContent?.trim().substring(0, 50) || '';
+            finalValue = element.textContent?.trim() || '';
+        }
 
-        const popup = new ElementEditorPopup();
-
-        popup.show(
-            element,
-            selector,
-            xpath,
-            (result) => {
-                // On Save
-                const data = this.extractor.extract(element, { isContainer: false, siblings: [], container: null });
-
-                if (result.action === 'click') {
-                    // Execute the click immediately so the user can see the effect (e.g. modal opens)
-                    // We use a small timeout to let the popup close first
-                    setTimeout(() => {
-                        console.log('⚡️ Executing immediate click for verification:', element);
-
-                        // 1. Standard click
-                        try { element.click(); } catch (e) { }
-
-                        // 2. Dispatch comprehensive mouse events for React/Vue/Angular
-                        const eventOptions = {
-                            view: window,
-                            bubbles: true,
-                            cancelable: true,
-                            buttons: 1,
-                            composed: true
-                        };
-
-                        element.dispatchEvent(new MouseEvent('mousedown', eventOptions));
-                        element.dispatchEvent(new MouseEvent('mouseup', eventOptions));
-                        element.dispatchEvent(new MouseEvent('click', eventOptions));
-
-                    }, 50);
-                } else {
-                    // Usual Extraction Logic (only needed if NOT just a pure interaction? 
-                    // actually we still send the response regardless)
-                }
-
-                // Calculate simple preview value based on extraction type
-                let previewValue = '';
-                let finalValue = '';
-
-                if (result.extractionType === 'image' && element.tagName === 'IMG') {
-                    previewValue = (element as HTMLImageElement).src;
-                    finalValue = previewValue;
-                } else if (result.extractionType === 'link' && element.tagName === 'A') {
-                    previewValue = (element as HTMLAnchorElement).href;
-                    finalValue = previewValue;
-                } else if (result.extractionType === 'text') {
-                    previewValue = element.innerText?.trim().substring(0, 50) || '';
-                    finalValue = element.innerText?.trim() || '';
-                } else {
-                    // Auto fallback
-                    previewValue = element.textContent?.trim().substring(0, 50) || '';
-                    finalValue = element.textContent?.trim() || '';
-                }
-
-                sendResponse({
-                    type: 'ELEMENT_SELECTED',
-                    payload: {
-                        success: true,
-                        id: `sel-${Date.now()}`,
-                        data: data,
-                        containerSelector: result.selector,
-                        containerXPath: result.xpath,
-                        itemSelector: result.selector,
-                        itemXPath: result.xpath,
-                        value: finalValue,
-                        previewValue: previewValue,
-                        tagName: result.name || element.tagName.toLowerCase(),
-                        selectionMode: 'detail',
-                        action: result.action,
-                        extractionType: result.extractionType,
-                        waitTime: result.waitTime,
-                        patternFound: false,
-                        count: 1
-                    }
-                });
-
-                picker.deactivate();
-                if (picker['overlay']) picker['overlay'].style.pointerEvents = 'all';
-            },
-            () => {
-                // On Cancel
-                console.log('Selection cancelled, resuming picker');
-                if (picker['overlay']) picker['overlay'].style.pointerEvents = 'all';
-                // We don't deactivate, effectively resuming selection
+        sendResponse({
+            type: 'ELEMENT_SELECTED',
+            payload: {
+                success: true,
+                id: `sel-${Date.now()}`,
+                data: data,
+                containerSelector: containerSelector,
+                containerXPath: containerXPath,
+                itemSelector: itemSelector,
+                itemXPath: itemXPath,
+                value: finalValue,
+                previewValue: previewValue,
+                tagName: element.tagName.toLowerCase(),
+                selectionMode: 'detail',
+                action: this.preferredAction || 'extract', // Use preferred action
+                extractionType: autoExtractionType,
+                waitTime: 0,
+                patternFound: isList,
+                count: isList ? (containerInfo.childCount || data?.items?.length || 1) : 1
             }
-        );
+        });
+
+        picker.deactivate();
+
+        // [NEW] If action is click, actually perform it so user can proceed
+        if (this.preferredAction === 'click') {
+            console.log('👆 Triggering robust click on element:', element);
+
+            // Synchronous native click FIRST to preserve User Gesture (Transient Activation)
+            // This is required for navigating <a> tags or triggering native popups.
+            if (typeof element.click === 'function') {
+                element.click();
+            }
+
+            // Slightly longer delay to ensure overlay is gone and DOM is stable for JS-bound events
+            setTimeout(async () => {
+                await clickElementRobust(element);
+            }, 100);
+        }
+
     }
 }

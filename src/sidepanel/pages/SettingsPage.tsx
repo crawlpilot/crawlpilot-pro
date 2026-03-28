@@ -26,7 +26,9 @@ import {
     User,
     ShieldCheck,
     Globe,
-    AlertTriangle
+    AlertTriangle,
+    Share2,
+    Star
 } from 'lucide-react';
 import { db } from '../../shared/db/db-manager';
 import { useJobHistory } from '../hooks/useDatabase';
@@ -148,11 +150,11 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                                 fontSize: '0.7rem',
                                 fontWeight: 'bold'
                             }}>
-                                FREE EXPERIMENTATION
+                                FREE TRIAL
                             </Box>
                         </Box>
                         <Typography variant="body2" color="text.secondary">
-                            This is an <strong>experimental build</strong> — features may change or behave unexpectedly.
+                            This is a <strong>FREE TRIAL</strong> — features may change or behave unexpectedly.
                             If you run into any issues, please raise them via <strong>Contact Support</strong> below so we can improve the experience.
                         </Typography>
                     </Paper>
@@ -281,6 +283,29 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                                 <ListItemText
                                     primary="GitHub Repository"
                                     secondary="Star us, report bugs, or contribute"
+                                    primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
+                                />
+                            </ListItemButton>
+                            <Divider component="li" />
+                            <ListItemButton onClick={() => {
+                                const url = `https://chromewebstore.google.com/detail/${chrome.runtime.id}`;
+                                navigator.clipboard.writeText(url).then(() => {
+                                    alert('Extension link copied to clipboard!');
+                                }).catch(console.error);
+                            }}>
+                                <ListItemIcon><Share2 size={20} /></ListItemIcon>
+                                <ListItemText
+                                    primary="Share Extension"
+                                    secondary="Copy link to share with friends"
+                                    primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
+                                />
+                            </ListItemButton>
+                            <Divider component="li" />
+                            <ListItemButton component="a" href={`https://chromewebstore.google.com/detail/${chrome.runtime.id}/reviews`} target="_blank">
+                                <ListItemIcon><Star size={20} /></ListItemIcon>
+                                <ListItemText
+                                    primary="Rate & Review"
+                                    secondary="Leave a review on the Chrome Web Store"
                                     primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
                                 />
                             </ListItemButton>

@@ -15,6 +15,19 @@
     "storage",
     "sidePanel"
   ],
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "src/content/element-selector.ts"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
   "host_permissions": [],
   "optional_host_permissions": [
     "<all_urls>"
@@ -45,5 +58,8 @@
         "<all_urls>"
       ]
     }
+  ],
+  "trial_tokens": [
+    "A+ZrmR1GrS0GI8O7fwHJQrfvBm2PNzeO28Tlvdp/3j51LPrcLO4RgTVpsBsgJ7O9FLTuV84QGnqmZL2u8YkFRwMAAACPeyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vb2JrYWpwbWVmZW1rbGVlZ2drZmhubXBpbGVpamdlY2MiLCJmZWF0dXJlIjoiQUlQcm9tcHRBUElNdWx0aW1vZGFsSW5wdXQiLCJleHBpcnkiOjE3ODE1NjgwMDAsImlzVGhpcmRQYXJ0eSI6dHJ1ZX0="
   ]
 }

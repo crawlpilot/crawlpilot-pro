@@ -2,7 +2,7 @@
 export interface ElementEditorResult {
     action: 'extract' | 'click';
     name?: string;
-    extractionType?: 'auto' | 'text' | 'image' | 'link';
+    extractionType?: 'auto' | 'text' | 'image' | 'link' | 'list' | 'table';
     selector: string;
     xpath: string;
     waitTime?: number;
@@ -15,7 +15,7 @@ export class ElementEditorPopup {
 
     // State
     private action: 'extract' | 'click' = 'extract';
-    private extractionType: 'auto' | 'text' | 'image' | 'link' = 'auto';
+    private extractionType: 'auto' | 'text' | 'image' | 'link' | 'list' | 'table' = 'auto';
     private name: string = '';
     private selector: string = '';
     private xpath: string = '';

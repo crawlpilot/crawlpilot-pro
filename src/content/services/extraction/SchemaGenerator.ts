@@ -5,7 +5,6 @@ import { Column, ColumnType } from './ExtractionTypes';
  * (background-readable.js lines 2100-2139)
  */
 export class SchemaGenerator {
-
     /**
      * Generates a schema from a list of raw rows.
      * @param rawRows Array of raw data objects (keys are selector paths)
@@ -55,7 +54,7 @@ export class SchemaGenerator {
                 let maxArea = 0;
                 let bestMeta: any = null;
 
-                // Iterate all rows to find max dimension for this column
+                // Iterate all rows to find max dimension for this column globally
                 rawRows.forEach(row => {
                     const meta = row[dimensionKey];
                     if (meta && typeof meta === 'object' && meta.area) {
@@ -77,11 +76,13 @@ export class SchemaGenerator {
             }
         });
 
-        // Reference Logic: Filter out explicit dimension columns (lines 2187)
-        const finalColumns = columns.filter(col =>
+        let finalColumns = columns.filter(col =>
             !col.originalId.endsWith(' src dimensions') &&
             !col.originalId.endsWith(' background dimensions')
         );
+
+        // [NEW] Unification is now deferred to the Table Rendering phase in DataTablePage 
+        // to save massive memory during the extraction loop.
 
         // Reference Logic: Sort Columns (lines 2214-2222)
         // Images first (sorted by metadata area if avail), then others.
@@ -195,6 +196,8 @@ export class SchemaGenerator {
 
         return { id, name, type };
     }
+
+    // unifyColumns and mergeRowData removed - logic delegated to TableUnifier in UI
 
     /**
      * Public helper to get the Column ID for a raw selector key

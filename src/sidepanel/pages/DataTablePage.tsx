@@ -181,9 +181,11 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                 ) : tableData && rows.length > 0 ? (
                     <div className="h-full w-full">
                         <DataTable
+                            key={tableData.id}
                             ref={tableRef}
                             columns={tableData.columns}
                             rows={rows}
+                            defaultHideMostlyEmptyColumns={tableData?.metadata?.extractionType !== 'bulk-page'}
                         />
                     </div>
                 ) : (

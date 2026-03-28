@@ -59,7 +59,6 @@ export class DataExtractor {
         const columns = schemaResult.columns;
 
         // Map raw rows to new schema IDs (normalized data)
-        // Map raw rows to new schema IDs (normalized data)
         const items = this.normalizeData(rows, columns);
 
         return {
@@ -77,92 +76,26 @@ export class DataExtractor {
         };
     }
 
-    // private unifyColumns(rows: any[], columns: any[]) {
-    //     if (!columns || columns.length === 0) return [];
-    //     const finalCols: any[] = [];
-
-    //     columns.forEach(col => {
-    //         // "Text Content" is a generic fallback, keep it separate usually
-    //         if (col.name === 'Text Content') {
-    //             finalCols.push(col);
-    //             return;
-    //         }
-
-    //         // Find a compatible existing column to merge into
-    //         const match = finalCols.find(existing => {
-    //             // 1. Must match Name (approx) and Type
-    //             if (existing.name !== col.name || existing.type !== col.type) return false;
-
-    //             // 2. COLLISION CHECK
-    //             // They are compatible if they never have conflicting values in the same row.
-    //             const hasCollision = rows.some(row => {
-    //                 const val1 = row[existing.id];
-    //                 const val2 = row[col.id];
-    //                 // Collision = Both have values, and they are different
-    //                 return (val1 && val2 && val1 !== val2);
-    //             });
-
-    //             return !hasCollision;
-    //         });
-
-    //         if (match) {
-    //             // Merge this column into the matching existing column
-    //             this.mergeRowData(rows, col.id, match.id);
-    //         } else {
-    //             // No match or collision found -> Keep as separate column
-
-    //             // Ensure unique name for UI if we have a name collision but different data (real collision)
-    //             let name = col.name;
-    //             let count = 2;
-    //             while (finalCols.some(c => c.name === name)) {
-    //                 name = `${col.name} ${count}`;
-    //                 count++;
-    //             }
-    //             col.name = name;
-    //             finalCols.push(col);
-    //         }
-    //     });
-
-    //     return finalCols;
-    // }
-
-    // private mergeRowData(rows: any[], sourceId: string, targetId: string) {
-    //     rows.forEach(row => {
-    //         if (Object.prototype.hasOwnProperty.call(row, sourceId)) {
-    //             const val = row[sourceId];
-    //             if (val !== undefined && val !== null && val !== "") {
-    //                 if (!row[targetId]) {
-    //                     row[targetId] = val;
-    //                 }
-    //                 // If target already has value, we checked for collision, so it's either same or we skip
-    //             }
-    //             delete row[sourceId];
-    //         }
-    //     });
-    // }
-
-
-
     private extractSingle(element: HTMLElement) {
-        const data: any = {};
-        // Use processNode directly for single element
-        this.processNode(element, [], {}, data);
+        // [NEW] Smart Extraction for Single Elements (e.g., Buyboxes)
+        // Instead of returning a single text blob, we extract the entire hierarchical DOM 
+        // structure under this element, just like we do for a row in a list.
+        const rowData = this.extractRow(element);
 
-        // For single extraction, we create pseduo-columns from the keys
-        const rows = [data];
+        // For single extraction, we create pseudo-columns from the keys
+        const rows = [rowData];
 
-        // Generate columns using SchemaGenerator
+        // Generate columns using SchemaGenerator so it looks identical to a list of 1
         const schemaResult = this.schemaGenerator.generateSchema(rows);
         const columns = schemaResult.columns;
 
         // Map raw rows to new schema IDs
-        // Map raw rows to new schema IDs
         const items = this.normalizeData(rows, columns);
 
         return {
-            type: 'single',
+            type: 'list', // [CRITICAL] Fake it as a 'list' so PageExtractionStrategy explodes the columns
             columns: columns,
-            items: items, // Return normalized items
+            items: items, // Return normalized items (array of 1)
             source_url: window.location.href,
             timestamp: new Date().toISOString()
         };

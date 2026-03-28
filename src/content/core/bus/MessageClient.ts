@@ -43,7 +43,21 @@ export class MessageClient {
     private handleMessage(message: any, _sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) {
         if (message && message.type && this.listeners.has(message.type)) {
             const callback = this.listeners.get(message.type)!;
-            return callback(message, sendResponse);
+            const result = callback(message, sendResponse);
+
+            // In Chrome Extensions, an onMessage listener MUST explicitly return `true`
+            // if sendResponse will be called asynchronously. If the callback returns a Promise,
+            // we must return true.
+            if (result instanceof Promise) {
+                // We don't want an unhandled promise rejection to crash the listener
+                result.catch(err => {
+                    console.error(`Error in async message handler for ${message.type}:`, err);
+                    sendResponse({ success: false, error: err.message });
+                });
+                return true;
+            }
+
+            return result === true;
         }
         return false;
     }

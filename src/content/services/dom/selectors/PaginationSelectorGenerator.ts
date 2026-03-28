@@ -26,6 +26,13 @@ export class PaginationSelectorGenerator extends SelectorGenerator {
             if (seen.has(cand.selector)) continue;
             seen.add(cand.selector);
 
+            // [FIX] BRITTLE SELECTOR PREVENTION
+            // If the selector contains a quoted string with a digit (e.g. 'Go to page 2' or "[aria-label='next 2']"),
+            // we MUST discard it because it will break on page 3!
+            if (/('.*\d.*'|".*\d.*")/.test(cand.selector)) {
+                continue;
+            }
+
             // Validation: Must match exactly 1 element
             const isXPath = cand.strategy.includes('XPath') || cand.selector.startsWith('//') || cand.selector.startsWith('(');
             if (this.validateUnique(cand.selector, isXPath)) {
@@ -86,8 +93,8 @@ export class PaginationSelectorGenerator extends SelectorGenerator {
 
         // [FIX] Explicitly check for Aria-Label CSS opportunities that might be cleaner than XPath
         const ariaLabel = element.getAttribute('aria-label');
-        if (ariaLabel) {
-            // Add a very high priority CSS selector if simple
+        if (ariaLabel && !/\d/.test(ariaLabel)) {
+            // Add a very high priority CSS selector if simple AND DOES NOT CONTAIN NUMBERS (page numbers)
             const css = `[aria-label="${ariaLabel.replace(/"/g, '\\"')}"]`;
             results.unshift({
                 selector: css,

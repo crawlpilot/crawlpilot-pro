@@ -18,6 +18,10 @@ export function useSelectorManager() {
         setSelectors(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
     }, []);
 
+    const clearSelectors = useCallback(() => {
+        setSelectors([]);
+    }, []);
+
     const setNextButton = useCallback((selector: string | null, metadata?: SelectorMetadata[]) => {
         setNextButtonSelector(selector);
 
@@ -37,6 +41,7 @@ export function useSelectorManager() {
         addSelector,
         removeSelector,
         updateSelector,
+        clearSelectors,
         setNextButton
     };
 }

@@ -10,15 +10,31 @@ export class CommonSelectorGenerator {
     /**
      * Derives a list of optimal CSS and XPath selectors that target all the provided elements.
      * Uses generateRobustSelectors internally and filters them based on the exact visual count.
+     * 
+     * [IMPROVED] Uses similarity scoring to filter out spacers/dividers from the target set
+     * before generating common selectors.
      */
-    public deriveCommonSelector(elements: HTMLElement[], root: HTMLElement): DerivedSelector[] {
+    public deriveCommonSelector(elements: HTMLElement[], root: HTMLElement, targetElement?: HTMLElement): DerivedSelector[] {
         if (!elements || elements.length === 0) return [];
 
-        const targetCount = elements.length;
+        // --- PHASE 0: Filter by Similarity (LinkedIn Spacer Fix) ---
+        // If a targetElement is provided (the specific item the user clicked), 
+        // we filter the siblings to only include those that are "similar" to it.
+        let targetSet = elements;
+        if (targetElement) {
+            targetSet = elements.filter(el => this.calculateSimilarityScore(el, targetElement) >= 30);
+
+            // If filtering killed everything except the target, fallback to original set 
+            // (safety for cases where every item is unique)
+            if (targetSet.length < 2) targetSet = elements;
+        }
+
+        const targetCount = targetSet.length;
         const validResults: DerivedSelector[] = [];
 
         // 1. Leverage the robust SelectorGenerator
-        const candidates = generateRobustSelectors(elements[0], {
+        const anchor = targetElement || targetSet[0];
+        const candidates = generateRobustSelectors(anchor, {
             isList: true,
             root: root
         });
@@ -33,27 +49,27 @@ export class CommonSelectorGenerator {
         }
 
         // 2. Add manual common semantic fallbacks
-        const commonClasses = this.findAllCommonClasses(elements);
+        const commonClasses = this.findAllCommonClasses(targetSet);
         for (const cls of commonClasses) {
             if (this.validateSelectorMajority(cls, root, targetCount)) {
                 validResults.push({ selector: cls, type: 'CSS' });
             }
 
             const className = cls.substring(1);
-            const xpathSelector = `//${elements[0].tagName.toLowerCase()}[contains(concat(' ', normalize-space(@class), ' '), ' ${className} ')]`;
+            const xpathSelector = `//${targetSet[0].tagName.toLowerCase()}[contains(concat(' ', normalize-space(@class), ' '), ' ${className} ')]`;
             if (this.validateSelectorMajority(xpathSelector, root, targetCount)) {
                 validResults.push({ selector: xpathSelector, type: 'XPath' });
             }
         }
 
-        const commonAttrs = this.findAllCommonAttributes(elements);
+        const commonAttrs = this.findAllCommonAttributes(targetSet);
         for (const attr of commonAttrs) {
             if (this.validateSelectorMajority(attr, root, targetCount)) {
                 validResults.push({ selector: attr, type: 'CSS' });
             }
 
             let xpathAttr = '';
-            const tag = elements[0].tagName.toLowerCase();
+            const tag = targetSet[0].tagName.toLowerCase();
             if (attr.includes('=')) {
                 const parts = attr.match(/\[(.*)="(.*)"\]/);
                 if (parts) xpathAttr = `//${tag}[@${parts[1]}="${parts[2]}"]`;
@@ -66,7 +82,7 @@ export class CommonSelectorGenerator {
             }
         }
 
-        const commonTag = this.findCommonTag(elements);
+        const commonTag = this.findCommonTag(targetSet);
         if (commonTag) {
             if (this.validateSelectorMajority(commonTag, root, targetCount)) {
                 validResults.push({ selector: commonTag, type: 'CSS' });
@@ -78,21 +94,17 @@ export class CommonSelectorGenerator {
         }
 
         // 3. FR-6: Child-Based Targeting ("CSS :has")
-        // If the candidate items have common distinct children (e.g. .price), use :has()
-        const childFeatures = this.findCommonChildFeatures(elements);
+        const childFeatures = this.findCommonChildFeatures(targetSet);
         for (const feature of childFeatures) {
-            // Combine with Tag or Class if possible, else generic
-            // Preferred: Tag:has(Feature) e.g. div:has(.price)
-            const baseTag = elements[0].tagName.toLowerCase();
+            const baseTag = targetSet[0].tagName.toLowerCase();
             const hasSelector = `${baseTag}:has(${feature})`;
 
             if (this.validateSelectorMajority(hasSelector, root, targetCount)) {
                 validResults.push({ selector: hasSelector, type: 'CSS' });
             }
 
-            // Try with common class if available
             if (commonClasses.length > 0) {
-                const baseClass = commonClasses[0]; // Best class
+                const baseClass = commonClasses[0];
                 const classHasSelector = `${baseClass}:has(${feature})`;
                 if (this.validateSelectorMajority(classHasSelector, root, targetCount)) {
                     validResults.push({ selector: classHasSelector, type: 'CSS' });
@@ -107,6 +119,59 @@ export class CommonSelectorGenerator {
             seen.add(item.selector);
             return true;
         });
+    }
+
+    /**
+     * Calculates a similarity score (0-60+) between two elements.
+     * Based on the robust comparison logic in background-readable.js (Module 588).
+     */
+    private calculateSimilarityScore(el: HTMLElement, reference: HTMLElement): number {
+        let score = 0;
+
+        // 1. Tag match (Higher weight)
+        if (el.tagName === reference.tagName) score += 10;
+
+        // 2. ClassList overlap
+        const elClasses = new Set(el.className.split(/\s+/).filter(Boolean));
+        const refClasses = reference.className.split(/\s+/).filter(Boolean);
+        const overlap = refClasses.filter(c => elClasses.has(c)).length;
+        if (overlap > 0 && refClasses.length > 0) {
+            score += Math.floor((overlap / refClasses.length) * 15);
+        }
+
+        // 3. Dimensions (indicates if it's a "card" or a "spacer")
+        let elRect = el.getBoundingClientRect();
+        let refRect = reference.getBoundingClientRect();
+
+        // If offsetHeight is 0 (display: contents), try to find a child with dimensions
+        if (elRect.width === 0 && elRect.height === 0 && el.children.length > 0) {
+            const firstWithDim = Array.from(el.querySelectorAll('*')).find(child => child.getBoundingClientRect().width > 0) as HTMLElement;
+            if (firstWithDim) elRect = firstWithDim.getBoundingClientRect();
+        }
+        if (refRect.width === 0 && refRect.height === 0 && reference.children.length > 0) {
+            const firstWithDim = Array.from(reference.querySelectorAll('*')).find(child => child.getBoundingClientRect().width > 0) as HTMLElement;
+            if (firstWithDim) refRect = firstWithDim.getBoundingClientRect();
+        }
+
+        const sameWidth = Math.abs(elRect.width - refRect.width) < 5;
+        const sameHeight = Math.abs(elRect.height - refRect.height) < 5;
+        if (sameWidth && sameHeight && elRect.width > 0) score += 10;
+
+        // 4. Child count (indicates structural complexity)
+        const sameChildCount = Math.abs(el.children.length - reference.children.length) < 2;
+        if (sameChildCount) score += 5;
+
+        // 5. Content characteristics
+        const elText = (el.innerText || "").trim();
+        const refText = (reference.innerText || "").trim();
+        if (Math.abs(elText.length - refText.length) < 20) score += 5;
+
+        // Text prefix match (often contains fixed labels like "Sort by:")
+        if (elText.length > 5 && refText.length > 5 && elText.substring(0, 10) === refText.substring(0, 10)) {
+            score += 10;
+        }
+
+        return score;
     }
 
     private isXPath(selector: string): boolean {

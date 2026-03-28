@@ -5,7 +5,7 @@ export function useSelectionMode() {
     const [selectingFor, setSelectingFor] = useState<'list' | 'nextButton' | 'detail'>('list');
     const [error, setError] = useState<string | null>(null);
 
-    const startSelection = useCallback(async (mode: 'list' | 'nextButton' | 'detail') => {
+    const startSelection = useCallback(async (mode: 'list' | 'nextButton' | 'detail', action: 'extract' | 'click' = 'extract') => {
         setStatus('selecting');
         setSelectingFor(mode);
         setError(null);
@@ -17,7 +17,10 @@ export function useSelectionMode() {
             try {
                 await chrome.tabs.sendMessage(tab.id, {
                     type: 'START_PICKER',
-                    payload: { mode: mode === 'nextButton' ? 'single' : mode }
+                    payload: {
+                        mode: mode === 'nextButton' ? 'single' : mode,
+                        action: mode === 'nextButton' ? 'click' : action
+                    }
                 });
             } catch (e) {
                 // Content script is not active. This usually happens on restricted pages (like chrome://) 

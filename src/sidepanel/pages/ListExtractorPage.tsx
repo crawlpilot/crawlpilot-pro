@@ -155,8 +155,19 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
             }
         };
         chrome.runtime.onMessage.addListener(messageListener);
-        return () => chrome.runtime.onMessage.removeListener(messageListener);
-    }, [selectingFor, selectors, addSelector, setNextButton, setSelectionStatus]);
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                stopSelection();
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            chrome.runtime.onMessage.removeListener(messageListener);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [selectingFor, selectors, addSelector, setNextButton, setSelectionStatus, stopSelection]);
 
     // Handlers
     const handleVerifySelector = async (selector: string) => {

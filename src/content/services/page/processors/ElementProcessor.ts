@@ -1,7 +1,15 @@
 import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult } from '../types';
+import { ContainerDetector } from '../../../features/picker/ContainerDetector';
+import { DataExtractor } from '../../../services/extraction/DataExtractor';
 
 export class ElementProcessor {
-    constructor(private config: ExtractionConfig) { }
+    private detector: ContainerDetector;
+    private extractor: DataExtractor;
+
+    constructor(private config: ExtractionConfig) {
+        this.detector = new ContainerDetector();
+        this.extractor = new DataExtractor();
+    }
 
     async processElement(elementDef: ElementDefinition): Promise<ProcessedElementResult> {
         const result: ProcessedElementResult = {
@@ -71,8 +79,8 @@ export class ElementProcessor {
         const originalOutline = element.style.outline;
         const originalBg = element.style.backgroundColor;
 
-        element.style.outline = '2px solid #FFC700'; // CrawlPilot Yellow
-        element.style.backgroundColor = 'rgba(255, 199, 0, 0.2)';
+        element.style.outline = '2px solid #22D3EE'; // Theme Accent Blue
+        element.style.backgroundColor = 'rgba(34, 211, 238, 0.2)'; // Theme Accent Blue transparent
 
         return new Promise(resolve => {
             setTimeout(() => {
@@ -137,17 +145,41 @@ export class ElementProcessor {
                 }
                 break;
             case 'smart':
-                // "Smart" extraction usually implies getting both text, link, image if available
-                // simpler version: get all attrs
-                data = {
-                    text: element.innerText,
-                    tagName: element.tagName,
-                    href: (element as HTMLAnchorElement).href,
-                    src: (element as HTMLImageElement).src
-                };
-                // "value" is primary
-                value = element.innerText;
+            case 'list':
+                // Smart List / Smart Single Extraction
+                {
+                    const containerInfo = this.detector.findInternalContainer(element);
+                    const extractedData = this.extractor.extract(element, containerInfo);
+
+                    if (extractedData && extractedData.items && extractedData.items.length > 0) {
+                        return {
+                            success: true,
+                            data: extractedData,
+                            columns: extractedData.columns
+                        };
+                    } else {
+                        value = element.innerText || element.textContent;
+                    }
+                }
                 break;
+
+            case 'table': {
+                // Table Extraction — same pipeline as list, but tagged 'table' so the
+                // Aggregator explodes rows. Each sibling child = one row with N columns.
+                const containerInfo = this.detector.findInternalContainer(element);
+                const extractedData = this.extractor.extract(element, containerInfo);
+
+                if (extractedData && extractedData.items && extractedData.items.length > 0) {
+                    return {
+                        success: true,
+                        data: { ...extractedData, type: 'table' },
+                        columns: extractedData.columns
+                    };
+                }
+                // Fallback
+                value = element.innerText || element.textContent;
+                break;
+            }
             default:
                 value = element.innerText;
         }

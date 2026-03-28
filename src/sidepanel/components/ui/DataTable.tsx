@@ -39,6 +39,7 @@ export interface DataTableRef {
 interface DataTableProps {
     columns: Column[];
     rows: TableRow[];
+    defaultHideMostlyEmptyColumns?: boolean;
 }
 
 // Custom Header Component
@@ -115,7 +116,7 @@ const CustomHeader = (props: any) => {
     );
 };
 
-const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows }, ref) => {
+const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, defaultHideMostlyEmptyColumns = true }, ref) => {
     // Filter states
     const [showFilters, setShowFilters] = useState(false);
     const [showMerge, setShowMerge] = useState(false);
@@ -127,7 +128,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows }, r
     const [removeDuplicateColumns, setRemoveDuplicateColumns] = useState(true);
     const [prioritizeRichColumns, setPrioritizeRichColumns] = useState(true);
     const [showImages, setShowImages] = useState(true);
-    const [hideMostlyEmptyColumns, setHideMostlyEmptyColumns] = useState(true);
+    const [hideMostlyEmptyColumns, setHideMostlyEmptyColumns] = useState(defaultHideMostlyEmptyColumns);
 
     // Column Management States
     const [renames, setRenames] = useState<Record<string, string>>({});
@@ -267,15 +268,32 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows }, r
                 const value = params.value;
                 if (!value) return <span className="text-text-muted">-</span>;
 
-                if (col.type === 'image') {
-                    if (!showImages) return <span className="text-xs text-text-muted truncate block w-full" title={value}>{value}</span>;
+                const strValue = String(value);
+
+                // Detect image URLs by extension regardless of col.type.
+                // This catches SVG and any image URL that the schema assigned 'text' type.
+                const isImageUrl = (v: string) =>
+                    /\.(jpg|jpeg|png|gif|webp|svg|avif|bmp|ico|tiff?)(\?[^"]*)?$/i.test(v) ||
+                    /^data:image\//i.test(v);
+
+                const looksLikeImage = col.type === 'image' || isImageUrl(strValue);
+
+                if (looksLikeImage) {
+                    if (!showImages) return <span className="text-xs text-text-muted truncate block w-full" title={strValue}>{strValue}</span>;
                     return (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: 'hidden' }}>
                             <img
-                                src={value}
+                                src={strValue}
                                 alt="cell"
                                 style={{ height: '24px', width: 'auto', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px' }}
                                 loading="lazy"
+                                onError={(e) => {
+                                    // If image fails to load, fall back to URL text
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).insertAdjacentHTML('afterend',
+                                        `<span style="font-size:11px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${strValue}</span>`
+                                    );
+                                }}
                             />
                         </div>
                     );
@@ -284,13 +302,13 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows }, r
                 if (col.type === 'url') {
                     return (
                         <a
-                            href={value}
+                            href={strValue}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-accent-ai hover:text-white underline decoration-dotted underline-offset-2 block w-full truncate text-xs"
-                            title={value}
+                            title={strValue}
                         >
-                            {value}
+                            {strValue}
                         </a>
                     );
                 }
@@ -341,7 +359,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows }, r
         setRemoveDuplicateColumns(true);
         setPrioritizeRichColumns(true);
         setShowImages(true);
-        setHideMostlyEmptyColumns(true);
+        setHideMostlyEmptyColumns(defaultHideMostlyEmptyColumns);
         setRenames({});
         setDeletedCols(new Set());
         setMergedCols([]);

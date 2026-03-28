@@ -3,6 +3,7 @@
  */
 export interface ContainerResult {
     isContainer: boolean;
+    containerType?: 'list' | 'table';
     container: HTMLElement | null;
     childCount: number;
     siblings: HTMLElement[];
@@ -16,4 +17,5 @@ export interface ContainerResult {
  */
 export interface IContainerDetector {
     findContainer(element: HTMLElement): ContainerResult;
+    findInternalContainer(element: HTMLElement): ContainerResult;
 }

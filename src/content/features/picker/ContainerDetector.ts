@@ -32,6 +32,10 @@ export class ContainerDetector {
     public findContainer(element: HTMLElement): ContainerResult {
         return this.impl.findContainer(element);
     }
+
+    public findInternalContainer(element: HTMLElement): ContainerResult {
+        return this.impl.findInternalContainer(element);
+    }
 }
 
 // Re-export implementations for direct use if needed
