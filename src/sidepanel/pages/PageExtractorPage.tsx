@@ -161,6 +161,12 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         setElements(prev => prev.filter(el => el.id !== id));
     };
 
+    const handleChangeElementType = (id: string, newType: string) => {
+        setElements(prev => prev.map(el =>
+            el.id === id ? { ...el, type: newType } : el
+        ));
+    };
+
 
     const handleRemoveUrl = (index: number) => {
         setSelectedUrls(prev => prev.filter((_, i) => i !== index));
@@ -218,6 +224,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                             startSelection(mode, action || elementAction);
                         }}
                         handleDeleteElement={handleDeleteElement}
+                        handleChangeElementType={handleChangeElementType}
                         handleEditElement={handleEditElement}
                         showEditModal={showEditModal}
                         setShowEditModal={setShowEditModal}

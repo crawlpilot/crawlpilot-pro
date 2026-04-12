@@ -92,9 +92,41 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
             previewValue = (element as HTMLAnchorElement).href;
             finalValue = previewValue;
         } else {
-            autoExtractionType = 'text';
-            previewValue = element.textContent?.trim().substring(0, 50) || '';
-            finalValue = element.textContent?.trim() || '';
+            // Enhanced auto-detection for wrapper elements
+            // Check if element contains a single dominant image
+            const images = element.querySelectorAll('img');
+            const textContent = (element.textContent || '').trim();
+            if (images.length === 1 && textContent.length < 20) {
+                autoExtractionType = 'image';
+                previewValue = (images[0] as HTMLImageElement).src;
+                finalValue = previewValue;
+            }
+            // Check if element is/contains a single dominant link
+            else if (element.querySelector('a[href]') && !element.querySelector('a[href] ~ a[href]')) {
+                const anchor = element.querySelector('a[href]') as HTMLAnchorElement;
+                if (anchor && anchor.href && !anchor.href.startsWith('javascript:')) {
+                    autoExtractionType = 'link';
+                    previewValue = anchor.href;
+                    finalValue = previewValue;
+                }
+            }
+            // Check for background-image
+            else {
+                try {
+                    const bgImage = window.getComputedStyle(element).backgroundImage;
+                    if (bgImage && bgImage !== 'none' && bgImage.startsWith('url(')) {
+                        autoExtractionType = 'image';
+                        previewValue = bgImage.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
+                        finalValue = previewValue;
+                    }
+                } catch (_) { /* ignore */ }
+            }
+
+            // Default: text
+            if (autoExtractionType === 'text') {
+                previewValue = textContent.substring(0, 50) || '';
+                finalValue = textContent || '';
+            }
         }
 
         sendResponse({

@@ -1,14 +1,14 @@
 import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult } from '../types';
-import { ContainerDetector } from '../../../features/picker/ContainerDetector';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
+import { SchemaGenerator } from '../../../services/extraction/SchemaGenerator';
 
 export class ElementProcessor {
-    private detector: ContainerDetector;
     private extractor: DataExtractor;
+    private schemaGenerator: SchemaGenerator;
 
     constructor(private config: ExtractionConfig) {
-        this.detector = new ContainerDetector();
         this.extractor = new DataExtractor();
+        this.schemaGenerator = new SchemaGenerator();
     }
 
     async processElement(elementDef: ElementDefinition): Promise<ProcessedElementResult> {
@@ -29,9 +29,14 @@ export class ElementProcessor {
                 return result;
             }
 
-            // Scroll the element into view so the user can see what is being extracted or clicked
-            foundElement.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            await new Promise(r => setTimeout(r, 150));
+            // Scroll element into viewport using window.scrollTo (more reliable in extension context)
+            const rect = foundElement.element.getBoundingClientRect();
+            const isOffScreen = rect.bottom < 0 || rect.top > window.innerHeight || rect.right < 0 || rect.left > window.innerWidth;
+            if (isOffScreen) {
+                const absoluteTop = rect.top + window.scrollY - (window.innerHeight / 2) + (rect.height / 2);
+                window.scrollTo({ top: Math.max(0, absoluteTop), behavior: 'auto' });
+                await new Promise(r => setTimeout(r, 300));
+            }
 
             await this.highlightElement(foundElement.element);
 
@@ -145,35 +150,32 @@ export class ElementProcessor {
                 }
                 break;
             case 'smart':
-            case 'list':
-                // Smart List / Smart Single Extraction
-                {
-                    const containerInfo = this.detector.findInternalContainer(element);
-                    const extractedData = this.extractor.extract(element, containerInfo);
-
-                    if (extractedData && extractedData.items && extractedData.items.length > 0) {
-                        return {
-                            success: true,
-                            data: extractedData,
-                            columns: extractedData.columns
-                        };
-                    } else {
-                        value = element.innerText || element.textContent;
-                    }
-                }
-                break;
-
-            case 'table': {
-                // Table Extraction — same pipeline as list, but tagged 'table' so the
-                // Aggregator explodes rows. Each sibling child = one row with N columns.
-                const containerInfo = this.detector.findInternalContainer(element);
-                const extractedData = this.extractor.extract(element, containerInfo);
-
-                if (extractedData && extractedData.items && extractedData.items.length > 0) {
+            case 'list': {
+                // List Extraction: extract all rows from the container directly.
+                const listData = this.extractContainerRows(element, 'list');
+                if (listData.items && listData.items.length > 0) {
                     return {
                         success: true,
-                        data: { ...extractedData, type: 'table' },
-                        columns: extractedData.columns
+                        data: listData,
+                        columns: listData.columns
+                    };
+                } else {
+                    value = element.innerText || element.textContent;
+                }
+                break;
+            }
+
+            case 'table': {
+                // Table Extraction: extract rows directly from the container element.
+                // We bypass findInternalContainer() re-detection because it misidentifies levels
+                // (e.g., <table> has <tbody> children, not <tr> directly).
+                // Instead we directly enumerate all meaningful child elements.
+                const tableData = this.extractContainerRows(element, 'table');
+                if (tableData.items && tableData.items.length > 0) {
+                    return {
+                        success: true,
+                        data: tableData,
+                        columns: tableData.columns
                     };
                 }
                 // Fallback
@@ -234,5 +236,77 @@ export class ElementProcessor {
             elementId: elementDef.id,
             elementName: elementDef.name
         }];
+    }
+
+    /**
+     * Directly extracts all row-level children from a container element.
+     * Handles nested <table> → <tbody> → <tr> DOM structure automatically.
+     * This bypasses unreliable re-detection (findInternalContainer) which only ever
+     * returns the first match from querySelector.
+     */
+    private extractContainerRows(element: HTMLElement, type: 'table' | 'list'): any {
+        // For <table> elements, dive into <tbody> to get <tr> children
+        let rowsContainer: HTMLElement = element;
+        if (element.tagName === 'TABLE' || element.tagName === 'THEAD' || element.tagName === 'TFOOT') {
+            const tbody = element.querySelector('tbody');
+            if (tbody) rowsContainer = tbody as HTMLElement;
+        }
+
+        // Collect all direct meaningful children
+        const childNodes = Array.from(rowsContainer.children) as HTMLElement[];
+        const rowElements = childNodes.filter(child => {
+            // Skip header rows in tbody if present
+            if (child.tagName === 'THEAD') return false;
+            // Must have some text content
+            const text = (child.innerText || child.textContent || '').trim();
+            return text.length > 0;
+        });
+
+        if (rowElements.length === 0) {
+            // Last resort: grab all li/tr/div children anywhere in the element
+            const fallbackRows = Array.from(
+                element.querySelectorAll('li, tr, [class*="item"], [class*="row"]')
+            ).filter((el, _idx, arr) => {
+                // Only top-level occurrences relative to their parent
+                const parent = el.parentElement;
+                return parent && arr.filter(e => e.parentElement === parent).length > 1;
+            }) as HTMLElement[];
+
+            if (fallbackRows.length === 0) {
+                return { type, items: [], columns: [] };
+            }
+
+            return this.buildRowsResult(fallbackRows, type);
+        }
+
+        return this.buildRowsResult(rowElements, type);
+    }
+
+    private buildRowsResult(rowElements: HTMLElement[], type: 'table' | 'list'): any {
+        const seenHashes = new Set<string>();
+        const rawRows: any[] = [];
+
+        for (const row of rowElements) {
+            const rowData = this.extractor.extractRow(row);
+            const hash = JSON.stringify(rowData);
+            if (!seenHashes.has(hash) && Object.keys(rowData).length > 0) {
+                seenHashes.add(hash);
+                rawRows.push(rowData);
+            }
+        }
+
+        if (rawRows.length === 0) {
+            return { type, items: [], columns: [] };
+        }
+
+        const schemaResult = this.schemaGenerator.generateSchema(rawRows);
+        const items = this.extractor.normalizeData(rawRows, schemaResult.columns);
+
+        return {
+            type,
+            items,
+            columns: schemaResult.columns,
+            count: items.length
+        };
     }
 }

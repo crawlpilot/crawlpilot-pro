@@ -14,14 +14,32 @@ export class ImageScanner {
     private static images: Map<string, ImageMeta> = new Map();
     private static pageUrl: string = '';
 
+    /** Full scan — clears previous results, returns all images found. */
     public static scan(): ImageMeta[] {
         this.images.clear();
         this.pageUrl = window.location.href;
-
-        // Start scanning from the body
         this.scanElement(document.body);
-
         return Array.from(this.images.values());
+    }
+
+    /** Incremental scan — does NOT clear. Returns only newly found images (delta). */
+    public static scanMerge(): ImageMeta[] {
+        this.pageUrl = window.location.href;
+        const beforeCount = this.images.size;
+        this.scanElement(document.body);
+        // Return only the new entries
+        const all = Array.from(this.images.values());
+        return all.slice(beforeCount);
+    }
+
+    /** Returns all accumulated images across all scanMerge calls. */
+    public static getAll(): ImageMeta[] {
+        return Array.from(this.images.values());
+    }
+
+    /** Clears the accumulator. */
+    public static reset(): void {
+        this.images.clear();
     }
 
     private static scanElement(root: Element | ShadowRoot) {

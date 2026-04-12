@@ -52,9 +52,27 @@ export class VisualElementPicker {
             const parent = this.currentElement.parentElement;
             if (parent && parent !== document.body && parent !== document.documentElement) {
                 this.currentElement = parent;
-                if (this.strategy) {
-                    this.strategy.handleHover(this.currentElement, this);
-                }
+                if (this.strategy) this.strategy.handleHover(this.currentElement, this);
+            }
+        }
+
+        if (action === 'ArrowDown') {
+            // Navigate into the first meaningful child element
+            const children = Array.from(this.currentElement.children) as HTMLElement[];
+            const firstMeaningful = children.find(c =>
+                c.offsetHeight > 0 && (c.innerText || c.textContent || '').trim().length > 0
+            );
+            if (firstMeaningful) {
+                this.currentElement = firstMeaningful;
+                if (this.strategy) this.strategy.handleHover(this.currentElement, this);
+            }
+        }
+
+        if (action === 'Enter') {
+            if (this.strategy) {
+                this.strategy.handleClick(this.currentElement, this, (msg) => {
+                    if (chrome && chrome.runtime) chrome.runtime.sendMessage(msg);
+                });
             }
         }
     }
@@ -347,10 +365,31 @@ export class VisualElementPicker {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 this.currentElement = parent;
-                if (this.strategy) {
-                    this.strategy.handleHover(this.currentElement, this);
-                }
+                if (this.strategy) this.strategy.handleHover(this.currentElement, this);
             }
+        }
+
+        if (e.key === 'ArrowDown' && this.isActive && this.currentElement) {
+            const children = Array.from(this.currentElement.children) as HTMLElement[];
+            const firstMeaningful = children.find(c =>
+                c.offsetHeight > 0 && (c.innerText || c.textContent || '').trim().length > 0
+            );
+            if (firstMeaningful) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                this.currentElement = firstMeaningful;
+                if (this.strategy) this.strategy.handleHover(this.currentElement, this);
+            }
+        }
+
+        if (e.key === 'Enter' && this.isActive && this.currentElement && this.strategy) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            this.strategy.handleClick(this.currentElement, this, (msg) => {
+                if (chrome && chrome.runtime) chrome.runtime.sendMessage(msg);
+            });
         }
     }
 

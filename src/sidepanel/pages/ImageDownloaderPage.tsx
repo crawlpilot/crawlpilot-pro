@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
     Box, Typography, Paper, Button, IconButton, Chip, Stack, Grid,
     TextField, InputAdornment, Fade, Switch,
@@ -64,6 +64,11 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
     const [downloading, setDownloading] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
 
+    // Deep Scan State
+    const [deepScanning, setDeepScanning] = useState(false);
+    const [scanProgress, setScanProgress] = useState({ scrollPercent: 0, imagesFound: 0 });
+    const [scrollDelay, setScrollDelay] = useState(100); // ms — user configurable
+
     // Advanced Filters State
     const [searchQuery, setSearchQuery] = useState('');
     const [minWidth, setMinWidth] = useState<number | ''>('');
@@ -76,6 +81,20 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
     const [grouping, setGrouping] = useState<'none' | 'size' | 'type'>('size');
     const [onlyVisible, setOnlyVisible] = useState(true);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+    // Listen for deep scan progress updates from content script
+    useEffect(() => {
+        const handleMessage = (message: any) => {
+            if (message.type === 'SCAN_IMAGES_PROGRESS' && message.payload) {
+                setScanProgress({
+                    scrollPercent: message.payload.scrollPercent || 0,
+                    imagesFound: message.payload.imagesFound || 0
+                });
+            }
+        };
+        chrome.runtime.onMessage.addListener(handleMessage);
+        return () => chrome.runtime.onMessage.removeListener(handleMessage);
+    }, []);
 
     const toggleGroupExpansion = (groupName: string) => {
         const next = new Set(expandedGroups);
@@ -162,10 +181,11 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
         return true;
     });
 
+    /** Quick scan — instant DOM snapshot */
     const scanImages = async () => {
         setLoading(true);
-        setImages([]); // Clear previous results
-        setSelected(new Set()); // Clear selection
+        setImages([]);
+        setSelected(new Set());
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (tab?.id) {
@@ -179,6 +199,40 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
         } finally {
             setLoading(false);
         }
+    };
+
+    /** Full page scan — auto-scrolls and accumulates */
+    const deepScanImages = async () => {
+        setDeepScanning(true);
+        setScanProgress({ scrollPercent: 0, imagesFound: 0 });
+        setImages([]);
+        setSelected(new Set());
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab?.id) {
+                const response = await chrome.tabs.sendMessage(tab.id, {
+                    type: 'SCAN_IMAGES_DEEP',
+                    payload: { scrollStep: 800, scrollDelay }
+                });
+                if (response && response.data) {
+                    setImages(response.data);
+                }
+            }
+        } catch (error) {
+            console.error('Deep scan failed:', error);
+        } finally {
+            setDeepScanning(false);
+        }
+    };
+
+    /** Cancel an in-progress deep scan */
+    const cancelDeepScan = async () => {
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab?.id) {
+                await chrome.tabs.sendMessage(tab.id, { type: 'SCAN_IMAGES_DEEP_CANCEL' });
+            }
+        } catch (e) { console.error('Cancel failed:', e); }
     };
 
     const groupedImages = useMemo(() => {
@@ -585,10 +639,10 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                 </Box>
 
                 <Stack direction="row" spacing={1.5}>
-                    <Tooltip title="Deep Scan">
+                    <Tooltip title="Quick Scan (visible only)">
                         <IconButton
                             onClick={scanImages}
-                            disabled={loading}
+                            disabled={loading || deepScanning}
                             sx={{
                                 color: 'white',
                                 bgcolor: 'rgba(255,255,255,0.05)',
@@ -636,9 +690,44 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                 </Stack>
             </Box>
 
+            {/* Deep Scan Progress Bar */}
+            {deepScanning && (
+                <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(6, 182, 212, 0.05)' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <RefreshCw size={14} className="animate-spin text-cyan-400" />
+                            <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 700 }}>
+                                Full Page Scan — {scanProgress.scrollPercent}%
+                            </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
+                                {scanProgress.imagesFound} found
+                            </Typography>
+                            <Button
+                                size="small"
+                                onClick={cancelDeepScan}
+                                sx={{ minWidth: 'auto', color: 'error.main', fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', p: '2px 8px' }}
+                            >
+                                Cancel
+                            </Button>
+                        </Box>
+                    </Box>
+                    <Box sx={{ width: '100%', height: 4, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+                        <Box sx={{
+                            width: `${scanProgress.scrollPercent}%`,
+                            height: '100%',
+                            background: 'linear-gradient(90deg, #06b6d4, #0891b2)',
+                            borderRadius: 2,
+                            transition: 'width 0.3s ease'
+                        }} />
+                    </Box>
+                </Box>
+            )}
+
             {/* Content Area */}
             <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
-                {images.length === 0 ? (
+                {images.length === 0 && !deepScanning ? (
                     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, textAlign: 'center' }}>
                         <Box sx={{ position: 'relative', p: 4, borderRadius: '32px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.1)', display: 'flex' }}>
                             <ImageIcon size={64} strokeWidth={1} />
@@ -646,15 +735,55 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                                 <Search size={20} />
                             </Box>
                         </Box>
-                        <Box sx={{ maxWidth: 280 }}>
+                        <Box sx={{ maxWidth: 300 }}>
                             <Typography variant="h6" fontWeight="700" gutterBottom>No images detected</Typography>
                             <Typography variant="body2" color="text.secondary" sx={{ opacity: 0.7 }}>
-                                Run a deep scan to extract media from this page.
+                                Run a quick scan for visible images, or a full page scan that auto-scrolls and catches lazy-loaded content.
                             </Typography>
                         </Box>
-                        <Button variant="outlined" onClick={scanImages} size="large" startIcon={<RefreshCw size={18} />} sx={{ borderRadius: '16px', px: 4, py: 1.5, border: '2px solid rgba(255, 255, 255, 0.1)', color: 'white', fontWeight: 700, textTransform: 'none', '&:hover': { border: '2px solid primary.main', bgcolor: 'rgba(6, 182, 212, 0.05)' } }}>
-                            Start Deep Scan
-                        </Button>
+
+                        {/* Scroll Speed Slider */}
+                        <Box sx={{ width: '80%', maxWidth: 260, mt: 1 }}>
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600, display: 'block', mb: 0.5, textAlign: 'left' }}>
+                                Scroll Speed: {scrollDelay}ms delay
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>Fast</Typography>
+                                <input
+                                    type="range"
+                                    min={50}
+                                    max={2000}
+                                    step={50}
+                                    value={scrollDelay}
+                                    onChange={(e) => setScrollDelay(Number(e.target.value))}
+                                    style={{ flex: 1, accentColor: '#06b6d4', cursor: 'pointer' }}
+                                />
+                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>Slow</Typography>
+                            </Box>
+                        </Box>
+
+                        <Stack direction="row" spacing={2}>
+                            <Button
+                                variant="outlined"
+                                onClick={scanImages}
+                                disabled={loading}
+                                size="large"
+                                startIcon={loading ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                                sx={{ borderRadius: '16px', px: 3, py: 1.5, border: '2px solid rgba(255,255,255,0.1)', color: 'white', fontWeight: 700, textTransform: 'none', '&:hover': { border: '2px solid primary.main', bgcolor: 'rgba(6, 182, 212, 0.05)' } }}
+                            >
+                                Quick Scan
+                            </Button>
+                            <Button
+                                variant="contained"
+                                onClick={deepScanImages}
+                                disabled={deepScanning}
+                                size="large"
+                                startIcon={deepScanning ? <RefreshCw size={18} className="animate-spin" /> : <Search size={18} />}
+                                sx={{ borderRadius: '16px', px: 3, py: 1.5, fontWeight: 800, textTransform: 'none', background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)', boxShadow: '0 8px 20px -4px rgba(6, 182, 212, 0.4)', '&:hover': { background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)' } }}
+                            >
+                                Full Page Scan
+                            </Button>
+                        </Stack>
                     </Box>
                 ) : (
                     <Stack spacing={4}>

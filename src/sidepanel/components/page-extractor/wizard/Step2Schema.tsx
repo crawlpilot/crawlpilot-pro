@@ -8,6 +8,7 @@ interface Step2SchemaProps {
     selectionStatus: 'idle' | 'selecting' | 'ready';
     startSelection: (mode: 'list' | 'nextButton' | 'detail', action?: 'extract' | 'click') => void;
     handleDeleteElement: (id: string) => void;
+    handleChangeElementType: (id: string, newType: string) => void;
     handleEditElement: (el: any) => void;
     showEditModal: boolean;
     setShowEditModal: (show: boolean) => void;
@@ -27,6 +28,7 @@ export function Step2Schema({
     selectionStatus,
     startSelection,
     handleDeleteElement,
+    handleChangeElementType,
     handleEditElement,
     showEditModal,
     setShowEditModal,
@@ -43,12 +45,18 @@ export function Step2Schema({
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (selectionStatus === 'selecting') {
-                if (e.key === 'ArrowUp') {
+                const actionKeys: Record<string, string> = {
+                    ArrowUp: 'ArrowUp',
+                    ArrowDown: 'ArrowDown',
+                    Enter: 'Enter'
+                };
+                const action = actionKeys[e.key];
+                if (action) {
                     e.preventDefault();
                     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                         const tabId = tabs[0]?.id;
                         if (tabId) {
-                            chrome.tabs.sendMessage(tabId, { type: 'PICKER_ACTION', payload: { action: 'ArrowUp' } });
+                            chrome.tabs.sendMessage(tabId, { type: 'PICKER_ACTION', payload: { action } });
                         }
                     });
                 }
@@ -58,6 +66,7 @@ export function Step2Schema({
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selectionStatus]);
+
 
     return (
         <div className="space-y-4 animate-fade-in-up">
@@ -122,38 +131,53 @@ export function Step2Schema({
                 ) : (
                     <div className="space-y-2">
                         {elements.map((el) => (
-                            <div key={el.id} className="p-2.5 bg-surface-lighter border border-border-subtle rounded-md flex items-center justify-between group">
-                                <div className="flex items-center gap-3">
-                                    {el.action === 'click' ? <MousePointerClick className="w-3 h-3" /> : (el.type === 'list' ? 'L' : (el.type === 'table' ? 'Tb' : 'Tx'))}
-                                </div>
-                                <div>
-                                    <div className="font-medium text-xs text-text-primary flex items-center gap-2">
-                                        {el.name}
-                                        {(el.type === 'list' || el.type === 'table') && (
-                                            <span className="text-[9px] px-1.5 py-0.5 bg-surface-base border border-border-subtle rounded-full text-text-muted">
-                                                {el.type === 'table' ? 'Table' : 'List'}
-                                            </span>
-                                        )}
+                            <div key={el.id} className="p-2.5 bg-surface-lighter border border-border-subtle rounded-md group">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold flex-shrink-0" style={{
+                                            backgroundColor: el.action === 'click' ? 'var(--color-accent-warning-10, rgba(245,158,11,0.1))' : 'var(--color-primary-10, rgba(34,211,238,0.1))',
+                                            color: el.action === 'click' ? 'var(--color-accent-warning, #f59e0b)' : 'var(--color-primary, #22d3ee)'
+                                        }}>
+                                            {el.action === 'click' ? '⚡' : (el.type === 'image' ? '🖼' : (el.type === 'link' ? '🔗' : (el.type === 'list' || el.type === 'table' ? '☰' : 'Tx')))}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="font-medium text-xs text-text-primary truncate max-w-[140px]">{el.name}</div>
+                                            <div className="text-[10px] text-text-muted truncate max-w-[140px] font-mono">{el.value || 'No preview'}</div>
+                                        </div>
                                     </div>
-                                    <div className="text-[10px] text-text-muted truncate max-w-[180px] font-mono">{el.value || 'No preview'}</div>
+                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                        <button
+                                            onClick={() => handleEditElement(el)}
+                                            className="p-1 hover:bg-background-card rounded text-text-muted hover:text-primary transition-colors"
+                                        >
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-current">
+                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                            </svg>
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteElement(el.id)}
+                                            className="p-1 hover:bg-background-card rounded text-text-muted hover:text-accent-error transition-colors"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
-                                    <button
-                                        onClick={() => handleEditElement(el)}
-                                        className="p-1 hover:bg-background-card rounded text-text-muted hover:text-primary transition-colors"
-                                    >
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-current">
-                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                        </svg>
-                                    </button>
-                                    <button
-                                        onClick={() => handleDeleteElement(el.id)}
-                                        className="p-1 hover:bg-background-card rounded text-text-muted hover:text-accent-error transition-colors"
-                                    >
-                                        <X className="w-3 h-3" />
-                                    </button>
-                                </div>
+                                {el.action === 'extract' && (
+                                    <div className="mt-1.5 pt-1.5 border-t border-border-subtle/50">
+                                        <select
+                                            value={el.type || 'text'}
+                                            onChange={(e) => handleChangeElementType(el.id, e.target.value)}
+                                            className="w-full h-[26px] bg-background-app border border-border-subtle rounded text-[10px] text-text-secondary px-2 focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all outline-none cursor-pointer"
+                                        >
+                                            <option value="text">📝 Text Content</option>
+                                            <option value="link">🔗 Link (href)</option>
+                                            <option value="image">🖼️ Image (src)</option>
+                                            <option value="list">📋 List (Rows)</option>
+                                            <option value="table">📊 Table (Rows)</option>
+                                        </select>
+                                    </div>
+                                )}
                             </div>
                         ))}
 

@@ -9,6 +9,7 @@ import { DataExtractor } from '../services/extraction/DataExtractor';
 import { PageExtractor } from '../services/page/PageExtractor';
 import { DetailSelectionStrategy } from '../features/picker/strategies/DetailSelectionStrategy';
 import { ImageScanner } from '../features/universal-images/ImageScanner';
+import { ProgressiveImageScanner } from '../features/universal-images/ProgressiveImageScanner';
 import { RightClickUnlocker } from '../features/utility/RightClickUnlocker';
 
 export class ContentScriptController {
@@ -17,6 +18,7 @@ export class ContentScriptController {
     private pagination: PaginationAction | null = null;
     private autoScrollAbortController: AbortController | null = null;
     private paginationAbortController: AbortController | null = null;
+    private progressiveScanner: ProgressiveImageScanner | null = null;
 
     private messageClient: MessageClient;
     private schemaGenerator = new SchemaGenerator();
@@ -105,6 +107,41 @@ export class ContentScriptController {
         this.messageClient.on('SCAN_IMAGES', (_, sendResponse) => {
             const images = ImageScanner.scan();
             sendResponse({ success: true, data: images });
+        });
+
+        this.messageClient.on('SCAN_IMAGES_DEEP', async (msg, sendResponse) => {
+            const options = msg.payload || {};
+            this.progressiveScanner = new ProgressiveImageScanner();
+
+            try {
+                const images = await this.progressiveScanner.scan(
+                    (progress) => {
+                        // Stream progress back to side panel
+                        chrome.runtime.sendMessage({
+                            type: 'SCAN_IMAGES_PROGRESS',
+                            payload: progress
+                        }).catch(() => { /* side panel may not be listening yet */ });
+                    },
+                    {
+                        scrollStep: options.scrollStep || 800,
+                        scrollDelay: options.scrollDelay || 100
+                    }
+                );
+                sendResponse({ success: true, data: images });
+            } catch (error: any) {
+                console.error('Deep scan failed:', error);
+                sendResponse({ success: false, error: error.message });
+            } finally {
+                this.progressiveScanner = null;
+            }
+        });
+
+        this.messageClient.on('SCAN_IMAGES_DEEP_CANCEL', (_, sendResponse) => {
+            if (this.progressiveScanner) {
+                this.progressiveScanner.cancel();
+                this.progressiveScanner = null;
+            }
+            sendResponse({ success: true });
         });
 
         this.messageClient.on('toggle_right_click', (msg, sendResponse) => {
@@ -468,8 +505,8 @@ export class ContentScriptController {
 
             if (elements.length === 0) return;
 
-            // Scroll first element into view
-            elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Scroll first element into view instantly
+            elements[0].scrollIntoView({ behavior: 'auto', block: 'center' });
 
             elements.forEach((el, index) => {
                 const rect = el.getBoundingClientRect();

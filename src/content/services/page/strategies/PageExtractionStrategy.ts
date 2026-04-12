@@ -38,35 +38,12 @@ class Aggregator {
         }
 
         if (result.success && data) {
-            if (data.type === 'table' && data.items) {
-                // TABLE: each item becomes its own output row
+            if ((data.type === 'table' || data.type === 'list') && data.items) {
+                // TABLE / LIST: each item becomes its own output row
                 this.item[result.elementId] = { __type: 'table', items: data.items, columns: data.columns || [] };
                 this.totalItemCount = Math.max(this.totalItemCount, data.items.length);
-            } else if (data.type === 'list' && data.items) {
-                // LIST: all items flattened into ONE row as indexed columns
-                // e.g. [{title:"A",price:"10"},{title:"B"}] → {list_1_title:"A",list_1_price:"10",list_2_title:"B"}
-                const flatRow: any = {};
-                const flatColumns: any[] = [];
-                data.items.forEach((item: any, idx: number) => {
-                    const prefix = `${result.elementName}_${idx + 1}`;
-                    Object.entries(item).forEach(([key, val]) => {
-                        const colId = `${result.elementId}_${idx + 1}_${key}`;
-                        flatRow[colId] = val;
-                        flatColumns.push({
-                            id: colId,
-                            originalId: colId,
-                            name: `${prefix} ${key}`,
-                            type: 'text',
-                            elementId: result.elementId,
-                            elementName: result.elementName
-                        });
-                    });
-                });
-                // Store as a flat single value (merge into item record)
-                this.item[result.elementId] = { __type: 'list_flat', flatRow, flatColumns };
-                if (this.totalItemCount === 0) this.totalItemCount = 1;
             } else {
-                // Simple scalar value result
+                // Simple scalar value result (text, link, image)
                 this.item[result.elementId] = data.value;
                 if (this.totalItemCount === 0) this.totalItemCount = 1;
             }
@@ -98,42 +75,37 @@ class Aggregator {
             elementName: 'Record Identifier'
         };
 
-        // Check if any element returned table rows (needs row explosion)
+        // Check if any element returned table/list rows (needs row explosion)
         const hasTableElement = Object.values(this.item).some(
             (v: any) => v && typeof v === 'object' && v.__type === 'table'
         );
 
         if (hasTableElement) {
-            // TABLE mode: explode table items into individual rows (all sharing recordId)
-            // Other scalar / list_flat fields are merged into every row
+            // ROW EXPLOSION mode: explode table/list items into individual rows
+            // Scalar fields are merged into every row
             const rows: any[] = [];
             let allColumns: any[] = [recordIdColumn];
 
-            // First, collect all non-table fields (scalars + list_flat) for merging
+            // First, collect all non-table/list fields (scalars) for merging
             const baseRow: any = { recordId };
             const baseColumns: any[] = [];
 
             Object.entries(this.item).forEach(([key, value]: [string, any]) => {
                 if (!value || value.__type !== 'table') {
-                    if (value && value.__type === 'list_flat') {
-                        Object.assign(baseRow, value.flatRow);
-                        baseColumns.push(...value.flatColumns);
-                    } else {
-                        baseRow[key] = value;
-                        const existingCol = this.columns.find(c => c.id === key);
-                        if (existingCol) baseColumns.push(existingCol);
-                    }
+                    baseRow[key] = value;
+                    const existingCol = this.columns.find(c => c.id === key);
+                    if (existingCol) baseColumns.push(existingCol);
                 }
             });
 
-            // Now explode each table element into rows
+            // Now explode each table/list element into rows
             Object.entries(this.item).forEach(([, value]: [string, any]) => {
                 if (value && value.__type === 'table') {
                     // Merge table-level columns
                     (value.columns || []).forEach((col: any) => {
                         if (!allColumns.find(c => c.id === col.id)) allColumns.push(col);
                     });
-                    // Each item in the table is a row
+                    // Each item in the table/list is a row
                     value.items.forEach((tableRow: any) => {
                         rows.push({ ...baseRow, ...tableRow });
                     });
@@ -152,21 +124,14 @@ class Aggregator {
             };
         }
 
-        // No table: build a single row from scalars and list_flat columns
+        // No table/list: build a single row from scalars
         const singleRow: any = { recordId };
         const singleColumns: any[] = [recordIdColumn];
 
         Object.entries(this.item).forEach(([key, value]: [string, any]) => {
-            if (value && typeof value === 'object' && value.__type === 'list_flat') {
-                // LIST mode: all items flattened into columns of this one row
-                Object.assign(singleRow, value.flatRow);
-                singleColumns.push(...value.flatColumns);
-            } else {
-                // Scalar
-                singleRow[key] = value;
-                const col = this.columns.find(c => c.id === key);
-                if (col) singleColumns.push(col);
-            }
+            singleRow[key] = value;
+            const col = this.columns.find(c => c.id === key);
+            if (col) singleColumns.push(col);
         });
 
         return {
