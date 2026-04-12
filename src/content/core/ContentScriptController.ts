@@ -69,6 +69,13 @@ export class ContentScriptController {
             sendResponse({ success: true });
         });
 
+        this.messageClient.on('PICKER_ACTION', (msg, sendResponse) => {
+            if (this.picker) {
+                this.picker.handleExternalAction(msg.payload.action);
+            }
+            sendResponse({ success: true });
+        });
+
         this.messageClient.on('EXECUTE_AUTO_SCROLL', async (msg, sendResponse) => {
             console.log('🚀 [Content Script] EXECUTE_AUTO_SCROLL Received');
             this.startAutoScroll(msg.payload);

@@ -45,6 +45,20 @@ export class VisualElementPicker {
         console.log('❌ VisualElementPicker deactivated');
     }
 
+    public handleExternalAction(action: string) {
+        if (!this.isActive || !this.currentElement) return;
+
+        if (action === 'ArrowUp') {
+            const parent = this.currentElement.parentElement;
+            if (parent && parent !== document.body && parent !== document.documentElement) {
+                this.currentElement = parent;
+                if (this.strategy) {
+                    this.strategy.handleHover(this.currentElement, this);
+                }
+            }
+        }
+    }
+
     private createUI() {
         // 1. Overlay
         this.overlay = document.createElement('div');
@@ -324,6 +338,19 @@ export class VisualElementPicker {
             if (this.onCancelCallback) this.onCancelCallback();
             this.deactivate();
             return;
+        }
+
+        if (e.key === 'ArrowUp' && this.isActive && this.currentElement) {
+            const parent = this.currentElement.parentElement;
+            if (parent && parent !== document.body && parent !== document.documentElement) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                this.currentElement = parent;
+                if (this.strategy) {
+                    this.strategy.handleHover(this.currentElement, this);
+                }
+            }
         }
     }
 

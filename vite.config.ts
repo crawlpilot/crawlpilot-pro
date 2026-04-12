@@ -3,28 +3,12 @@ import react from '@vitejs/plugin-react';
 import { crx } from '@crxjs/vite-plugin';
 import manifest from './manifest.json';
 import path from 'path';
-import obfuscatorPlugin from 'vite-plugin-javascript-obfuscator';
 
 // https://vitejs.dev/config/
 export default defineConfig({
     plugins: [
         react(),
         crx({ manifest }),
-        obfuscatorPlugin({
-            include: ['src/**/*.js', 'src/**/*.ts', 'src/**/*.tsx'],
-            apply: 'build',
-            debugger: false,
-            options: {
-                compact: true,
-                controlFlowFlattening: true,
-                controlFlowFlatteningThreshold: 0.75,
-                numbersToExpressions: true,
-                simplify: true,
-                stringArray: true,
-                stringArrayEncoding: ['base64'],
-                stringArrayThreshold: 0.75,
-            }
-        }),
     ],
     resolve: {
         alias: {
@@ -37,8 +21,8 @@ export default defineConfig({
         minify: 'terser',
         terserOptions: {
             compress: {
-                drop_console: true,      // Remove console.* calls
-                drop_debugger: true,     // Remove debugger statements
+                drop_console: false,
+                drop_debugger: false,
                 ecma: 2020,
                 module: true,
                 passes: 3,              // Run compression 3 times for better results

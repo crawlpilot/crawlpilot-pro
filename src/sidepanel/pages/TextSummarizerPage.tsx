@@ -16,36 +16,48 @@ export default function TextSummarizerPage({ onBack }: TextSummarizerPageProps) 
 
         const extractMainContent = async () => {
             try {
-                const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (!tabs || tabs.length === 0) {
+                    tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+                }
                 const tabId = tabs[0]?.id;
 
                 if (!tabId) {
+                    console.warn("No active tab found to extract from.");
                     if (isMounted) setIsExtracting(false);
                     return;
                 }
 
+                console.log("Extracting text from tabId:", tabId, "URL:", tabs[0]?.url);
+
                 const results = await chrome.scripting.executeScript({
                     target: { tabId },
                     func: () => {
-                        // Heuristic to find the best text section
-                        const selectors = ['article', 'main', '[role="main"]', '.post-content', '.entry-content', '#content'];
-                        for (const sel of selectors) {
-                            const el = document.querySelector(sel) as HTMLElement;
-                            if (el && el.innerText.trim().length > 200) {
-                                return el.innerText.trim();
+                        try {
+                            const selectors = ['article', 'main', '[role="main"]', '.post-content', '.entry-content', '#content'];
+                            for (const sel of selectors) {
+                                const el = document.querySelector(sel) as HTMLElement;
+                                if (el) {
+                                    const text = (el.innerText || el.textContent || '').trim();
+                                    if (text.length > 200) return text;
+                                }
                             }
+                            // Fallback to body
+                            return (document.body?.innerText || document.body?.textContent || '').trim();
+                        } catch (e) {
+                            return 'Error during extraction: ' + (e as Error).message;
                         }
-                        
-                        // Fallback to body
-                        return document.body.innerText.trim();
                     }
                 });
 
                 if (isMounted && results && results[0]?.result) {
+                    console.log("Extracted text successfully, length:", results[0].result.length);
                     setSelectedText(results[0].result);
+                } else {
+                    console.warn("Script executed but returned empty or no result.");
                 }
             } catch (err) {
-                console.error('Auto text extraction failed:', err);
+                console.error('Auto text extraction failed (possibly a chrome:// or protected page?):', err);
             } finally {
                 if (isMounted) {
                     setIsExtracting(false);

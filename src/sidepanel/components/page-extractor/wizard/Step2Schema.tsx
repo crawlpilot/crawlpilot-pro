@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { MousePointerClick, X } from 'lucide-react';
 import Badge from '../../ui/Badge';
 import Input from '../../ui/Input';
@@ -39,6 +40,25 @@ export function Step2Schema({
     onNext,
     onCancel
 }: Step2SchemaProps) {
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (selectionStatus === 'selecting') {
+                if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                        const tabId = tabs[0]?.id;
+                        if (tabId) {
+                            chrome.tabs.sendMessage(tabId, { type: 'PICKER_ACTION', payload: { action: 'ArrowUp' } });
+                        }
+                    });
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectionStatus]);
+
     return (
         <div className="space-y-4 animate-fade-in-up">
             <div className="card">

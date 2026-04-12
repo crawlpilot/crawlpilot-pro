@@ -29,6 +29,10 @@ export class ElementProcessor {
                 return result;
             }
 
+            // Scroll the element into view so the user can see what is being extracted or clicked
+            foundElement.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            await new Promise(r => setTimeout(r, 150));
+
             await this.highlightElement(foundElement.element);
 
             const actionResult = await this.performAction(elementDef, foundElement.element);
@@ -95,13 +99,9 @@ export class ElementProcessor {
         // Handle scrolling if explicitly requested or implicitly needed?
         // Legacy 'clickElement' did scrollIntoView. We should do it for interactions.
         if (elementDef.action === 'click') {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            await new Promise(r => setTimeout(r, 500)); // Wait for scroll
+            await new Promise(r => setTimeout(r, 500)); // Wait for click interaction stability
             return this.performClickAction(elementDef, element);
         } else if (elementDef.action === 'extract') {
-            // For extraction, we might not need to scroll unless it's lazy loaded?
-            // To be safe and robust (like user asked), let's scroll if it's way off screen?
-            // But maybe distracting. Let's stick to click having scroll.
             return this.performExtractAction(elementDef, element);
         }
 

@@ -24,12 +24,10 @@ import {
     Github,
     Mail,
     HardDrive,
-    User,
     ShieldCheck,
     Globe,
     AlertTriangle,
     Share2,
-    LogOut,
     Webhook,
     Link2,
     CheckCircle2,
@@ -52,15 +50,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     const [nuking, setNuking] = useState(false);
     const [nukeConfirmText, setNukeConfirmText] = useState('');
 
-    const [userProfile, setUserProfile] = useState<{
-        email: string;
-        plan: string;
-        lastLogin: string;
-    }>({
-        email: 'Authenticated User',
-        plan: 'free',
-        lastLogin: ''
-    });
+
 
     const [integrations, setIntegrations] = useState({
         webhookUrl: '',
@@ -73,12 +63,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
     useEffect(() => {
         // Fetch data from storage
-        chrome.storage.local.get(['user_email', 'user_plan', 'last_login', 'integrations'], (result) => {
-            setUserProfile({
-                email: (result.user_email as string) || 'Authenticated User',
-                plan: (result.user_plan as string) || 'free',
-                lastLogin: result.last_login ? new Date(result.last_login as string).toLocaleString() : ''
-            });
+        chrome.storage.local.get(['integrations'], (result) => {
             if (result.integrations) {
                 setIntegrations(prev => ({ ...prev, ...(result.integrations as any) }));
             }
@@ -134,13 +119,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         }
     };
 
-    const handleLogout = () => {
-        chrome.runtime.sendMessage({ type: 'AUTH_LOGOUT' }, (response) => {
-            if (response?.success) {
-                console.log('Logged out successfully');
-            }
-        });
-    };
+
 
     const formatBytes = (bytes: number, decimals = 2) => {
         if (!+bytes) return '0 Bytes';
@@ -151,7 +130,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
     };
 
-    const isPaid = userProfile.plan === 'paid';
+    const isPaid = false;
 
     const updateIntegration = (updates: Partial<typeof integrations>) => {
         const next = { ...integrations, ...updates };
@@ -188,47 +167,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
             <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
 
-                {/* Account / User Section */}
-                <Section title="Account & Plan" icon={<User size={18} />}>
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper' }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                            <Box>
-                                <Typography variant="subtitle2" fontWeight="700">Account</Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {userProfile.email}
-                                </Typography>
-                                {userProfile.lastLogin && (
-                                    <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.5 }}>
-                                        Last login: {userProfile.lastLogin}
-                                    </Typography>
-                                )}
-                            </Box>
-                            <Box sx={{
-                                px: 1.5, py: 0.5,
-                                bgcolor: isPaid ? 'primary.main' : 'success.dark',
-                                color: 'white',
-                                borderRadius: 999,
-                                fontSize: '0.65rem',
-                                fontWeight: 'bold',
-                                textTransform: 'uppercase'
-                            }}>
-                                {isPaid ? 'PRO PLAN' : 'FREE VERSION'}
-                            </Box>
-                        </Box>
-                        <Divider sx={{ my: 1.5 }} />
-                        <Button
-                            variant="outlined"
-                            color="inherit"
-                            size="small"
-                            fullWidth
-                            startIcon={<LogOut size={16} />}
-                            onClick={handleLogout}
-                            sx={{ borderColor: 'divider', textTransform: 'none', fontWeight: 600 }}
-                        >
-                            Sign Out
-                        </Button>
-                    </Paper>
-                </Section>
+
 
                 {/* Storage Management */}
                 <Section title="Data & Storage" icon={<HardDrive size={18} />}>

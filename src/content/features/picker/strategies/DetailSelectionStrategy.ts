@@ -125,13 +125,7 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
         if (this.preferredAction === 'click') {
             console.log('👆 Triggering robust click on element:', element);
 
-            // Synchronous native click FIRST to preserve User Gesture (Transient Activation)
-            // This is required for navigating <a> tags or triggering native popups.
-            if (typeof element.click === 'function') {
-                element.click();
-            }
-
-            // Slightly longer delay to ensure overlay is gone and DOM is stable for JS-bound events
+            // Delay to ensure overlay is gone and DOM is stable for JS-bound events
             setTimeout(async () => {
                 await clickElementRobust(element);
             }, 100);

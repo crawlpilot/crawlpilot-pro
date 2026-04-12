@@ -63,9 +63,10 @@ export async function clickElementRobust(element: HTMLElement): Promise<boolean>
         element.dispatchEvent(clickEvent);
 
         // 5. Native Fallback
-        if (element.click && typeof element.click === 'function') {
-            element.click();
-        }
+        // Removed unconditional native fallback to prevent double-clicks
+        // if (element.click && typeof element.click === 'function') {
+        //     element.click();
+        // }
 
         console.log('✅ [domUtils] Sequence complete.');
         return true;
