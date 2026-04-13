@@ -21,6 +21,7 @@ interface Step2SchemaProps {
     onBack: () => void;
     onNext: () => void;
     onCancel: () => void;
+    sendHighlightMessage: (type: string, payload?: any) => Promise<void>;
 }
 
 export function Step2Schema({
@@ -40,7 +41,8 @@ export function Step2Schema({
     handleSaveElement,
     onBack,
     onNext,
-    onCancel
+    onCancel,
+    sendHighlightMessage
 }: Step2SchemaProps) {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -66,6 +68,20 @@ export function Step2Schema({
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selectionStatus]);
+
+    // --- Persistent Selection Highlights Sync ---
+    useEffect(() => {
+        // Show highlights for all already-selected elements when Step 2 mounts
+        if (elements.length > 0) {
+            sendHighlightMessage('SHOW_SELECTION_HIGHLIGHTS', { elements });
+        }
+
+        // Clear highlights when Step 2 unmounts (user leaves this step)
+        return () => {
+            sendHighlightMessage('CLEAR_SELECTION_HIGHLIGHTS');
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Only on mount/unmount
 
 
     return (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import DataSourceSelector from '../components/DataSourceSelector';
 import { useSelectionMode } from '../hooks/useSelectionMode';
 import { useBulkExtraction } from '../hooks/useBulkExtraction';
@@ -83,6 +83,18 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         elementActionRef.current = elementAction;
     }, [elementAction]);
 
+    // --- Highlight Sync Utility ---
+    const sendHighlightMessage = useCallback(async (type: string, payload: any = {}) => {
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab?.id) {
+                chrome.tabs.sendMessage(tab.id, { type, payload });
+            }
+        } catch (e) {
+            console.warn('[PageExtractor] Failed to send highlight message:', e);
+        }
+    }, []);
+
     useEffect(() => {
         const handleMessage = (message: any) => {
             if (message.type === 'ELEMENT_SELECTED' && message.payload.selectionMode === 'detail') {
@@ -99,6 +111,9 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
 
                 setElements(prev => [...prev, newElement]);
                 setSelectionStatus('idle'); // Picker auto-deactivates
+
+                // Show persistent highlight for the newly selected element
+                sendHighlightMessage('ADD_SELECTION_HIGHLIGHT', { element: newElement });
             } else if (message.type === 'PICKER_CANCELLED') {
                 setSelectionStatus('idle');
             }
@@ -158,7 +173,12 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
     };
 
     const handleDeleteElement = (id: string) => {
-        setElements(prev => prev.filter(el => el.id !== id));
+        setElements(prev => {
+            const updated = prev.filter(el => el.id !== id);
+            // Refresh all highlights after deletion
+            sendHighlightMessage('SHOW_SELECTION_HIGHLIGHTS', { elements: updated });
+            return updated;
+        });
     };
 
     const handleChangeElementType = (id: string, newType: string) => {
@@ -237,6 +257,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                         onBack={() => setStep(1)}
                         onNext={() => setStep(3)}
                         onCancel={stopSelection}
+                        sendHighlightMessage={sendHighlightMessage}
                     />
                 );
             case 3:

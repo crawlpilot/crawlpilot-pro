@@ -29,16 +29,13 @@ export class ElementProcessor {
                 return result;
             }
 
-            // Scroll element into viewport using window.scrollTo (more reliable in extension context)
-            const rect = foundElement.element.getBoundingClientRect();
-            const isOffScreen = rect.bottom < 0 || rect.top > window.innerHeight || rect.right < 0 || rect.left > window.innerWidth;
-            if (isOffScreen) {
-                const absoluteTop = rect.top + window.scrollY - (window.innerHeight / 2) + (rect.height / 2);
-                window.scrollTo({ top: Math.max(0, absoluteTop), behavior: 'auto' });
-                await new Promise(r => setTimeout(r, 300));
-            }
+            // Scroll element into viewport using native scrollIntoView (reliable)
+            foundElement.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Wait for scroll animation to complete (smooth scroll can take 500ms+)
+            const scrollWait = Math.max(500, (this.config?.actionSpeed || 500));
+            await new Promise(r => setTimeout(r, scrollWait));
 
-            await this.highlightElement(foundElement.element);
+            await this.highlightElement(foundElement.element, elementDef.name);
 
             const actionResult = await this.performAction(elementDef, foundElement.element);
 
@@ -82,29 +79,76 @@ export class ElementProcessor {
         return { success: false, error: `Could not find element "${elementName}"` };
     }
 
-    private async highlightElement(element: HTMLElement): Promise<void> {
-        const duration = this.config?.elementHighlightDuration || 1000;
+    private async highlightElement(element: HTMLElement, elementName?: string): Promise<void> {
+        const duration = this.config?.actionSpeed || this.config?.elementHighlightDuration || 500;
+        const shouldHighlight = this.config?.showExtractionHighlights !== false;
+        if (!shouldHighlight) return;
 
-        const originalOutline = element.style.outline;
-        const originalBg = element.style.backgroundColor;
+        // Inject keyframes if not already present
+        if (!document.getElementById('crawlpilot-extraction-highlight-styles')) {
+            const style = document.createElement('style');
+            style.id = 'crawlpilot-extraction-highlight-styles';
+            style.textContent = `
+                @keyframes crawlpilot-extract-pulse {
+                    0% { box-shadow: 0 0 10px rgba(34, 211, 238, 0.3); }
+                    100% { box-shadow: 0 0 25px rgba(34, 211, 238, 0.7); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
 
-        element.style.outline = '2px solid #22D3EE'; // Theme Accent Blue
-        element.style.backgroundColor = 'rgba(34, 211, 238, 0.2)'; // Theme Accent Blue transparent
+        // Create a fixed-position overlay (non-intrusive, doesn't modify original element styles)
+        const rect = element.getBoundingClientRect();
+        const overlay = document.createElement('div');
+        overlay.className = 'crawlpilot-extraction-highlight';
+        overlay.style.cssText = `
+            position: fixed !important;
+            top: ${rect.top}px !important;
+            left: ${rect.left}px !important;
+            width: ${rect.width}px !important;
+            height: ${rect.height}px !important;
+            border: 3px solid #22D3EE !important;
+            background-color: rgba(34, 211, 238, 0.12) !important;
+            z-index: 2147483646 !important;
+            pointer-events: none !important;
+            border-radius: 4px !important;
+            animation: crawlpilot-extract-pulse 0.6s ease-in-out infinite alternate !important;
+        `;
+
+        // Label badge showing element name
+        if (elementName) {
+            const label = document.createElement('div');
+            label.textContent = `⚡ ${elementName}`;
+            label.style.cssText = `
+                position: absolute !important;
+                top: -28px !important;
+                left: 0 !important;
+                background: #22D3EE !important;
+                color: #000 !important;
+                font-size: 11px !important;
+                font-weight: bold !important;
+                padding: 3px 10px !important;
+                border-radius: 4px !important;
+                font-family: system-ui, -apple-system, sans-serif !important;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+                white-space: nowrap !important;
+            `;
+            overlay.appendChild(label);
+        }
+
+        document.documentElement.appendChild(overlay);
 
         return new Promise(resolve => {
             setTimeout(() => {
-                element.style.outline = originalOutline;
-                element.style.backgroundColor = originalBg;
-                resolve();
+                overlay.style.opacity = '0';
+                overlay.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => { overlay.remove(); resolve(); }, 300);
             }, duration);
         });
     }
 
     private async performAction(elementDef: ElementDefinition, element: HTMLElement): Promise<ExtractionResult> {
-        // Handle scrolling if explicitly requested or implicitly needed?
-        // Legacy 'clickElement' did scrollIntoView. We should do it for interactions.
         if (elementDef.action === 'click') {
-            await new Promise(r => setTimeout(r, 500)); // Wait for click interaction stability
             return this.performClickAction(elementDef, element);
         } else if (elementDef.action === 'extract') {
             return this.performExtractAction(elementDef, element);
@@ -198,11 +242,29 @@ export class ElementProcessor {
 
     private async performClickAction(_elementDef: ElementDefinition, element: HTMLElement): Promise<ExtractionResult> {
         try {
-            // Enhanced click with wait
+            // Full mouse event sequence for maximum compatibility with SPAs,
+            // framework event handlers, and accordion/dropdown components
+            const events: string[] = ['mouseover', 'mouseenter', 'mousemove', 'mousedown', 'focus', 'mouseup', 'click'];
+            for (const eventType of events) {
+                element.dispatchEvent(new MouseEvent(eventType, {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window,
+                    button: 0
+                }));
+            }
+
+            // Also try native click as fallback (some frameworks only listen to this)
             element.click();
 
-            // Wait time from config or default
-            const waitTime = _elementDef.waitTimeAfterClick || 500;
+            // For inputs/selects, trigger focus and change events
+            if (element instanceof HTMLInputElement || element instanceof HTMLSelectElement) {
+                element.focus();
+                element.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            // Wait for expansion/animation to complete
+            const waitTime = _elementDef.waitTimeAfterClick || this.config?.actionSpeed || 500;
             await new Promise(r => setTimeout(r, waitTime));
 
             return {

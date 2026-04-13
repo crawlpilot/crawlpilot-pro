@@ -155,30 +155,6 @@ export function useBulkExtraction() {
                 });
             };
 
-            // Click Dispatcher
-            const dispatchClickInTab = async (tabId: number, selector: string) => {
-                try {
-                    await chrome.scripting.executeScript({
-                        target: { tabId },
-                        func: (sel: string) => {
-                            const el = document.querySelector(sel) as HTMLElement | null;
-                            if (!el) return;
-                            (['mouseover', 'mouseenter', 'mousemove', 'mousedown', 'mouseup', 'click'] as const)
-                                .forEach(type => el.dispatchEvent(new MouseEvent(type, {
-                                    bubbles: true, cancelable: true, view: window, button: 0
-                                })));
-                            if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) {
-                                el.focus();
-                                el.dispatchEvent(new Event('change', { bubbles: true }));
-                            }
-                        },
-                        args: [selector]
-                    });
-                } catch (e) {
-                    console.warn('[dispatchClickInTab] executeScript failed:', e);
-                }
-            };
-
             // Page Processor
             const processUrlOnTab = async (targetTabId: number, url: string) => {
                 const batchRecordId = `rec_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
@@ -209,23 +185,26 @@ export function useBulkExtraction() {
                 for (const element of elements) {
                     if (await checkStop()) break;
 
-                    if (element.action === 'click') {
-                        const clickSelector = element.selector || element.containerSelector;
-                        if (clickSelector) {
-                            await dispatchClickInTab(targetTabId, clickSelector);
-                        }
-                        await new Promise(resolve => setTimeout(resolve, config.requestDelay > 0 ? config.requestDelay * 2 : 2000));
-                    } else {
-                        const response = await sendMessageWithRetry(targetTabId, {
-                            type: 'CMD_EXTRACT_PAGE',
-                            payload: {
-                                actionType: 'EXTRACT_PAGES',
-                                url,
-                                elements: [element],
-                                config
-                            }
-                        });
+                    // Route ALL elements (click + extract) through CMD_EXTRACT_PAGE
+                    // so they all benefit from ElementProcessor's reliable scroll,
+                    // highlight, and action handling.
+                    const actionSpeed = config.actionSpeed || 500;
 
+                    const response = await sendMessageWithRetry(targetTabId, {
+                        type: 'CMD_EXTRACT_PAGE',
+                        payload: {
+                            actionType: 'EXTRACT_PAGES',
+                            url,
+                            elements: [element],
+                            config: { ...config, actionSpeed }
+                        }
+                    });
+
+                    if (element.action === 'click') {
+                        // Extra wait after click to allow expansion/animation to complete
+                        const clickWait = Math.max(actionSpeed, config.requestDelay > 0 ? config.requestDelay : 1000);
+                        await new Promise(resolve => setTimeout(resolve, clickWait));
+                    } else {
                         if (response && response.success && response.result) {
                             const { item, items, columns: resultColumns } = response.result;
                             if (resultColumns && Array.isArray(resultColumns)) {

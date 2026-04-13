@@ -154,6 +154,10 @@ export class PageExtractionStrategy {
         private elements: ElementDefinition[],
         private config: ExtractionConfig
     ) {
+        // Auto-derive delay between elements from actionSpeed if not explicitly set
+        if (!config.delayBetweenElements && config.actionSpeed) {
+            config.delayBetweenElements = Math.max(100, Math.round(config.actionSpeed * 0.5));
+        }
         this.processor = new ElementProcessor(config);
         this.aggregator = new Aggregator();
     }

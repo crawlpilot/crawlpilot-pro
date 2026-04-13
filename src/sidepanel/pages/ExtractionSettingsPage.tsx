@@ -8,7 +8,8 @@ import {
     ShieldCheck,
     Info,
     Minus,
-    Plus
+    Plus,
+    Eye
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Badge from '../components/ui/Badge';
@@ -22,6 +23,8 @@ interface ExtractionSettings {
     enableRandomization: boolean;
     waitForElements: boolean;
     elementTimeout: number;
+    actionSpeed: number;
+    showExtractionHighlights: boolean;
 }
 
 const DEFAULT_SETTINGS: ExtractionSettings = {
@@ -32,7 +35,9 @@ const DEFAULT_SETTINGS: ExtractionSettings = {
     loadTimeout: 10000,
     enableRandomization: false,
     waitForElements: true,
-    elementTimeout: 0
+    elementTimeout: 0,
+    actionSpeed: 500,
+    showExtractionHighlights: true
 };
 
 interface ExtractionSettingsPageProps {
@@ -190,6 +195,52 @@ export default function ExtractionSettingsPage({ onBack }: ExtractionSettingsPag
                     </div>
                 </div>
 
+                {/* Visual Feedback Section */}
+                <div className="card space-y-4 bg-background-panel/50 border-border-subtle/50">
+                    <div className="flex items-center gap-2 text-cyan-400 border-b border-border-subtle pb-3 -mx-3 px-3 mb-2">
+                        <Eye className="w-3.5 h-3.5" />
+                        <h2 className="text-[11px] font-bold uppercase tracking-widest">Visual Feedback</h2>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <span className="text-xs font-medium">Show Extraction Highlights</span>
+                            <p className="text-[10px] text-text-muted mt-0.5">Highlight elements during extraction</p>
+                        </div>
+                        <Toggle
+                            active={settings.showExtractionHighlights}
+                            onChange={(val) => updateSetting('showExtractionHighlights', val)}
+                        />
+                    </div>
+
+                    {settings.showExtractionHighlights && (
+                        <div className="pl-3 border-l-2 border-cyan-400/20 animate-fade-in py-1 space-y-3">
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <div>
+                                        <span className="text-xs font-medium">Action Speed</span>
+                                        <p className="text-[10px] text-text-muted mt-0.5">How long each element is highlighted</p>
+                                    </div>
+                                    <span className="text-xs font-mono font-bold text-cyan-400">{settings.actionSpeed}ms</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="200"
+                                    max="3000"
+                                    step="100"
+                                    value={settings.actionSpeed}
+                                    onChange={(e) => updateSetting('actionSpeed', parseInt(e.target.value))}
+                                    className="w-full accent-cyan-400"
+                                />
+                                <div className="flex justify-between text-[9px] text-text-muted mt-1">
+                                    <span>⚡ Fast (200ms)</span>
+                                    <span>🐢 Slow (3000ms)</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 {/* Element Waiting Section */}
                 <div className="card space-y-4 bg-background-panel/50 border-border-subtle/50">
                     <div className="flex items-center gap-2 text-purple-400 border-b border-border-subtle pb-3 -mx-3 px-3 mb-2">
@@ -234,6 +285,7 @@ export default function ExtractionSettingsPage({ onBack }: ExtractionSettingsPag
                         <span className="text-text-primary font-bold"> {settings.requestDelay}ms</span> delay.
                         Load: <span className="text-text-primary font-bold">{settings.waitForPageLoad ? settings.loadTimeout + 'ms' : 'off'}</span>.
                         Wait: <span className="text-text-primary font-bold">{settings.waitForElements ? (settings.elementTimeout || 'auto') : 'off'}</span>.
+                        Speed: <span className="text-text-primary font-bold">{settings.showExtractionHighlights ? settings.actionSpeed + 'ms' : 'off'}</span>.
                     </p>
                 </div>
             </div>

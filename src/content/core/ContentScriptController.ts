@@ -11,6 +11,7 @@ import { DetailSelectionStrategy } from '../features/picker/strategies/DetailSel
 import { ImageScanner } from '../features/universal-images/ImageScanner';
 import { ProgressiveImageScanner } from '../features/universal-images/ProgressiveImageScanner';
 import { RightClickUnlocker } from '../features/utility/RightClickUnlocker';
+import { SelectionHighlightManager } from '../services/page/SelectionHighlightManager';
 
 export class ContentScriptController {
     private picker: VisualElementPicker | null = null;
@@ -24,6 +25,7 @@ export class ContentScriptController {
     private schemaGenerator = new SchemaGenerator();
     private extractor = new DataExtractor();
     private pageExtractor = new PageExtractor();
+    private selectionHighlightManager = new SelectionHighlightManager();
 
     constructor() {
         this.messageClient = MessageClient.getInstance();
@@ -170,6 +172,27 @@ export class ContentScriptController {
             const { selector } = msg.payload || {};
             if (selector) {
                 this.testSelector(selector);
+            }
+            sendResponse({ success: true });
+        });
+
+        this.messageClient.on('SHOW_SELECTION_HIGHLIGHTS', (msg, sendResponse) => {
+            const { elements } = msg.payload || {};
+            if (elements && Array.isArray(elements)) {
+                this.selectionHighlightManager.showHighlights(elements);
+            }
+            sendResponse({ success: true });
+        });
+
+        this.messageClient.on('CLEAR_SELECTION_HIGHLIGHTS', (_, sendResponse) => {
+            this.selectionHighlightManager.clearHighlights();
+            sendResponse({ success: true });
+        });
+
+        this.messageClient.on('ADD_SELECTION_HIGHLIGHT', (msg, sendResponse) => {
+            const { element } = msg.payload || {};
+            if (element) {
+                this.selectionHighlightManager.addHighlight(element);
             }
             sendResponse({ success: true });
         });

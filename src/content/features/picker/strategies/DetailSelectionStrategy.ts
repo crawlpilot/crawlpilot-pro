@@ -35,7 +35,7 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
         // Use ContainerDetector to see if this is a list/table.
         // We look INSIDE the selected element first.
         const containerInfo = this.detector.findInternalContainer(target);
-        const isList = containerInfo.isContainer && containerInfo.container;
+        const isList = !!(containerInfo.isContainer && containerInfo.container);
 
         let containerSelector = '';
         let containerXPath = '';
@@ -120,6 +120,36 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
                         finalValue = previewValue;
                     }
                 } catch (_) { /* ignore */ }
+            }
+
+            // Sibling-pattern heuristic: if the element is part of a repeating structure
+            // at its IMMEDIATE parent level (e.g., one row of a spec table), auto-tag as 'table'
+            // and re-target the selector to the parent container.
+            // We only go UP ONE level to avoid accidentally selecting the entire page.
+            if (autoExtractionType === 'text') {
+                const parent = element.parentElement;
+                if (parent && parent !== document.body && parent !== document.documentElement) {
+                    const siblingTag = element.tagName;
+                    const childCount = element.children.length;
+                    const siblings = Array.from(parent.children) as HTMLElement[];
+                    const matchingSiblings = siblings.filter(sib =>
+                        sib.tagName === siblingTag &&
+                        Math.abs(sib.children.length - childCount) <= 1 &&
+                        sib.offsetHeight > 0 &&
+                        (sib.textContent || '').trim().length > 0
+                    );
+
+                    if (matchingSiblings.length >= 3 && childCount >= 2) {
+                        // Strong sibling pattern detected — this is a spec table / key-value list
+                        autoExtractionType = 'table';
+                        containerSelector = generateCssSelector(parent);
+                        containerXPath = generateXPath(parent);
+                        itemSelector = containerSelector;
+                        itemXPath = containerXPath;
+                        previewValue = `Table (${matchingSiblings.length} items)`;
+                        finalValue = previewValue;
+                    }
+                }
             }
 
             // Default: text
