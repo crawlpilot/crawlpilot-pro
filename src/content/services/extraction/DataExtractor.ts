@@ -62,7 +62,7 @@ export class DataExtractor {
         const items = this.normalizeData(rows, columns);
 
         return {
-            type: 'list',
+            type: containerInfo.containerType === 'table' ? 'table' : 'list',
             columns: columns,
             items: items,
             source_url: window.location.href,

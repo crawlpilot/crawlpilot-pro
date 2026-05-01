@@ -38,10 +38,20 @@ class Aggregator {
         }
 
         if (result.success && data) {
-            if ((data.type === 'table' || data.type === 'list') && data.items) {
-                // TABLE / LIST: each item becomes its own output row
+            if (data.type === 'table' && data.items) {
+                // TABLE: each item becomes its own output row (Row Explosion mode)
                 this.item[result.elementId] = { __type: 'table', items: data.items, columns: data.columns || [] };
                 this.totalItemCount = Math.max(this.totalItemCount, data.items.length);
+            } else if (data.type === 'list' && data.items) {
+                // LIST: Flatten horizontally into columns/merged cells
+                this.item[result.elementId] = { 
+                    __type: 'flat_list', 
+                    items: data.items, 
+                    columns: data.columns || [],
+                    elementId: result.elementId,
+                    baseName: result.elementName 
+                };
+                if (this.totalItemCount === 0) this.totalItemCount = 1;
             } else {
                 // Simple scalar value result (text, link, image)
                 this.item[result.elementId] = data.value;
@@ -75,22 +85,100 @@ class Aggregator {
             elementName: 'Record Identifier'
         };
 
-        // Check if any element returned table/list rows (needs row explosion)
-        const hasTableElement = Object.values(this.item).some(
+        // Pre-process 'flat_list' elements (List type extraction)
+        // Transpose Key-Value lists or merge standard lists natively into scalars
+        const processedItem: any = {};
+
+        Object.entries(this.item).forEach(([key, value]: [string, any]) => {
+            if (value && typeof value === 'object' && value.__type === 'flat_list') {
+                const items = value.items || [];
+                
+                // Determine if it's a Key-Value list (most items have exactly 2 properties)
+                let isKeyValue = items.length > 0;
+                if (items.length > 0) {
+                    const pairCount = items.filter((it: any) => Object.keys(it).length === 2).length;
+                    if (pairCount / items.length < 0.8) {
+                        isKeyValue = false;
+                    }
+                }
+
+                if (isKeyValue) {
+                    // 1. Key-Value Pivoting
+                    items.forEach((itemRow: any) => {
+                        const vals = Object.values(itemRow);
+                        if (vals.length === 2) {
+                            const rawKey = vals[0] as string;
+                            const kvValue = vals[1];
+                            const kvKey = rawKey.trim() || 'Unknown Key';
+                            
+                            const colId = `kv_${key}_${kvKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                            
+                            processedItem[colId] = kvValue;
+                            
+                            if (!this.columns.find(c => c.id === colId)) {
+                                this.columns.push({
+                                    id: colId,
+                                    originalId: colId,
+                                    name: kvKey,
+                                    type: 'text',
+                                    elementId: value.elementId,
+                                    elementName: kvKey
+                                });
+                            }
+                        }
+                    });
+                } else {
+                    // 2. String Merging (Bulleted lists, single values)
+                    const mergedData: Record<string, string[]> = {};
+                    items.forEach((itemRow: any) => {
+                        Object.entries(itemRow).forEach(([k, v]) => {
+                            if (!mergedData[k]) mergedData[k] = [];
+                            if (v !== undefined && v !== null && v !== '') {
+                                mergedData[k].push(String(v));
+                            }
+                        });
+                    });
+                    
+                    Object.entries(mergedData).forEach(([k, vals]) => {
+                        const originalCol = value.columns.find((c: any) => c.id === k);
+                        const colId = `${key}_${k}`;
+                        const colName = originalCol?.name || value.baseName || 'List Item';
+                        
+                        processedItem[colId] = vals.join('\n');
+                        
+                        if (!this.columns.find(c => c.id === colId)) {
+                            this.columns.push({
+                                id: colId,
+                                originalId: k,
+                                name: colName,
+                                type: originalCol?.type || 'text',
+                                elementId: value.elementId,
+                                elementName: colName
+                            });
+                        }
+                    });
+                }
+            } else {
+                processedItem[key] = value;
+            }
+        });
+
+        // Check if any element returned table rows (needs row explosion)
+        const hasTableElement = Object.values(processedItem).some(
             (v: any) => v && typeof v === 'object' && v.__type === 'table'
         );
 
         if (hasTableElement) {
-            // ROW EXPLOSION mode: explode table/list items into individual rows
+            // ROW EXPLOSION mode: explode table items into individual rows
             // Scalar fields are merged into every row
             const rows: any[] = [];
             let allColumns: any[] = [recordIdColumn];
 
-            // First, collect all non-table/list fields (scalars) for merging
+            // First, collect all non-table fields (scalars) for merging
             const baseRow: any = { recordId };
             const baseColumns: any[] = [];
 
-            Object.entries(this.item).forEach(([key, value]: [string, any]) => {
+            Object.entries(processedItem).forEach(([key, value]: [string, any]) => {
                 if (!value || value.__type !== 'table') {
                     baseRow[key] = value;
                     const existingCol = this.columns.find(c => c.id === key);
@@ -98,14 +186,14 @@ class Aggregator {
                 }
             });
 
-            // Now explode each table/list element into rows
-            Object.entries(this.item).forEach(([, value]: [string, any]) => {
+            // Now explode each table element into rows
+            Object.entries(processedItem).forEach(([, value]: [string, any]) => {
                 if (value && value.__type === 'table') {
                     // Merge table-level columns
                     (value.columns || []).forEach((col: any) => {
                         if (!allColumns.find(c => c.id === col.id)) allColumns.push(col);
                     });
-                    // Each item in the table/list is a row
+                    // Each item in the table is a row
                     value.items.forEach((tableRow: any) => {
                         rows.push({ ...baseRow, ...tableRow });
                     });
@@ -124,11 +212,11 @@ class Aggregator {
             };
         }
 
-        // No table/list: build a single row from scalars
+        // No table: build a single row from scalars
         const singleRow: any = { recordId };
         const singleColumns: any[] = [recordIdColumn];
 
-        Object.entries(this.item).forEach(([key, value]: [string, any]) => {
+        Object.entries(processedItem).forEach(([key, value]: [string, any]) => {
             singleRow[key] = value;
             const col = this.columns.find(c => c.id === key);
             if (col) singleColumns.push(col);
