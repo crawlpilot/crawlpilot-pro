@@ -67,10 +67,10 @@ export function ExtractionStatusBar({ status, hasSelectors, selectorCount, onSta
                                     </Box>
                                     <Box>
                                         <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.2 }}>
-                                            Extracting Intelligence
+                                            Extracting Data
                                         </Typography>
                                         <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)', fontWeight: 500 }}>
-                                            Live data synthesis in progress...
+                                            Scanning page and collecting items...
                                         </Typography>
                                     </Box>
                                 </Box>
@@ -103,7 +103,7 @@ export function ExtractionStatusBar({ status, hasSelectors, selectorCount, onSta
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                                         <Database size={12} className="text-cyan-400" />
                                         <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-                                            Total Items
+                                            Items Found
                                         </Typography>
                                     </Box>
                                     <Typography variant="h5" sx={{ color: 'white', fontWeight: 800, fontFamily: 'monospace' }}>
@@ -170,7 +170,7 @@ export function ExtractionStatusBar({ status, hasSelectors, selectorCount, onSta
                         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                     }}
                 >
-                    Start Extraction ({selectorCount})
+                    Run Extraction · {selectorCount} {selectorCount === 1 ? 'field' : 'fields'}
                 </Button>
             ) : null}
         </Box>

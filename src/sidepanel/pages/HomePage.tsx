@@ -1,36 +1,39 @@
-import { Box, Typography, Card, CardActionArea, Button, Stack } from '@mui/material';
-import { Sparkles, List, Clock, Database, ChevronRight, Image as ImageIcon, FileText } from 'lucide-react';
+import { Box, Typography, Card, CardActionArea, Button, Stack, Tooltip } from '@mui/material';
+import { Sparkles, List, Clock, Database, ChevronRight, Image as ImageIcon, FileText, FileSearch } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface HomePageProps {
     onNavigate: (view: string) => void;
+    isTabConnected?: boolean;
 }
 
-export default function HomePage({ onNavigate }: HomePageProps) {
+export default function HomePage({ onNavigate, isTabConnected = true }: HomePageProps) {
+    const { t } = useTranslation('home');
     return (
         <Box sx={{
-            height: '100vh',
+            height: '100%',
             display: 'flex',
             flexDirection: 'column',
             bgcolor: 'background.default',
             overflow: 'hidden'
         }}>
             {/* Assistant Header - Fixed */}
-            <Box sx={{ pt: 4, pb: 2, textAlign: 'center', animation: 'slideUp 0.3s ease-out', px: 3 }}>
+            <Box sx={{ pt: 2.5, pb: 1.5, textAlign: 'center', animation: 'slideUp 0.3s ease-out', px: 3 }}>
                 <Box sx={{
                     display: 'inline-flex',
-                    p: 1.5,
+                    p: 1.25,
                     borderRadius: 3,
-                    background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.2) 0%, rgba(96, 165, 250, 0.2) 100%)',
-                    mb: 2,
-                    boxShadow: '0 4px 20px -5px rgba(37, 99, 235, 0.4)'
+                    background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2) 0%, rgba(139, 92, 246, 0.15) 100%)',
+                    mb: 1,
+                    boxShadow: '0 4px 20px -5px rgba(6, 182, 212, 0.4)'
                 }}>
-                    <Sparkles className="w-8 h-8 text-blue-500" />
+                    <Sparkles size={24} style={{ color: '#06B6D4' }} />
                 </Box>
-                <Typography variant="h5" component="h1" fontWeight="700" gutterBottom sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
-                    Welcome to Crawl Pilot
+                <Typography variant="h5" component="h1" fontWeight="700" gutterBottom sx={{ fontSize: '1.1rem', mb: 0.5 }}>
+                    Crawl Pilot
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 260, mx: 'auto' }}>
-                    Your intelligent web crawling companion.
+                <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 260, mx: 'auto', fontSize: '0.72rem' }}>
+                    {t('tagline')}
                 </Typography>
             </Box>
 
@@ -45,9 +48,10 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                 '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.1)', borderRadius: '10px' },
                 '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(255,255,255,0.2)' }
             }}>
-                <Stack spacing={2} sx={{ width: '100%', maxWidth: 400, mx: 'auto', animation: 'slideUp 0.4s ease-out' }}>
+                <Stack spacing={1.5} sx={{ width: '100%', maxWidth: 400, mx: 'auto', animation: 'slideUp 0.4s ease-out' }}>
 
                     {/* Primary: List Extractor */}
+                    <Tooltip title={t('listExtractor.tooltip')} placement="left" arrow>
                     <Card
                         elevation={0}
                         sx={{
@@ -56,10 +60,11 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                             borderColor: 'divider',
                             bgcolor: 'background.paper',
                             transition: 'all 0.2s',
+                            opacity: isTabConnected ? 1 : 0.5,
                             '&:hover': {
                                 borderColor: 'primary.main',
                                 transform: 'translateY(-2px)',
-                                boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
+                                boxShadow: '0 8px 25px -8px rgba(6, 182, 212, 0.3)'
                             }
                         }}
                     >
@@ -69,29 +74,31 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                                     <Box sx={{
                                         p: 1.5,
                                         borderRadius: 2,
-                                        bgcolor: 'rgba(37, 99, 235, 0.1)',
+                                        bgcolor: 'rgba(6, 182, 212, 0.1)',
                                         color: 'primary.main',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center'
                                     }}>
-                                        <List size={24} />
+                                        <List size={22} />
                                     </Box>
                                     <Box>
-                                        <Typography variant="subtitle1" fontWeight="600" sx={{ lineHeight: 1.2 }}>
-                                            Extract a List
+                                        <Typography variant="subtitle2" fontWeight="600" sx={{ lineHeight: 1.2 }}>
+                                            {t('listExtractor.title')}
                                         </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Products, articles, or search results
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                            {t('listExtractor.description')}
                                         </Typography>
                                     </Box>
                                 </Box>
-                                <ChevronRight size={20} className="text-gray-500" />
+                                <ChevronRight size={18} style={{ color: 'rgba(255,255,255,0.3)' }} />
                             </Box>
                         </CardActionArea>
                     </Card>
+                    </Tooltip>
 
                     {/* Text Summarizer */}
+                    <Tooltip title={t('textSummarizer.tooltip')} placement="left" arrow>
                     <Card
                         elevation={0}
                         sx={{
@@ -100,10 +107,11 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                             borderColor: 'divider',
                             bgcolor: 'background.paper',
                             transition: 'all 0.2s',
+                            opacity: isTabConnected ? 1 : 0.5,
                             '&:hover': {
                                 borderColor: 'primary.main',
                                 transform: 'translateY(-2px)',
-                                boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
+                                boxShadow: '0 8px 25px -8px rgba(6, 182, 212, 0.3)'
                             }
                         }}
                     >
@@ -113,30 +121,32 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                                     <Box sx={{
                                         p: 1.5,
                                         borderRadius: 2,
-                                        bgcolor: 'rgba(37, 99, 235, 0.1)',
-                                        color: 'primary.main',
+                                        bgcolor: 'rgba(139, 92, 246, 0.1)',
+                                        color: 'secondary.main',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center'
                                     }}>
-                                        <FileText size={24} />
+                                        <FileText size={22} />
                                     </Box>
                                     <Box>
-                                        <Typography variant="subtitle1" fontWeight="600" sx={{ lineHeight: 1.2 }}>
-                                            Text Summarizer
+                                        <Typography variant="subtitle2" fontWeight="600" sx={{ lineHeight: 1.2 }}>
+                                            {t('textSummarizer.title')}
                                         </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Summarize and chat with text
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                            {t('textSummarizer.description')}
                                         </Typography>
                                     </Box>
                                 </Box>
-                                <ChevronRight size={20} className="text-gray-500" />
+                                <ChevronRight size={18} style={{ color: 'rgba(255,255,255,0.3)' }} />
                             </Box>
                         </CardActionArea>
                     </Card>
+                    </Tooltip>
 
 
                     {/* Page Extractor */}
+                    <Tooltip title={t('pageExtractor.tooltip')} placement="left" arrow>
                     <Card
                         elevation={0}
                         sx={{
@@ -145,10 +155,11 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                             borderColor: 'divider',
                             bgcolor: 'background.paper',
                             transition: 'all 0.2s',
+                            opacity: isTabConnected ? 1 : 0.5,
                             '&:hover': {
                                 borderColor: 'primary.main',
                                 transform: 'translateY(-2px)',
-                                boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
+                                boxShadow: '0 8px 25px -8px rgba(6, 182, 212, 0.3)'
                             }
                         }}
                     >
@@ -158,29 +169,31 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                                     <Box sx={{
                                         p: 1.5,
                                         borderRadius: 2,
-                                        bgcolor: 'rgba(37, 99, 235, 0.1)',
+                                        bgcolor: 'rgba(6, 182, 212, 0.1)',
                                         color: 'primary.main',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center'
                                     }}>
-                                        <Database size={24} />
+                                        <Database size={22} />
                                     </Box>
                                     <Box>
-                                        <Typography variant="subtitle1" fontWeight="600" sx={{ lineHeight: 1.2 }}>
-                                            Page Extractor
+                                        <Typography variant="subtitle2" fontWeight="600" sx={{ lineHeight: 1.2 }}>
+                                            {t('pageExtractor.title')}
                                         </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Bulk extract data from pages
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                            {t('pageExtractor.description')}
                                         </Typography>
                                     </Box>
                                 </Box>
-                                <ChevronRight size={20} className="text-gray-500" />
+                                <ChevronRight size={18} style={{ color: 'rgba(255,255,255,0.3)' }} />
                             </Box>
                         </CardActionArea>
                     </Card>
+                    </Tooltip>
 
-                    {/* Image Downloader */}
+                    {/* Metadata Extractor */}
+                    <Tooltip title={t('metadataExtractor.tooltip')} placement="left" arrow>
                     <Card
                         elevation={0}
                         sx={{
@@ -190,9 +203,56 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                             bgcolor: 'background.paper',
                             transition: 'all 0.2s',
                             '&:hover': {
+                                borderColor: 'rgba(139, 92, 246, 0.6)',
+                                transform: 'translateY(-2px)',
+                                boxShadow: '0 8px 25px -8px rgba(139, 92, 246, 0.3)'
+                            }
+                        }}
+                    >
+                        <CardActionArea onClick={() => onNavigate('metadata-extractor')} sx={{ p: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Box sx={{
+                                        p: 1.5,
+                                        borderRadius: 2,
+                                        bgcolor: 'rgba(139, 92, 246, 0.1)',
+                                        color: 'secondary.main',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <FileSearch size={22} />
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="subtitle2" fontWeight="600" sx={{ lineHeight: 1.2 }}>
+                                            {t('metadataExtractor.title')}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                            {t('metadataExtractor.description')}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                                <ChevronRight size={18} style={{ color: 'rgba(255,255,255,0.3)' }} />
+                            </Box>
+                        </CardActionArea>
+                    </Card>
+                    </Tooltip>
+
+                    {/* Image Downloader */}
+                    <Tooltip title={t('imageDownloader.tooltip')} placement="left" arrow>
+                    <Card
+                        elevation={0}
+                        sx={{
+                            borderRadius: 3,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            bgcolor: 'background.paper',
+                            transition: 'all 0.2s',
+                            opacity: isTabConnected ? 1 : 0.5,
+                            '&:hover': {
                                 borderColor: 'primary.main',
                                 transform: 'translateY(-2px)',
-                                boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
+                                boxShadow: '0 8px 25px -8px rgba(6, 182, 212, 0.3)'
                             }
                         }}
                     >
@@ -202,29 +262,31 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                                     <Box sx={{
                                         p: 1.5,
                                         borderRadius: 2,
-                                        bgcolor: 'rgba(37, 99, 235, 0.1)',
-                                        color: 'primary.main',
+                                        bgcolor: 'rgba(16, 185, 129, 0.1)',
+                                        color: '#10B981',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center'
                                     }}>
-                                        <ImageIcon size={24} />
+                                        <ImageIcon size={22} />
                                     </Box>
                                     <Box>
-                                        <Typography variant="subtitle1" fontWeight="600" sx={{ lineHeight: 1.2 }}>
-                                            Image Downloader
+                                        <Typography variant="subtitle2" fontWeight="600" sx={{ lineHeight: 1.2 }}>
+                                            {t('imageDownloader.title')}
                                         </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Bulk download images from page
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                            {t('imageDownloader.description')}
                                         </Typography>
                                     </Box>
                                 </Box>
-                                <ChevronRight size={20} className="text-gray-500" />
+                                <ChevronRight size={18} style={{ color: 'rgba(255,255,255,0.3)' }} />
                             </Box>
                         </CardActionArea>
                     </Card>
+                    </Tooltip>
 
                     {/* Browser Utilities */}
+                    <Tooltip title={t('browserUtilities.tooltip')} placement="left" arrow>
                     <Card
                         elevation={0}
                         sx={{
@@ -236,7 +298,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                             '&:hover': {
                                 borderColor: 'primary.main',
                                 transform: 'translateY(-2px)',
-                                boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
+                                boxShadow: '0 8px 25px -8px rgba(6, 182, 212, 0.3)'
                             }
                         }}
                     >
@@ -246,69 +308,66 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                                     <Box sx={{
                                         p: 1.5,
                                         borderRadius: 2,
-                                        bgcolor: 'rgba(37, 99, 235, 0.1)',
-                                        color: 'primary.main',
+                                        bgcolor: 'rgba(245, 158, 11, 0.1)',
+                                        color: '#F59E0B',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center'
                                     }}>
-                                        <Sparkles size={24} />
+                                        <Sparkles size={22} />
                                     </Box>
                                     <Box>
-                                        <Typography variant="subtitle1" fontWeight="600" sx={{ lineHeight: 1.2 }}>
-                                            Browser Utilities
+                                        <Typography variant="subtitle2" fontWeight="600" sx={{ lineHeight: 1.2 }}>
+                                            {t('browserUtilities.title')}
                                         </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Right-click unlocker & tools
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                            {t('browserUtilities.description')}
                                         </Typography>
                                     </Box>
                                 </Box>
-                                <ChevronRight size={20} className="text-gray-500" />
+                                <ChevronRight size={18} style={{ color: 'rgba(255,255,255,0.3)' }} />
                             </Box>
                         </CardActionArea>
                     </Card>
+                    </Tooltip>
                 </Stack>
             </Box>
 
             {/* Footer / Recent - Fixed outside scroll */}
             <Box sx={{
                 mt: 'auto',
-                pt: 2,
-                pb: 3,
+                pt: 1.5,
+                pb: 2,
                 px: 3,
                 borderTop: '1px solid',
                 borderColor: 'rgba(255,255,255,0.05)',
                 bgcolor: 'background.default',
-                animation: 'slideUp 0.5s ease-out'
             }}>
-                <Typography variant="caption" fontWeight="600" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1, mb: 1, display: 'block' }}>
-                    Your Workspace
-                </Typography>
                 <Stack direction="row" spacing={1.5}>
                     <Button
                         fullWidth
                         variant="outlined"
                         color="inherit"
-                        startIcon={<Clock size={16} />}
+                        startIcon={<Clock size={14} />}
                         onClick={() => onNavigate('history')}
                         sx={{
                             justifyContent: 'center',
                             borderColor: 'divider',
                             color: 'text.secondary',
-                            py: 1,
+                            py: 0.8,
                             borderRadius: 2,
                             textTransform: 'none',
-                            fontSize: '0.8rem',
-                            '&:hover': { borderColor: 'primary.main', color: 'primary.main' }
+                            fontSize: '0.75rem',
+                            '&:hover': { borderColor: 'primary.main', color: 'primary.main', transform: 'none' }
                         }}
                     >
-                        Jobs
+                        {t('recentRuns')}
                     </Button>
                     <Button
                         fullWidth
                         variant="outlined"
                         color="inherit"
-                        startIcon={<Database size={16} />}
+                        startIcon={<Database size={14} />}
                         onClick={() => {
                             const url = chrome.runtime.getURL('sidepanel.html?view=data-table');
                             chrome.tabs.create({ url });
@@ -317,14 +376,14 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                             justifyContent: 'center',
                             borderColor: 'divider',
                             color: 'text.secondary',
-                            py: 1,
+                            py: 0.8,
                             borderRadius: 2,
                             textTransform: 'none',
-                            fontSize: '0.8rem',
-                            '&:hover': { borderColor: 'primary.main', color: 'primary.main' }
+                            fontSize: '0.75rem',
+                            '&:hover': { borderColor: 'primary.main', color: 'primary.main', transform: 'none' }
                         }}
                     >
-                        History
+                        {t('savedData')}
                     </Button>
                 </Stack>
             </Box>

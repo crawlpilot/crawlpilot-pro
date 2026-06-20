@@ -5,6 +5,7 @@ import { ISelectionStrategy } from './strategies/ISelectionStrategy';
 export class VisualElementPicker {
     private overlay: HTMLElement | null = null;
     private tooltip: HTMLElement | null = null;
+    private shortcutBar: HTMLElement | null = null;
     private highlightBox: HTMLElement | null = null;
     private siblingHighlights: HTMLElement[] = []; // Stores dashed boxes
     private currentElement: HTMLElement | null = null;
@@ -13,6 +14,7 @@ export class VisualElementPicker {
     private onCancelCallback: (() => void) | null = null;
     private lastHighlightedElement: HTMLElement | null = null;
     private lastSiblings: HTMLElement[] = [];
+    private rafPending = false;
 
     constructor() {
         this.handleMouseMove = this.handleMouseMove.bind(this);
@@ -129,19 +131,64 @@ export class VisualElementPicker {
             white-space: nowrap !important;
         `;
 
+        // 4. Keyboard shortcut bar (fixed bottom-center, always visible)
+        this.shortcutBar = document.createElement('div');
+        this.shortcutBar.style.cssText = `
+            position: fixed !important;
+            bottom: 16px !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            z-index: 2147483647 !important;
+            background: rgba(17, 24, 39, 0.92) !important;
+            color: #e5e7eb !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
+            border-radius: 8px !important;
+            padding: 8px 14px !important;
+            font-family: system-ui, -apple-system, sans-serif !important;
+            font-size: 11px !important;
+            display: flex !important;
+            gap: 16px !important;
+            align-items: center !important;
+            pointer-events: none !important;
+            backdrop-filter: blur(4px) !important;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+            white-space: nowrap !important;
+        `;
+        this.shortcutBar.innerHTML = `
+            <span style="display:flex;align-items:center;gap:5px;">
+                <kbd style="background:rgba(255,255,255,0.15);border-radius:3px;padding:1px 5px;font-weight:600;font-family:inherit;">↑</kbd>
+                <span style="opacity:0.75;">Expand</span>
+            </span>
+            <span style="display:flex;align-items:center;gap:5px;">
+                <kbd style="background:rgba(255,255,255,0.15);border-radius:3px;padding:1px 5px;font-weight:600;font-family:inherit;">↓</kbd>
+                <span style="opacity:0.75;">Narrow</span>
+            </span>
+            <span style="display:flex;align-items:center;gap:5px;">
+                <kbd style="background:rgba(255,255,255,0.15);border-radius:3px;padding:1px 5px;font-weight:600;font-family:inherit;">Enter</kbd>
+                <span style="opacity:0.75;">Select</span>
+            </span>
+            <span style="display:flex;align-items:center;gap:5px;">
+                <kbd style="background:rgba(255,255,255,0.15);border-radius:3px;padding:1px 5px;font-weight:600;font-family:inherit;">Esc</kbd>
+                <span style="opacity:0.75;">Cancel</span>
+            </span>
+        `;
+
         document.documentElement.appendChild(this.overlay);
         document.documentElement.appendChild(this.highlightBox);
         document.documentElement.appendChild(this.tooltip);
+        document.documentElement.appendChild(this.shortcutBar);
     }
 
     private removeUI() {
         this.overlay?.remove();
         this.highlightBox?.remove();
         this.tooltip?.remove();
+        this.shortcutBar?.remove();
         this.clearSiblingHighlights();
         this.overlay = null;
         this.highlightBox = null;
         this.tooltip = null;
+        this.shortcutBar = null;
     }
 
     private clearSiblingHighlights() {
@@ -153,7 +200,6 @@ export class VisualElementPicker {
         document.addEventListener('mousemove', this.handleMouseMove, true);
         document.addEventListener('click', this.handleClick, true);
         document.addEventListener('keydown', this.handleKeyDown, true);
-        window.addEventListener('keydown', this.handleKeyDown, true);
         document.addEventListener('scroll', this.handleScroll, { passive: true, capture: true });
     }
 
@@ -161,33 +207,28 @@ export class VisualElementPicker {
         document.removeEventListener('mousemove', this.handleMouseMove, true);
         document.removeEventListener('click', this.handleClick, true);
         document.removeEventListener('keydown', this.handleKeyDown, true);
-        window.removeEventListener('keydown', this.handleKeyDown, true);
         document.removeEventListener('scroll', this.handleScroll, true);
     }
 
     private handleMouseMove(e: MouseEvent) {
-        if (!this.overlay || !this.strategy) return;
+        if (this.rafPending || !this.overlay || !this.strategy) return;
+        this.rafPending = true;
 
-        // Temporarily hide overlay to find element underneath
-        // Use setProperty to ensure we override any priority
-        this.overlay.style.setProperty('pointer-events', 'none', 'important');
-        const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement;
-        this.overlay.style.setProperty('pointer-events', 'all', 'important');
+        requestAnimationFrame(() => {
+            this.rafPending = false;
+            if (!this.overlay || !this.strategy) return;
 
-        if (!target) return;
+            this.overlay.style.setProperty('pointer-events', 'none', 'important');
+            const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement;
+            this.overlay.style.setProperty('pointer-events', 'all', 'important');
 
-        // Debug Log (throttle if needed, but for now log every few moves or just rely on console)
-        // console.log('[Picker] Hover target:', target.tagName, target.className);
+            if (!target || target === this.overlay || target === document.body || target === document.documentElement) return;
 
-        if (target === this.overlay || target === document.body || target === document.documentElement) {
-            return;
-        }
-
-        if (this.currentElement !== target) {
-            console.log('[Picker] New target detected:', target.tagName, target.className);
-            this.currentElement = target;
-            this.strategy.handleHover(target, this);
-        }
+            if (this.currentElement !== target) {
+                this.currentElement = target;
+                this.strategy.handleHover(target, this);
+            }
+        });
     }
 
     public updateHighlightManual(
@@ -359,25 +400,25 @@ export class VisualElementPicker {
         }
 
         if (e.key === 'ArrowUp' && this.isActive && this.currentElement) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
             const parent = this.currentElement.parentElement;
             if (parent && parent !== document.body && parent !== document.documentElement) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
                 this.currentElement = parent;
                 if (this.strategy) this.strategy.handleHover(this.currentElement, this);
             }
         }
 
         if (e.key === 'ArrowDown' && this.isActive && this.currentElement) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
             const children = Array.from(this.currentElement.children) as HTMLElement[];
             const firstMeaningful = children.find(c =>
                 c.offsetHeight > 0 && (c.innerText || c.textContent || '').trim().length > 0
             );
             if (firstMeaningful) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
                 this.currentElement = firstMeaningful;
                 if (this.strategy) this.strategy.handleHover(this.currentElement, this);
             }

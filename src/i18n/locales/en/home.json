@@ -1,0 +1,35 @@
+{
+  "tagline": "Point-and-click web scraping — no code needed",
+  "recentRuns": "Recent Runs",
+  "savedData": "Saved Data",
+  "listExtractor": {
+    "title": "Extract a List",
+    "description": "Turn any product listing, job board or table into a spreadsheet",
+    "tooltip": "Click any repeating element on a page — products, jobs, prices, news — and export a clean spreadsheet or JSON in seconds"
+  },
+  "textSummarizer": {
+    "title": "Text Summarizer",
+    "description": "Instantly summarize any page and ask questions about it with AI",
+    "tooltip": "Browse any article, report or docs page — get a concise summary and ask follow-up questions powered by AI"
+  },
+  "pageExtractor": {
+    "title": "Page Extractor",
+    "description": "Paste a URL list and pull the same fields from every page at once",
+    "tooltip": "Define your fields once, then CrawlPilot visits each URL automatically — great for lead research, pricing audits and content collection at scale"
+  },
+  "metadataExtractor": {
+    "title": "Metadata Extractor",
+    "description": "Bulk-collect title, author & full article text from any URL list",
+    "tooltip": "No selectors needed — supply URLs and get back structured data: title, author, publish date, keywords and the full page content in Markdown"
+  },
+  "imageDownloader": {
+    "title": "Image Downloader",
+    "description": "Find and save every image on a page — one click, any site",
+    "tooltip": "Preview all images on the current page, pick the ones you need, and batch-download product photos, gallery assets or design references instantly"
+  },
+  "browserUtilities": {
+    "title": "Browser Utilities",
+    "description": "Re-enable right-click & text selection on sites that block them",
+    "tooltip": "Unlock copy, paste and right-click menus on sites that restrict them — ideal for copying quotes, URLs and content from protected pages"
+  }
+}

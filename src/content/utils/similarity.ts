@@ -2,8 +2,6 @@
 
 export interface StructureNode {
     tag: string;
-    classes: Set<string>;
-    id: string;
     depth: number;
     visualSignal?: string; // Binary string "1010" representing visible children
 }
@@ -55,7 +53,7 @@ export function getStructuralFingerprint(el: HTMLElement): StructuralFingerprint
         childCount: el.children.length,
         structureMap: structureMap,
         visualSignalVector: visualSignalVector,
-        textLength: (el.innerText || "").length,
+        textLength: (el.textContent || "").length,
     };
 }
 
@@ -64,8 +62,6 @@ function traverseStructure(el: HTMLElement, currentDepth: number, map: Structure
 
     map.push({
         tag: el.tagName.toLowerCase(),
-        classes: new Set(Array.from(el.classList).filter(c => isSignificantClass(c))),
-        id: el.id,
         depth: currentDepth
     });
 

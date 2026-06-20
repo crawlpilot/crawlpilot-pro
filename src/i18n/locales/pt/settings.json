@@ -1,0 +1,53 @@
+{
+  "title": "Configurações",
+  "language": {
+    "title": "Idioma",
+    "description": "Escolha seu idioma de exibição preferido"
+  },
+  "dataStorage": {
+    "title": "Dados e armazenamento",
+    "storageUsed": "Armazenamento usado",
+    "calculating": "Calculando...",
+    "autoClear": "Limpeza automática de dados antigos",
+    "autoClearDescription": "Remover dados mais antigos que o período selecionado.",
+    "clearButton": "Limpar dados com mais de {{days}} dias ({{count}} trabalhos)",
+    "daysLabel": "{{count}} dias"
+  },
+  "integrations": {
+    "title": "Integrações (PRO)",
+    "proFeature": "RECURSO PRO",
+    "proDescription": "Faça upgrade para o PRO para desbloquear integrações com Webhooks, Airtable e Google Sheets.",
+    "webhookZapier": "Webhook e Zapier",
+    "webhookUrl": "URL do Webhook",
+    "zapierWebhook": "Webhook do Zapier",
+    "airtable": "Airtable",
+    "apiKey": "Chave de API",
+    "baseId": "ID da base",
+    "tableName": "Nome da tabela",
+    "googleSheets": "Google Sheets",
+    "connectSheets": "Conectar ao Google Sheets",
+    "connectedSheets": "Conectado ao Google Sheets"
+  },
+  "feedback": {
+    "title": "Enviar feedback",
+    "description": "Ajude-nos a melhorar o CrawlPilot — diga-nos o que está funcionando e o que não está.",
+    "openForm": "Abrir formulário de feedback"
+  },
+  "dangerZone": {
+    "title": "Zona de perigo",
+    "deleteAll": "Excluir todos os dados",
+    "deleteAllDescription": "Apaga tudo permanentemente. Esta ação não pode ser desfeita.",
+    "confirmDeletion": "Confirmar exclusão",
+    "deleteJobsConfirm": "Excluir {{count}} trabalhos antigos?",
+    "typeToConfirm": "Digite DELETE para confirmar:",
+    "deleteEverything": "Excluir tudo"
+  },
+  "support": {
+    "title": "Suporte e comunidade",
+    "contactSupport": "Contato com suporte",
+    "contactSupportSub": "Envie um e-mail para obter ajuda",
+    "github": "Repositório GitHub",
+    "githubSub": "Dê uma estrela no GitHub",
+    "version": "Versão"
+  }
+}

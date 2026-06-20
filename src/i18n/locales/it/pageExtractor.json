@@ -1,0 +1,22 @@
+{
+  "title": "Estrattore di Pagine",
+  "subtitle": "Visita molti URL ed estrai gli stessi campi da ciascuno",
+  "step1": {
+    "subtitle": "Fornisci gli URL da estrarre",
+    "pagesToScrape": "Pagine da Estrarre",
+    "urlsLoaded": "{{count}} Caricate",
+    "urlList": "Lista URL",
+    "clear": "Cancella",
+    "chooseDifferentSource": "Scegli Altra Fonte",
+    "provideUrls": "Fornisci un elenco di URL di pagine per estrarre dati strutturati da ciascuna",
+    "uploadCsv": "Carica CSV",
+    "uploadCsvDesc": "Importa URL da un file",
+    "selectDataSource": "Seleziona Fonte Dati",
+    "selectDataSourceDesc": "Usa link da tabelle esistenti",
+    "expectedFormat": "Formato CSV atteso",
+    "formatDesc": "Un URL per riga, o separati da virgole con una riga di intestazione.",
+    "nextStep": "Passo successivo"
+  },
+  "step2": { "subtitle": "Definisci i campi da estrarre", "title": "Definisci Schema" },
+  "step3": { "subtitle": "Rivedi ed esegui l'estrazione", "title": "Rivedi ed Esegui" }
+}

@@ -1,0 +1,22 @@
+{
+  "title": "页面提取器",
+  "subtitle": "访问多个 URL 并从每个 URL 提取相同字段",
+  "step1": {
+    "subtitle": "提供要抓取的 URL",
+    "pagesToScrape": "要抓取的页面",
+    "urlsLoaded": "已加载 {{count}} 个",
+    "urlList": "URL 列表",
+    "clear": "清除",
+    "chooseDifferentSource": "选择其他来源",
+    "provideUrls": "提供页面 URL 列表以从每个页面提取结构化数据",
+    "uploadCsv": "上传 CSV",
+    "uploadCsvDesc": "从文件导入 URL",
+    "selectDataSource": "选择数据源",
+    "selectDataSourceDesc": "使用现有表格中的链接",
+    "expectedFormat": "预期 CSV 格式",
+    "formatDesc": "每行一个 URL，或用逗号分隔并带标题行。",
+    "nextStep": "下一步"
+  },
+  "step2": { "subtitle": "定义要提取的字段", "title": "定义架构" },
+  "step3": { "subtitle": "审查并运行提取", "title": "审查并运行" }
+}

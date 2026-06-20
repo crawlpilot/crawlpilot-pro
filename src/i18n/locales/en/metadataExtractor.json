@@ -1,0 +1,34 @@
+{
+  "title": "Metadata Extractor",
+  "back": "Back",
+  "step1": {
+    "subtitle": "Add URLs to extract metadata from"
+  },
+  "step2": {
+    "title": "Metadata Extraction",
+    "subtitle": "Configure and run extraction",
+    "extract": "Extract {{count}} URL(s)"
+  },
+  "options": {
+    "title": "Extraction Options",
+    "includeLinks": "Preserve links in markdown",
+    "includeImages": "Include images in markdown",
+    "outputText": "Also output plain text",
+    "concurrency": "Concurrent tabs",
+    "concurrencyHint": "Max tabs open at once (1–5)",
+    "requestDelay": "Delay between pages (ms)",
+    "requestDelayHint": "Pause between requests"
+  },
+  "results": {
+    "extracting": "Extracting…",
+    "complete": "Extraction Complete",
+    "activeTabs": "active tabs",
+    "viewResults": "View Results",
+    "previewResults": "Preview live results",
+    "stop": "Stop Extraction",
+    "stopping": "Stopping…",
+    "reset": "Start Over",
+    "completeSummary": "Extracted metadata from {{count}} page(s)",
+    "stoppedSummary": "Stopped after {{count}} page(s)"
+  }
+}

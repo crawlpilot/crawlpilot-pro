@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { WizardLayout } from '../components/wizard/WizardLayout';
 import { Step2SummaryChat } from '../components/summarizer/wizard/Step2SummaryChat';
 import { Box, CircularProgress, Typography } from '@mui/material';
@@ -8,6 +9,7 @@ interface TextSummarizerPageProps {
 }
 
 export default function TextSummarizerPage({ onBack }: TextSummarizerPageProps) {
+    const { t } = useTranslation('summarizer');
     const [selectedText, setSelectedText] = useState<string>('');
     const [isExtracting, setIsExtracting] = useState(true);
 
@@ -74,8 +76,8 @@ export default function TextSummarizerPage({ onBack }: TextSummarizerPageProps) 
 
     return (
         <WizardLayout
-            title="Page Summarizer"
-            subtitle="Summary and Chat"
+            title={t('title')}
+            subtitle={t('subtitle')}
             currentStep={1}
             totalSteps={1}
             onBack={onBack}
@@ -83,11 +85,11 @@ export default function TextSummarizerPage({ onBack }: TextSummarizerPageProps) 
             {isExtracting ? (
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 6, gap: 2 }}>
                     <CircularProgress size={40} />
-                    <Typography variant="body1" color="text.secondary">Reading page content...</Typography>
+                    <Typography variant="body1" color="text.secondary">{t('readingPage')}</Typography>
                 </Box>
             ) : (
                 <Step2SummaryChat
-                    selectedText={selectedText || 'No text found on this page.'}
+                    selectedText={selectedText || t('noTextFound')}
                     onBack={onBack || (() => {})}
                 />
             )}

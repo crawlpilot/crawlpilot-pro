@@ -1,0 +1,50 @@
+{
+  "cancel": "Annuler",
+  "save": "Enregistrer",
+  "back": "Retour",
+  "close": "Fermer",
+  "delete": "Supprimer",
+  "confirm": "Confirmer",
+  "export": "Exporter",
+  "clear": "Effacer",
+  "search": "Rechercher",
+  "stop": "Arrêter",
+  "rerun": "Relancer",
+  "data": "Données",
+  "copy": "Copier",
+  "loading": "Chargement...",
+  "yes": "Oui",
+  "no": "Non",
+  "na": "N/A",
+  "status": {
+    "running": "En cours",
+    "completed": "Terminé",
+    "stopped": "Arrêté",
+    "failed": "Échoué",
+    "paused": "En pause",
+    "pending": "En attente",
+    "active": "Actif"
+  },
+  "time": {
+    "justNow": "À l'instant",
+    "minutesAgo": "Il y a {{count}}m",
+    "hoursAgo": "Il y a {{count}}h",
+    "daysAgo": "Il y a {{count}}j",
+    "yesterday": "Hier",
+    "days": "{{count}} Jours"
+  },
+  "connection": {
+    "notConnected": "L'extension n'est pas connectée à cet onglet",
+    "notConnectedHint": "Naviguez vers une page web, puis cliquez sur Connecter pour activer le scraping",
+    "connect": "Connecter",
+    "connecting": "Connexion..."
+  },
+  "nav": {
+    "home": "Accueil",
+    "homeTooltip": "Tous les outils et fonctionnalités",
+    "runs": "Exécutions",
+    "runsTooltip": "Tâches d'extraction précédentes que vous pouvez relancer",
+    "data": "Données",
+    "dataTooltip": "Parcourez et exportez vos jeux de données extraits"
+  }
+}

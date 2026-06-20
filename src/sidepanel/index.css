@@ -8,10 +8,10 @@
 
 @theme {
     /* 2️⃣ Color Scheme */
-    /* Primary (Indigo Blue) */
-    --color-primary-DEFAULT: #2563EB;
-    --color-primary-hover: #1D4ED8;
-    --color-primary-soft: #DBEAFE;
+    /* Primary (Cyan) */
+    --color-primary-DEFAULT: #06B6D4;
+    --color-primary-hover: #0891B2;
+    --color-primary-soft: #CFFAFE;
 
     /* Backgrounds (Deep Slate) */
     --color-background-app: #0F172A;
@@ -233,10 +233,9 @@
     }
 
     .badge-primary {
-        background-color: rgba(37, 99, 235, 0.1);
-        color: #60A5FA;
-        /* Lighter indigo for dark mode */
-        border-color: rgba(37, 99, 235, 0.2);
+        background-color: rgba(6, 182, 212, 0.1);
+        color: #22D3EE;
+        border-color: rgba(6, 182, 212, 0.2);
     }
 
     .badge-ai {
@@ -268,4 +267,100 @@
     .border-subtle {
         border-color: var(--color-border-subtle);
     }
+}
+
+/* ═══════════════════════════════════════════════════════
+   Windows Platform Density Adjustments
+   Windows renders at higher DPI scaling (125-150%),
+   causing the extension to appear oversized.
+   We apply a proportional zoom reduction + tighter spacing.
+   ═══════════════════════════════════════════════════════ */
+
+.platform-windows {
+    zoom: 0.92;
+}
+
+.platform-windows body {
+    font-size: 12px;
+    -webkit-font-smoothing: auto;
+}
+
+/* Tighter card padding on Windows */
+.platform-windows .MuiCardActionArea-root {
+    padding: 10px !important;
+}
+
+/* Smaller buttons on Windows */
+.platform-windows .MuiButton-root {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+}
+
+.platform-windows .MuiButton-sizeSmall {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+}
+
+/* Tighter toolbar */
+.platform-windows .MuiToolbar-root {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+}
+
+/* Compact stepper */
+.platform-windows .MuiStepLabel-label {
+    font-size: 0.62rem !important;
+    margin-top: 4px !important;
+}
+
+/* Reduce icon button size */
+.platform-windows .MuiIconButton-root {
+    padding: 6px;
+}
+
+/* Tighter alert */
+.platform-windows .MuiAlert-root {
+    padding: 4px 12px;
+    font-size: 0.7rem;
+}
+
+/* Compact paper sections */
+.platform-windows .MuiPaper-root {
+    padding: inherit;
+}
+
+/* Typography scaling */
+.platform-windows .MuiTypography-h5 {
+    font-size: 0.95rem;
+}
+
+.platform-windows .MuiTypography-h6 {
+    font-size: 0.82rem;
+}
+
+.platform-windows .MuiTypography-subtitle1 {
+    font-size: 0.75rem;
+}
+
+.platform-windows .MuiTypography-subtitle2 {
+    font-size: 0.7rem;
+}
+
+.platform-windows .MuiTypography-body2 {
+    font-size: 0.75rem;
+}
+
+.platform-windows .MuiTypography-caption {
+    font-size: 0.65rem;
+}
+
+/* Tighter scrollbar on Windows */
+.platform-windows ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+/* Reduce Stack spacing visually */
+.platform-windows .MuiStack-root {
+    gap: inherit;
 }

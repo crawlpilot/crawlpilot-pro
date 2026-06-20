@@ -146,6 +146,44 @@ export class DBManager {
     }
 
     /**
+     * Store multiple rows in a single IndexedDB transaction (much faster than per-row transactions).
+     * Silently skips duplicates (ConstraintError).
+     */
+    async storeTableRowsBatch(tableDataId: number, items: any[]): Promise<void> {
+        await this.ensureConnection();
+        const now = Date.now();
+
+        return new Promise((resolve, reject) => {
+            const transaction = this.db!.transaction([TABLE_NAMES.TABLE_ROWS], 'readwrite');
+            const store = transaction.objectStore(TABLE_NAMES.TABLE_ROWS);
+
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+
+            for (const item of items) {
+                const dataHash = this.hashData(item);
+                const entry = {
+                    tableDataId,
+                    data: item,
+                    dataHash,
+                    createdAt: now,
+                    metadata: { originalData: item }
+                };
+                const request = store.add(entry);
+                request.onerror = (event) => {
+                    const error = request.error;
+                    if (error && error.name === 'ConstraintError') {
+                        // Duplicate — silently skip
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                    // Other errors will bubble to transaction.onerror
+                };
+            }
+        });
+    }
+
+    /**
      * Save/Update extraction result (Ported logic wrapper)
      * This orchestrates the flow: Create/Update Table -> Add Rows -> Update Columns
      */
@@ -213,24 +251,10 @@ export class DBManager {
             });
         }
 
-        // 2. Store Rows
+        // 2. Store Rows (batched in a single transaction)
         if (items.length > 0) {
             console.log(`📝 [DBManager] Storing ${items.length} rows for TableID: ${tableDataId}`);
-            for (const item of items) {
-                // We need to generate a hash for the item to work with the unique index
-                // The item here is likely the Normalized row (e.g. { "col1": "val" })
-                // We strictly need a consistent hash.
-                const dataHash = this.hashData(item);
-
-                await this.storeTableRow({
-                    tableDataId: tableDataId,
-                    data: item,
-                    dataHash: dataHash, // Important for Unique Index
-                    metadata: {
-                        originalData: item // Store full item if needed
-                    }
-                } as any); // Casting as we added dataHash dynamically to schema
-            }
+            await this.storeTableRowsBatch(tableDataId, items);
         }
 
         // 3. Update Columns (Merge)
@@ -360,11 +384,10 @@ export class DBManager {
     }
 
     /**
-     * Get rows for a specific table
+     * Get rows for a specific table (loads all — use getTableRowsPage for large tables).
      */
     async getTableRows(tableDataId: number): Promise<TableRow[]> {
         await this.ensureConnection();
-        console.log(`🔍 [DBManager] getTableRows called for TableID: ${tableDataId}`);
 
         return new Promise((resolve, reject) => {
             const transaction = this.db!.transaction([TABLE_NAMES.TABLE_ROWS], 'readonly');
@@ -372,15 +395,59 @@ export class DBManager {
             const index = store.index('tableDataId');
             const request = index.getAll(tableDataId);
 
-            request.onsuccess = () => {
-                const results = request.result || [];
-                console.log(`✅ [DBManager] getTableRows returned ${results.length} rows for TableID: ${tableDataId}`);
-                resolve(results);
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    /**
+     * Count rows for a specific table without loading them into memory.
+     */
+    async getTableRowCount(tableDataId: number): Promise<number> {
+        await this.ensureConnection();
+
+        return new Promise((resolve, reject) => {
+            const transaction = this.db!.transaction([TABLE_NAMES.TABLE_ROWS], 'readonly');
+            const index = transaction.objectStore(TABLE_NAMES.TABLE_ROWS).index('tableDataId');
+            const request = index.count(IDBKeyRange.only(tableDataId));
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    /**
+     * Load a page of rows using a cursor — O(offset + limit) instead of O(total).
+     * Use offset=0 for the first page; increment by limit for subsequent pages.
+     */
+    async getTableRowsPage(tableDataId: number, offset: number, limit: number): Promise<TableRow[]> {
+        await this.ensureConnection();
+
+        return new Promise((resolve, reject) => {
+            const transaction = this.db!.transaction([TABLE_NAMES.TABLE_ROWS], 'readonly');
+            const index = transaction.objectStore(TABLE_NAMES.TABLE_ROWS).index('tableDataId');
+            const request = index.openCursor(IDBKeyRange.only(tableDataId));
+
+            const results: TableRow[] = [];
+            let skipped = 0;
+
+            request.onsuccess = (event) => {
+                const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+                if (!cursor) { resolve(results); return; }
+
+                if (skipped < offset) {
+                    skipped++;
+                    cursor.continue();
+                    return;
+                }
+
+                if (results.length < limit) {
+                    results.push(cursor.value);
+                    cursor.continue();
+                } else {
+                    resolve(results);
+                }
             };
-            request.onerror = () => {
-                console.error(`❌ [DBManager] getTableRows error for TableID ${tableDataId}:`, request.error);
-                reject(request.error);
-            };
+            request.onerror = () => reject(request.error);
         });
     }
 

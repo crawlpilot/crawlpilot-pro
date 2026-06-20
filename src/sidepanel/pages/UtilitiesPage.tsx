@@ -1,22 +1,19 @@
-import { ArrowLeft, Unlock, AlertTriangle } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import Button from '../components/ui/Button';
-import Card from '../components/ui/Card';
-import Badge from '../components/ui/Badge';
+import { useState } from 'react';
+import {
+    Box, Typography, Paper, IconButton, Stack, Chip, Switch,
+     Card, CardContent, Fade
+} from '@mui/material';
+import { ChevronLeft, Unlock, MousePointer, Shield, Zap, Wrench } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface UtilitiesPageProps {
     onBack: () => void;
 }
 
 export default function UtilitiesPage({ onBack }: UtilitiesPageProps) {
+    const { t } = useTranslation('utilities');
     const [rightClickEnabled, setRightClickEnabled] = useState(false);
     const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
-        // Here we could check initial state if we persisted it, 
-        // for now it resets per session or we can query the content script state.
-        // checkState(); 
-    }, []);
 
     const toggleRightClick = async () => {
         setLoading(true);
@@ -40,64 +37,130 @@ export default function UtilitiesPage({ onBack }: UtilitiesPageProps) {
     };
 
     return (
-        <div className="p-6 max-w-4xl mx-auto animate-fade-in">
-            <Button
-                onClick={onBack}
-                variant="ghost"
-                size="small"
-                icon={<ArrowLeft className="w-4 h-4" />}
-                className="mb-6"
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden' }}>
+            {/* Header */}
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 2,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                    zIndex: 10,
+                    background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)',
+                    backdropFilter: 'blur(10px)'
+                }}
             >
-                Back to Home
-            </Button>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <IconButton onClick={onBack} size="small" sx={{ color: 'text.secondary', bgcolor: 'rgba(255,255,255,0.03)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: 'white' } }}>
+                        <ChevronLeft size={20} />
+                    </IconButton>
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em' }}>
+                            {t('title')}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, mt: 0.5, display: 'block', opacity: 0.8 }}>
+                            {t('subtitle')}
+                        </Typography>
+                    </Box>
+                    <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Wrench size={18} />
+                    </Box>
+                </Box>
+            </Paper>
 
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold mb-2">Browser Utilities</h1>
-                <p className="text-gray-400">Tools to enhance your browsing experience</p>
-            </div>
+            {/* Content */}
+            <Box sx={{ flex: 1, overflowY: 'auto', p: 2, '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.08)', borderRadius: 4 } }}>
+                <Stack spacing={1.5}>
+                    {/* Right-Click Unlocker */}
+                    <Card
+                        elevation={0}
+                        sx={{
+                            borderRadius: 3,
+                            border: '1px solid',
+                            borderColor: rightClickEnabled ? 'rgba(6, 182, 212, 0.3)' : 'divider',
+                            bgcolor: rightClickEnabled ? 'rgba(6, 182, 212, 0.04)' : 'background.paper',
+                            transition: 'all 0.2s ease',
+                            '&:hover': { borderColor: rightClickEnabled ? 'rgba(6, 182, 212, 0.5)' : 'rgba(255,255,255,0.12)' }
+                        }}
+                    >
+                        <CardContent sx={{ p: '16px !important' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <Box sx={{
+                                    p: 1.25,
+                                    borderRadius: 2.5,
+                                    bgcolor: rightClickEnabled ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255,255,255,0.04)',
+                                    color: rightClickEnabled ? '#06b6d4' : 'text.secondary',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.2s'
+                                }}>
+                                    <Unlock size={20} />
+                                </Box>
+                                <Box sx={{ flex: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Typography variant="subtitle2" fontWeight={650} sx={{ lineHeight: 1.2, fontSize: '0.82rem' }}>
+                                            {t('rightClickUnlocker.title')}
+                                        </Typography>
+                                        {rightClickEnabled && (
+                                            <Chip label={t('rightClickUnlocker.active')} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4', borderRadius: '6px' }} />
+                                        )}
+                                    </Box>
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', lineHeight: 1.4, mt: 0.25, display: 'block' }}>
+                                        {t('rightClickUnlocker.description')}
+                                    </Typography>
+                                </Box>
+                                <Switch
+                                    checked={rightClickEnabled}
+                                    onChange={toggleRightClick}
+                                    disabled={loading}
+                                    size="small"
+                                    sx={{
+                                        '& .MuiSwitch-switchBase.Mui-checked': { color: '#06b6d4' },
+                                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#06b6d4' }
+                                    }}
+                                />
+                            </Box>
+                            <Fade in={rightClickEnabled}>
+                                <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <Stack direction="row" spacing={1.5}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+                                            <MousePointer size={11} />
+                                            <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>{t('rightClickUnlocker.rightClick')}</Typography>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+                                            <Shield size={11} />
+                                            <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>{t('rightClickUnlocker.copyPaste')}</Typography>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+                                            <Zap size={11} />
+                                            <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>{t('rightClickUnlocker.textSelect')}</Typography>
+                                        </Box>
+                                    </Stack>
+                                </Box>
+                            </Fade>
+                        </CardContent>
+                    </Card>
 
-            <div className="grid gap-4">
-                <Card className="p-6 border-slate-700 bg-slate-800/50">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-xl ${rightClickEnabled ? 'bg-green-500/20 text-green-400' : 'bg-slate-700/50 text-slate-400'}`}>
-                                <Unlock size={24} />
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-lg flex items-center gap-2">
-                                    Right-Click Unlocker
-                                    {rightClickEnabled && <Badge variant="success">Active</Badge>}
-                                </h3>
-                                <p className="text-sm text-gray-400">
-                                    Re-enable context menu, copy, paste, and text selection on restricted sites.
-                                </p>
-                            </div>
-                        </div>
-                        <Button
-                            variant={rightClickEnabled ? 'primary' : 'secondary'}
-                            onClick={toggleRightClick}
-                            disabled={loading}
-                        >
-                            {rightClickEnabled ? 'Enabled' : 'Enable'}
-                        </Button>
-                    </div>
-                </Card>
-
-                {/* Placeholder for future utils */}
-                <Card className="p-6 border-slate-700 bg-slate-800/20 opacity-75">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-xl bg-slate-700/30 text-slate-500">
-                            <AlertTriangle size={24} />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-lg text-slate-500">More Tools Coming Soon</h3>
-                            <p className="text-sm text-gray-500">
-                                Additional utilities will be available in future updates.
-                            </p>
-                        </div>
-                    </div>
-                </Card>
-            </div>
-        </div>
+                    {/* Coming Soon Placeholder */}
+                    <Card
+                        elevation={0}
+                        sx={{
+                            borderRadius: 3,
+                            border: '1px dashed',
+                            borderColor: 'rgba(255,255,255,0.06)',
+                            bgcolor: 'rgba(255,255,255,0.01)',
+                        }}
+                    >
+                        <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, fontSize: '0.68rem', opacity: 0.5 }}>
+                                {t('comingSoon')}
+                            </Typography>
+                        </CardContent>
+                    </Card>
+                </Stack>
+            </Box>
+        </Box>
     );
 }

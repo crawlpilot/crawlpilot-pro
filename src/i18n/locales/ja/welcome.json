@@ -1,0 +1,14 @@
+{
+  "title": "CrawlPilot へようこそ",
+  "description": "あらゆるウェブサイトから構造化データを抽出 — コード不要。できることをご紹介：",
+  "listExtractor": {
+    "title": "リスト抽出器",
+    "description": "繰り返し要素（商品カード、検索結果、表の行）をクリックするだけですべてスクレイピングします。"
+  },
+  "pageExtractor": {
+    "title": "ページ抽出器",
+    "description": "フィールドを一度定義すれば何百もの URL に適用できます。大量データ収集に最適。"
+  },
+  "tryFirstScrape": "最初のスクレイピングを試す",
+  "goHome": "ホームへ"
+}

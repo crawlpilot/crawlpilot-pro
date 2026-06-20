@@ -1,0 +1,50 @@
+{
+  "cancel": "Annulla",
+  "save": "Salva",
+  "back": "Indietro",
+  "close": "Chiudi",
+  "delete": "Elimina",
+  "confirm": "Conferma",
+  "export": "Esporta",
+  "clear": "Cancella",
+  "search": "Cerca",
+  "stop": "Ferma",
+  "rerun": "Riesegui",
+  "data": "Dati",
+  "copy": "Copia",
+  "loading": "Caricamento...",
+  "yes": "Sì",
+  "no": "No",
+  "na": "N/D",
+  "status": {
+    "running": "In esecuzione",
+    "completed": "Completato",
+    "stopped": "Fermato",
+    "failed": "Fallito",
+    "paused": "In pausa",
+    "pending": "In attesa",
+    "active": "Attivo"
+  },
+  "time": {
+    "justNow": "Proprio ora",
+    "minutesAgo": "{{count}}m fa",
+    "hoursAgo": "{{count}}h fa",
+    "daysAgo": "{{count}}g fa",
+    "yesterday": "Ieri",
+    "days": "{{count}} Giorni"
+  },
+  "connection": {
+    "notConnected": "L'estensione non è connessa a questa scheda",
+    "notConnectedHint": "Naviga verso una pagina web, poi clicca su Connetti per abilitare lo scraping",
+    "connect": "Connetti",
+    "connecting": "Connessione..."
+  },
+  "nav": {
+    "home": "Home",
+    "homeTooltip": "Tutti gli strumenti e le funzionalità",
+    "runs": "Esecuzioni",
+    "runsTooltip": "Lavori di estrazione precedenti che puoi rieseguire",
+    "data": "Dati",
+    "dataTooltip": "Sfoglia ed esporta i tuoi set di dati estratti"
+  }
+}

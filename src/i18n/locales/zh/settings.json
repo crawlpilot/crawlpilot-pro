@@ -1,0 +1,50 @@
+{
+  "title": "设置",
+  "language": { "title": "语言", "description": "选择您偏好的显示语言" },
+  "dataStorage": {
+    "title": "数据与存储",
+    "storageUsed": "已用存储空间",
+    "calculating": "计算中...",
+    "autoClear": "自动清除旧数据",
+    "autoClearDescription": "删除早于所选时间段的数据。",
+    "clearButton": "清除 {{days}} 天前的数据（{{count}} 个任务）",
+    "daysLabel": "{{count}} 天"
+  },
+  "integrations": {
+    "title": "集成（专业版）",
+    "proFeature": "专业版功能",
+    "proDescription": "升级到专业版以解锁 Webhooks、Airtable 和 Google Sheets 集成。",
+    "webhookZapier": "Webhook 与 Zapier",
+    "webhookUrl": "Webhook URL",
+    "zapierWebhook": "Zapier Webhook",
+    "airtable": "Airtable",
+    "apiKey": "API 密钥",
+    "baseId": "Base ID",
+    "tableName": "表名",
+    "googleSheets": "Google Sheets",
+    "connectSheets": "连接 Google Sheets",
+    "connectedSheets": "已连接到 Google Sheets"
+  },
+  "feedback": {
+    "title": "分享反馈",
+    "description": "帮助我们改进 CrawlPilot — 告诉我们哪些有效，哪些无效。",
+    "openForm": "打开反馈表单"
+  },
+  "dangerZone": {
+    "title": "危险区域",
+    "deleteAll": "删除所有数据",
+    "deleteAllDescription": "永久清除所有内容，此操作无法撤销。",
+    "confirmDeletion": "确认删除",
+    "deleteJobsConfirm": "删除 {{count}} 个旧任务？",
+    "typeToConfirm": "输入 DELETE 以确认：",
+    "deleteEverything": "删除一切"
+  },
+  "support": {
+    "title": "支持与社区",
+    "contactSupport": "联系支持",
+    "contactSupportSub": "通过邮件获取帮助",
+    "github": "GitHub 仓库",
+    "githubSub": "在 GitHub 上给我们加星",
+    "version": "版本"
+  }
+}

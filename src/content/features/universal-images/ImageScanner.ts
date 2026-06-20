@@ -5,7 +5,7 @@ export interface ImageMeta {
     alt?: string;
     type?: string;
     sizeBytes?: number;
-    element: 'img' | 'video' | 'bg' | 'svg' | 'source';
+    element: 'img' | 'video' | 'bg' | 'svg' | 'source' | 'canvas';
     pageUrl: string;
     isVisible?: boolean;
 }
@@ -45,7 +45,6 @@ export class ImageScanner {
     private static scanElement(root: Element | ShadowRoot) {
         if (!root) return;
 
-        // 1. Scan children
         const children = root.querySelectorAll('*');
         children.forEach(el => {
             this.processElement(el);
@@ -62,76 +61,12 @@ export class ImageScanner {
 
         // 1. <img> tags
         if (tagName === 'img') {
-            const img = el as HTMLImageElement;
-            const src = this.getBestSrc(img);
-            if (this.isValidUrl(src)) {
-                let width = img.naturalWidth;
-                let height = img.naturalHeight;
-
-                // Fallback: Check attributes
-                if (width === 0 || height === 0) {
-                    width = parseInt(img.getAttribute('width') || '0', 10);
-                    height = parseInt(img.getAttribute('height') || '0', 10);
-                }
-
-                // Fallback: Check rendered size
-                if (width === 0 || height === 0) {
-                    const rect = img.getBoundingClientRect();
-                    width = Math.round(rect.width);
-                    height = Math.round(rect.height);
-                }
-
-                // If still 0x0, it's likely invisible/stale - skip it
-                if (width === 0 && height === 0) return;
-
-                this.addImage(src, {
-                    src,
-                    naturalWidth: width,
-                    naturalHeight: height,
-                    alt: img.alt,
-                    element: 'img',
-                    pageUrl: this.pageUrl
-                });
-            }
+            this.processImg(el as HTMLImageElement);
         }
 
         // 2. <picture> -> <source> tags
         if (tagName === 'source') {
-            const source = el as HTMLSourceElement;
-            const src = this.getSrcSetMax(source.srcset) || source.src;
-            if (this.isValidUrl(src)) {
-                // Try to get dimensions from parent picture or img sibling
-                const parent = source.closest('picture');
-                const siblingImg = parent?.querySelector('img');
-
-                let width = siblingImg?.naturalWidth || 0;
-                let height = siblingImg?.naturalHeight || 0;
-
-                // Fallback: Check sibling attributes
-                if (width === 0 && siblingImg) {
-                    width = parseInt(siblingImg.getAttribute('width') || '0', 10);
-                    height = parseInt(siblingImg.getAttribute('height') || '0', 10);
-                }
-
-                // Fallback: Check sibling rendered size
-                if (width === 0 && siblingImg) {
-                    const rect = siblingImg.getBoundingClientRect();
-                    width = Math.round(rect.width);
-                    height = Math.round(rect.height);
-                }
-
-                // Ignore if truly invisible
-                if (width === 0 && height === 0) return;
-
-                this.addImage(src, {
-                    src,
-                    naturalWidth: width,
-                    naturalHeight: height,
-                    alt: siblingImg?.alt || 'Source Image',
-                    element: 'source',
-                    pageUrl: this.pageUrl
-                });
-            }
+            this.processSource(el as HTMLSourceElement);
         }
 
         // 3. <video> posters
@@ -149,47 +84,167 @@ export class ImageScanner {
             }
         }
 
-        // 4. SVGs
-        if (tagName === 'svg') {
-            // ... (keep existing comment)
+        // 4. <canvas> — extract rendered content as data URL
+        if (tagName === 'canvas') {
+            this.processCanvas(el as HTMLCanvasElement);
         }
 
-        // 5. Background Images
+        // 5. Background Images (computed style + inline style attribute)
         this.scanBackgroundImage(el);
     }
 
+    private static processImg(img: HTMLImageElement) {
+        // Handle lazy-loaded images that haven't loaded yet
+        const lazySrc = img.dataset.src || img.dataset.lazySrc || img.getAttribute('data-original');
+        const src = this.getBestSrc(img) || lazySrc;
+
+        if (!this.isValidUrl(src)) return;
+
+        let width = img.naturalWidth;
+        let height = img.naturalHeight;
+
+        // Fallback: Check attributes
+        if (width === 0 || height === 0) {
+            width = parseInt(img.getAttribute('width') || '0', 10);
+            height = parseInt(img.getAttribute('height') || '0', 10);
+        }
+
+        // Fallback: Check rendered size
+        if (width === 0 || height === 0) {
+            const rect = img.getBoundingClientRect();
+            width = Math.round(rect.width);
+            height = Math.round(rect.height);
+        }
+
+        // If still 0x0, it's likely invisible/stale — skip it
+        if (width === 0 && height === 0) return;
+
+        this.addImage(src!, {
+            src: src!,
+            naturalWidth: width,
+            naturalHeight: height,
+            alt: img.alt,
+            element: 'img',
+            pageUrl: this.pageUrl,
+            isVisible: this.isElementVisible(img)
+        });
+    }
+
+    private static processSource(source: HTMLSourceElement) {
+        const src = this.getSrcSetMax(source.srcset) || source.src;
+        if (!this.isValidUrl(src)) return;
+
+        const parent = source.closest('picture');
+        const siblingImg = parent?.querySelector('img');
+
+        let width = siblingImg?.naturalWidth || 0;
+        let height = siblingImg?.naturalHeight || 0;
+
+        if (width === 0 && siblingImg) {
+            width = parseInt(siblingImg.getAttribute('width') || '0', 10);
+            height = parseInt(siblingImg.getAttribute('height') || '0', 10);
+        }
+
+        if (width === 0 && siblingImg) {
+            const rect = siblingImg.getBoundingClientRect();
+            width = Math.round(rect.width);
+            height = Math.round(rect.height);
+        }
+
+        if (width === 0 && height === 0) return;
+
+        this.addImage(src!, {
+            src: src!,
+            naturalWidth: width,
+            naturalHeight: height,
+            alt: siblingImg?.alt || 'Source Image',
+            element: 'source',
+            pageUrl: this.pageUrl,
+            isVisible: siblingImg ? this.isElementVisible(siblingImg) : undefined
+        });
+    }
+
+    private static processCanvas(canvas: HTMLCanvasElement) {
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width < 20 || rect.height < 20) return;
+        try {
+            const dataUrl = canvas.toDataURL('image/png');
+            if (dataUrl && dataUrl.length > 100) {
+                this.addImage(dataUrl, {
+                    src: dataUrl,
+                    naturalWidth: canvas.width,
+                    naturalHeight: canvas.height,
+                    alt: 'Canvas Image',
+                    element: 'canvas',
+                    pageUrl: this.pageUrl,
+                    isVisible: true
+                });
+            }
+        } catch {
+            // Canvas is tainted (cross-origin) — skip it
+        }
+    }
+
     private static scanBackgroundImage(el: Element) {
+        // 1. Check inline style attribute (catches virtualized/hidden elements)
+        const inlineStyle = el.getAttribute('style');
+        if (inlineStyle && inlineStyle.includes('url(')) {
+            const matches = inlineStyle.matchAll(/url\((['"]?)(.*?)\1\)/g);
+            for (const match of matches) {
+                const url = match[2];
+                if (this.isValidUrl(url)) {
+                    const rect = el.getBoundingClientRect();
+                    this.addImage(url, {
+                        src: url,
+                        naturalWidth: Math.round(rect.width) || 0,
+                        naturalHeight: Math.round(rect.height) || 0,
+                        alt: 'Background Image',
+                        element: 'bg',
+                        pageUrl: this.pageUrl,
+                        isVisible: rect.width > 0 && rect.height > 0
+                    });
+                }
+            }
+            return; // Already handled — skip computed style to avoid duplicates
+        }
+
+        // 2. Computed style fallback
         const style = window.getComputedStyle(el);
         const bgImage = style.backgroundImage;
 
         if (bgImage && bgImage !== 'none') {
-            // Check if element is visible
             const rect = el.getBoundingClientRect();
             if (rect.width === 0 && rect.height === 0) return;
 
-            // Handle multiple backgrounds: url(...), url(...)
             const matches = bgImage.matchAll(/url\((['"]?)(.*?)\1\)/g);
             for (const match of matches) {
                 const url = match[2];
                 if (this.isValidUrl(url)) {
-                    // Dimensions are unknown for BG images without loading
                     this.addImage(url, {
                         src: url,
-                        naturalWidth: 0,
-                        naturalHeight: 0,
-                        alt: 'Background Image',
+                        naturalWidth: Math.round(rect.width),
+                        naturalHeight: Math.round(rect.height),
                         element: 'bg',
-                        pageUrl: this.pageUrl
+                        pageUrl: this.pageUrl,
+                        isVisible: true
                     });
                 }
             }
         }
     }
 
-    private static getBestSrc(img: HTMLImageElement): string {
-        if (img.currentSrc) return img.currentSrc; // Browser-selected best candidate
-        if (img.srcset) return this.getSrcSetMax(img.srcset) || img.src;
-        return img.src;
+    private static isElementVisible(el: Element): boolean {
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return false;
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+        return true;
+    }
+
+    private static getBestSrc(img: HTMLImageElement): string | null {
+        if (img.currentSrc) return img.currentSrc;
+        if (img.srcset) return this.getSrcSetMax(img.srcset) || img.src || null;
+        return img.src || null;
     }
 
     private static getSrcSetMax(srcset: string): string | null {
@@ -198,33 +253,32 @@ export class ImageScanner {
             const sources = srcset.split(',').map(s => {
                 const parts = s.trim().split(/\s+/);
                 const url = parts[0];
-                const cleanUrl = url.replace(/['"]/g, ''); // Ensure no quotes in URL
+                const cleanUrl = url.replace(/['"]/g, '');
 
                 let width = 0;
                 if (parts.length > 1) {
                     const desc = parts[1];
                     if (desc.endsWith('w')) width = parseInt(desc.slice(0, -1), 10);
-                    // 'x' descriptors (density) are harder to map to resolution without base size, but we assume higher density ~ higher res
                     if (desc.endsWith('x')) width = parseFloat(desc.slice(0, -1)) * 1000;
                 }
                 return { url: cleanUrl, width };
             });
 
             if (sources.length === 0) return null;
-
-            // Sort by width descending
             sources.sort((a, b) => b.width - a.width);
             return sources[0]?.url || null;
-        } catch (e) {
-            console.warn('Failed to parse srcset', e);
+        } catch {
             return null;
         }
     }
 
     private static isValidUrl(url: string | undefined | null): boolean {
         if (!url) return false;
-        if (url.startsWith('data:')) return false; // Skip data URIs for now (unless requested)
         if (url.length < 5) return false;
+        // Allow blob: URLs (used by some SPAs)
+        if (url.startsWith('blob:')) return true;
+        // Skip tiny data URIs (tracking pixels) but allow large ones (canvas exports)
+        if (url.startsWith('data:')) return url.length > 200;
         return true;
     }
 

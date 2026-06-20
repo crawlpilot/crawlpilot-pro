@@ -1,4 +1,4 @@
-export type ColumnType = 'text' | 'image' | 'url' | 'price' | 'email' | 'number' | 'date' | 'phone';
+export type ColumnType = 'text' | 'image' | 'url' | 'price' | 'email' | 'number' | 'date' | 'phone' | 'image_array' | 'text_array' | 'link_array';
 
 export interface Column {
     id: string;
@@ -8,6 +8,7 @@ export interface Column {
     order?: number;
     selector?: string;
     isVirtual?: boolean;
+    mergedKeys?: string[];
     validation?: {
         required?: boolean;
         pattern?: string;

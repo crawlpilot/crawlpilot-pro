@@ -15,6 +15,9 @@ export default function DataSourceSelector({ onClose, onSelect }: DataSourceSele
     const [selectedColumnId, setSelectedColumnId] = useState<string>('');
     const [extractedUrls, setExtractedUrls] = useState<string[]>([]);
     const [removedIndices, setRemovedIndices] = useState<Set<number>>(new Set());
+    const URL_DISPLAY_LIMIT = 50;
+    const [showAllUrls, setShowAllUrls] = useState(false);
+    useEffect(() => { setShowAllUrls(false); }, [extractedUrls]);
 
     // Step 1 Data
     const { tableDatas, loading: loadingAll, error: errorAll } = useAllTableData();
@@ -247,6 +250,8 @@ export default function DataSourceSelector({ onClose, onSelect }: DataSourceSele
                                         <div className="divide-y divide-border-subtle/50">
                                             {extractedUrls.map((url, idx) => {
                                                 if (removedIndices.has(idx)) return null;
+                                                const activeIdx = activeUrls.indexOf(url);
+                                                if (!showAllUrls && activeIdx >= URL_DISPLAY_LIMIT) return null;
                                                 return (
                                                     <div key={idx} className="p-2 flex items-center justify-between hover:bg-surface-lighter group">
                                                         <span className="text-xs text-primary truncate max-w-[90%] font-mono">
@@ -261,6 +266,13 @@ export default function DataSourceSelector({ onClose, onSelect }: DataSourceSele
                                                     </div>
                                                 );
                                             })}
+                                            {!showAllUrls && activeUrls.length > URL_DISPLAY_LIMIT && (
+                                                <div className="p-2 text-center">
+                                                    <button onClick={() => setShowAllUrls(true)} className="text-xs text-accent-primary hover:underline">
+                                                        Show all {activeUrls.length} URLs
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="p-8 text-center text-text-muted text-xs">

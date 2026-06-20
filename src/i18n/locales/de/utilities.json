@@ -1,0 +1,13 @@
+{
+  "title": "Browser-Dienstprogramme",
+  "subtitle": "Werkzeuge zur Verbesserung Ihres Browsings",
+  "rightClickUnlocker": {
+    "title": "Rechtsklick-Entsperrer",
+    "description": "Kontextmenü, Kopieren, Einfügen und Textauswahl auf gesperrten Seiten reaktivieren",
+    "active": "Aktiv",
+    "rightClick": "Rechtsklick",
+    "copyPaste": "Kopieren/Einfügen",
+    "textSelect": "Textauswahl"
+  },
+  "comingSoon": "Weitere Tools folgen"
+}

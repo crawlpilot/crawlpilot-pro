@@ -1,0 +1,5 @@
+{
+  "appName": { "message": "Crawl Pilot ウェブスクレイパー" },
+  "appDesc": { "message": "あらゆるウェブサイトからExcel/JSON形式でデータを抽出するビジュアルスクレイパー。AIを活用したポイント＆クリックインターフェース。コーディング不要。" },
+  "actionTitle": { "message": "Crawl Pilot" }
+}

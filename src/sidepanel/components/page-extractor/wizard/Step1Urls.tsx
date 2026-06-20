@@ -53,11 +53,11 @@ export function Step1Urls({
                         <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white transition-colors ${selectedUrls.length > 0 ? 'bg-accent-success' : 'bg-primary'}`}>
                             {selectedUrls.length > 0 ? <Check className="w-4 h-4" /> : '1'}
                         </div>
-                        <h2 className="font-semibold text-sm text-text-primary">Target URLs</h2>
+                        <h2 className="font-semibold text-sm text-text-primary">Pages to Scrape</h2>
                     </div>
                     {selectedUrls.length > 0 && (
                         <Badge variant="success">
-                            {selectedUrls.length} Ready
+                            {selectedUrls.length} Loaded
                         </Badge>
                     )}
                 </div>
@@ -68,7 +68,7 @@ export function Step1Urls({
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                     <Database className="w-3.5 h-3.5 text-accent-ai" />
-                                    <span className="text-xs font-medium text-text-primary">Source Data</span>
+                                    <span className="text-xs font-medium text-text-primary">URL List</span>
                                 </div>
                                 <button
                                     onClick={() => setSelectedUrls([])}
@@ -98,13 +98,13 @@ export function Step1Urls({
                             className="w-full btn btn-secondary text-xs"
                         >
                             <Database className="w-3 h-3 mr-2" />
-                            Change Data Source
+                            Choose Different Source
                         </button>
                     </div>
                 ) : (
                     <>
                         <p className="text-xs text-center text-text-muted mb-4 px-4">
-                            Select source URLs to begin extraction
+                            Provide a list of page URLs to extract structured data from each one
                         </p>
 
                         <div className="space-y-2">
@@ -127,6 +127,14 @@ export function Step1Urls({
                                 className="hidden"
                                 onChange={handleCsvUpload}
                             />
+                            <details className="text-[10px] text-text-muted px-1">
+                                <summary className="cursor-pointer select-none hover:text-text-primary transition-colors">Expected CSV format</summary>
+                                <div className="mt-1.5 pl-2 border-l border-border-subtle space-y-0.5">
+                                    <p>One URL per line, or comma-separated with a header row.</p>
+                                    <p className="font-mono text-text-muted/80">https://example.com/product/1</p>
+                                    <p className="font-mono text-text-muted/80">https://example.com/product/2</p>
+                                </div>
+                            </details>
 
                             <button
                                 className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border-subtle hover:border-accent-ai/50 hover:bg-surface-lighter transition-all text-left group"

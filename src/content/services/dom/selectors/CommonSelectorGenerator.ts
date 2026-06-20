@@ -1,4 +1,5 @@
 import { generateRobustSelectors } from '../domUtils';
+import { isUnstableClass, isStableAttributeValue, isHashClass } from '../domBase';
 
 export interface DerivedSelector {
     selector: string;
@@ -93,8 +94,8 @@ export class CommonSelectorGenerator {
             }
         }
 
-        // 3. FR-6: Child-Based Targeting ("CSS :has")
-        const childFeatures = this.findCommonChildFeatures(targetSet);
+        // 3. FR-6: Child-Based Targeting ("CSS :has") — skip for large lists (expensive DOM traversal)
+        const childFeatures = targetSet.length <= 15 ? this.findCommonChildFeatures(targetSet) : [];
         for (const feature of childFeatures) {
             const baseTag = targetSet[0].tagName.toLowerCase();
             const hasSelector = `${baseTag}:has(${feature})`;
@@ -112,7 +113,10 @@ export class CommonSelectorGenerator {
             }
         }
 
-        // Deduplicate
+        // Sort by quality descending so best candidate is always first
+        validResults.sort((a, b) => this.scoreSelectorQuality(b.selector) - this.scoreSelectorQuality(a.selector));
+
+        // Deduplicate (after sorting so quality order is preserved)
         const seen = new Set<string>();
         return validResults.filter(item => {
             if (seen.has(item.selector)) return false;
@@ -178,22 +182,44 @@ export class CommonSelectorGenerator {
         return selector.startsWith('/') || selector.startsWith('(') || selector.startsWith('.//');
     }
 
+    /**
+     * Scores a selector by quality — higher score = better selector.
+     * Semantic/class-based selectors rank high; structural paths rank low.
+     */
+    private scoreSelectorQuality(sel: string): number {
+        let score = 0;
+        // Structural path penalty — each > combinator = one fragile level
+        score -= (sel.match(/>/g) || []).length * 20;
+        // Class selector reward
+        if (sel.includes('.')) score += 30;
+        // Semantic data-attribute reward
+        if (sel.includes('[data-')) score += 40;
+        if (sel.includes('[role') || sel.includes('[aria-')) score += 35;
+        // :has() child-feature reward (specific but valid)
+        if (sel.includes(':has(')) score += 25;
+        // XPath slight penalty (valid but less ergonomic)
+        if (this.isXPath(sel)) score -= 5;
+        // Brevity bonus — short selectors are easier to reason about
+        score -= Math.max(0, sel.length - 30) * 0.3;
+        return score;
+    }
+
     private findCommonChildFeatures(elements: HTMLElement[]): string[] {
         if (elements.length < 2) return [];
 
-        // Scan direct children (and maybe grandchildren) for "Significant" classes
-        // Limit depth to 2 for performance
-
+        // Scan descendants for significant classes and data-attributes
         const candidateFeatures = new Map<string, number>();
+        const threshold = elements.length * 0.8;
+        const childAttrList = ['data-at', 'data-testid', 'data-test-id', 'data-cy', 'itemprop', 'role', 'data-component'];
 
         elements.forEach(el => {
-            // Get all descendants with significant classes
-            const descendants = el.querySelectorAll('*');
             const seenInThisItem = new Set<string>();
+            const descendants = el.querySelectorAll('*');
 
             descendants.forEach(d => {
+                // 1. Scan for stable child classes (including hash classes via cleanClassesPermissive)
                 if (d.className && typeof d.className === 'string') {
-                    const classes = this.cleanClasses(d.className.split(/\s+/));
+                    const classes = this.cleanClassesPermissive(d.className.split(/\s+/));
                     for (const cls of classes) {
                         const selector = `.${cls}`;
                         if (!seenInThisItem.has(selector)) {
@@ -202,10 +228,22 @@ export class CommonSelectorGenerator {
                         }
                     }
                 }
+
+                // 2. Scan for data-attributes on child elements
+                for (const attr of childAttrList) {
+                    const val = (d as HTMLElement).getAttribute(attr);
+                    if (val) {
+                        const safe = val.replace(/"/g, '\\"');
+                        const feature = `[${attr}="${safe}"]`;
+                        if (!seenInThisItem.has(feature)) {
+                            candidateFeatures.set(feature, (candidateFeatures.get(feature) || 0) + 1);
+                            seenInThisItem.add(feature);
+                        }
+                    }
+                }
             });
         });
 
-        const threshold = elements.length * 0.8;
         const result: string[] = [];
 
         candidateFeatures.forEach((count, feature) => {
@@ -252,14 +290,16 @@ export class CommonSelectorGenerator {
         const baseline = elements.find(e => e.className && e.className.length > 0) || elements[0];
         if (!baseline) return [];
 
-        let intersection = this.cleanClasses(baseline.className.split(/\s+/));
+        // Use cleanClassesPermissive so hash classes (css-*, sc-*) reach the majority-vote gate
+        let intersection = this.cleanClassesPermissive(baseline.className.split(/\s+/));
 
         // Majority rule for classes too: Class must be present in 80% of items
         const threshold = elements.length * 0.8;
 
         intersection = intersection.filter(cls => {
             const count = elements.filter(el => {
-                const elClasses = el.className.split(/\s+/);
+                // Also use cleanClassesPermissive here to ensure consistent class filtering
+                const elClasses = this.cleanClassesPermissive(el.className.split(/\s+/));
                 return elClasses.includes(cls);
             }).length;
             return count >= threshold;
@@ -269,10 +309,14 @@ export class CommonSelectorGenerator {
     }
 
     private findAllCommonAttributes(elements: HTMLElement[]): string[] {
-        // Expanded list for modern SPAs (LinkedIn, Instagram, Twitter)
+        // Expanded list for modern SPAs (LinkedIn, Instagram, Twitter) + site-specific hooks
         const priorityAttributes = [
             'data-testid', 'data-test-id', 'data-component', 'itemprop', 'role', 'data-cy', 'aria-label', 'name',
-            'data-urn', 'data-id', 'data-entity-urn', 'data-control-name', 'data-li-id', 'data-index'
+            'data-urn', 'data-id', 'data-entity-urn', 'data-control-name', 'data-li-id', 'data-index',
+            'data-at',     // Nike/Nykaa automation hook
+            'data-qa',     // common QA attribute pattern
+            'data-type',   // product type/category markers
+            'data-item'    // generic item marker
         ];
         const found: string[] = [];
         const threshold = elements.length * 0.8;
@@ -301,12 +345,12 @@ export class CommonSelectorGenerator {
                     }
                 });
 
-                // If a specific value covers 80% of the *original* set, use it
-                if (bestCount >= threshold && bestValue) {
+                // Use value only if it's stable (not an ID, numeric, or instance-specific)
+                if (bestCount >= threshold && bestValue && isStableAttributeValue(attr, bestValue)) {
                     const safeValue = bestValue.replace(/"/g, '\\"');
                     found.push(`[${attr}="${safeValue}"]`);
                 } else {
-                    // Otherwise just use existence
+                    // Value is instance-specific or non-dominant — use existence selector only
                     found.push(`[${attr}]`);
                 }
             }
@@ -339,22 +383,13 @@ export class CommonSelectorGenerator {
         return null;
     }
 
-    private cleanClasses(classes: string[]): string[] {
-        const blacklist = [
-            'active', 'hover', 'selected', 'focus', 'current',
-            // 'ng-', 'react-', 'ember-', 'vue-'  <-- Relaxed: frameworks often use stable classes like ember-view
-            's-matching-dir', 'rush-component',
-            'flex', 'grid', 'row', 'col',
-            'a-section', 'a-spacing-none',
-            'visible', 'hidden'
-        ];
-
-        return classes.filter(c =>
-            c &&
-            c.length > 2 &&
-            !/\d/.test(c) && // Still reject purely numeric
-            !c.includes(':') &&
-            !blacklist.some(b => c.includes(b))
-        );
+    /**
+     * Allows CSS-in-JS hash classes through while still filtering Tailwind utilities.
+     * Use where majority-vote is the gate (findAllCommonClasses).
+     * Hash classes like css-dy3i81 or sc-abc12 are deterministic per build,
+     * so if they're shared by 80%+ of siblings, they're structurally meaningful.
+     */
+    private cleanClassesPermissive(classes: string[]): string[] {
+        return classes.filter(c => c && (!isUnstableClass(c) || isHashClass(c)));
     }
 }

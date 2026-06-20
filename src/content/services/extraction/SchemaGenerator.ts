@@ -29,16 +29,24 @@ export class SchemaGenerator {
                     originalId: originalKey,
                     name,
                     type,
-                    selector: originalKey // Storing selector path as metadata
+                    selector: originalKey
                 });
                 mapping.set(id, [originalKey]);
             } else {
-                // Collision handling (should be rare with identical originalKey, but safeguard)
                 const existing = columnMap.get(id)!;
                 if (existing.originalId !== originalKey) {
-                    // If hash collides but different key (very rare), we might need logic, 
-                    // but reference just overwrites or assumes uniqueness of hash. 
-                    // We will assume 1:1 for now as per reference which maps keys directly.
+                    // Sibling images (same parent, differ by (N) index) → merge into array
+                    if ((existing.type === 'image' || existing.type === 'image_array') && type === 'image') {
+                        if (existing.type === 'image') {
+                            existing.type = 'image_array';
+                            if (existing.name.endsWith(' Image')) {
+                                existing.name = existing.name.replace(/ Image$/, ' Images');
+                            }
+                            existing.mergedKeys = [existing.originalId];
+                        }
+                        existing.mergedKeys!.push(originalKey);
+                    }
+                    mapping.get(id)!.push(originalKey);
                 }
             }
         });
@@ -89,8 +97,8 @@ export class SchemaGenerator {
         // Since we might not have metadata fully calculated here without the dimensions pass,
         // we at least ensure Images are first as per generic type check.
         finalColumns.sort((a, b) => {
-            const isImageA = a.type === 'image';
-            const isImageB = b.type === 'image';
+            const isImageA = a.type === 'image' || a.type === 'image_array';
+            const isImageB = b.type === 'image' || b.type === 'image_array';
 
             if (isImageA && isImageB) {
                 // If we had maxArea, we'd sort by it desc.
@@ -191,7 +199,17 @@ export class SchemaGenerator {
         name = name.split(' ').map(token => token.charAt(0).toUpperCase() + token.slice(1)).join(' ');
 
         // 6. Generate ID (Base36 Hash) matching the normalized key
-        const normalizedKey = this.normalizeSelector(key);
+        let normalizedKey = this.normalizeSelector(key);
+        // For image types, use only last 2 path segments for grouping
+        // This merges carousel/gallery images that share the same leaf structure
+        // but have different intermediate wrappers
+        if (type === 'image') {
+            const suffix = key.endsWith(' src') ? ' src' : key.endsWith(' background') ? ' background' : '';
+            const pathWithoutSuffix = normalizedKey.replace(/ (src|background)$/, '');
+            const parts = pathWithoutSuffix.split(' > ');
+            const leafParts = parts.slice(-2).join(' > ');
+            normalizedKey = leafParts + (suffix ? ' ' + suffix.trim() : '');
+        }
         const id = this.generateHashId(normalizedKey);
 
         return { id, name, type };

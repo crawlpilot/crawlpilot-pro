@@ -16,6 +16,8 @@ import {
     ListItemText,
     ListItemIcon,
     ListItemButton,
+    MenuItem,
+    Select,
     alpha
 } from '@mui/material';
 import {
@@ -31,8 +33,14 @@ import {
     Webhook,
     Link2,
     CheckCircle2,
-    Database
+    Database,
+    MessageSquare
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import i18n, { SUPPORTED_LANGS, LANG_LABELS, type SupportedLang } from '../../i18n';
+
+// TO CONFIGURE: replace REPLACE_ME with the same Google Form URL used in background/index.ts
+const FEEDBACK_FORM_URL = 'https://forms.gle/REPLACE_ME';
 import { db } from '../../shared/db/db-manager';
 import { useJobHistory } from '../hooks/useDatabase';
 
@@ -41,7 +49,15 @@ interface SettingsPageProps {
 }
 
 export default function SettingsPage({ onBack }: SettingsPageProps) {
+    const { t } = useTranslation('settings');
     const { jobs, deleteJob, refresh } = useJobHistory();
+    const [currentLang, setCurrentLang] = useState<SupportedLang>(i18n.language as SupportedLang);
+
+    const handleLanguageChange = (lang: SupportedLang) => {
+        setCurrentLang(lang);
+        i18n.changeLanguage(lang);
+        chrome.storage.local.set({ language: lang });
+    };
     const [storageUsage, setStorageUsage] = useState<{ usage: number, quota: number } | null>(null);
     const [daysRetain, setDaysRetain] = useState<number>(30);
     const [confirmClearOpen, setConfirmClearOpen] = useState(false);
@@ -130,8 +146,6 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
     };
 
-    const isPaid = false;
-
     const updateIntegration = (updates: Partial<typeof integrations>) => {
         const next = { ...integrations, ...updates };
         setIntegrations(next);
@@ -162,21 +176,41 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                 <IconButton onClick={onBack} size="small">
                     <ChevronLeft size={20} />
                 </IconButton>
-                <Typography variant="h6" fontWeight="bold">Settings</Typography>
+                <Typography variant="h6" fontWeight="bold">{t('title')}</Typography>
             </Box>
 
             <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
 
-
+                {/* Language */}
+                <Section title={t('language.title')} icon={<Globe size={18} />}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper' }}>
+                        <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
+                            {t('language.description')}
+                        </Typography>
+                        <Select
+                            value={currentLang}
+                            onChange={(e) => handleLanguageChange(e.target.value as SupportedLang)}
+                            size="small"
+                            fullWidth
+                            sx={{ borderRadius: 2 }}
+                        >
+                            {SUPPORTED_LANGS.map((lang) => (
+                                <MenuItem key={lang} value={lang}>
+                                    {LANG_LABELS[lang]}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </Paper>
+                </Section>
 
                 {/* Storage Management */}
-                <Section title="Data & Storage" icon={<HardDrive size={18} />}>
+                <Section title={t('dataStorage.title')} icon={<HardDrive size={18} />}>
                     <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', gap: 3 }}>
                         <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                <Typography variant="body2" color="text.secondary">Storage Used</Typography>
+                                <Typography variant="body2" color="text.secondary">{t('dataStorage.storageUsed')}</Typography>
                                 <Typography variant="body2" fontWeight="bold">
-                                    {storageUsage ? formatBytes(storageUsage.usage) : 'Calculating...'}
+                                    {storageUsage ? formatBytes(storageUsage.usage) : t('dataStorage.calculating')}
                                 </Typography>
                             </Box>
                             {storageUsage && (
@@ -192,10 +226,10 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                         <Divider />
                         <Box>
                             <Typography variant="subtitle2" fontWeight="600" gutterBottom>
-                                Auto-Clear Old Data
+                                {t('dataStorage.autoClear')}
                             </Typography>
                             <Typography variant="caption" color="text.secondary" display="block" mb={2}>
-                                Remove data older than the selected timeframe.
+                                {t('dataStorage.autoClearDescription')}
                             </Typography>
                             <Box sx={{ px: 1 }}>
                                 <Slider
@@ -204,7 +238,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                                     min={1}
                                     max={90}
                                     valueLabelDisplay="auto"
-                                    valueLabelFormat={v => `${v} Days`}
+                                    valueLabelFormat={v => t('dataStorage.daysLabel', { count: v })}
                                     marks={[
                                         { value: 7, label: '7d' },
                                         { value: 30, label: '30d' },
@@ -222,43 +256,41 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                                 disabled={jobsToDelete.length === 0}
                                 sx={{ mt: 2 }}
                             >
-                                Clear Data Older Than {daysRetain} Days ({jobsToDelete.length} Jobs)
+                                {t('dataStorage.clearButton', { days: daysRetain, count: jobsToDelete.length })}
                             </Button>
                         </Box>
                     </Paper>
                 </Section>
 
                 {/* Integrations (PRO) */}
-                <Section title="Integrations (PRO)" icon={<Link2 size={18} />}>
+                <Section title={t('integrations.title')} icon={<Link2 size={18} />}>
                     <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        {!isPaid && (
-                            <Box sx={{ p: 1.5, bgcolor: alpha('#ff9800', 0.1), borderRadius: 2, border: '1px solid', borderColor: alpha('#ff9800', 0.2) }}>
-                                <Typography variant="caption" color="warning.main" fontWeight="bold" display="flex" alignItems="center" gap={1}>
-                                    <AlertTriangle size={14} /> PRO FEATURE
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
-                                    Upgrade to PRO to unlock Webhooks, Airtable, and Google Sheets integrations.
-                                </Typography>
-                            </Box>
-                        )}
+                        <Box sx={{ p: 1.5, bgcolor: alpha('#ff9800', 0.1), borderRadius: 2, border: '1px solid', borderColor: alpha('#ff9800', 0.2) }}>
+                            <Typography variant="caption" color="warning.main" fontWeight="bold" display="flex" alignItems="center" gap={1}>
+                                <AlertTriangle size={14} /> {t('integrations.proFeature')}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
+                                {t('integrations.proDescription')}
+                            </Typography>
+                        </Box>
 
                         <Box>
                             <Typography variant="subtitle2" fontWeight="600" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Webhook size={16} /> Webhook & Zapier
+                                <Webhook size={16} /> {t('integrations.webhookZapier')}
                             </Typography>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
                                 <IntegrationInput
-                                    label="Webhook URL"
+                                    label={t('integrations.webhookUrl')}
                                     value={integrations.webhookUrl}
                                     placeholder="https://your-api.com/webhook"
-                                    disabled={!isPaid}
+                                    disabled
                                     onChange={(v) => updateIntegration({ webhookUrl: v })}
                                 />
                                 <IntegrationInput
-                                    label="Zapier Webhook"
+                                    label={t('integrations.zapierWebhook')}
                                     value={integrations.zapierUrl}
                                     placeholder="https://hooks.zapier.com/..."
-                                    disabled={!isPaid}
+                                    disabled
                                     onChange={(v) => updateIntegration({ zapierUrl: v })}
                                 />
                             </Box>
@@ -268,30 +300,30 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
                         <Box>
                             <Typography variant="subtitle2" fontWeight="600" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Database size={16} /> Airtable
+                                <Database size={16} /> {t('integrations.airtable')}
                             </Typography>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
                                 <IntegrationInput
-                                    label="API Key"
+                                    label={t('integrations.apiKey')}
                                     value={integrations.airtableApiKey}
                                     placeholder="pat..."
                                     type="password"
-                                    disabled={!isPaid}
+                                    disabled
                                     onChange={(v) => updateIntegration({ airtableApiKey: v })}
                                 />
                                 <Box sx={{ display: 'flex', gap: 1 }}>
                                     <IntegrationInput
-                                        label="Base ID"
+                                        label={t('integrations.baseId')}
                                         value={integrations.airtableBaseId}
                                         placeholder="app..."
-                                        disabled={!isPaid}
+                                        disabled
                                         onChange={(v) => updateIntegration({ airtableBaseId: v })}
                                     />
                                     <IntegrationInput
-                                        label="Table Name"
+                                        label={t('integrations.tableName')}
                                         value={integrations.airtableTableName}
                                         placeholder="Records"
-                                        disabled={!isPaid}
+                                        disabled
                                         onChange={(v) => updateIntegration({ airtableTableName: v })}
                                     />
                                 </Box>
@@ -302,34 +334,52 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
                         <Box>
                             <Typography variant="subtitle2" fontWeight="600" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Share2 size={16} /> Google Sheets
+                                <Share2 size={16} /> {t('integrations.googleSheets')}
                             </Typography>
                             <Button
                                 variant="outlined"
                                 color={integrations.googleSheetsConnected ? "success" : "inherit"}
                                 fullWidth
                                 size="small"
-                                disabled={!isPaid}
+                                disabled
                                 startIcon={integrations.googleSheetsConnected ? <CheckCircle2 size={16} /> : <Share2 size={16} />}
                                 onClick={() => {
                                     alert("Google Sheets Authentication is coming soon.");
                                 }}
                                 sx={{ mt: 1, borderColor: 'divider', textTransform: 'none' }}
                             >
-                                {integrations.googleSheetsConnected ? 'Connected to Google Sheets' : 'Connect Google Sheets'}
+                                {integrations.googleSheetsConnected ? t('integrations.connectedSheets') : t('integrations.connectSheets')}
                             </Button>
                         </Box>
                     </Paper>
                 </Section>
 
+                {/* Feedback */}
+                <Section title={t('feedback.title')} icon={<MessageSquare size={18} />}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper' }}>
+                        <Typography variant="body2" color="text.secondary" mb={2}>
+                            {t('feedback.description')}
+                        </Typography>
+                        <Button
+                            variant="outlined"
+                            fullWidth
+                            startIcon={<MessageSquare size={16} />}
+                            onClick={() => chrome.tabs.create({ url: FEEDBACK_FORM_URL })}
+                            sx={{ textTransform: 'none' }}
+                        >
+                            {t('feedback.openForm')}
+                        </Button>
+                    </Paper>
+                </Section>
+
                 {/* Danger Zone */}
-                <Section title="Danger Zone" icon={<AlertTriangle size={18} />}>
+                <Section title={t('dangerZone.title')} icon={<AlertTriangle size={18} />}>
                     <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper', borderColor: 'error.dark', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
                             <AlertTriangle size={20} color="#f44336" style={{ flexShrink: 0, marginTop: 2 }} />
                             <Box>
-                                <Typography variant="subtitle2" fontWeight={700} color="error.main">Delete All Data</Typography>
-                                <Typography variant="caption" color="text.secondary">Permanently wipes everything. This cannot be undone.</Typography>
+                                <Typography variant="subtitle2" fontWeight={700} color="error.main">{t('dangerZone.deleteAll')}</Typography>
+                                <Typography variant="caption" color="text.secondary">{t('dangerZone.deleteAllDescription')}</Typography>
                             </Box>
                         </Box>
                         <Button
@@ -339,28 +389,28 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                             startIcon={<Trash2 size={16} />}
                             onClick={() => { setNukeConfirmText(''); setConfirmNukeOpen(true); }}
                         >
-                            Delete All Data
+                            {t('dangerZone.deleteAll')}
                         </Button>
                     </Paper>
                 </Section>
 
                 {/* About & Support */}
-                <Section title="Support & Community" icon={<Globe size={18} />}>
+                <Section title={t('support.title')} icon={<Globe size={18} />}>
                     <Paper variant="outlined" sx={{ borderRadius: 3, bgcolor: 'background.paper', overflow: 'hidden' }}>
                         <List disablePadding>
                             <ListItemButton component="a" href="mailto:crawlpilot6365@gmail.com">
                                 <ListItemIcon><Mail size={20} /></ListItemIcon>
-                                <ListItemText primary="Contact Support" secondary="Email us for help" primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
+                                <ListItemText primary={t('support.contactSupport')} secondary={t('support.contactSupportSub')} primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
                             </ListItemButton>
                             <Divider component="li" />
                             <ListItemButton component="a" href="https://github.com/crawlpilot/" target="_blank">
                                 <ListItemIcon><Github size={20} /></ListItemIcon>
-                                <ListItemText primary="GitHub Repository" secondary="Star us on GitHub" primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
+                                <ListItemText primary={t('support.github')} secondary={t('support.githubSub')} primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
                             </ListItemButton>
                             <Divider component="li" />
                             <ListItem>
                                 <ListItemIcon><ShieldCheck size={20} /></ListItemIcon>
-                                <ListItemText primary="Version" secondary={`v${chrome.runtime.getManifest().version}`} primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
+                                <ListItemText primary={t('support.version')} secondary={`v${chrome.runtime.getManifest().version}`} primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
                             </ListItem>
                         </List>
                     </Paper>
@@ -369,20 +419,20 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
             {/* Dialogs */}
             <Dialog open={confirmClearOpen} onClose={() => setConfirmClearOpen(false)}>
-                <DialogTitle>Confirm Deletion</DialogTitle>
+                <DialogTitle>{t('dangerZone.confirmDeletion')}</DialogTitle>
                 <DialogContent>
-                    <Typography>Delete {jobsToDelete.length} old jobs?</Typography>
+                    <Typography>{t('dangerZone.deleteJobsConfirm', { count: jobsToDelete.length })}</Typography>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setConfirmClearOpen(false)} color="inherit">Cancel</Button>
-                    <Button onClick={handleClearData} color="error" variant="contained" disabled={clearing}>Clear</Button>
+                    <Button onClick={() => setConfirmClearOpen(false)} color="inherit">{t('cancel', { ns: 'common' })}</Button>
+                    <Button onClick={handleClearData} color="error" variant="contained" disabled={clearing}>{t('clear', { ns: 'common' })}</Button>
                 </DialogActions>
             </Dialog>
 
             <Dialog open={confirmNukeOpen} onClose={() => setConfirmNukeOpen(false)} maxWidth="xs" fullWidth>
-                <DialogTitle sx={{ color: 'error.main' }}>Delete All Data?</DialogTitle>
+                <DialogTitle sx={{ color: 'error.main' }}>{t('dangerZone.deleteAll')}?</DialogTitle>
                 <DialogContent>
-                    <Typography variant="body2" mb={2}>Type DELETE to confirm:</Typography>
+                    <Typography variant="body2" mb={2}>{t('dangerZone.typeToConfirm')}</Typography>
                     <input
                         autoFocus
                         value={nukeConfirmText}
@@ -391,8 +441,8 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setConfirmNukeOpen(false)} color="inherit">Cancel</Button>
-                    <Button onClick={handleNukeAllData} color="error" variant="contained" disabled={nuking || nukeConfirmText !== 'DELETE'}>Delete Everything</Button>
+                    <Button onClick={() => setConfirmNukeOpen(false)} color="inherit">{t('cancel', { ns: 'common' })}</Button>
+                    <Button onClick={handleNukeAllData} color="error" variant="contained" disabled={nuking || nukeConfirmText !== 'DELETE'}>{t('dangerZone.deleteEverything')}</Button>
                 </DialogActions>
             </Dialog>
         </Box >

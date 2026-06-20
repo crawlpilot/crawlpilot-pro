@@ -1,0 +1,22 @@
+{
+  "title": "ページ抽出器",
+  "subtitle": "多数の URL を訪問して各ページから同じフィールドを抽出",
+  "step1": {
+    "subtitle": "スクレイピングする URL を提供",
+    "pagesToScrape": "スクレイピングするページ",
+    "urlsLoaded": "{{count}} 件読み込み済み",
+    "urlList": "URL リスト",
+    "clear": "クリア",
+    "chooseDifferentSource": "別のソースを選択",
+    "provideUrls": "各ページから構造化データを抽出するページ URL のリストを提供してください",
+    "uploadCsv": "CSV をアップロード",
+    "uploadCsvDesc": "ファイルから URL をインポート",
+    "selectDataSource": "データソースを選択",
+    "selectDataSourceDesc": "既存のテーブルのリンクを使用",
+    "expectedFormat": "想定される CSV 形式",
+    "formatDesc": "1行に1つの URL、またはヘッダー行付きのカンマ区切り。",
+    "nextStep": "次のステップ"
+  },
+  "step2": { "subtitle": "抽出するフィールドを定義", "title": "スキーマを定義" },
+  "step3": { "subtitle": "確認して抽出を実行", "title": "確認して実行" }
+}

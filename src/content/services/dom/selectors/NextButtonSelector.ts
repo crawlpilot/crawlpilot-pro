@@ -97,17 +97,25 @@ export class NextButtonSelector {
 
             if (opts.requireEnabled) {
                 const disabledAttr = el.getAttribute('disabled');
-                // Check if disabled attribute exists and is not 'false'
                 const isDisabledAttr = disabledAttr !== null && disabledAttr.toString().toLowerCase() !== 'false' && disabledAttr !== '0';
 
-                // [NEW] Check common "disabled" classes and styles
-                const hasDisabledClass = el.classList.contains('disabled') || el.classList.contains('is-disabled') || el.classList.contains('inactive');
+                // Broad disabled class list: generic + Amazon (a-disabled only, NOT a-last which is used on every page) + others
+                const DISABLED_CLASSES = ['disabled', 'is-disabled', 'inactive', 'a-disabled', 'unavailable', 'not-active'];
+                const hasDisabledClass = DISABLED_CLASSES.some(cls => el.classList.contains(cls));
                 const isAriaDisabled = el.getAttribute('aria-disabled') === 'true';
                 const hasNotAllowedCursor = style.cursor === 'not-allowed';
                 const hasPointerEventsNone = style.pointerEvents === 'none';
 
-                if ((el as any).disabled || isDisabledAttr || hasDisabledClass || isAriaDisabled || hasNotAllowedCursor || hasPointerEventsNone) {
-                    return { valid: false, reason: 'Element is disabled (attr/prop/class/style/pointer-events)' };
+                // Also check parent element (e.g. <span class="a-disabled"><a>Next</a></span>)
+                const parent = el.parentElement;
+                const parentDisabled = parent ? (
+                    DISABLED_CLASSES.some(cls => parent.classList.contains(cls)) ||
+                    parent.getAttribute('aria-disabled') === 'true'
+                ) : false;
+
+                if ((el as any).disabled || isDisabledAttr || hasDisabledClass || isAriaDisabled ||
+                    hasNotAllowedCursor || hasPointerEventsNone || parentDisabled) {
+                    return { valid: false, reason: 'Element is disabled (attr/prop/class/style/parent)' };
                 }
             }
 

@@ -89,26 +89,26 @@ export function Step2Navigation({
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, animation: 'fadeIn 0.3s ease-out' }}>
             <Box>
-                <Typography variant="h6" gutterBottom>How do we get to the next page?</Typography>
-                <Typography variant="body2" color="text.secondary">Choose the method that matches this website.</Typography>
+                <Typography variant="h6" gutterBottom>How should we load more items?</Typography>
+                <Typography variant="body2" color="text.secondary">Pick the navigation method that matches this site.</Typography>
             </Box>
 
             {/* Strategy Options */}
             <Stack spacing={2}>
                 <StrategyOption
                     mode="pagination"
-                    title='Click "Next" Button'
-                    description="Standard number navigation (1, 2, 3, Next >)"
+                    title='Numbered Pagination'
+                    description="Site uses page numbers or a Next button (e.g. 1, 2, 3... or Next ›)"
                 />
                 <StrategyOption
                     mode="loadMore"
-                    title='Click "Load More"'
-                    description="A button that adds items to the bottom"
+                    title='"Load More" Button'
+                    description="A button appends more items to the current page without navigating"
                 />
                 <StrategyOption
                     mode="auto"
-                    title="No Button / Scroll"
-                    description="Infinite scroll or just extract this single page"
+                    title="Infinite Scroll / Single Page"
+                    description="Items load as you scroll, or everything is already on one page"
                 />
             </Stack>
 
@@ -116,7 +116,7 @@ export function Step2Navigation({
             {(paginationMode === 'pagination' || paginationMode === 'loadMore') && (
                 <Box sx={{ mt: 1, pt: 3, borderTop: '1px solid', borderColor: 'divider', animation: 'slideUp 0.3s ease-out' }}>
                     <Typography variant="subtitle2" gutterBottom sx={{ mb: 2 }}>
-                        Select the {paginationMode === 'loadMore' ? 'Load More' : 'Next'} Button
+                        Point to the {paginationMode === 'loadMore' ? '"Load More"' : '"Next"'} Button on Page
                     </Typography>
 
                     {selectingFor === 'nextButton' ? (
@@ -162,7 +162,7 @@ export function Step2Navigation({
                             onClick={() => onStartSelection('nextButton')}
                             sx={{ borderStyle: 'dashed', py: 2 }}
                         >
-                            Click to Select Button
+                            Pick the Navigation Button
                         </Button>
                     )}
                 </Box>
@@ -182,7 +182,7 @@ export function Step2Navigation({
                     disabled={!isReady}
                     endIcon={<ArrowRight size={16} />}
                 >
-                    Next Step
+                    Review & Run
                 </Button>
             </Box>
 

@@ -1,178 +1,158 @@
 import { IContainerDetector, ContainerResult } from './IContainerDetector';
 
 /**
- * GroupParentContainerDetector — new default implementation.
- *
- * Inspired by the reference implementation in sidepanel-readable.js.
- * Uses a two-phase approach that is significantly more robust than fingerprinting:
- *
- * Phase 1 — findGroupParent:
- *   Walks up the DOM counting "valid group children" (LI, DIV, TR, ARTICLE, FIGURE, etc.)
- *   at each ancestor level. Returns the ancestor with the most valid children (≥ minRows).
- *   This catches most real-world lists without any fingerprinting.
- *
- * Phase 2 — isListContainer fallback:
- *   If Phase 1 doesn't find a strong candidate, walks up to 10 levels and checks each
- *   ancestor against a multi-signal heuristic:
- *     - Semantic tags: UL, OL, DL, TABLE, TBODY
- *     - ARIA roles: role="list"
- *     - Class names: "list", "results", "grid", "cards", "products"
- *     - CSS display: grid or flex
- *     - Similar child heights (within 50% of mean)
- *     - Similar child descendant counts (within 50% of mean)
- *     - ≥60% of children share the same tag name
- *
- * Strengths: Works regardless of where inside a card the user hovers.
- *            Handles UL/OL, CSS grids, flex rows, and custom card layouts.
- * Weaknesses: May occasionally pick a slightly larger container than intended
- *             on pages with unusual nesting. Use ↑/↓ keyboard nav to adjust scope.
+ * Simplified container detection using tag homogeneity.
+ * Finds the ancestor whose direct children are mostly the same tag (repeating item cards).
+ * No getComputedStyle, no getBoundingClientRect, no fingerprinting — just tag counting.
  */
+// Form/interactive elements are UI controls, not repeating data cards
+const INTERACTIVE_TAGS = new Set(['BUTTON', 'INPUT', 'SELECT', 'OPTION', 'TEXTAREA', 'LABEL']);
+
 export class GroupParentContainerDetector implements IContainerDetector {
-    private minRows = 3;
-    private maxLevelsUp = 10;
+    private readonly maxLevelsUp = 8;
+    private readonly minItems = 2;
 
     public findContainer(element: HTMLElement): ContainerResult {
-        console.log('[GroupParentContainerDetector] findContainer for:', element);
-
-        // --- Phase 1: findGroupParent (fast, tag-based) ---
-        const groupResult = this.findGroupParent(element);
-        if (groupResult) {
-            console.log('[GroupParentContainerDetector] Phase 1 hit:', groupResult.container, 'children:', groupResult.childCount);
-            return {
-                isContainer: true,
-                containerType: this.determineContainerType(groupResult.container, groupResult.children),
-                container: groupResult.container,
-                childCount: groupResult.childCount,
-                siblings: groupResult.children,
-                confidence: 90,
-                candidates: [groupResult]
-            };
-        }
-
-        // --- Phase 2: isListContainer fallback ---
-        const fallbackResult = this.findListContainerFallback(element);
-        if (fallbackResult) {
-            console.log('[GroupParentContainerDetector] Phase 2 hit:', fallbackResult.container, 'children:', fallbackResult.childCount);
-            return fallbackResult;
-        }
-
-        console.log('[GroupParentContainerDetector] No container found.');
-        return { isContainer: false, container: null, childCount: 0, siblings: [], confidence: 0 };
-    }
-
-    // -------------------------------------------------------------------------
-    // Phase 1: Group Parent Detection
-    // -------------------------------------------------------------------------
-
-    /**
-     * Walks up the DOM from `element`, counting valid group children at each level.
-     * Returns the ancestor with the highest count of valid group children (≥ minRows).
-     */
-    private findGroupParent(element: HTMLElement): { container: HTMLElement; children: HTMLElement[]; childCount: number } | null {
+        const candidates: Array<{ container: HTMLElement; children: HTMLElement[]; score: number }> = [];
         let current: HTMLElement | null = element;
-        let bestCandidate: { container: HTMLElement; children: HTMLElement[]; childCount: number } | null = null;
-        let bestCount = 0;
+        let levels = 0;
 
-        try {
-            while (current && current !== document.body && current !== document.documentElement) {
-                const validChildren: HTMLElement[] = [];
-
-                for (const child of Array.from(current.children) as HTMLElement[]) {
-                    if (this.isValidGroupElement(child) && this.isVisible(child)) {
-                        validChildren.push(child);
-                    }
-                }
-
-                if (validChildren.length >= this.minRows && validChildren.length > bestCount) {
-                    bestCount = validChildren.length;
-                    bestCandidate = {
-                        container: current,
-                        children: validChildren,
-                        childCount: validChildren.length
-                    };
-                }
-
-                current = current.parentElement;
+        while (current && current !== document.body && current !== document.documentElement && levels < this.maxLevelsUp) {
+            const children = this.getHomogeneousChildren(current);
+            if (children) {
+                candidates.push({ container: current, children, score: this.scoreContainer(current, children) });
             }
-        } catch (e) {
-            console.warn('[GroupParentContainerDetector] findGroupParent error:', e);
+            current = current.parentElement;
+            levels++;
         }
 
-        return bestCandidate;
+        if (candidates.length === 0) {
+            return { isContainer: false, container: null, childCount: 0, siblings: [], confidence: 0 };
+        }
+
+        // Best-scored is the default selection
+        candidates.sort((a, b) => b.score - a.score);
+        const best = candidates[0];
+
+        return {
+            isContainer: true,
+            containerType: this.containerType(best.container, best.children),
+            container: best.container,
+            childCount: best.children.length,
+            siblings: best.children,
+            confidence: 90
+        };
     }
 
     /**
-     * More robust visibility check that handles display: contents and SPAs.
+     * Returns visible children sharing a dominant tag (≥60% homogeneity),
+     * or null if this element is not a useful container candidate.
      */
-    private isVisible(el: HTMLElement): boolean {
-        // Physical height is the primary signal
-        if (el.offsetHeight > 0) return true;
-
-        // display: contents elements have 0 offsetHeight but are "visible" to users
-        try {
-            const style = window.getComputedStyle(el);
-            if (style.display === 'contents' || el.hasAttribute('data-display-contents')) {
-                // If it's display:contents, check if it has any visible children
-                return Array.from(el.children).some(child => this.isVisible(child as HTMLElement));
+    private getHomogeneousChildren(el: HTMLElement): HTMLElement[] | null {
+        const visible: HTMLElement[] = [];
+        for (const child of el.children) {
+            const c = child as HTMLElement;
+            if ((c.offsetHeight > 0 || c.offsetWidth > 0) && !INTERACTIVE_TAGS.has(c.tagName)) {
+                visible.push(c);
             }
-        } catch (e) { /* ignore */ }
+        }
 
-        return false;
+        if (visible.length < this.minItems) return null;
+
+        const tagCounts: Record<string, number> = {};
+        visible.forEach(c => {
+            tagCounts[c.tagName] = (tagCounts[c.tagName] || 0) + 1;
+        });
+
+        const dominant = Object.keys(tagCounts).reduce((a, b) => tagCounts[a] >= tagCounts[b] ? a : b);
+        const dominantCount = tagCounts[dominant];
+
+        if (dominantCount < this.minItems || dominantCount / visible.length < 0.6) return null;
+
+        return visible.filter(c => c.tagName === dominant);
+    }
+
+    private scoreContainer(el: HTMLElement, children: HTMLElement[]): number {
+        let score = children.length * 2;
+
+        if (['UL', 'OL', 'DL', 'TABLE', 'TBODY'].includes(el.tagName)) score += 20;
+        if (el.getAttribute('role') === 'list') score += 15;
+
+        const cls = (el.className || '').toLowerCase();
+        if (/list|grid|card|product|result|item|feed|catalog|collection/.test(cls)) score += 15;
+
+        return score;
     }
 
     /**
-     * Determines if an element is a valid repeating group item.
-     * Matches the reference implementation's isValidGroupElement.
-     */
-    private isValidGroupElement(el: HTMLElement): boolean {
-        const tag = el.tagName;
-        // Standard list/grid item tags
-        if (['LI', 'TR', 'DIV', 'ARTICLE', 'A', 'FIGURE', 'DETAILS', 'ASIDE', 'SUMMARY'].includes(tag)) {
-            return true;
-        }
-        // Custom elements (tag names with a hyphen, e.g. <product-card>)
-        if (/-/.test(tag)) {
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Looks within the element or its descendants for repeating items.
-     * Prioritizes elements with visible text content.
+     * Called by DetailSelectionStrategy when user clicks on a container.
+     * Checks direct children first, then semantic descendants.
      */
     public findInternalContainer(element: HTMLElement): ContainerResult {
-        // 1. Check if the element itself is a container of repeating items
-        const children = Array.from(element.children) as HTMLElement[];
-        const visibleChildrenWithText = children.filter(c =>
-            this.isVisible(c as HTMLElement) &&
-            this.isValidGroupElement(c as HTMLElement) &&
-            (c.innerText || c.textContent || '').trim().length > 0
-        ) as HTMLElement[];
+        const NONE: ContainerResult = { isContainer: false, container: null, childCount: 0, siblings: [], confidence: 0 };
 
-        if (visibleChildrenWithText.length >= this.minRows) {
+        const filterVisible = (els: Iterable<Element>) =>
+            Array.from(els).filter(c => {
+                const el = c as HTMLElement;
+                return (el.offsetHeight > 0 || el.offsetWidth > 0) &&
+                    (el.textContent || '').trim().length > 0 &&
+                    !INTERACTIVE_TAGS.has(el.tagName);
+            }) as HTMLElement[];
+
+        // Gallery wrappers (each item wraps only one child, or only interactive children)
+        // should defer to classifyAsHomogeneousArray rather than be labelled list/table.
+        const isSimpleWrapper = (els: HTMLElement[]): boolean => {
+            if (!els.length) return false;
+            const avgDirect = els.reduce((s, e) => s + e.children.length, 0) / els.length;
+            if (avgDirect <= 1) return true;
+            const avgNonInteractive = els.reduce((s, e) =>
+                s + Array.from(e.children).filter(c => !INTERACTIVE_TAGS.has((c as HTMLElement).tagName)).length
+            , 0) / els.length;
+            return avgNonInteractive === 0;
+        };
+
+        // For UL/OL: only treat as a container if items are complex (multi-field data rows).
+        // Simple arrays (each li wraps a single image/link/text) defer to classifyAsHomogeneousArray
+        // which correctly returns image_array / link_array / text_array.
+        if (['UL', 'OL'].includes(element.tagName)) {
+            const visible = filterVisible(element.children);
+            if (visible.length < this.minItems) return NONE;
+            const avgChildCount = visible.reduce((sum, li) => sum + li.children.length, 0) / visible.length;
+            if (avgChildCount <= 1.5) return NONE; // simple wrapper → defer to array classifier
             return {
                 isContainer: true,
-                containerType: this.determineContainerType(element, visibleChildrenWithText),
+                containerType: this.containerType(element, visible),
                 container: element,
-                siblings: visibleChildrenWithText,
-                childCount: visibleChildrenWithText.length,
+                siblings: visible,
+                childCount: visible.length,
                 confidence: 95
             };
         }
 
-        // 2. Look for the first dominant list descendant (e.g. UL, TABLE, or [role="list"])
-        const deepLists = element.querySelectorAll('ul, ol, table, tbody, [role="list"]');
-        for (const list of Array.from(deepLists) as HTMLElement[]) {
-            const listChildren = Array.from(list.children) as HTMLElement[];
-            const valid = listChildren.filter(c =>
-                this.isVisible(c as HTMLElement) && // Use the new isVisible method
-                (c.innerText || c.textContent || '').trim().length > 0
-            ) as HTMLElement[];
-            if (valid.length >= 2) {
+        const visible = filterVisible(element.children);
+        if (visible.length >= this.minItems && !isSimpleWrapper(visible)) {
+            return {
+                isContainer: true,
+                containerType: this.containerType(element, visible),
+                container: element,
+                siblings: visible,
+                childCount: visible.length,
+                confidence: 95
+            };
+        }
+
+        for (const list of Array.from(element.querySelectorAll('ul, ol, table, tbody, [role="list"]')) as HTMLElement[]) {
+            const valid = filterVisible(list.children);
+            if (valid.length >= this.minItems) {
+                // Apply same simple-vs-complex check for UL/OL found via descendants
+                if (['UL', 'OL'].includes(list.tagName)) {
+                    const avgChildCount = valid.reduce((sum, li) => sum + li.children.length, 0) / valid.length;
+                    if (avgChildCount <= 1.5) continue; // defer to array classifier
+                }
+                if (isSimpleWrapper(valid)) continue;
                 return {
                     isContainer: true,
-                    containerType: this.determineContainerType(list, valid),
+                    containerType: this.containerType(list, valid),
                     container: list,
                     siblings: valid,
                     childCount: valid.length,
@@ -181,173 +161,60 @@ export class GroupParentContainerDetector implements IContainerDetector {
             }
         }
 
-        // 3. Deep downward scan: find any descendant element with the most valid group children (≥ minRows).
-        // This catches div-based repeating containers like <div.nt1> with many <div.pb2> children
-        // that are not caught by Steps 1 or 2 because they aren't semantic list/table tags.
-        {
-            const allDescendants = Array.from(element.querySelectorAll('*')) as HTMLElement[];
-            let bestContainer: HTMLElement | null = null;
-            let bestChildren: HTMLElement[] = [];
-            let bestCount = 0;
-
-            for (const desc of allDescendants) {
-                const validChildren = (Array.from(desc.children) as HTMLElement[]).filter(
-                    c => this.isValidGroupElement(c) && this.isVisible(c) && (c.innerText || c.textContent || '').trim().length > 0
-                );
-                if (validChildren.length >= 2 && validChildren.length > bestCount) {
-                    bestCount = validChildren.length;
-                    bestContainer = desc;
-                    bestChildren = validChildren;
-                }
+        // Deep scan (click-only path — performance is acceptable here).
+        // Finds the deepest descendant with the most visible non-interactive children,
+        // so clicking a wrapper like <div.a-box-group> still surfaces the inner content grid.
+        const isVisible = (c: Element) => {
+            const el = c as HTMLElement;
+            return (el.offsetHeight > 0 || el.offsetWidth > 0) &&
+                (el.textContent || '').trim().length > 0 &&
+                !INTERACTIVE_TAGS.has(el.tagName);
+        };
+        const all = element.querySelectorAll('*');
+        let bestEl: HTMLElement | null = null;
+        let bestKids: HTMLElement[] = [];
+        const limit = Math.min(all.length, 300);
+        for (let i = 0; i < limit; i++) {
+            const desc = all[i] as HTMLElement;
+            const kids = Array.from(desc.children).filter(isVisible) as HTMLElement[];
+            if (kids.length <= bestKids.length) continue;
+            // Skip simple UL/OL wrappers — classifyAsHomogeneousArray handles those
+            if (['UL', 'OL'].includes(desc.tagName) && kids.length > 0) {
+                const avg = kids.reduce((s, k) => s + k.children.length, 0) / kids.length;
+                if (avg <= 1.5) continue;
             }
-
-            if (bestContainer && bestChildren.length > 0) {
-                return {
-                    isContainer: true,
-                    containerType: this.determineContainerType(bestContainer, bestChildren),
-                    container: bestContainer,
-                    siblings: bestChildren,
-                    childCount: bestChildren.length,
-                    confidence: 85
-                };
-            }
+            if (isSimpleWrapper(kids)) continue;
+            bestEl = desc; bestKids = kids;
+        }
+        if (bestEl && bestKids.length >= this.minItems) {
+            return {
+                isContainer: true,
+                containerType: this.containerType(bestEl, bestKids),
+                container: bestEl,
+                siblings: bestKids,
+                childCount: bestKids.length,
+                confidence: 80
+            };
         }
 
         return { isContainer: false, container: null, childCount: 0, siblings: [], confidence: 0 };
     }
 
-    // -------------------------------------------------------------------------
-    // Phase 2: Multi-signal isListContainer Fallback
-    // -------------------------------------------------------------------------
+    private containerType(container: HTMLElement, siblings: HTMLElement[]): 'list' | 'table' {
+        if (['TABLE', 'TBODY', 'THEAD', 'UL', 'OL'].includes(container.tagName)) return 'table';
 
-    /**
-     * Walks up the DOM and checks each ancestor with a multi-signal heuristic.
-     * Picks the ancestor with the most children that passes the check.
-     */
-    private findListContainerFallback(element: HTMLElement): ContainerResult | null {
-        let current: HTMLElement | null = element;
-        let bestContainer: HTMLElement | null = null;
-        let bestChildCount = 0;
+        if (siblings.length >= 3) {
+            const counts = siblings.map(s => s.children.length);
+            const multiCell = counts.filter(n => n >= 2 && n <= 10).length;
 
-        for (let level = 0; level < this.maxLevelsUp; level++) {
-            if (!current || current === document.body || current === document.documentElement) break;
-
-            if (this.isListContainer(current)) {
-                const childCount = current.children.length;
-                if (childCount > bestChildCount) {
-                    bestChildCount = childCount;
-                    bestContainer = current;
-                }
-            }
-
-            current = current.parentElement;
-        }
-
-        if (!bestContainer) return null;
-
-        const siblings = Array.from(bestContainer.children).filter(
-            c => this.isVisible(c as HTMLElement)
-        ) as HTMLElement[];
-
-        return {
-            isContainer: true,
-            containerType: this.determineContainerType(bestContainer, siblings),
-            container: bestContainer,
-            childCount: siblings.length,
-            siblings,
-            confidence: 70,
-            candidates: []
-        };
-    }
-
-    /**
-     * Multi-signal check: is this element a list/grid container?
-     * Mirrors the reference implementation's `p()` function.
-     */
-    private isListContainer(el: HTMLElement): boolean {
-        if (!el || !el.children) return false;
-        if (el.children.length < 2) return false;
-
-        // 1. Semantic list/table tags
-        if (['UL', 'OL', 'DL', 'TABLE', 'TBODY'].includes(el.tagName)) return true;
-
-        // 2. ARIA role
-        if (el.getAttribute('role') === 'list') return true;
-        if (el.getAttribute('aria-role') === 'list') return true;
-
-        // 3. Class name signals
-        const className = (el.getAttribute('class') || '').toLowerCase();
-        if (className && ['list', 'results', 'grid', 'cards', 'products', 'feed', 'items'].some(k => className.includes(k))) {
-            return el.children.length >= 2;
-        }
-
-        // 4. CSS display: grid or flex
-        try {
-            const display = window.getComputedStyle(el).getPropertyValue('display');
-            if (display === 'grid' || display === 'flex') return true;
-        } catch (_) { /* ignore */ }
-
-        const children = Array.from(el.children) as HTMLElement[];
-
-        // 5. Similar child heights (within 50% of mean) — indicates uniform cards/rows
-        if (children.length >= 3) {
-            const heights = children.map(c => c.offsetHeight);
-            const meanHeight = heights.reduce((a, b) => a + b, 0) / heights.length;
-            const similarHeights = meanHeight > 0 && heights.every(h => Math.abs(h - meanHeight) < 0.5 * meanHeight);
-
-            if (similarHeights) {
-                // Also check similar descendant counts
-                const descCounts = children.map(c => c.querySelectorAll('*').length);
-                const meanDesc = descCounts.reduce((a, b) => a + b, 0) / descCounts.length;
-                const similarDesc = meanDesc > 0 && descCounts.every(d => Math.abs(d - meanDesc) < 0.5 * meanDesc);
-                if (similarDesc) return true;
-            }
-        }
-
-        // 6. ≥60% of children share the same tag name (dominant tag)
-        const tagCounts: Record<string, number> = {};
-        children.forEach(c => { tagCounts[c.tagName] = (tagCounts[c.tagName] || 0) + 1; });
-        const dominantTag = Object.keys(tagCounts).reduce((a, b) => tagCounts[a] > tagCounts[b] ? a : b, '');
-        if (dominantTag && tagCounts[dominantTag] / el.children.length >= 0.6) return true;
-
-        return false;
-    }
-
-    /**
-     * Identifies whether the container acts more like a traditional table/grid or a simple list.
-     * Returns 'table' → each child becomes its own output row.
-     * Returns 'list'  → all children are flattened into indexed columns on one row.
-     * This function IS required — the return value drives the Aggregator's row-explosion logic.
-     */
-    private determineContainerType(container: HTMLElement, siblings: HTMLElement[]): 'list' | 'table' {
-        if (!container) return 'list';
-
-        const tag = container.tagName.toUpperCase();
-
-        // 1. Semantic tags: TABLE/THEAD/TBODY always tabular; UL/OL treat each <li> as a row.
-        if (['TABLE', 'TBODY', 'THEAD', 'UL', 'OL'].includes(tag)) return 'table';
-
-        // 2. CSS display: table | grid | inline-grid → tabular layout
-        try {
-            const display = window.getComputedStyle(container).display;
-            if (display.includes('table') || display === 'grid' || display === 'inline-grid') {
-                return 'table';
-            }
-        } catch (_) { /* ignore */ }
-
-        // 3. Structural heuristic: ≥80% of sibling rows have 2–10 children AND
-        //    the dominant child-count is consistent across ≥70% of rows.
-        //    Catches div-based key-value spec tables and flex/grid row layouts.
-        if (siblings.length >= 2) {
-            const childCounts = siblings.map(s => s.children.length);
-            const multiCellRows = childCounts.filter(n => n >= 2 && n <= 10).length;
-
-            if (multiCellRows / siblings.length >= 0.8) {
+            if (multiCell / siblings.length >= 0.8) {
                 const freq: Record<number, number> = {};
-                childCounts.forEach(n => { freq[n] = (freq[n] || 0) + 1; });
+                counts.forEach(n => {
+                    freq[n] = (freq[n] || 0) + 1;
+                });
+
                 const mode = Number(Object.keys(freq).reduce((a, b) => freq[+a] >= freq[+b] ? a : b));
-                const consistency = freq[mode] / childCounts.length;
-                if (mode >= 2 && consistency >= 0.7) return 'table';
+                if (mode >= 2 && freq[mode] / counts.length >= 0.7) return 'table';
             }
         }
 

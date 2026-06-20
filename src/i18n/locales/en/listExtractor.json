@@ -1,0 +1,72 @@
+{
+  "title": "Extract a List",
+  "step1": {
+    "subtitle": "Click a repeating item to auto-detect the list",
+    "pickRepeatingItem": "Pick a Repeating Item",
+    "pickDescription": "Click any item in the list or table you want to scrape — we'll detect the pattern and find all similar items automatically.",
+    "selectOnPage": "Select on Page",
+    "hint": "Click any repeating item on the page — a product card, search result, or table row. We'll find the rest automatically.",
+    "listeningForClick": "Listening for Click...",
+    "clickAnyRepeating": "Click any repeating item on the page (e.g. a product card, a row, a post).",
+    "pressEscToCancel": "Press ESC to cancel",
+    "fieldsSelected_one": "{{count}} Field Selected",
+    "fieldsSelected_other": "{{count}} Fields Selected",
+    "addAnotherField": "Add Another Field",
+    "configurePagination": "Configure Pagination"
+  },
+  "step2": {
+    "subtitle": "Tell us how to load more pages",
+    "howToLoadMore": "How should we load more items?",
+    "pickNavigationMethod": "Pick the navigation method that matches this site.",
+    "numberedPagination": {
+      "title": "Numbered Pagination",
+      "description": "Site uses page numbers or a Next button (e.g. 1, 2, 3... or Next ›)"
+    },
+    "loadMoreButton": {
+      "title": "\"Load More\" Button",
+      "description": "A button appends more items to the current page without navigating"
+    },
+    "infiniteScroll": {
+      "title": "Infinite Scroll / Single Page",
+      "description": "Items load as you scroll, or everything is already on one page"
+    },
+    "pointToNext": "Point to the \"Next\" Button on Page",
+    "pointToLoadMore": "Point to the \"Load More\" Button on Page",
+    "clickTheButton": "Click the button on the page...",
+    "pressEscToCancel": "Press ESC to cancel",
+    "pickNavigationButton": "Pick the Navigation Button",
+    "nextButton": "Next Button",
+    "loadMoreButtonLabel": "Load More Button",
+    "editNavigationSelectors": "Edit Navigation Selectors",
+    "reviewAndRun": "Review & Run",
+    "back": "Back"
+  },
+  "step3": {
+    "subtitle": "Check settings, then run",
+    "reviewAndRun": "Review & Run",
+    "checkConfig": "Check your configuration below, then start extraction.",
+    "summary": "Summary",
+    "fieldsSelected": "Fields Selected",
+    "fieldsDetail": "{{count}} fields · {{items}} items per page",
+    "pageLimit": "Page Limit",
+    "singlePage": "Single Page",
+    "pages": "{{count}} pages",
+    "crawlSpeed": "Crawl Speed",
+    "speed": "Speed",
+    "careful": "Careful — heavy or protected sites",
+    "balanced": "Balanced — default for most sites",
+    "aggressive": "Aggressive — fast, simple pages only",
+    "waitTime": "Wait time between actions: {{ms}}ms",
+    "advancedSettings": "Advanced Settings",
+    "waitDelay": "Wait Delay",
+    "basedOnSpeed": "Based on speed profile",
+    "maxPagesToExtract": "Max Pages to Extract",
+    "maxPagesHelper": "Extraction halts after reaching this limit",
+    "extractionFailed": "Extraction Failed",
+    "unknownError": "An unknown error occurred.",
+    "startExtraction": "Start Extraction",
+    "openResultsTable": "Open Results Table",
+    "newExtraction": "New Extraction",
+    "back": "Back"
+  }
+}

@@ -2,7 +2,22 @@ import { useState } from 'react';
 import { CheckCircle2, Edit, Eye, Trash2, Database } from 'lucide-react';
 import { SelectorState } from '../../../shared/types/extraction';
 import { SelectorEditDialog } from '../shared/SelectorEditDialog';
-import { Box, Card, Typography, IconButton, Button, Stack } from '@mui/material';
+import { Box, Card, Typography, IconButton, Button, Stack, Chip } from '@mui/material';
+
+function getSelectorQuality(selector: string): { label: string; color: 'success' | 'warning' | 'error' } {
+    if (!selector) return { label: 'None', color: 'error' };
+    if (selector.includes('[data-') || selector.includes(':has(') || selector.includes('[role') || selector.includes('[aria-')) {
+        return { label: 'Semantic', color: 'success' };
+    }
+    if (selector.includes('.') && !selector.startsWith('div >') && !selector.startsWith('main >')) {
+        return { label: 'Class-based', color: 'success' };
+    }
+    // Structural: contains > combinators with no class or attribute anchor
+    if ((selector.match(/>/g) || []).length >= 3 && !selector.includes('.') && !selector.includes('[')) {
+        return { label: 'Structural', color: 'error' };
+    }
+    return { label: 'Generic', color: 'warning' };
+}
 
 interface SelectorCardProps {
     selector: SelectorState;
@@ -43,10 +58,10 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
                     </Box>
                     <Box>
                         <Typography variant="subtitle2" fontWeight="600">
-                            {selector.patternFound ? 'List Detected' : 'Element Selected'}
+                            {selector.patternFound ? 'Repeating Pattern Found' : 'Single Element Selected'}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                            {selector.count} items found
+                            {selector.count} matching items on page
                         </Typography>
                     </Box>
                 </Box>
@@ -106,7 +121,7 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
                 <Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
                         <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase">
-                            List Container
+                            Parent Container
                         </Typography>
                         <Button
                             size="small"
@@ -133,9 +148,20 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
                 {/* 2. Item Selectors */}
                 <Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase">
-                            Item Unit (Repeatable)
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase">
+                                Repeating Item Selector
+                            </Typography>
+                            {selector.itemSelector && (
+                                <Chip
+                                    label={getSelectorQuality(selector.itemSelector).label}
+                                    size="small"
+                                    color={getSelectorQuality(selector.itemSelector).color}
+                                    variant="outlined"
+                                    sx={{ fontSize: '0.65rem', height: 20 }}
+                                />
+                            )}
+                        </Box>
                         <Button
                             size="small"
                             startIcon={<Edit size={12} />}

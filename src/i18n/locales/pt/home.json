@@ -1,0 +1,35 @@
+{
+  "tagline": "Extração de dados da web sem código",
+  "recentRuns": "Execuções recentes",
+  "savedData": "Dados salvos",
+  "listExtractor": {
+    "title": "Extrair uma lista",
+    "description": "Transforme qualquer listagem, quadro de vagas ou tabela numa planilha",
+    "tooltip": "Clique em qualquer elemento repetido — produtos, vagas, preços, notícias — e exporte uma planilha limpa ou JSON em segundos"
+  },
+  "textSummarizer": {
+    "title": "Resumidor de texto",
+    "description": "Resuma instantaneamente qualquer página e faça perguntas com IA",
+    "tooltip": "Abra qualquer artigo, relatório ou documentação — obtenha um resumo conciso e faça perguntas de acompanhamento com IA"
+  },
+  "pageExtractor": {
+    "title": "Extrator de páginas",
+    "description": "Cole uma lista de URLs e extraia os mesmos campos de cada página de uma vez",
+    "tooltip": "Defina seus campos uma vez e o CrawlPilot visita cada URL automaticamente — ótimo para pesquisa de leads, auditorias de preços e coleta de conteúdo em escala"
+  },
+  "metadataExtractor": {
+    "title": "Extrator de metadados",
+    "description": "Colete em massa título, autor e texto completo de qualquer lista de URLs",
+    "tooltip": "Sem seletores — forneça URLs e receba dados estruturados: título, autor, data, palavras-chave e o conteúdo completo em Markdown"
+  },
+  "imageDownloader": {
+    "title": "Baixador de imagens",
+    "description": "Encontre e salve todas as imagens de uma página — um clique, qualquer site",
+    "tooltip": "Visualize todas as imagens da página, escolha as que precisa e baixe em lote fotos de produtos, assets de galeria ou referências de design"
+  },
+  "browserUtilities": {
+    "title": "Utilitários do navegador",
+    "description": "Reative o clique direito e a seleção de texto em sites que os bloqueiam",
+    "tooltip": "Desbloqueie copiar, colar e menus de contexto em sites que os restringem — ideal para copiar citações, URLs e conteúdo de páginas protegidas"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "title": "Extractor de Metadatos",
+  "back": "Atrás",
+  "step1": {
+    "subtitle": "Añade URLs para extraer metadatos"
+  },
+  "step2": {
+    "title": "Extracción de Metadatos",
+    "subtitle": "Configura y ejecuta la extracción",
+    "extract": "Extraer {{count}} URL(s)"
+  },
+  "options": {
+    "title": "Opciones de Extracción",
+    "includeLinks": "Preservar enlaces en markdown",
+    "includeImages": "Incluir imágenes en markdown",
+    "outputText": "También exportar texto plano",
+    "concurrency": "Pestañas simultáneas",
+    "concurrencyHint": "Máx. pestañas abiertas a la vez (1–5)",
+    "requestDelay": "Pausa entre páginas (ms)",
+    "requestDelayHint": "Espera entre solicitudes"
+  },
+  "results": {
+    "extracting": "Extrayendo…",
+    "complete": "Extracción Completa",
+    "activeTabs": "pestañas activas",
+    "viewResults": "Ver Resultados",
+    "previewResults": "Vista previa en vivo",
+    "stop": "Detener Extracción",
+    "stopping": "Deteniendo…",
+    "reset": "Empezar de Nuevo",
+    "completeSummary": "Metadatos extraídos de {{count}} página(s)",
+    "stoppedSummary": "Detenido después de {{count}} página(s)"
+  }
+}

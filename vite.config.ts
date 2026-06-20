@@ -4,7 +4,6 @@ import { crx } from '@crxjs/vite-plugin';
 import manifest from './manifest.json';
 import path from 'path';
 
-// https://vitejs.dev/config/
 export default defineConfig({
     plugins: [
         react(),
@@ -13,28 +12,46 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),
-            'optimal-select': path.resolve(__dirname, 'node_modules/optimal-select/lib/index.js')
         },
     },
+    define: {
+        // Force React production mode — eliminates dev-only warnings and reduces bundle size
+        'process.env.NODE_ENV': '"production"',
+    },
     build: {
-        // Use terser for better minification and obfuscation
+        // Target Chrome 111+ (stable MV3 support, ES2022)
+        chunkSizeWarningLimit: 1000,
         minify: 'terser',
+        sourcemap: false,
         terserOptions: {
             compress: {
-                drop_console: false,
-                drop_debugger: false,
+                drop_console: true,
+                drop_debugger: true,
+                // Belt-and-suspenders: also mark every console method as pure
+                pure_funcs: [
+                    'console.log', 'console.info', 'console.debug',
+                    'console.warn', 'console.error', 'console.trace',
+                    'console.group', 'console.groupEnd', 'console.time',
+                    'console.timeEnd',
+                ],
                 ecma: 2020,
                 module: true,
-                passes: 3,              // Run compression 3 times for better results
-                unsafe: true,           // Apply unsafe transformations
+                passes: 3,
+                unsafe: true,
+                
                 pure_getters: true,
+                collapse_vars: true,
+                reduce_vars: true,
+                dead_code: true,
             },
             mangle: {
-                toplevel: true,         // Mangle variables in top-level scope
+                toplevel: true,
                 module: true,
+                keep_classnames: false,
+                keep_fnames: false,
             },
             format: {
-                comments: false,        // Remove all comments
+                comments: false,
                 ecma: 2020,
             },
         },
@@ -45,6 +62,18 @@ export default defineConfig({
             output: {
                 manualChunks(id) {
                     if (id.includes('node_modules')) {
+                        // Separate large libraries into their own chunks for better caching
+                        if (id.includes('ag-grid')) return 'vendor-aggrid';
+                        if (id.includes('@mui/') || id.includes('@emotion/')) return 'vendor-mui';
+                        // Keep react, react-dom, and scheduler together to avoid init order issues.
+                        // Use path-segment matching so react-i18next, react-query, etc. don't end up
+                        // in this chunk (they depend on i18next/other vendor libs, which would create
+                        // a vendor-react -> vendor -> vendor-react circular chunk cycle).
+                        if (
+                            id.includes('/node_modules/react/') ||
+                            id.includes('/node_modules/react-dom/') ||
+                            id.includes('/node_modules/scheduler/')
+                        ) return 'vendor-react';
                         return 'vendor';
                     }
                 }

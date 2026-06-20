@@ -1,19 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-//import { SemanticFieldExtractor } from './SemanticFieldExtractor';
 import { SchemaGenerator } from './SchemaGenerator';
 
 /**
  * Extracts structured data from DOM elements
- * Enhanced with hash-based deduplication and semantic field extraction
+ * Enhanced with hash-based deduplication
  */
 
-interface RowWithHash {
-    data: any;
-    hash: string;
-}
-
 export class DataExtractor {
-    //private semanticExtractor = new SemanticFieldExtractor();
     private schemaGenerator = new SchemaGenerator();
 
     public extract(element: HTMLElement, containerInfo: any) {
@@ -26,33 +19,21 @@ export class DataExtractor {
 
     private extractList(containerInfo: any) {
         const { siblings, confidence } = containerInfo;
-        const rowsWithHash: RowWithHash[] = [];
+        const rows: any[] = [];
         const seenHashes = new Set<string>();
         let duplicateCount = 0;
 
         siblings.forEach((child: HTMLElement) => {
-            // Extract hierarchical data
             const rowData = this.extractRow(child);
-
-            // Extract semantic fields
-            //const semanticData = this.semanticExtractor.extractFields(child);
-
-            // Merge semantic fields with hierarchical data
-            //const mergedData = { ...rowData, ...semanticData.fields };
-
-            // Generate hash for deduplication
             const hash = this.hashData(rowData);
 
             if (seenHashes.has(hash)) {
                 duplicateCount++;
             } else {
                 seenHashes.add(hash);
-                rowsWithHash.push({ data: rowData, hash });
+                rows.push(rowData);
             }
         });
-
-        // Extract just the data
-        const rows = rowsWithHash.map(r => r.data);
 
         // Generate columns using SchemaGenerator (Reference Logic)
         const schemaResult = this.schemaGenerator.generateSchema(rows);
@@ -62,7 +43,7 @@ export class DataExtractor {
         const items = this.normalizeData(rows, columns);
 
         return {
-            type: containerInfo.containerType === 'table' ? 'table' : 'list',
+            type: 'list',
             columns: columns,
             items: items,
             source_url: window.location.href,
@@ -102,28 +83,68 @@ export class DataExtractor {
     }
 
     public extractRow(element: HTMLElement) {
+        // Special case: <dt>/<dd> row pattern (e.g. <dl> wrapped in divs)
+        // Both <dt> and <dd> often share the same first CSS class, causing their paths to
+        // collide in processNode and the value to be lost. Handle them as Term/Value pairs.
+        const dt = element.querySelector(':scope > dt') as HTMLElement | null;
+        const dds = Array.from(element.querySelectorAll(':scope > dd')) as HTMLElement[];
+        if (dt && dds.length > 0) {
+            return this.extractDefinitionRow(dt, dds);
+        }
+
         const rowData: any = {};
         this.processNode(element, [], {}, rowData);
         return rowData;
     }
 
+    private extractDefinitionRow(dt: HTMLElement, dds: HTMLElement[]): any {
+        const term = (dt.textContent || '').trim().replace(/:\s*$/, '');
+        const values = dds.map(dd => this.extractDdText(dd)).filter(Boolean);
+        return { Term: term, Value: values.join('; ') };
+    }
+
+    private extractDdText(dd: HTMLElement): string {
+        // Prefer full aria-label from an expandable paragraph (avoids truncated visible text)
+        const expandable = dd.querySelector('p[aria-label]') as HTMLElement | null;
+        if (expandable) {
+            const label = expandable.getAttribute('aria-label')?.trim();
+            if (label) return label;
+        }
+        // Get text content excluding button labels
+        const parts: string[] = [];
+        const walk = (node: Node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const t = (node.textContent || '').trim();
+                if (t) parts.push(t);
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                const tag = (node as Element).tagName;
+                if (tag === 'BUTTON' || tag === 'SCRIPT' || tag === 'STYLE') return;
+                node.childNodes.forEach(walk);
+            }
+        };
+        dd.childNodes.forEach(walk);
+        return parts.join(' ').trim();
+    }
+
     private processNode(t: HTMLElement, parentPath: string[], parentCounts: any, results: any) {
         if (!t || !t.tagName || ["SCRIPT", "STYLE", "NOSCRIPT", "SVG", "PATH"].includes(t.tagName)) return;
 
-        // Skip hidden elements if needed, but sometimes structure is more important
-        // [FIX] Relaxed visibility check: Some valid elements might have null offsetParent (e.g. fixed position) 
-        // but still contain data. Check if they have dimensions or content.
-        const rect = t.getBoundingClientRect();
-        const hasDimensions = rect.width > 0 && rect.height > 0;
+        // Check visibility via cheap inline style checks + offsetParent
+        const isHidden = (t.offsetParent === null && t.offsetHeight === 0 && t.offsetWidth === 0)
+            || t.style.display === 'none'
+            || t.style.visibility === 'hidden';
 
-        // If it's a root Li or Div that is common for list items, don't skip it just because it's technically "hidden"
-        // as long as it has children to explore.
-        const isCommonListItem = ["LI", "DIV", "ARTICLE", "SECTION"].includes(t.tagName);
-        const hasChildren = t.children.length > 0;
+        // Fully skip if hidden AND has no useful content or attributes
+        if (isHidden) {
+            const hasText = (t.textContent || '').trim().length > 0;
+            const hasAttr = t.tagName === 'IMG' || t.tagName === 'A' || !!t.getAttribute('aria-label') || !!t.getAttribute('title');
+            if (!hasText && !hasAttr) return;
+        }
 
-        if (t.offsetParent === null && !hasDimensions && !t.innerText.trim() && !(isCommonListItem && hasChildren)) return;
+        // Skip elements with no offset parent and no text (display:none ancestors catch this)
+        if (!isHidden && t.offsetParent === null && !(t.textContent || '').trim()) return;
 
-        const { displayLabel } = this.generateNodeName(t);
+        const displayLabel = this.generateNodeName(t);
 
         // Update counts for this label in the parent's context
         parentCounts[displayLabel] = (parentCounts[displayLabel] || 0) + 1;
@@ -134,6 +155,12 @@ export class DataExtractor {
         const pathComponent = `${displayLabel}${count > 1 ? ` (${count})` : ""}`;
         const currentPath = [...parentPath, pathComponent];
         const key = currentPath.join(" > ");
+
+        // If hidden, extract only attributes (src, href, aria-label, alt, title) — no text, no recursion
+        if (isHidden) {
+            this.extractAttributes(t, key, results);
+            return;
+        }
 
         // 1. Extract Text
         let directText = "";
@@ -158,45 +185,9 @@ export class DataExtractor {
         if (ariaLabel && ariaLabel.trim()) results[`${key} label`] = ariaLabel.trim();
         if (title && title.trim()) results[`${key} title`] = title.trim();
 
-        // 2. Extract Links
-        if (t.tagName === "A") {
-            const href = t.getAttribute("href");
-            if (href && !href.trim().toLowerCase().startsWith("javascript:") && !href.startsWith("#")) {
-                results[`${key} href`] = this.normalizeUrl(href.trim());
-            }
-        }
-
-        // 3. Extract Images
-        if (t.tagName === "IMG") {
-            let src = t.getAttribute("src");
-            // Logic for data-src/srcset (simplified)
-            if (!src) src = t.getAttribute("data-src");
-            if (!src) src = t.getAttribute("data-lazy-src");
-
-            if (src && !src.startsWith("data:")) {
-                results[`${key} src`] = this.normalizeUrl(src.trim());
-
-                // Reference Logic: Extract dimensions (background-readable.js 1977)
-                // This allows SchemaGenerator to sort images by size
-                if (t instanceof HTMLImageElement) {
-                    const width = t.naturalWidth || t.width || 0;
-                    const height = t.naturalHeight || t.height || 0;
-                    const area = width * height;
-                    if (area > 0) {
-                        results[`${key} src dimensions`] = {
-                            width,
-                            height,
-                            area
-                        };
-                    }
-                }
-            }
-
-            const alt = t.getAttribute("alt");
-            if (alt && typeof alt === "string" && alt.trim()) {
-                results[`${key} alt`] = alt.trim();
-            }
-        }
+        // 2. Extract Links and Images
+        this.extractLinkFields(t, key, results);
+        this.extractImgFields(t, key, results);
 
         // 4. Recurse children
         const children = Array.from(t.children) as HTMLElement[];
@@ -206,6 +197,58 @@ export class DataExtractor {
                 this.processNode(child, currentPath, currentCounts, results);
             }
         }
+    }
+
+    /**
+     * Extract only key attributes from a hidden element (no text, no recursion).
+     * Captures: src, href, aria-label, title, alt
+     */
+    private extractAttributes(t: HTMLElement, key: string, results: any) {
+        // Extract text content from the hidden element itself (prices, reviews, ratings, etc.)
+        const text = (t.textContent || '').trim();
+        if (text && text.length > 0 && text.length < 500) {
+            results[key] = text;
+        }
+
+        const ariaLabel = t.getAttribute('aria-label');
+        const title = t.getAttribute('title');
+        if (ariaLabel && ariaLabel.trim()) results[`${key} label`] = ariaLabel.trim();
+        if (title && title.trim()) results[`${key} title`] = title.trim();
+
+        this.extractLinkFields(t, key, results);
+        this.extractImgFields(t, key, results);
+    }
+
+    private extractLinkFields(t: HTMLElement, key: string, results: any) {
+        if (t.tagName !== 'A') return;
+        const href = t.getAttribute('href');
+        if (href && !href.trim().toLowerCase().startsWith('javascript:') && !href.startsWith('#')) {
+            results[`${key} href`] = this.normalizeUrl(href.trim());
+        }
+    }
+
+    private extractImgFields(t: HTMLElement, key: string, results: any) {
+        if (t.tagName !== 'IMG') return;
+        let src = t.getAttribute('src');
+        if (!src) src = t.getAttribute('data-src');
+        if (!src) src = t.getAttribute('data-lazy-src');
+
+        if (src && !src.startsWith('data:')) {
+            results[`${key} src`] = this.normalizeUrl(src.trim());
+            if (t instanceof HTMLImageElement) {
+                const area = (t.naturalWidth || t.width || 0) * (t.naturalHeight || t.height || 0);
+                if (area > 0) {
+                    results[`${key} src dimensions`] = {
+                        width: t.naturalWidth || t.width,
+                        height: t.naturalHeight || t.height,
+                        area
+                    };
+                }
+            }
+        }
+
+        const alt = t.getAttribute('alt');
+        if (alt?.trim()) results[`${key} alt`] = alt.trim();
     }
 
     private normalizeUrl(t: string): string {
@@ -224,31 +267,11 @@ export class DataExtractor {
         return `${origin}${pathParts.length > 0 ? `/${pathParts.join("/")}/` : "/"}${t}`;
     }
 
-    private generateNodeName(t: HTMLElement) {
-        // Reference Logic (background-readable.js lines 1902-1936)
-
-        // 1. Helper to find stable class
-        const getStableClass = (el: HTMLElement) => {
-            const excludedPrefixes = ["js-", "data-"];
-            const classes = (el.getAttribute("class") || "").split(/\s+/).filter(c => {
-                return c &&
-                    !excludedPrefixes.some(exc => c.startsWith(exc)) &&
-                    !/^\d+$/.test(c);
-            });
-            // Return first class if any, else tagName
-            return classes.length > 0 ? classes[0] : el.tagName.toLowerCase();
-        };
-
-        // CRITICAL FINDING: The reference logic actually uses the first stable CLASS (or tagname) as the key component!
-        // It mostly IGNORES 'displayLabel' (which is calculated as 'n' inside the function) for the PATH generation.
-
-        // Use the helper appropriately
-        const pathLabel = getStableClass(t);
-
-        return {
-            id: t.id || "",
-            displayLabel: pathLabel
-        };
+    private generateNodeName(t: HTMLElement): string {
+        const classes = (t.getAttribute("class") || "").split(/\s+/).filter(c =>
+            c && !["js-", "data-"].some(exc => c.startsWith(exc)) && !/^\d+$/.test(c)
+        );
+        return classes.length > 0 ? classes[0] : t.tagName.toLowerCase();
     }
 
 
@@ -264,14 +287,18 @@ export class DataExtractor {
     public normalizeRow(row: any, columns: any[]) {
         const newRow: any = {};
         columns.forEach(col => {
-            // Check all potential keys that map to this column ID
-            const val = row[col.originalId];
-            if (val !== undefined) {
-                newRow[col.id] = val;
+            if (col.type === 'image_array' && col.mergedKeys) {
+                // Collect all sibling image values into an array
+                const images: string[] = [];
+                for (const key of col.mergedKeys) {
+                    const val = row[key];
+                    if (val && typeof val === 'string') images.push(val);
+                }
+                if (images.length > 0) newRow[col.id] = JSON.stringify(images);
+            } else {
+                const val = row[col.originalId];
+                if (val !== undefined) newRow[col.id] = val;
             }
-
-            // [NEW] Handle merged keys if SchemaGenerator provided a list (in future)
-            // For now, we assume originalId is sufficient because it matches the first seen path.
         });
         return newRow;
     }

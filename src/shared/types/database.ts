@@ -10,16 +10,20 @@ export type ColumnType =
     | 'number'
     | 'url'
     | 'image'
+    | 'image_array'
     | 'email'
     | 'phone'
     | 'date'
-    | 'price';
+    | 'price'
+    | 'markdown';
 
 export interface Column {
     id: string;
     name: string;
     type: ColumnType;
     order?: number;
+    group?: { id: string; name: string };
+    isKeyValue?: boolean;
 }
 
 // TableData - metadata for extracted datasets
@@ -36,6 +40,7 @@ export interface TableData {
         totalRows?: number;
         source?: string;
         isPreview?: boolean;
+        columnMerges?: Array<{ id: string; name: string; sources: string[]; separator: string }>;
         // automationId removed from metadata as it is redundant
     };
 }
@@ -65,7 +70,8 @@ export type AutomationType =
     | 'email-extraction'
     | 'image-download'
     | 'text-extraction'
-    | 'bulk-extraction';
+    | 'bulk-extraction'
+    | 'metadata-extraction';
 
 export interface AutomationConfig {
     type: AutomationType;

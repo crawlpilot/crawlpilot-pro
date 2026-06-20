@@ -8,7 +8,6 @@ interface ChildHashData {
         id: string;
         className: string;
         attributes: string;
-        dimensions: { width: number; height: number };
         childCount: number;
         textLength: number;
         firstFewChars: string;
@@ -59,16 +58,11 @@ export class IndexedScrollStrategy implements IScrollStrategy {
 
         if (rootElement) {
             container = rootElement;
-        } else if (selectorType === 'selector') {
-            if (selectionMode === 'items') {
-                const els = Array.from(document.querySelectorAll(parentSelector));
-                container = els.length > 0 ? (els[0].parentElement as HTMLElement) : null;
-            } else {
-                container = document.querySelector(parentSelector) as HTMLElement;
-            }
         } else if (selectorType === 'xpath') {
             const result = document.evaluate(parentSelector, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
             container = result.singleNodeValue as HTMLElement;
+        } else {
+            container = document.querySelector(parentSelector) as HTMLElement;
         }
 
         if (!container && selectionMode === 'container') {
@@ -76,12 +70,12 @@ export class IndexedScrollStrategy implements IScrollStrategy {
         }
 
         const getChildren = (): HTMLElement[] => {
-            const containerItems = container ? (Array.from(container.children) as HTMLElement[]) : [];
-            if (selectionMode === 'items' && selectorType === 'selector') {
-                const selectorItems = Array.from(document.querySelectorAll(parentSelector)) as HTMLElement[];
-                if (selectorItems.length > containerItems.length) return selectorItems;
+            if (!container) return [];
+            if (selectionMode === 'items' && selectorType === 'selector' && parentSelector) {
+                const scoped = Array.from(container.querySelectorAll(parentSelector)) as HTMLElement[];
+                if (scoped.length > 0) return scoped;
             }
-            return containerItems;
+            return Array.from(container.children) as HTMLElement[];
         };
 
         let children = getChildren();
@@ -99,7 +93,8 @@ export class IndexedScrollStrategy implements IScrollStrategy {
 
         let lastProcessedHashData: ChildHashData | null = null;
         let consecutiveNoNewItems = 0;
-        const maxNoNewItems = 3;
+        const maxNoNewItems = 5;
+        let resyncCounter = 0;
 
         console.log(`[IndexedScrollStrategy] Starting from index ${currentIdx}. Initial count: ${children.length}`);
 
@@ -109,19 +104,21 @@ export class IndexedScrollStrategy implements IScrollStrategy {
             if (currentIdx >= children.length) {
                 if (consecutiveNoNewItems < maxNoNewItems) {
                     consecutiveNoNewItems++;
+                    const scrollAmount = container ? Math.max(container.clientHeight / 2, 200) : Math.max(window.innerHeight / 2, 200);
                     if (container) {
-                        container.scrollTop += 100;
+                        container.scrollTop += scrollAmount;
                     } else {
-                        window.scrollBy(0, 100);
+                        window.scrollBy(0, scrollAmount);
                     }
-                    await this.wait(200);
+                    await this.wait(500);
                     continue;
                 }
                 break;
             }
 
-            // Re-sync index if DOM shifted
-            if (lastProcessedHashData) {
+            // Re-sync index if DOM shifted — checked every 10 elements to avoid O(n) scan per tick
+            resyncCounter++;
+            if (lastProcessedHashData && resyncCounter % 10 === 0) {
                 const syncMatch = this.findChildByHash(children, JSON.stringify(lastProcessedHashData));
                 if (syncMatch.confidence !== 'none' && syncMatch.index !== -1) {
                     const expectedIdx = syncMatch.index + 1;
@@ -170,8 +167,6 @@ export class IndexedScrollStrategy implements IScrollStrategy {
         const id = element.id || '';
         const className = element.className || '';
         const tagName = element.tagName || '';
-        const rect = element.getBoundingClientRect();
-        const dimensions = `${Math.round(rect.width)}x${Math.round(rect.height)}:${index}`;
 
         let attributesStr = '';
         for (const attr of Array.from(element.attributes)) {
@@ -187,7 +182,7 @@ export class IndexedScrollStrategy implements IScrollStrategy {
             }
         }
 
-        const rawString = `${tagName}#${id}.${className}[${dimensions}][${attributesStr}][${childrenStr}]${innerText.substring(0, 100)}`;
+        const rawString = `${tagName}#${id}.${className}[${index}][${attributesStr}][${childrenStr}]${innerText.substring(0, 100)}`;
         let hash = 0;
         for (let i = 0; i < rawString.length; i++) {
             hash = ((hash << 5) - hash) + rawString.charCodeAt(i);
@@ -199,7 +194,6 @@ export class IndexedScrollStrategy implements IScrollStrategy {
             contextData: {
                 index, tagName, id, className,
                 attributes: attributesStr,
-                dimensions: { width: Math.round(rect.width), height: Math.round(rect.height) },
                 childCount: element.children.length,
                 textLength: innerText.length,
                 firstFewChars: innerText.substring(0, 30)
@@ -226,7 +220,7 @@ export class IndexedScrollStrategy implements IScrollStrategy {
             if (h.hash === targetHash) return { index: i, confidence: 'high' };
         }
 
-        // 2. Fuzzy match
+        // 2. Fuzzy match — dimensions removed; score on structure and text only
         if (context) {
             const scores = children.map((kid, idx) => {
                 const kidData = this.generateChildHash(kid, idx).contextData;
@@ -234,9 +228,6 @@ export class IndexedScrollStrategy implements IScrollStrategy {
                 if (kidData.tagName === context.tagName) score += 10;
                 if (kidData.id && kidData.id === context.id) score += 20;
                 if (kidData.className === context.className) score += 15;
-                const dimDiffW = Math.abs(kidData.dimensions.width - context.dimensions.width);
-                const dimDiffH = Math.abs(kidData.dimensions.height - context.dimensions.height);
-                if (dimDiffW < 5 && dimDiffH < 5) score += 10;
                 if (Math.abs(kidData.childCount - context.childCount) < 2) score += 5;
                 if (Math.abs(kidData.textLength - context.textLength) < 20) score += 5;
                 if (kidData.firstFewChars && context.firstFewChars && kidData.firstFewChars.includes(context.firstFewChars.substring(0, 10))) score += 10;
@@ -244,8 +235,8 @@ export class IndexedScrollStrategy implements IScrollStrategy {
             });
 
             scores.sort((a, b) => b.score - a.score);
-            if (scores.length > 0 && scores[0].score >= 65) {
-                return { index: scores[0].index, confidence: scores[0].score >= 70 ? 'high' : 'medium' };
+            if (scores.length > 0 && scores[0].score >= 55) {
+                return { index: scores[0].index, confidence: scores[0].score >= 60 ? 'high' : 'medium' };
             }
         }
 

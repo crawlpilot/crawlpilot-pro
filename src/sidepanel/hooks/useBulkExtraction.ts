@@ -1,11 +1,23 @@
-import { useState, useRef } from 'react';
-import { db } from '../../shared/db/db-manager';
+import { useState, useRef, useEffect, useCallback } from 'react';
+
+interface UrlStatus {
+    url: string;
+    status: 'queued' | 'extracting' | 'done' | 'error';
+    error?: string;
+}
 
 interface BulkExtractionOptions {
-    useParallel?: boolean;
     maxConcurrent?: number;
+    viewportWidth?: number;
+    viewportHeight?: number;
+    clickWaitMs?: number;
+    requestDelay?: number;
+    loadTimeout?: number;
+    waitForLoad?: boolean;
+    enableRandomization?: boolean;
+    waitForElements?: boolean;
+    elementTimeout?: number;
     onProgress?: (completed: number) => void;
-    onComplete?: (tableId: number) => void;
     onStart?: (jobId: number) => void;
     jobId?: number;
     recipeId?: number;
@@ -14,35 +26,104 @@ interface BulkExtractionOptions {
 
 export function useBulkExtraction() {
     const [isExtracting, setIsExtracting] = useState(false);
+    const [isStopping, setIsStopping] = useState(false);
+    const [hasStopped, setHasStopped] = useState(false);
+    const [stoppedTableId, setStoppedTableId] = useState<number | null>(null);
+    const [hasCompleted, setHasCompleted] = useState(false);
+    const [completedTableId, setCompletedTableId] = useState<number | null>(null);
     const [completedPages, setCompletedPages] = useState(0);
-    const shouldStopRef = useRef(false);
+    const [totalPages, setTotalPages] = useState(0);
+    const [activeTabs, setActiveTabs] = useState(0);
+    const [urlStatuses, setUrlStatuses] = useState<UrlStatus[]>([]);
+    const [currentJobId, setCurrentJobId] = useState<number | null>(null);
+    const [previewTableId, setPreviewTableId] = useState<number | null>(null);
+    const [duplicatesRemoved, setDuplicatesRemoved] = useState(0);
 
-    const stopBulkExtraction = () => {
-        shouldStopRef.current = true;
-        // Also set a global flag in storage for robustness across page navigations
-        chrome.storage.local.set({ stop_bulk_extraction_running: true });
-    };
+    const callbacksRef = useRef<{
+        onProgress?: (completed: number) => void;
+        onStart?: (jobId: number) => void;
+    }>({});
 
-    const checkStop = async () => {
-        if (shouldStopRef.current) return true;
-        const { stop_bulk_extraction_running } = await chrome.storage.local.get(['stop_bulk_extraction_running']);
-        if (stop_bulk_extraction_running) {
-            shouldStopRef.current = true;
-            return true;
-        }
-        return false;
-    };
+    const pendingProgressRef = useRef<{
+        completedUrls: number; totalUrls: number; activeTabs: number;
+        urlStatuses: UrlStatus[]; previewTableId: number | null;
+    } | null>(null);
+    const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const startBulkExtraction = async (
+    useEffect(() => {
+        const flushProgress = () => {
+            flushTimerRef.current = null;
+            const p = pendingProgressRef.current;
+            if (!p) return;
+            pendingProgressRef.current = null;
+            setCompletedPages(p.completedUrls);
+            setTotalPages(p.totalUrls);
+            setActiveTabs(p.activeTabs);
+            setUrlStatuses(p.urlStatuses);
+            if (p.previewTableId != null) setPreviewTableId(p.previewTableId);
+        };
+
+        const handleMessage = (message: any) => {
+            if (message.type === 'BULK_EXTRACTION_PROGRESS') {
+                const { completedUrls, totalUrls, activeTabs: tabs, urlStatuses: statuses, previewTableId: preview } = message.payload;
+                pendingProgressRef.current = {
+                    completedUrls, totalUrls, activeTabs: tabs,
+                    urlStatuses: statuses || [], previewTableId: preview ?? null
+                };
+                if (!flushTimerRef.current) {
+                    flushTimerRef.current = setTimeout(flushProgress, 300);
+                }
+                if (callbacksRef.current.onProgress) {
+                    callbacksRef.current.onProgress(completedUrls);
+                }
+            } else if (message.type === 'BULK_EXTRACTION_COMPLETE') {
+                const { tableDataId, stoppedByUser } = message.payload;
+                setIsExtracting(false);
+                setIsStopping(false);
+                setActiveTabs(0);
+                if (stoppedByUser) {
+                    setHasStopped(true);
+                    setStoppedTableId(tableDataId ?? null);
+                } else {
+                    setHasCompleted(true);
+                    setCompletedTableId(tableDataId ?? null);
+                }
+            }
+        };
+
+        chrome.runtime.onMessage.addListener(handleMessage);
+        return () => {
+            chrome.runtime.onMessage.removeListener(handleMessage);
+            if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+        };
+    }, []);
+
+    const stopBulkExtraction = useCallback(() => {
+        chrome.runtime.sendMessage({
+            type: 'BULK_EXTRACTION_STOP',
+            payload: { jobId: currentJobId },
+            timestamp: Date.now()
+        });
+        setIsStopping(true);
+    }, [currentJobId]);
+
+    const startBulkExtraction = useCallback(async (
         urls: string[],
         elements: any[],
         options: BulkExtractionOptions = {}
     ) => {
         const {
-            useParallel = false,
             maxConcurrent = 3,
+            viewportWidth,
+            viewportHeight,
+            clickWaitMs,
+            requestDelay,
+            loadTimeout,
+            waitForLoad,
+            enableRandomization,
+            waitForElements,
+            elementTimeout,
             onProgress,
-            onComplete,
             onStart,
             jobId: existingJobId,
             recipeId: passedRecipeId,
@@ -51,304 +132,102 @@ export function useBulkExtraction() {
 
         if (urls.length === 0 || elements.length === 0) return;
 
-        setIsExtracting(true);
-        setCompletedPages(0);
-        shouldStopRef.current = false;
-        await chrome.storage.local.remove(['stop_bulk_extraction_running']);
-
-        const uniqueUrls = Array.from(new Set(urls));
-        const allItems: any[] = [];
-        const finalColumns: any[] = [];
-
-        try {
-            // Get settings
-            const { extraction_settings: settings } = await chrome.storage.local.get(['extraction_settings']) as { extraction_settings?: any };
-            const config = settings || { loadTimeout: 3000, requestDelay: 1000 };
-
-            // Get active tab
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (!tab?.id) throw new Error("No active tab");
-
-            let jobId = existingJobId;
-            let recipeId = passedRecipeId;
-            let pageTitle = tab.title || (tab.url ? new URL(tab.url).hostname : 'Page Extractor');
-            if (pageTitle.length > 50) pageTitle = pageTitle.substring(0, 47) + '...';
-
-            const extractionAction = {
-                type: 'EXTRACT_PAGES',
-                elements: elements,
-                config: config
-            };
-
-            if (!jobId) {
-                if (!recipeId) {
-                    recipeId = await db.createRecipe({
-                        name: `Page Extraction - ${pageTitle}`,
-                        description: "Auto-generated page extraction",
-                        type: 'bulk-extraction',
-                        version: 1,
-                        config: {
-                            type: 'bulk-extraction',
-                            urls: uniqueUrls,
-                            options: { actions: [extractionAction] }
-                        },
-                        createdAt: Date.now(),
-                        updatedAt: Date.now()
-                    });
-                }
-
-                jobId = await db.createJob({
-                    recipeId: recipeId,
-                    name: customName || `Extraction - ${pageTitle}`,
-                    status: 'running',
-                    sourceUrl: tab.url || '',
-                    configSnapshot: {
-                        type: 'bulk-extraction',
-                        urls: uniqueUrls,
-                        options: { actions: [extractionAction] }
-                    },
-                    stats: {
-                        startTime: Date.now(),
-                        itemsExtracted: 0,
-                        pagesVisited: 0,
-                        errors: 0
-                    },
-                    createdAt: Date.now(),
-                    updatedAt: Date.now()
-                } as any);
-            } else {
-                // Update existing job status
-                await db.updateJob(jobId, {
-                    status: 'running',
-                    stats: {
-                        startTime: Date.now(),
-                        itemsExtracted: 0,
-                        pagesVisited: 0,
-                        errors: 0
-                    }
-                });
-            }
-
-            // [NEW] Trigger onStart immediately after job record is ready
-            if (onStart && jobId) onStart(jobId);
-
-            // Tab Load Helper
-            const waitForTabLoaded = (tabId: number): Promise<void> => {
-                return new Promise((resolve) => {
-                    const cap = setTimeout(resolve, (config.loadTimeout || 10000) + 5000);
-                    const onUpdated = (id: number, info: { status?: string }) => {
-                        if (id === tabId && info.status === 'complete') {
-                            clearTimeout(cap);
-                            chrome.tabs.onUpdated.removeListener(onUpdated);
-                            resolve();
-                        }
-                    };
-                    chrome.tabs.onUpdated.addListener(onUpdated);
-                    chrome.tabs.get(tabId, (t) => {
-                        if (chrome.runtime.lastError) return;
-                        if (t?.status === 'complete') {
-                            clearTimeout(cap);
-                            chrome.tabs.onUpdated.removeListener(onUpdated);
-                            resolve();
-                        }
-                    });
-                });
-            };
-
-            // Page Processor
-            const processUrlOnTab = async (targetTabId: number, url: string) => {
-                const batchRecordId = `rec_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-                let itemData: any = { source_url: url, recordId: batchRecordId };
-
-                const sendMessageWithRetry = async (tabId: number, message: any, maxRetries = 10, interval = 500) => {
-                    for (let attempt = 0; attempt < maxRetries; attempt++) {
-                        if (await checkStop()) break;
-                        const response = await new Promise<any>((resolve) => {
-                            chrome.tabs.sendMessage(tabId, message, (res) => {
-                                if (chrome.runtime.lastError) {
-                                    resolve({ success: false, error: chrome.runtime.lastError.message, isConnectionError: true });
-                                } else {
-                                    resolve(res);
-                                }
-                            });
-                        });
-
-                        if (response?.isConnectionError) {
-                            await new Promise(r => setTimeout(r, interval));
-                        } else {
-                            return response;
-                        }
-                    }
-                    return { success: false, error: 'Max retries reached.' };
-                };
-
-                for (const element of elements) {
-                    if (await checkStop()) break;
-
-                    // Route ALL elements (click + extract) through CMD_EXTRACT_PAGE
-                    // so they all benefit from ElementProcessor's reliable scroll,
-                    // highlight, and action handling.
-                    const actionSpeed = config.actionSpeed || 500;
-
-                    const response = await sendMessageWithRetry(targetTabId, {
-                        type: 'CMD_EXTRACT_PAGE',
-                        payload: {
-                            actionType: 'EXTRACT_PAGES',
-                            url,
-                            elements: [element],
-                            config: { ...config, actionSpeed }
-                        }
-                    });
-
-                    if (element.action === 'click') {
-                        // Extra wait after click to allow expansion/animation to complete
-                        const clickWait = Math.max(actionSpeed, config.requestDelay > 0 ? config.requestDelay : 1000);
-                        await new Promise(resolve => setTimeout(resolve, clickWait));
-                    } else {
-                        if (response && response.success && response.result) {
-                            const { item, items, columns: resultColumns } = response.result;
-                            if (resultColumns && Array.isArray(resultColumns)) {
-                                resultColumns.forEach((newCol: any) => {
-                                    if (!finalColumns.find((c: any) => c.id === newCol.id)) {
-                                        finalColumns.push(newCol);
-                                    }
-                                });
-                            }
-                            if (items && Array.isArray(items)) {
-                                if (Array.isArray(itemData)) {
-                                    itemData = items.map((newItem, idx) => ({
-                                        ...(itemData[idx] || { recordId: batchRecordId }),
-                                        ...newItem,
-                                        recordId: batchRecordId
-                                    }));
-                                } else {
-                                    const baseData = { ...itemData };
-                                    itemData = items.map((newItem, idx) => ({
-                                        ...(idx === 0 ? baseData : { recordId: batchRecordId }),
-                                        ...newItem,
-                                        recordId: batchRecordId
-                                    }));
-                                }
-                            } else if (item) {
-                                if (Array.isArray(itemData)) {
-                                    itemData = itemData.map((row: any, idx: number) => ({
-                                        ...row,
-                                        ...(idx === 0 ? item : {})
-                                    }));
-                                } else {
-                                    itemData = { ...itemData, ...item };
-                                }
-                            }
-                        }
-                        await new Promise(resolve => setTimeout(resolve, 300));
-                    }
-                }
-                return itemData;
-            };
-
-            // Execution
-            if (!useParallel) {
-                for (let i = 0; i < uniqueUrls.length; i++) {
-                    if (await checkStop()) break;
-                    const url = uniqueUrls[i];
-                    await chrome.tabs.update(tab.id, { url });
-                    await waitForTabLoaded(tab.id);
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    const extractedData = await processUrlOnTab(tab.id, url);
-                    if (Array.isArray(extractedData)) allItems.push(...extractedData);
-                    else allItems.push(extractedData);
-                    const completed = i + 1;
-                    setCompletedPages(completed);
-                    if (onProgress) onProgress(completed);
-                    if (i < uniqueUrls.length - 1 && config.requestDelay > 0) {
-                        await new Promise(resolve => setTimeout(resolve, config.requestDelay));
-                    }
-                }
-            } else {
-                const queue = [...uniqueUrls];
-                const worker = async () => {
-                    while (queue.length > 0 && !(await checkStop())) {
-                        const url = queue.shift();
-                        if (!url) break;
-                        let bgTabId: number | undefined;
-                        try {
-                            const bgTab = await chrome.tabs.create({ url, active: false });
-                            bgTabId = bgTab.id;
-                            if (!bgTabId) continue;
-                            await waitForTabLoaded(bgTabId);
-                            await chrome.tabs.update(bgTabId, { active: true });
-                            await new Promise(r => setTimeout(r, 300));
-                            await chrome.tabs.update(tab.id, { active: true });
-                            await new Promise(r => setTimeout(r, 200));
-                            const extractedData = await processUrlOnTab(bgTabId, url);
-                            if (Array.isArray(extractedData)) allItems.push(...extractedData);
-                            else allItems.push(extractedData);
-                        } finally {
-                            if (bgTabId) chrome.tabs.remove(bgTabId).catch(console.warn);
-                            setCompletedPages(prev => {
-                                const next = prev + 1;
-                                if (onProgress) onProgress(next);
-                                return next;
-                            });
-                        }
-                    }
-                };
-                const workerCount = Math.min(maxConcurrent, uniqueUrls.length);
-                await Promise.all(Array(workerCount).fill(null).map(() => worker()));
-            }
-
-            if (allItems.length > 0) {
-                const finalData = {
-                    type: 'bulk-page',
-                    items: allItems,
-                    columns: finalColumns,
-                    source_url: uniqueUrls[0] + (uniqueUrls.length > 1 ? ` (+${uniqueUrls.length - 1} more)` : ''),
-                    count: allItems.length,
-                    timestamp: new Date().toISOString()
-                };
-
-                const tableId = await db.saveExtraction(finalData, {
-                    name: `Bulk Extraction (${uniqueUrls.length} pages)`,
-                    jobId: jobId
-                });
-
-                if (jobId) {
-                    await db.updateJob(jobId, {
-                        status: (await checkStop()) ? 'paused' : 'completed',
-                        result: { tableDataId: tableId },
-                        stats: {
-                            startTime: Date.now(),
-                            endTime: Date.now(),
-                            itemsExtracted: allItems.length,
-                            pagesVisited: uniqueUrls.length,
-                            stoppedByUser: await checkStop()
-                        }
-                    });
-                }
-                if (onComplete) onComplete(tableId);
-            } else if (jobId) {
-                await db.updateJob(jobId, {
-                    status: 'paused',
-                    stats: {
-                        startTime: Date.now(),
-                        endTime: Date.now(),
-                        itemsExtracted: 0,
-                        pagesVisited: 0,
-                        stoppedByUser: true
-                    }
-                });
-            }
-
-        } finally {
-            setIsExtracting(false);
-            setCompletedPages(0);
+        const hasPermission = await chrome.permissions.contains({ origins: ['<all_urls>'] });
+        if (!hasPermission) {
+            const granted = await chrome.permissions.request({ origins: ['<all_urls>'] });
+            if (!granted) return;
         }
-    };
+
+        callbacksRef.current = { onProgress, onStart };
+
+        setIsExtracting(true);
+        setIsStopping(false);
+        setHasStopped(false);
+        setStoppedTableId(null);
+        setHasCompleted(false);
+        setCompletedTableId(null);
+        setPreviewTableId(null);
+        setCompletedPages(0);
+        setDuplicatesRemoved(0);
+        setTotalPages(urls.length);
+        setUrlStatuses(urls.map(url => ({ url, status: 'queued' })));
+
+        const { extraction_settings: settings } = await chrome.storage.local.get(['extraction_settings']) as { extraction_settings?: any };
+        const config = settings || { requestDelay: 1000 };
+        if (viewportWidth) config.viewportWidth = viewportWidth;
+        if (viewportHeight) config.viewportHeight = viewportHeight;
+        if (clickWaitMs != null) config.clickWaitMs = clickWaitMs;
+        if (requestDelay != null) config.requestDelay = requestDelay;
+        if (loadTimeout != null) config.loadTimeout = loadTimeout;
+        if (waitForLoad != null) config.waitForLoad = waitForLoad;
+        if (enableRandomization != null) config.enableRandomization = enableRandomization;
+        if (waitForElements != null) config.waitForElements = waitForElements;
+        if (elementTimeout != null) config.elementTimeout = elementTimeout;
+
+        const response = await new Promise<any>((resolve) => {
+            chrome.runtime.sendMessage({
+                type: 'BULK_EXTRACTION_START',
+                payload: {
+                    urls,
+                    elements,
+                    config,
+                    jobId: existingJobId,
+                    recipeId: passedRecipeId,
+                    customName,
+                    maxConcurrent: Math.min(maxConcurrent, 5)
+                },
+                timestamp: Date.now()
+            }, (res) => {
+                if (chrome.runtime.lastError) {
+                    resolve({ success: false, error: chrome.runtime.lastError.message });
+                } else {
+                    resolve(res);
+                }
+            });
+        });
+
+        if (response?.success && response.jobId) {
+            setCurrentJobId(response.jobId);
+            if (onStart) onStart(response.jobId);
+            const dupes = (response.originalCount ?? urls.length) - (response.uniqueCount ?? urls.length);
+            if (dupes > 0) {
+                setDuplicatesRemoved(dupes);
+                setTotalPages(response.uniqueCount);
+                setUrlStatuses(Array.from(new Set(urls)).map(url => ({ url, status: 'queued' as const })));
+            }
+        } else {
+            console.error('[useBulkExtraction] Failed to start:', response?.error);
+            setIsExtracting(false);
+        }
+    }, []);
+
+    const resetStoppedState = useCallback(() => {
+        setHasStopped(false);
+        setHasCompleted(false);
+        setIsStopping(false);
+        setStoppedTableId(null);
+        setCompletedTableId(null);
+        setCompletedPages(0);
+        setUrlStatuses([]);
+        setPreviewTableId(null);
+        setDuplicatesRemoved(0);
+    }, []);
 
     return {
         isExtracting,
+        isStopping,
+        hasStopped,
+        stoppedTableId,
+        hasCompleted,
+        completedTableId,
         completedPages,
+        totalPages,
+        activeTabs,
+        urlStatuses,
+        previewTableId,
+        duplicatesRemoved,
         startBulkExtraction,
-        stopBulkExtraction
+        stopBulkExtraction,
+        resetStoppedState
     };
 }

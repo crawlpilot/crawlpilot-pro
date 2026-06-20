@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSelectorManager } from '../hooks/useSelectorManager';
 import { useSelectionMode } from '../hooks/useSelectionMode';
 import { useExtractionProcess } from '../hooks/useExtractionProcess';
@@ -17,6 +18,7 @@ interface ListExtractorPageProps {
 }
 
 export default function ListExtractorPage({ onBack, onExtractionStatusChange }: ListExtractorPageProps) {
+    const { t } = useTranslation('listExtractor');
     // 1. Logic Hooks
     const {
         selectors,
@@ -257,8 +259,8 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
 
     return (
         <WizardLayout
-            title="Extract a List"
-            subtitle={step === 1 ? "Select the items you want to scrape" : step === 2 ? "Configure navigation" : "Review and start"}
+            title={t('title')}
+            subtitle={step === 1 ? t('step1.subtitle') : step === 2 ? t('step2.subtitle') : t('step3.subtitle')}
             currentStep={step}
             totalSteps={3}
             onBack={step === 1 ? onBack : () => setStep(step - 1)}

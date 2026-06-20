@@ -1,0 +1,5 @@
+{
+  "appName": { "message": "Crawl Pilot Web Scraper" },
+  "appDesc": { "message": "Estrattore visivo di dati da qualsiasi sito web in Excel/JSON. Interfaccia punta e clicca con IA. Nessuna programmazione richiesta." },
+  "actionTitle": { "message": "Crawl Pilot" }
+}

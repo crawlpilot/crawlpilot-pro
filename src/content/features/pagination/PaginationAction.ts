@@ -4,6 +4,7 @@ import { NextButtonSelector } from '../../services/dom/selectors/NextButtonSelec
 import { SelectorMetadata } from '../../../shared/types/extraction';
 import { BaseAction, ActionContext } from '../../core/BaseAction';
 import { AutoScrollAction } from '../autoscroll/AutoScrollAction';
+import { HL_COLOR, HL_BG, HL_GLOW_STRONG } from '../../utils/highlight-tokens';
 
 export interface PaginationConfig {
     startSelector: string;
@@ -110,14 +111,18 @@ export class PaginationAction extends BaseAction {
 
                 pageCount++;
 
-                // [NEW] URL Loop Detection
-                const currentUrl = window.location.href;
-                if (this.visitedUrls.has(currentUrl)) {
-                    console.log('🛑 [Pagination] URL already visited, breaking loop:', currentUrl);
-                    this.context.onProgress?.({ type: 'complete', reason: 'url_loop_detected', message: "Pagination complete - returning to previously visited page detected" });
-                    break;
+                // URL Loop Detection — only meaningful for URL-based navigation.
+                // For JS-driven (content_change) pagination the URL is always the same;
+                // duplicate-page detection is handled by the calculatePageHash check below.
+                if (navigationResult.navigationMode === 'url_change') {
+                    const currentUrl = window.location.href;
+                    if (this.visitedUrls.has(currentUrl)) {
+                        console.log('🛑 [Pagination] URL already visited, stopping before re-extraction:', currentUrl);
+                        this.context.onProgress?.({ type: 'complete', reason: 'url_loop_detected', message: "Pagination complete - returned to a previously visited page" });
+                        break;
+                    }
+                    this.visitedUrls.add(currentUrl);
                 }
-                this.visitedUrls.add(currentUrl);
 
                 // Content Processing Phase
                 this.context?.onProgress?.({ type: 'navigate', page: pageCount, message: `Processing page ${pageCount}` });
@@ -130,8 +135,17 @@ export class PaginationAction extends BaseAction {
                     break;
                 }
 
+                // Page Integrity Check BEFORE extracting — prevents emitting duplicate items
+                const currentPageHash = this.calculatePageHash(newContainer);
+                if (this.lastPageHash !== null && this.lastPageHash === currentPageHash) {
+                    console.log('🛑 [Pagination] Page content identical to previous page, stopping before re-extraction');
+                    this.context.onProgress?.({ type: 'complete', reason: 'content_unchanged', message: "Pagination complete - page content unchanged after navigation" });
+                    break;
+                }
+
                 const { extractedCount, newTotal } = await this.processPageContent(newContainer!, pageCount, totalItems);
                 totalItems = newTotal;
+                this.lastPageHash = currentPageHash;
 
                 if (extractedCount <= 0) {
                     consecutiveNoContentChanges++;
@@ -142,15 +156,6 @@ export class PaginationAction extends BaseAction {
                 } else {
                     consecutiveNoContentChanges = 0;
                 }
-
-                // [NEW] Page Integrity Check (Fingerprinting)
-                const currentPageHash = this.calculatePageHash(newContainer);
-                if (this.lastPageHash !== null && this.lastPageHash === currentPageHash) {
-                    console.log('🛑 [Pagination] Page content identical to previous page, breaking loop');
-                    this.context.onProgress?.({ type: 'complete', reason: 'content_unchanged', message: "Pagination complete - no content changes detected after navigation" });
-                    break;
-                }
-                this.lastPageHash = currentPageHash;
 
                 this.context.onProgress?.({ type: 'wait', message: `Waiting for page stability (${internalConfig.pageLoadDelay}ms)...` });
                 await this.wait(internalConfig.pageLoadDelay);
@@ -173,12 +178,11 @@ export class PaginationAction extends BaseAction {
 
     private getInternalConfig() {
         return {
-            navigationDelay: this.config.navigationDelay || 1500,
-            contentLoadDelay: this.config.contentLoadDelay || 2000,
-            pageLoadDelay: this.config.pageLoadDelay || 1000,
+            contentLoadDelay: this.config.contentLoadDelay || 1000,
+            pageLoadDelay: this.config.pageLoadDelay || 500,
             urlChangeTimeout: this.config.urlChangeTimeout || 10000,
             maxContentNoChange: 2,
-            scrollDelay: this.config.scrollDelay || 400
+            scrollDelay: this.config.scrollDelay || 300
         };
     }
 
@@ -271,7 +275,7 @@ export class PaginationAction extends BaseAction {
         return null;
     }
 
-    private async navigateToNextPage(pageCount: number, totalItems: number, internalConfig: any): Promise<{ status: 'success' | 'complete' | 'error' | 'timeout', message?: string }> {
+    private async navigateToNextPage(pageCount: number, totalItems: number, internalConfig: any): Promise<{ status: 'success' | 'complete' | 'error', message?: string, navigationMode?: 'url_change' | 'content_change' }> {
         const { nextButtonSelector, nextButtonSelectors } = this.config;
 
         // Construct selectors list from metadata (preferred) or single selector
@@ -302,6 +306,10 @@ export class PaginationAction extends BaseAction {
         const nextBtn = findResult.element;
         const urlBefore = window.location.href;
 
+        const containerSelectors = this.getContainerSelectors();
+        const preClickEl = this.findContainerRobust(containerSelectors);
+        const preClickHash = preClickEl ? this.calculatePageHash(preClickEl) : null;
+
         this.context?.onProgress?.({
             type: 'click',
             page: pageCount,
@@ -317,23 +325,27 @@ export class PaginationAction extends BaseAction {
             return { status: 'error', message: 'Unable to click next button' };
         }
 
-        this.context?.onProgress?.({ type: 'wait', message: `Waiting for navigation (${internalConfig.navigationDelay}ms)...` });
-        await this.wait(internalConfig.navigationDelay);
+        this.context?.onProgress?.({ type: 'wait', message: 'Waiting for navigation...' });
+        const navigationResult = await this.waitForNavigationOrLoad(
+            urlBefore,
+            internalConfig.urlChangeTimeout,
+            containerSelectors,
+            preClickHash ?? undefined
+        );
         this.throwIfAborted();
 
-        const navigationResult = await this.waitForNavigationOrLoad(urlBefore, internalConfig.urlChangeTimeout);
-
         if (navigationResult === 'timeout') {
-            this.context?.onProgress?.({ type: 'wait', message: `Waiting for content load (${internalConfig.contentLoadDelay}ms)...` });
-            await this.wait(internalConfig.contentLoadDelay);
-            this.throwIfAborted();
-            return { status: 'timeout' };
-        } else {
-            this.context?.onProgress?.({ type: 'wait', message: `Waiting for new page content (${internalConfig.contentLoadDelay}ms)...` });
-            await this.wait(internalConfig.contentLoadDelay);
-            this.throwIfAborted();
-            return { status: 'success' };
+            // Neither URL nor content changed after click — no more pages
+            this.context?.onProgress?.({ type: 'complete', reason: 'no_navigation', message: "Pagination complete - no navigation detected after clicking Next" });
+            return { status: 'complete' };
         }
+
+        const navMode = navigationResult === 'content_change' ? 'content_change' : 'url_change';
+
+        this.context?.onProgress?.({ type: 'wait', message: `Waiting for page content (${internalConfig.contentLoadDelay}ms)...` });
+        await this.wait(internalConfig.contentLoadDelay);
+        this.throwIfAborted();
+        return { status: 'success', navigationMode: navMode };
     }
 
     private async handleError(error: any, pageCount: number, totalItems: number) {
@@ -384,14 +396,13 @@ export class PaginationAction extends BaseAction {
             left: ${rect.left + scrollLeft}px !important;
             width: ${rect.width}px !important;
             height: ${rect.height}px !important;
-            border: 3px solid #0ea5e9 !important; /* Sky Blue */
-            background-color: rgba(14, 165, 233, 0.15) !important;
-            box-shadow: 0 0 12px rgba(14, 165, 233, 0.6) !important;
+            border: 2px solid ${HL_COLOR} !important;
+            background-color: ${HL_BG} !important;
+            box-shadow: 0 0 12px ${HL_GLOW_STRONG} !important;
             z-index: 2147483647 !important;
             pointer-events: none !important;
             border-radius: 4px !important;
             transition: opacity 0.2s ease-out !important;
-            box-shadow: 0 0 8px rgba(34, 197, 94, 0.4) !important;
         `;
         document.body.appendChild(highlight);
 
@@ -404,9 +415,11 @@ export class PaginationAction extends BaseAction {
 
     private async clickElementRobust(element: HTMLElement): Promise<boolean> {
         try {
-            element.scrollIntoView({ behavior: "smooth", block: "center" });
-            await this.wait(500);
-
+            if (!this.isElementInViewport(element)) {
+                element.scrollIntoView({ block: 'center' });
+                await this.waitUntilInViewport(element, 1500);
+            }
+            await this.wait(150); // allow scroll-event listeners to settle
             element.click();
             return true;
         } catch (e) {
@@ -420,30 +433,89 @@ export class PaginationAction extends BaseAction {
         }
     }
 
-    private async waitForNavigationOrLoad(oldUrl: string, timeout: number = 10000): Promise<string> {
-        return new Promise((resolve) => {
-            const startTime = Date.now();
+    private isElementInViewport(element: HTMLElement): boolean {
+        const rect = element.getBoundingClientRect();
+        const vw = window.innerWidth || document.documentElement.clientWidth;
+        const vh = window.innerHeight || document.documentElement.clientHeight;
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        return cx >= 0 && cx <= vw && cy >= 0 && cy <= vh;
+    }
 
-            const check = () => {
-                if (this.isAborted()) {
-                    resolve('cancelled');
+    private waitUntilInViewport(element: HTMLElement, timeoutMs: number): Promise<void> {
+        return new Promise(resolve => {
+            const startTime = Date.now();
+            const poll = () => {
+                if (this.isElementInViewport(element) || Date.now() - startTime >= timeoutMs) {
+                    resolve();
                     return;
                 }
+                setTimeout(poll, 50);
+            };
+            poll();
+        });
+    }
+
+    private async waitForNavigationOrLoad(
+        oldUrl: string,
+        timeout: number = 10000,
+        containerSelectors?: string[],
+        preClickHash?: string
+    ): Promise<string> {
+        return new Promise((resolve) => {
+            const startTime = Date.now();
+            const POLL_MS = 100;
+            const STABILITY_MS = 500;
+            const CONTENT_POLL_MS = 250;
+            let stableStart: number | null = null;
+            let resolved = false;
+            let contentPollTimer: ReturnType<typeof setInterval> | null = null;
+
+            const done = (result: string) => {
+                if (resolved) return;
+                resolved = true;
+                if (contentPollTimer !== null) { clearInterval(contentPollTimer); contentPollTimer = null; }
+                resolve(result);
+            };
+
+            // Content-hash polling — re-queries by selector each tick so it works even when
+            // React/Vue/Angular replaces the container element entirely (detached-node problem).
+            if (containerSelectors?.length && preClickHash !== undefined) {
+                contentPollTimer = setInterval(() => {
+                    if (resolved) return;
+                    const currentContainer = this.findContainerRobust(containerSelectors);
+                    if (!currentContainer) return;
+                    const newHash = this.calculatePageHash(currentContainer);
+                    if (newHash !== preClickHash) done('content_change');
+                }, CONTENT_POLL_MS);
+            }
+
+            // URL-polling path — handles traditional navigation
+            const check = () => {
+                if (resolved) return;
+                if (this.isAborted()) { done('cancelled'); return; }
 
                 if (window.location.href !== oldUrl) {
-                    // [Refinement] Wait for URL stability
-                    setTimeout(() => resolve('url_change'), 2000);
-                    return;
+                    if (stableStart === null) stableStart = Date.now();
+                    if (Date.now() - stableStart >= STABILITY_MS) { done('url_change'); return; }
+                } else {
+                    stableStart = null;
                 }
 
                 if (Date.now() - startTime > timeout) {
-                    resolve('timeout');
+                    // Final content check before declaring timeout
+                    if (containerSelectors?.length && preClickHash !== undefined) {
+                        const finalContainer = this.findContainerRobust(containerSelectors);
+                        if (finalContainer) {
+                            const finalHash = this.calculatePageHash(finalContainer);
+                            if (finalHash !== preClickHash) { done('content_change'); return; }
+                        }
+                    }
+                    done('timeout');
                     return;
                 }
-
-                setTimeout(check, 200);
+                setTimeout(check, POLL_MS);
             };
-
             check();
         });
     }
@@ -479,14 +551,8 @@ export class PaginationAction extends BaseAction {
                 combinedData += `[idx:${idx}]`;
                 combinedData += `txt:${child.textContent?.trim().substring(0, 50)}|`;
 
-                const rect = child.getBoundingClientRect();
-                combinedData += `dim:${Math.round(rect.width)}x${Math.round(rect.height)}|`;
-
-                // Check for links and images which are strong unique identifiers
-                const links = child.querySelectorAll('a').length;
-                const imgs = child.querySelectorAll('img').length;
-                if (links > 0) combinedData += `lnk:${links}|`;
-                if (imgs > 0) combinedData += `img:${imgs}|`;
+                const childCount = child.children.length;
+                if (childCount > 0) combinedData += `ch:${childCount}|`;
             });
 
             // Add container state

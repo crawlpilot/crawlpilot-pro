@@ -20,37 +20,8 @@ export class ListSelectionStrategy implements ISelectionStrategy {
         this.refiner = new ItemSelectorRefiner();
     }
 
-    // State for hierarchical navigation
-    private candidates: any[] = [];
-
     handleHover(element: HTMLElement, picker: VisualElementPicker): void {
-        console.log('[ListStrategy] handleHover', element);
         const containerInfo = this.detector.findContainer(element);
-        console.log('[ListStrategy] findContainer Result:', containerInfo);
-
-        // --- Refined Hierarchical Candidates ---
-        let candidates: any[] = containerInfo.candidates ? [...containerInfo.candidates] : [];
-        if (candidates.length === 0 && containerInfo.isContainer) {
-            candidates = [containerInfo];
-        }
-
-        // Ensure the *active* container is included if missing
-        if (containerInfo.isContainer) {
-            const alreadyInList = candidates.some(c => c.container === containerInfo.container);
-            if (!alreadyInList) {
-                candidates.push({
-                    ...containerInfo,
-                    level: 999,
-                    area: containerInfo.container!.offsetWidth * containerInfo.container!.offsetHeight,
-                    depth: 0
-                });
-            }
-        }
-
-        // Sort candidates by Hierarchy (Level) for Navigation (Up = Wider/Parent, Down = Narrower/Child)
-        this.candidates = candidates.sort((a, b) => a.level - b.level);
-
-        // TRUST THE DETECTOR: Use the containerInfo returned as the "Best" match initially.
         this.applySelection(containerInfo, element, picker);
     }
 
@@ -66,10 +37,9 @@ export class ListSelectionStrategy implements ISelectionStrategy {
             );
             this.lastItemUnit = itemUnit;
 
-            // Hint user about keyboard nav?
             const typeLabel = containerInfo.containerType === 'table' ? 'Table' : 'List';
-            const label = `📋 ${typeLabel} Container (${containerInfo.childCount} items) ${this.candidates.length > 1 ? '↕' : ''}`;
-            const sub = this.candidates.length > 1 ? 'Use ↑/↓ to adjust scope • Click to select' : `Click to select entire ${typeLabel.toLowerCase()}`;
+            const label = `📋 ${typeLabel} Container (${containerInfo.childCount} items)`;
+            const sub = `Click to select entire ${typeLabel.toLowerCase()}`;
 
             picker.updateHighlightManual(
                 containerInfo.container,
@@ -138,12 +108,11 @@ export class ListSelectionStrategy implements ISelectionStrategy {
                     const allItems = Array.from(allMatches) as HTMLElement[];
 
                     if (allItems.length > 0) {
-                        console.log(`[Preview Fix] Expanded from ${containerInfo.siblings.length} filtered items to ${allItems.length} total items`);
                         containerInfo.siblings = allItems;
                         containerInfo.childCount = allItems.length;
                     }
                 } catch (e) {
-                    console.warn('[Preview Fix] Failed to query all items, using original filtered siblings:', e);
+                    // Silently use original filtered siblings if selector fails
                 }
             }
 

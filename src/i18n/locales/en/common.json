@@ -1,0 +1,50 @@
+{
+  "cancel": "Cancel",
+  "save": "Save",
+  "back": "Back",
+  "close": "Close",
+  "delete": "Delete",
+  "confirm": "Confirm",
+  "export": "Export",
+  "clear": "Clear",
+  "search": "Search",
+  "stop": "Stop",
+  "rerun": "Rerun",
+  "data": "Data",
+  "copy": "Copy",
+  "loading": "Loading...",
+  "yes": "Yes",
+  "no": "No",
+  "na": "N/A",
+  "status": {
+    "running": "Running",
+    "completed": "Completed",
+    "stopped": "Stopped",
+    "failed": "Failed",
+    "paused": "Paused",
+    "pending": "Pending",
+    "active": "Active"
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago",
+    "yesterday": "Yesterday",
+    "days": "{{count}} Days"
+  },
+  "connection": {
+    "notConnected": "Extension not connected to this tab",
+    "notConnectedHint": "Navigate to a webpage, then click Connect to enable scraping",
+    "connect": "Connect",
+    "connecting": "Connecting..."
+  },
+  "nav": {
+    "home": "Home",
+    "homeTooltip": "All tools and features",
+    "runs": "Runs",
+    "runsTooltip": "Previous extraction jobs you can re-run",
+    "data": "Data",
+    "dataTooltip": "Browse and export your extracted datasets"
+  }
+}

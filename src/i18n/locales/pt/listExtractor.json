@@ -1,0 +1,72 @@
+{
+  "title": "Extrair uma lista",
+  "step1": {
+    "subtitle": "Clique em um item repetido para detectar automaticamente a lista",
+    "pickRepeatingItem": "Escolha um item repetido",
+    "pickDescription": "Clique em qualquer item da lista ou tabela que deseja extrair — detectaremos o padrão e encontraremos todos os itens semelhantes automaticamente.",
+    "selectOnPage": "Selecionar na página",
+    "hint": "Clique em qualquer item repetido na página — um cartão de produto, resultado de pesquisa ou linha de tabela. Encontraremos o restante automaticamente.",
+    "listeningForClick": "Aguardando clique...",
+    "clickAnyRepeating": "Clique em qualquer item repetido na página (ex.: cartão de produto, uma linha, uma publicação).",
+    "pressEscToCancel": "Pressione ESC para cancelar",
+    "fieldsSelected_one": "{{count}} campo selecionado",
+    "fieldsSelected_other": "{{count}} campos selecionados",
+    "addAnotherField": "Adicionar outro campo",
+    "configurePagination": "Configurar paginação"
+  },
+  "step2": {
+    "subtitle": "Informe como carregar mais páginas",
+    "howToLoadMore": "Como devemos carregar mais itens?",
+    "pickNavigationMethod": "Escolha o método de navegação que corresponde a este site.",
+    "numberedPagination": {
+      "title": "Paginação numerada",
+      "description": "O site usa números de página ou um botão Próximo (ex.: 1, 2, 3... ou Próximo ›)"
+    },
+    "loadMoreButton": {
+      "title": "Botão \"Carregar mais\"",
+      "description": "Um botão adiciona mais itens à página atual sem navegar"
+    },
+    "infiniteScroll": {
+      "title": "Rolagem infinita / Página única",
+      "description": "Os itens carregam conforme você rola, ou tudo já está em uma página"
+    },
+    "pointToNext": "Aponte para o botão \"Próximo\" na página",
+    "pointToLoadMore": "Aponte para o botão \"Carregar mais\" na página",
+    "clickTheButton": "Clique no botão na página...",
+    "pressEscToCancel": "Pressione ESC para cancelar",
+    "pickNavigationButton": "Escolha o botão de navegação",
+    "nextButton": "Botão Próximo",
+    "loadMoreButtonLabel": "Botão Carregar mais",
+    "editNavigationSelectors": "Editar seletores de navegação",
+    "reviewAndRun": "Revisar e executar",
+    "back": "Voltar"
+  },
+  "step3": {
+    "subtitle": "Verifique as configurações e execute",
+    "reviewAndRun": "Revisar e executar",
+    "checkConfig": "Verifique sua configuração abaixo e inicie a extração.",
+    "summary": "Resumo",
+    "fieldsSelected": "Campos selecionados",
+    "fieldsDetail": "{{count}} campos · {{items}} itens por página",
+    "pageLimit": "Limite de páginas",
+    "singlePage": "Página única",
+    "pages": "{{count}} páginas",
+    "crawlSpeed": "Velocidade de extração",
+    "speed": "Velocidade",
+    "careful": "Cuidadoso — sites pesados ou protegidos",
+    "balanced": "Equilibrado — padrão para a maioria dos sites",
+    "aggressive": "Agressivo — apenas páginas rápidas e simples",
+    "waitTime": "Tempo de espera entre ações: {{ms}}ms",
+    "advancedSettings": "Configurações avançadas",
+    "waitDelay": "Atraso de espera",
+    "basedOnSpeed": "Baseado no perfil de velocidade",
+    "maxPagesToExtract": "Máximo de páginas a extrair",
+    "maxPagesHelper": "A extração para ao atingir este limite",
+    "extractionFailed": "Extração falhou",
+    "unknownError": "Ocorreu um erro desconhecido.",
+    "startExtraction": "Iniciar extração",
+    "openResultsTable": "Abrir tabela de resultados",
+    "newExtraction": "Nova extração",
+    "back": "Voltar"
+  }
+}

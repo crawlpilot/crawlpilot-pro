@@ -1,28 +1,99 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 import contentScriptPath from '../../content/element-selector?script';
+
+const RESTRICTED_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'edge://'];
+
+// How long a failed ping must persist before the "not connected" banner appears.
+// This absorbs transient failures: SW cold-start, language-switch re-render cascades,
+// brief tab navigation flashes. 800 ms is long enough to mask blips but short enough
+// that a real disconnection is caught quickly.
+const DISCONNECT_DEBOUNCE_MS = 800;
+const PING_RETRY_DELAY_MS = 400;
+const INJECT_POLL_INTERVAL_MS = 500;
+const INJECT_POLL_MAX_ATTEMPTS = 6;
+// Small delay on effect mount so React has finished committing renders (e.g. after
+// a language change) before we issue the first PING.
+const MOUNT_SETTLE_MS = 200;
+
+function isRestrictedUrl(url?: string): boolean {
+    return !url || RESTRICTED_PREFIXES.some(p => url.startsWith(p));
+}
 
 export function useTabSync() {
     const [isTabConnected, setIsTabConnected] = useState(true);
     const [activeTabId, setActiveTabId] = useState<number | null>(null);
     const [isConnecting, setIsConnecting] = useState(false);
 
-    const checkConnection = useCallback(async (tabId: number) => {
-        try {
-            // [NEW] Check if it's a restricted page (extension page, etc.)
-            const tab = await chrome.tabs.get(tabId);
-            if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('chrome-extension://') || tab.url?.startsWith('about:')) {
-                setIsTabConnected(true);
-                return;
-            }
+    const activeTabIdRef = useRef<number | null>(null);
+    // Timer that fires setIsTabConnected(false) after DISCONNECT_DEBOUNCE_MS of
+    // continuous ping failures. Cancelled the moment any ping succeeds.
+    const disconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-            // Ping content script
-            await chrome.tabs.sendMessage(tabId, { type: 'PING' });
-            setIsTabConnected(true);
-        } catch (e) {
-            setIsTabConnected(false);
+    const cancelDisconnect = useCallback(() => {
+        if (disconnectTimerRef.current) {
+            clearTimeout(disconnectTimerRef.current);
+            disconnectTimerRef.current = null;
         }
     }, []);
+
+    const scheduleDisconnect = useCallback(() => {
+        // Only start one timer — if it's already running let it run.
+        if (disconnectTimerRef.current) return;
+        disconnectTimerRef.current = setTimeout(() => {
+            disconnectTimerRef.current = null;
+            setIsTabConnected(false);
+        }, DISCONNECT_DEBOUNCE_MS);
+    }, []);
+
+    // Returns true if the tab's content script is reachable.
+    // Retries once (with a short delay) before scheduling the debounced disconnect,
+    // so a single transient PING failure never immediately shows the banner.
+    const checkConnection = useCallback(async (tabId: number, retries = 1): Promise<boolean> => {
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                const tab = await chrome.tabs.get(tabId);
+                if (isRestrictedUrl(tab.url)) {
+                    cancelDisconnect();
+                    setIsTabConnected(true);
+                    return true;
+                }
+                await chrome.tabs.sendMessage(tabId, { type: 'PING' });
+                cancelDisconnect();          // Success — clear any pending disconnect timer
+                setIsTabConnected(true);
+                return true;
+            } catch {
+                if (attempt < retries) {
+                    await new Promise(r => setTimeout(r, PING_RETRY_DELAY_MS));
+                }
+            }
+        }
+        // All retries exhausted — start the debounce timer instead of flipping state immediately.
+        scheduleDisconnect();
+        return false;
+    }, [cancelDisconnect, scheduleDisconnect]);
+
+    const autoConnect = useCallback(async (tabId: number) => {
+        try {
+            const tab = await chrome.tabs.get(tabId);
+            if (isRestrictedUrl(tab.url)) return;
+
+            const hasPermission = await chrome.permissions.contains({ origins: ['<all_urls>'] });
+            if (!hasPermission) return;
+
+            await chrome.scripting.executeScript({ target: { tabId }, files: [contentScriptPath] });
+
+            // Poll until the injected script responds (max ~3 s).
+            let attempts = 0;
+            const poll = setInterval(async () => {
+                attempts++;
+                const connected = await checkConnection(tabId, 0);
+                if (connected || attempts >= INJECT_POLL_MAX_ATTEMPTS) clearInterval(poll);
+            }, INJECT_POLL_INTERVAL_MS);
+        } catch (e) {
+            console.error('[useTabSync] Auto-connect failed:', e);
+        }
+    }, [checkConnection]);
 
     const connectTab = async () => {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -30,103 +101,72 @@ export function useTabSync() {
 
         setIsConnecting(true);
         try {
-            // Request host permission dynamically before injecting
-            const hasPermission = await chrome.permissions.contains({
-                origins: ['<all_urls>']
-            });
+            const hasPermission = await chrome.permissions.contains({ origins: ['<all_urls>'] });
 
             if (!hasPermission) {
-                const granted = await chrome.permissions.request({
-                    origins: ['<all_urls>']
-                });
-
-                if (!granted) {
-                    setIsConnecting(false);
-                    return;
-                }
+                const granted = await chrome.permissions.request({ origins: ['<all_urls>'] });
+                if (!granted) { setIsConnecting(false); return; }
             }
 
-            await chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                files: [contentScriptPath]
-            });
+            await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [contentScriptPath] });
 
-            // Wait a bit then check
-            setTimeout(() => {
-                checkConnection(tab.id!);
-                setIsConnecting(false);
-            }, 500);
+            let attempts = 0;
+            const poll = setInterval(async () => {
+                attempts++;
+                const connected = await checkConnection(tab.id!, 0);
+                if (connected || attempts >= INJECT_POLL_MAX_ATTEMPTS) {
+                    clearInterval(poll);
+                    setIsConnecting(false);
+                }
+            }, INJECT_POLL_INTERVAL_MS);
         } catch (e) {
-            console.error('Failed to connect tab:', e);
+            console.error('[useTabSync] Manual connect failed:', e);
             setIsConnecting(false);
         }
     };
 
-    const autoConnect = useCallback(async (tabId: number) => {
-        try {
-            const hasPermission = await chrome.permissions.contains({
-                origins: ['<all_urls>']
-            });
-
-            if (hasPermission) {
-                await chrome.scripting.executeScript({
-                    target: { tabId },
-                    files: [contentScriptPath]
-                });
-
-                setTimeout(() => {
-                    checkConnection(tabId);
-                }, 500);
-            }
-        } catch (e) {
-            console.error('Auto-connect failed:', e);
-        }
-    }, [checkConnection]);
-
     useEffect(() => {
-        // Initial check
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0]?.id) {
-                setActiveTabId(tabs[0].id);
-                checkConnection(tabs[0].id).then(() => {
-                    // Try auto-connect if disconnected on load
-                    if (!isTabConnected) {
-                        autoConnect(tabs[0].id!);
-                    }
-                });
-            }
-        });
-
-        // Listen for tab activation
-        const onActivated = (activeInfo: any) => {
-            setActiveTabId(activeInfo.tabId);
-            checkConnection(activeInfo.tabId).then(() => {
-                // Try auto-connect if we switch to a disconnected tab
-                if (!isTabConnected) {
-                    autoConnect(activeInfo.tabId);
-                }
+        // Delay the first ping slightly so React can finish committing all renders
+        // triggered by the event that caused this effect to mount (language change,
+        // initial load, etc.) before we send network messages.
+        const mountTimer = setTimeout(() => {
+            chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+                if (!tabs[0]?.id) return;
+                const tabId = tabs[0].id;
+                setActiveTabId(tabId);
+                activeTabIdRef.current = tabId;
+                const connected = await checkConnection(tabId);
+                if (!connected) autoConnect(tabId);
             });
+        }, MOUNT_SETTLE_MS);
+
+        const onActivated = async (activeInfo: { tabId: number; windowId: number }) => {
+            setActiveTabId(activeInfo.tabId);
+            activeTabIdRef.current = activeInfo.tabId;
+            const connected = await checkConnection(activeInfo.tabId);
+            if (!connected) autoConnect(activeInfo.tabId);
         };
 
-        // Listen for tab updates (URL change)
-        const onUpdated = (tabId: number, changeInfo: any, tab: chrome.tabs.Tab) => {
-            if (changeInfo.status === 'complete' && tab.active) {
-                setActiveTabId(tabId);
-                checkConnection(tabId).then(() => {
-                    // If checkConnection sets state to disconnected, try injecting
-                    autoConnect(tabId);
-                });
-            }
+        const onUpdated = async (tabId: number, changeInfo: { status?: string }, tab: chrome.tabs.Tab) => {
+            if (changeInfo.status !== 'complete' || !tab.active) return;
+            setActiveTabId(tabId);
+            activeTabIdRef.current = tabId;
+            const connected = await checkConnection(tabId);
+            if (!connected) autoConnect(tabId);
         };
 
         chrome.tabs.onActivated.addListener(onActivated);
         chrome.tabs.onUpdated.addListener(onUpdated);
 
         return () => {
+            clearTimeout(mountTimer);
+            cancelDisconnect(); // Don't fire a stale disconnect timer after unmount
             chrome.tabs.onActivated.removeListener(onActivated);
             chrome.tabs.onUpdated.removeListener(onUpdated);
         };
-    }, [checkConnection, autoConnect, isTabConnected]);
+        // Intentionally excludes isTabConnected — using it as a dep caused a stale-closure
+        // loop where each state change re-registered listeners and re-pinged the tab.
+    }, [checkConnection, autoConnect, cancelDisconnect]);
 
     return { isTabConnected, isConnecting, connectTab, activeTabId };
 }

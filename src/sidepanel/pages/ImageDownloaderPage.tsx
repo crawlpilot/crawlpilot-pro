@@ -1,877 +1,566 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-    Box, Typography, Paper, Button, IconButton, Chip, Stack, Grid,
-    TextField, InputAdornment, Fade, Switch,
-    FormControlLabel, Tooltip
+    Box, Typography, Paper, Button, IconButton, Chip, Stack, LinearProgress,
+    TextField, InputAdornment, Fade, Switch, FormControlLabel, Tooltip, Collapse, ToggleButtonGroup, ToggleButton
 } from '@mui/material';
 import {
-    ArrowLeft,
+    ChevronLeft,
     Image as ImageIcon,
     Download,
     Search,
     Filter,
     Check,
-    X,
-    Trash2,
-    Grid as GridIcon,
-    Maximize2,
-    FileType,
-    RefreshCw
+    Radio,
+    RefreshCw,
+    CheckSquare,
+    Square,
+    Loader,
+    Grid,
+    Layers
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { ImageMeta } from '../../content/features/universal-images/ImageScanner';
 import { styled } from '@mui/material/styles';
 
-const GlassPaper = styled(Paper)(() => ({
-    padding: '24px',
-    borderRadius: '24px',
-    background: 'rgba(15, 23, 42, 0.8)',
-    backdropFilter: 'blur(20px) saturate(180%)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-    position: 'relative',
-    overflow: 'hidden'
-}));
-
 const ImageCard = styled(Box)<{ selected?: boolean }>(({ selected }) => ({
     position: 'relative',
     aspectRatio: '1',
-    borderRadius: '16px',
+    borderRadius: '10px',
     overflow: 'hidden',
     cursor: 'pointer',
     border: `2px solid ${selected ? '#06b6d4' : 'rgba(255, 255, 255, 0.05)'}`,
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    background: 'rgba(0, 0, 0, 0.2)',
+    transition: 'all 0.2s ease',
+    background: 'rgba(0, 0, 0, 0.3)',
     '&:hover': {
-        transform: 'translateY(-4px) scale(1.02)',
-        borderColor: selected ? '#06b6d4' : 'rgba(255, 255, 255, 0.2)',
-        boxShadow: '0 12px 24px -10px rgba(0,0,0,0.5)',
+        borderColor: selected ? '#06b6d4' : 'rgba(255, 255, 255, 0.15)',
         '& .download-btn': { opacity: 1 },
         '& .img-overlay': { opacity: 1 }
     }
 }));
 
+function getExtension(src: string): string {
+    try {
+        const url = new URL(src);
+        const ext = url.pathname.split('.').pop()?.toLowerCase();
+        return ext && ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'avif'].includes(ext)
+            ? (ext === 'jpeg' ? 'jpg' : ext)
+            : 'jpg';
+    } catch {
+        return 'jpg';
+    }
+}
+
+function getSizeCategory(width: number, height: number): string {
+    const pixels = width * height;
+    if (pixels < 500 * 500) return 'small';
+    if (pixels < 1920 * 1080) return 'medium';
+    return 'large';
+}
+
+interface SizeGroup {
+    label: string;
+    width: number;
+    height: number;
+    images: ImageMeta[];
+}
+
+function buildSizeGroups(images: ImageMeta[]): SizeGroup[] {
+    const groups: SizeGroup[] = [];
+    for (const img of images) {
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        if (w === 0 && h === 0) continue;
+        let matched = false;
+        for (const g of groups) {
+            const wRatio = Math.abs(g.width - w) / Math.max(g.width, 1);
+            const hRatio = Math.abs(g.height - h) / Math.max(g.height, 1);
+            if (wRatio <= 0.2 && hRatio <= 0.2) {
+                g.images.push(img);
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) {
+            groups.push({ label: `${w}\u00d7${h}`, width: w, height: h, images: [img] });
+        }
+    }
+    return groups.sort((a, b) => b.images.length - a.images.length);
+}
 
 interface ImageDownloaderPageProps {
     onBack: () => void;
 }
 
 export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps) {
+    const { t } = useTranslation('imageDownloader');
     const [images, setImages] = useState<ImageMeta[]>([]);
-    const [loading, setLoading] = useState(false);
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [downloading, setDownloading] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
 
-    // Deep Scan State
-    const [deepScanning, setDeepScanning] = useState(false);
-    const [scanProgress, setScanProgress] = useState({ scrollPercent: 0, imagesFound: 0 });
-    const [scrollDelay, setScrollDelay] = useState(100); // ms — user configurable
+    const [scanning, setScanning] = useState(false);
+    const [scanPhase, setScanPhase] = useState<string>('');
+    const [scanProgress, setScanProgress] = useState(0);
+    const [liveWatching, setLiveWatching] = useState(false);
 
-    // Advanced Filters State
     const [searchQuery, setSearchQuery] = useState('');
     const [minWidth, setMinWidth] = useState<number | ''>('');
     const [maxWidth, setMaxWidth] = useState<number | ''>('');
     const [minHeight, setMinHeight] = useState<number | ''>('');
     const [maxHeight, setMaxHeight] = useState<number | ''>('');
-    const [fileTypes, setFileTypes] = useState<Set<string>>(new Set(['jpg', 'png', 'webp', 'gif', 'svg']));
+    const [fileTypes, setFileTypes] = useState<Set<string>>(new Set(['jpg', 'png', 'webp', 'gif', 'svg', 'avif']));
     const [sizeCategories, setSizeCategories] = useState<Set<string>>(new Set(['small', 'medium', 'large']));
-    const [altTextFilter, setAltTextFilter] = useState<'all' | 'with' | 'without'>('all');
-    const [grouping, setGrouping] = useState<'none' | 'size' | 'type'>('size');
     const [onlyVisible, setOnlyVisible] = useState(true);
-    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+    const [viewMode, setViewMode] = useState<'grid' | 'grouped'>('grid');
+    const [activeGroup, setActiveGroup] = useState<number | null>(null);
 
-    // Listen for deep scan progress updates from content script
+    const imageMapRef = useRef<Map<string, ImageMeta>>(new Map());
+    const scanInitRef = useRef(false);
+
+    const mergeImages = useCallback((newBatch: ImageMeta[]) => {
+        const map = imageMapRef.current;
+        let changed = false;
+        for (const img of newBatch) {
+            if (!map.has(img.src)) {
+                map.set(img.src, img);
+                changed = true;
+            }
+        }
+        if (changed) {
+            setImages(Array.from(map.values()));
+        }
+    }, []);
+
     useEffect(() => {
         const handleMessage = (message: any) => {
+            if (message.type === 'SCAN_IMAGES_BATCH' && message.payload) {
+                mergeImages(message.payload);
+            }
             if (message.type === 'SCAN_IMAGES_PROGRESS' && message.payload) {
-                setScanProgress({
-                    scrollPercent: message.payload.scrollPercent || 0,
-                    imagesFound: message.payload.imagesFound || 0
-                });
+                setScanPhase(message.payload.phase || '');
+                setScanProgress(message.payload.scrollPercent || 0);
             }
         };
         chrome.runtime.onMessage.addListener(handleMessage);
         return () => chrome.runtime.onMessage.removeListener(handleMessage);
+    }, [mergeImages]);
+
+    useEffect(() => {
+        if (scanInitRef.current) return;
+        scanInitRef.current = true;
+        startDeepScan();
     }, []);
 
-    const toggleGroupExpansion = (groupName: string) => {
-        const next = new Set(expandedGroups);
-        if (next.has(groupName)) next.delete(groupName);
-        else next.add(groupName);
-        setExpandedGroups(next);
+    const getActiveTab = async () => {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        return tab?.id;
     };
 
-    const toggleFileType = (type: string) => {
-        const next = new Set(fileTypes);
-        if (next.has(type)) next.delete(type);
-        else next.add(type);
-        setFileTypes(next);
-    };
-
-    const toggleSizeCategory = (cat: string) => {
-        const next = new Set(sizeCategories);
-        if (next.has(cat)) next.delete(cat);
-        else next.add(cat);
-        setSizeCategories(next);
-    };
-
-    const clearFilters = () => {
-        setSearchQuery('');
-        setMinWidth('');
-        setMaxWidth('');
-        setMinHeight('');
-        setMaxHeight('');
-        setFileTypes(new Set(['jpg', 'png', 'webp', 'gif', 'svg']));
-        setSizeCategories(new Set(['small', 'medium', 'large']));
-        setAltTextFilter('all');
-        setOnlyVisible(true);
-    };
-
-    const getExtension = (src: string) => {
-        try {
-            const url = new URL(src);
-            const pathname = url.pathname;
-            const ext = pathname.split('.').pop()?.toLowerCase();
-            return ext && ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(ext) ? (ext === 'jpeg' ? 'jpg' : ext) : 'jpg';
-        } catch {
-            return 'jpg';
-        }
-    };
-
-    const getSizeCategory = (width: number, height: number) => {
-        const pixels = width * height;
-        if (pixels < 500 * 500) return 'small';
-        if (pixels < 1920 * 1080) return 'medium';
-        return 'large';
-    };
-
-    const filteredImages = images.filter(img => {
-        // Visible Only
-        if (onlyVisible && img.isVisible === false) return false;
-
-        // Search
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            const match = img.src.toLowerCase().includes(query) ||
-                (img.alt && img.alt.toLowerCase().includes(query)) ||
-                `${img.naturalWidth}x${img.naturalHeight}`.includes(query);
-            if (!match) return false;
-        }
-
-        // Dimensions
-        if (minWidth !== '' && img.naturalWidth < minWidth) return false;
-        if (maxWidth !== '' && img.naturalWidth > maxWidth) return false;
-        if (minHeight !== '' && img.naturalHeight < minHeight) return false;
-        if (maxHeight !== '' && img.naturalHeight > maxHeight) return false;
-
-        // File Type
-        const ext = getExtension(img.src);
-        if (!fileTypes.has(ext)) return false;
-
-        // Size Category
-        const cat = getSizeCategory(img.naturalWidth, img.naturalHeight);
-        if (!sizeCategories.has(cat)) return false;
-
-        // Alt Text
-        if (altTextFilter === 'with' && !img.alt) return false;
-        if (altTextFilter === 'without' && img.alt) return false;
-
-        return true;
-    });
-
-    /** Quick scan — instant DOM snapshot */
-    const scanImages = async () => {
-        setLoading(true);
+    const startDeepScan = async () => {
+        setScanning(true);
+        setScanProgress(0);
+        setScanPhase('starting');
+        imageMapRef.current.clear();
         setImages([]);
         setSelected(new Set());
         try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tab?.id) {
-                const response = await chrome.tabs.sendMessage(tab.id, { type: 'SCAN_IMAGES', action: 'SCAN_IMAGES' });
-                if (response && response.data) {
-                    setImages(response.data);
-                }
-            }
-        } catch (error) {
-            console.error('Scan failed:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    /** Full page scan — auto-scrolls and accumulates */
-    const deepScanImages = async () => {
-        setDeepScanning(true);
-        setScanProgress({ scrollPercent: 0, imagesFound: 0 });
-        setImages([]);
-        setSelected(new Set());
-        try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tab?.id) {
-                const response = await chrome.tabs.sendMessage(tab.id, {
+            const tabId = await getActiveTab();
+            if (tabId) {
+                const response = await chrome.tabs.sendMessage(tabId, {
                     type: 'SCAN_IMAGES_DEEP',
-                    payload: { scrollStep: 800, scrollDelay }
+                    payload: { scrollStep: 800, scrollDelay: 120, maxScrollHeight: 50000, watchDuration: 3000 }
                 });
-                if (response && response.data) {
-                    setImages(response.data);
+                if (response?.data) {
+                    mergeImages(response.data);
                 }
             }
         } catch (error) {
             console.error('Deep scan failed:', error);
         } finally {
-            setDeepScanning(false);
+            setScanning(false);
+            setScanPhase('complete');
+            setScanProgress(100);
         }
     };
 
-    /** Cancel an in-progress deep scan */
-    const cancelDeepScan = async () => {
+    const cancelScan = async () => {
         try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tab?.id) {
-                await chrome.tabs.sendMessage(tab.id, { type: 'SCAN_IMAGES_DEEP_CANCEL' });
+            const tabId = await getActiveTab();
+            if (tabId) {
+                await chrome.tabs.sendMessage(tabId, { type: 'SCAN_IMAGES_DEEP_CANCEL' });
             }
-        } catch (e) { console.error('Cancel failed:', e); }
+        } catch (e) { /* ignore */ }
     };
 
-    const groupedImages = useMemo(() => {
-        if (grouping === 'none') return { 'All Images': filteredImages };
+    const toggleLiveWatch = async () => {
+        const tabId = await getActiveTab();
+        if (!tabId) return;
+        if (liveWatching) {
+            await chrome.tabs.sendMessage(tabId, { type: 'SCAN_IMAGES_LIVE_STOP' });
+            setLiveWatching(false);
+        } else {
+            setLiveWatching(true);
+            await chrome.tabs.sendMessage(tabId, { type: 'SCAN_IMAGES_LIVE_START' });
+        }
+    };
 
-        const groups: Record<string, ImageMeta[]> = {};
-        filteredImages.forEach(img => {
-            let key = '';
-            if (grouping === 'size') key = `${img.naturalWidth}x${img.naturalHeight}`;
-            else if (grouping === 'type') key = getExtension(img.src).toUpperCase();
-
-            if (!groups[key]) groups[key] = [];
-            groups[key].push(img);
+    const filteredImages = useMemo(() => {
+        return images.filter(img => {
+            if (onlyVisible && img.isVisible === false) return false;
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                const match = img.src.toLowerCase().includes(q) || (img.alt && img.alt.toLowerCase().includes(q));
+                if (!match) return false;
+            }
+            if (minWidth !== '' && img.naturalWidth < minWidth) return false;
+            if (maxWidth !== '' && img.naturalWidth > maxWidth) return false;
+            if (minHeight !== '' && img.naturalHeight < minHeight) return false;
+            if (maxHeight !== '' && img.naturalHeight > maxHeight) return false;
+            const ext = getExtension(img.src);
+            if (!fileTypes.has(ext)) return false;
+            const cat = getSizeCategory(img.naturalWidth, img.naturalHeight);
+            if (!sizeCategories.has(cat)) return false;
+            return true;
         });
+    }, [images, searchQuery, minWidth, maxWidth, minHeight, maxHeight, fileTypes, sizeCategories, onlyVisible]);
 
-        // Sort logic
-        return Object.fromEntries(
-            Object.entries(groups).sort(([keyA, listA], [keyB, listB]) => {
-                if (grouping === 'size') {
-                    // Sort by resolution (Width x Height) descending
-                    const [wA, hA] = keyA.split('x').map(Number);
-                    const [wB, hB] = keyB.split('x').map(Number);
-                    const resA = (wA || 0) * (hA || 0);
-                    const resB = (wB || 0) * (hB || 0);
-                    if (resB !== resA) return resB - resA;
-                }
-                // Fallback / Default: Sort by count descending
-                return listB.length - listA.length;
-            })
-        );
-    }, [filteredImages, grouping]);
+    const sizeGroups = useMemo(() => buildSizeGroups(filteredImages), [filteredImages]);
 
-    // Helper for throttled downloads
-    const processInBatches = async <T,>(items: T[], batchSize: number, delayArr: [number, number], fn: (item: T, i: number) => Promise<void>) => {
-        for (let i = 0; i < items.length; i += batchSize) {
-            const batch = items.slice(i, i + batchSize);
-            await Promise.all(batch.map((item, index) => fn(item, i + index)));
-
-            // Delay between batches
-            if (i + batchSize < items.length) {
-                const delay = Math.floor(Math.random() * (delayArr[1] - delayArr[0] + 1)) + delayArr[0];
-                await new Promise(r => setTimeout(r, delay));
-            }
+    const displayImages = useMemo(() => {
+        if (viewMode === 'grouped' && activeGroup !== null && sizeGroups[activeGroup]) {
+            return sizeGroups[activeGroup].images;
         }
+        return filteredImages;
+    }, [viewMode, activeGroup, sizeGroups, filteredImages]);
+
+    const PAGE_SIZE = 100;
+    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+    useEffect(() => { setVisibleCount(PAGE_SIZE); }, [displayImages]);
+
+    const selectGroup = (idx: number) => {
+        setActiveGroup(idx);
+        setSelected(new Set(sizeGroups[idx].images.map(img => img.src)));
     };
 
-    const downloadImage = (url: string, e?: React.MouseEvent) => {
+    const downloadGroup = (idx: number) => {
+        const group = sizeGroups[idx];
+        downloadAsZip(group.images, `images_${group.label.replace('\u00d7', 'x')}.zip`);
+    };
+
+    const fetchViaProxy = async (url: string): Promise<{ data: number[]; contentType: string } | null> => {
+        try {
+            const response = await chrome.runtime.sendMessage({ type: 'DOWNLOAD_IMAGE_PROXY', payload: { url } });
+            if (response?.success) return response;
+            return null;
+        } catch { return null; }
+    };
+
+    const downloadSingle = async (url: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
-        const filename = `image-${Date.now()}.${getExtension(url)}`;
-        saveAs(url, filename);
-    };
-
-    const downloadGroup = async (groupImages: ImageMeta[], groupName: string) => {
-        setDownloading(true);
-        const zip = new JSZip();
         try {
-            await processInBatches(groupImages, 3, [500, 1000], async (img, i) => {
-                try {
-                    const response = await fetch(img.src);
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    const blob = await response.blob();
-                    const ext = blob.type.split('/')[1] || 'jpg';
-                    zip.file(`image_${i + 1}.${ext}`, blob);
-                } catch (e) {
-                    console.error(`Failed to fetch item in group ${groupName}:`, e);
-                }
-            });
-
-            const content = await zip.generateAsync({ type: 'blob' });
-            saveAs(content, `${groupName.replace(/[^a-z0-9]/gi, '_')}_images.zip`);
-        } catch (e) {
-            console.error(`Group download failed: ${groupName}`, e);
-        } finally {
-            setDownloading(false);
+            await chrome.runtime.sendMessage({ type: 'DOWNLOAD_VIA_CHROME', payload: { url, filename: `image-${Date.now()}.${getExtension(url)}` } });
+        } catch {
+            saveAs(url, `image-${Date.now()}.${getExtension(url)}`);
         }
     };
 
-    const downloadSelected = async () => {
-        if (selected.size === 0) return;
+    const downloadAsZip = async (imagesToDownload: ImageMeta[], zipName: string) => {
         setDownloading(true);
         const zip = new JSZip();
-        const selectedUrls = Array.from(selected);
-
-        try {
-            await processInBatches(selectedUrls, 3, [500, 1000], async (url, i) => {
+        let count = 0;
+        for (const img of imagesToDownload) {
+            try {
+                let blob: Blob;
                 try {
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    const blob = await response.blob();
-                    const ext = blob.type.split('/')[1] || 'jpg';
-                    zip.file(`image_${i + 1}.${ext}`, blob);
-                } catch (e) {
-                    console.error('Failed to fetch selected image:', e);
+                    const directResp = await fetch(img.src, { mode: 'cors' });
+                    if (!directResp.ok) throw new Error('CORS');
+                    blob = await directResp.blob();
+                } catch {
+                    const proxyResult = await fetchViaProxy(img.src);
+                    if (!proxyResult) continue;
+                    blob = new Blob([new Uint8Array(proxyResult.data)], { type: proxyResult.contentType });
                 }
-            });
-
-            const content = await zip.generateAsync({ type: 'blob' });
-            saveAs(content, 'selected_images.zip');
-        } catch (e) {
-            console.error('Download selected failed:', e);
-        } finally {
-            setDownloading(false);
+                count++;
+                const ext = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || getExtension(img.src);
+                zip.file(`image_${count}.${ext}`, blob);
+            } catch { /* skip */ }
         }
+        if (count > 0) {
+            const content = await zip.generateAsync({ type: 'blob' });
+            saveAs(content, zipName);
+        }
+        setDownloading(false);
     };
 
-    const downloadAll = async () => {
-        if (filteredImages.length === 0) return;
-        setDownloading(true);
-        const zip = new JSZip();
-
-        try {
-            await processInBatches(filteredImages, 3, [500, 1000], async (img, i) => {
-                try {
-                    const response = await fetch(img.src);
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    const blob = await response.blob();
-                    const ext = blob.type.split('/')[1] || 'jpg';
-                    zip.file(`image_${i + 1}.${ext}`, blob);
-                } catch (e) {
-                    console.error('Failed to fetch image:', e);
-                }
-            });
-
-            const content = await zip.generateAsync({ type: 'blob' });
-            saveAs(content, 'all_page_images.zip');
-        } catch (e) {
-            console.error('Download all failed:', e);
-        } finally {
-            setDownloading(false);
-        }
+    const downloadSelected = () => {
+        const selectedImgs = filteredImages.filter(img => selected.has(img.src));
+        downloadAsZip(selectedImgs, 'selected_images.zip');
     };
+
+    const downloadAll = () => downloadAsZip(filteredImages, 'all_images.zip');
 
     const toggleSelection = (src: string) => {
         const next = new Set(selected);
-        if (next.has(src)) next.delete(src);
-        else next.add(src);
+        if (next.has(src)) next.delete(src); else next.add(src);
         setSelected(next);
     };
 
+    const selectAll = () => setSelected(new Set(filteredImages.map(img => img.src)));
+    const clearSelection = () => setSelected(new Set());
+
+    const statusText = scanning
+        ? (scanPhase === 'watching' ? t('watching') : t('scanning', { progress: scanProgress }))
+        : liveWatching
+            ? t('liveWatching')
+            : t('imagesCount', { filtered: filteredImages.length, total: images.length });
+
     return (
-        <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default', position: 'relative', overflow: 'hidden' }}>
-            {/* Filter Overlay */}
-            <Fade in={showFilters}>
-                <Box
-                    sx={{
-                        position: 'absolute',
-                        inset: 0,
-                        zIndex: 100,
-                        bgcolor: 'rgba(2, 6, 23, 0.6)',
-                        backdropFilter: 'blur(12px)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        p: 2
-                    }}
-                >
-                    <GlassPaper sx={{ width: '100%', maxHeight: '90%', display: 'flex', flexDirection: 'column' }}>
-                        {/* Filter Header */}
-                        <Box sx={{
-                            pb: 2,
-                            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between'
-                        }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Box sx={{ p: 1, borderRadius: '12px', bgcolor: 'primary.main', color: 'white', display: 'flex' }}>
-                                    <Filter size={18} />
-                                </Box>
-                                <Typography variant="h6" fontWeight="700">Refine Search</Typography>
-                            </Box>
-                            <IconButton size="small" onClick={() => setShowFilters(false)} sx={{ color: 'rgba(255,255,255,0.3)' }}>
-                                <X size={20} />
-                            </IconButton>
-                        </Box>
-
-                        {/* Filter Content */}
-                        <Box sx={{ flex: 1, overflowY: 'auto', py: 3, pr: 1, '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.1)', borderRadius: '10px' } }}>
-                            <Stack spacing={4}>
-                                {/* Info / Grouping */}
-                                <Box>
-                                    <Typography variant="caption" fontWeight="700" color="primary.main" sx={{ textTransform: 'uppercase', letterSpacing: '0.1em', mb: 1.5, display: 'block' }}>
-                                        Grouping & Layout
-                                    </Typography>
-                                    <Stack direction="row" spacing={1}>
-                                        {[
-                                            { id: 'none', label: 'Simple', icon: <GridIcon size={14} /> },
-                                            { id: 'size', label: 'Resolution', icon: <Maximize2 size={14} /> },
-                                            { id: 'type', label: 'Format', icon: <FileType size={14} /> }
-                                        ].map(opt => (
-                                            <Button
-                                                key={opt.id}
-                                                variant={grouping === opt.id ? 'contained' : 'outlined'}
-                                                size="small"
-                                                onClick={() => setGrouping(opt.id as any)}
-                                                startIcon={opt.icon}
-                                                sx={{
-                                                    flex: 1,
-                                                    borderRadius: '12px',
-                                                    textTransform: 'none',
-                                                    fontWeight: 600,
-                                                    borderColor: 'rgba(255,255,255,0.1)',
-                                                    bgcolor: grouping === opt.id ? 'primary.main' : 'transparent'
-                                                }}
-                                            >
-                                                {opt.label}
-                                            </Button>
-                                        ))}
-                                    </Stack>
-                                </Box>
-
-                                {/* Search */}
-                                <Box>
-                                    <Typography variant="caption" fontWeight="700" color="primary.main" sx={{ textTransform: 'uppercase', letterSpacing: '0.1em', mb: 1.5, display: 'block' }}>
-                                        Content Search
-                                    </Typography>
-                                    <TextField
-                                        fullWidth
-                                        size="small"
-                                        placeholder="Alt text or URL keyword..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <Search size={16} className="text-slate-500" />
-                                                </InputAdornment>
-                                            ),
-                                            sx: { borderRadius: '12px', bgcolor: 'rgba(0,0,0,0.2)', fontSize: '0.85rem' }
-                                        }}
-                                        sx={{ '& .MuiOutlinedInput-notchedOutline': { border: 'none' } }}
-                                    />
-                                </Box>
-
-                                {/* Dimensions Filter */}
-                                <Box>
-                                    <Typography variant="caption" fontWeight="700" color="primary.main" sx={{ textTransform: 'uppercase', letterSpacing: '0.1em', mb: 1.5, display: 'block' }}>
-                                        Resolution Range (px)
-                                    </Typography>
-                                    <Grid container spacing={2}>
-                                        <Grid size={6}>
-                                            <Stack spacing={1}>
-                                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>Width</Typography>
-                                                <Stack direction="row" spacing={1}>
-                                                    <TextField
-                                                        size="small"
-                                                        placeholder="Min"
-                                                        type="number"
-                                                        value={minWidth}
-                                                        onChange={(e) => setMinWidth(e.target.value ? Number(e.target.value) : '')}
-                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: 'rgba(0,0,0,0.2)', fontSize: '0.8rem' } }}
-                                                    />
-                                                    <TextField
-                                                        size="small"
-                                                        placeholder="Max"
-                                                        type="number"
-                                                        value={maxWidth}
-                                                        onChange={(e) => setMaxWidth(e.target.value ? Number(e.target.value) : '')}
-                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: 'rgba(0,0,0,0.2)', fontSize: '0.8rem' } }}
-                                                    />
-                                                </Stack>
-                                            </Stack>
-                                        </Grid>
-                                        <Grid size={6}>
-                                            <Stack spacing={1}>
-                                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>Height</Typography>
-                                                <Stack direction="row" spacing={1}>
-                                                    <TextField
-                                                        size="small"
-                                                        placeholder="Min"
-                                                        type="number"
-                                                        value={minHeight}
-                                                        onChange={(e) => setMinHeight(e.target.value ? Number(e.target.value) : '')}
-                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: 'rgba(0,0,0,0.2)', fontSize: '0.8rem' } }}
-                                                    />
-                                                    <TextField
-                                                        size="small"
-                                                        placeholder="Max"
-                                                        type="number"
-                                                        value={maxHeight}
-                                                        onChange={(e) => setMaxHeight(e.target.value ? Number(e.target.value) : '')}
-                                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: 'rgba(0,0,0,0.2)', fontSize: '0.8rem' } }}
-                                                    />
-                                                </Stack>
-                                            </Stack>
-                                        </Grid>
-                                    </Grid>
-                                </Box>
-
-                                {/* File Types */}
-                                <Box>
-                                    <Typography variant="caption" fontWeight="700" color="primary.main" sx={{ textTransform: 'uppercase', letterSpacing: '0.1em', mb: 1.5, display: 'block' }}>
-                                        Formats
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                        {['jpg', 'png', 'svg', 'gif', 'webp'].map(type => (
-                                            <Chip
-                                                key={type}
-                                                label={`.${type}`}
-                                                onClick={() => toggleFileType(type)}
-                                                color={fileTypes.has(type) ? 'primary' : 'default'}
-                                                variant={fileTypes.has(type) ? 'filled' : 'outlined'}
-                                                size="small"
-                                                sx={{ borderRadius: '8px', fontSize: '0.7rem', fontWeight: 700 }}
-                                            />
-                                        ))}
-                                    </Box>
-                                </Box>
-
-                                {/* Size Categories */}
-                                <Box>
-                                    <Typography variant="caption" fontWeight="700" color="primary.main" sx={{ textTransform: 'uppercase', letterSpacing: '0.1em', mb: 1.5, display: 'block' }}>
-                                        Size Category
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                        {[
-                                            { id: 'small', label: 'Small (< 0.25MP)' },
-                                            { id: 'medium', label: 'Medium' },
-                                            { id: 'large', label: 'Extra Large' }
-                                        ].map(cat => (
-                                            <Chip
-                                                key={cat.id}
-                                                label={cat.label}
-                                                onClick={() => toggleSizeCategory(cat.id)}
-                                                color={sizeCategories.has(cat.id) ? 'secondary' : 'default'}
-                                                variant={sizeCategories.has(cat.id) ? 'filled' : 'outlined'}
-                                                size="small"
-                                                sx={{ borderRadius: '8px', fontSize: '0.7rem', fontWeight: 700 }}
-                                            />
-                                        ))}
-                                    </Box>
-                                </Box>
-
-                                {/* Visibility & Metadata */}
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
-                                    <FormControlLabel
-                                        control={
-                                            <Switch
-                                                checked={onlyVisible}
-                                                onChange={(e) => setOnlyVisible(e.target.checked)}
-                                                size="small"
-                                            />
-                                        }
-                                        label={<Typography variant="body2" sx={{ fontWeight: 600 }}>Visible Only</Typography>}
-                                    />
-                                    <Box sx={{ display: 'flex', gap: 1 }}>
-                                        {['all', 'with', 'without'].map(opt => (
-                                            <Chip
-                                                key={opt}
-                                                label={opt === 'all' ? 'All' : opt === 'with' ? 'Has Alt' : 'No Alt'}
-                                                onClick={() => setAltTextFilter(opt as any)}
-                                                color={altTextFilter === opt ? 'primary' : 'default'}
-                                                variant={altTextFilter === opt ? 'filled' : 'outlined'}
-                                                size="small"
-                                                sx={{ borderRadius: '8px', fontSize: '0.7rem', fontWeight: 700 }}
-                                            />
-                                        ))}
-                                    </Box>
-                                </Box>
-                            </Stack>
-                        </Box>
-
-                        {/* Filter Footer */}
-                        <Box sx={{ pt: 2, borderTop: '1px solid rgba(255, 255, 255, 0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Button size="small" color="error" onClick={clearFilters} startIcon={<Trash2 size={16} />} sx={{ textTransform: 'none', fontWeight: 600 }}>
-                                Reset
-                            </Button>
-                            <Button variant="contained" onClick={() => setShowFilters(false)} sx={{ borderRadius: '12px', px: 4, textTransform: 'none', fontWeight: 700 }}>
-                                Apply
-                            </Button>
-                        </Box>
-                    </GlassPaper>
-                </Box>
-            </Fade>
-
-            {/* Main Header */}
-            <Box sx={{
-                p: 2.5,
-                borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                background: 'rgba(2, 6, 23, 0.7)',
-                backdropFilter: 'blur(20px)',
-                position: 'sticky',
-                top: 0,
-                zIndex: 10
-            }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <IconButton onClick={onBack} sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.05)', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}>
-                        <ArrowLeft size={20} />
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden' }}>
+            {/* Header */}
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 2,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                    zIndex: 10,
+                    background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)',
+                    backdropFilter: 'blur(10px)'
+                }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                    <IconButton onClick={onBack} size="small" sx={{ color: 'text.secondary', bgcolor: 'rgba(255,255,255,0.03)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: 'white' } }}>
+                        <ChevronLeft size={20} />
                     </IconButton>
-                    <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="h6" fontWeight="800" sx={{ letterSpacing: '-0.02em' }}>
-                                Image Downloader
-                            </Typography>
-                            {loading && <RefreshCw size={16} className="animate-spin text-cyan-400" />}
-                        </Box>
-                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
-                            {filteredImages.length} images found
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em' }}>
+                            {t('title')}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, mt: 0.5, display: 'block', opacity: 0.8 }}>
+                            {statusText}
                         </Typography>
                     </Box>
+                    <Stack direction="row" spacing={0.5}>
+                        <Tooltip title={liveWatching ? t('stopWatching') : t('liveWatch')}>
+                            <IconButton onClick={toggleLiveWatch} size="small" sx={{ color: liveWatching ? '#06b6d4' : 'text.secondary', bgcolor: liveWatching ? 'rgba(6, 182, 212, 0.1)' : 'rgba(255,255,255,0.03)', '&:hover': { bgcolor: 'rgba(6, 182, 212, 0.15)' } }}>
+                                <Radio size={18} />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t('rescan')}>
+                            <IconButton onClick={startDeepScan} disabled={scanning} size="small" sx={{ color: 'text.secondary', bgcolor: 'rgba(255,255,255,0.03)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: '#06b6d4' } }}>
+                                <RefreshCw size={18} className={scanning ? 'animate-spin' : ''} />
+                            </IconButton>
+                        </Tooltip>
+                    </Stack>
                 </Box>
 
-                <Stack direction="row" spacing={1.5}>
-                    <Tooltip title="Quick Scan (visible only)">
-                        <IconButton
-                            onClick={scanImages}
-                            disabled={loading || deepScanning}
-                            sx={{
-                                color: 'white',
-                                bgcolor: 'rgba(255,255,255,0.05)',
-                                '&:hover': { bgcolor: 'rgba(255,255,255,0.1)', color: 'primary.main' }
-                            }}
-                        >
-                            <RefreshCw size={20} />
+                {scanning && (
+                    <LinearProgress
+                        variant={scanPhase === 'watching' ? 'indeterminate' : 'determinate'}
+                        value={scanProgress}
+                        sx={{ height: 3, borderRadius: 2, mb: 1.5, bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: '#06b6d4' } }}
+                    />
+                )}
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TextField
+                        size="small"
+                        placeholder="Search..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        InputProps={{
+                            startAdornment: <InputAdornment position="start"><Search size={14} style={{ opacity: 0.4 }} /></InputAdornment>,
+                            sx: { borderRadius: '8px', bgcolor: 'rgba(0,0,0,0.2)', fontSize: '0.78rem', height: 32 }
+                        }}
+                        sx={{ flex: 1, '& .MuiOutlinedInput-notchedOutline': { border: 'none' } }}
+                    />
+                    <Tooltip title={t('filters')}>
+                        <IconButton size="small" onClick={() => setShowFilters(!showFilters)} sx={{ color: showFilters ? '#06b6d4' : 'text.secondary', bgcolor: showFilters ? 'rgba(6, 182, 212, 0.1)' : 'rgba(255,255,255,0.03)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' } }}>
+                            <Filter size={16} />
                         </IconButton>
                     </Tooltip>
-
-                    <Button
-                        variant="contained"
-                        onClick={() => setShowFilters(true)}
-                        startIcon={<Filter size={18} />}
-                        sx={{
-                            borderRadius: '12px',
-                            px: 2.5,
-                            bgcolor: 'rgba(255,255,255,0.05)',
-                            color: 'white',
-                            textTransform: 'none',
-                            fontWeight: 700,
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            '&:hover': { bgcolor: 'rgba(255,255,255,0.1)', borderColor: 'primary.main' }
-                        }}
-                    >
-                        Filters
-                    </Button>
-
-                    <Button
-                        variant="contained"
-                        onClick={downloadAll}
-                        disabled={downloading || filteredImages.length === 0}
-                        startIcon={<Download size={18} />}
-                        sx={{
-                            borderRadius: '12px',
-                            px: 3,
-                            fontWeight: 800,
-                            textTransform: 'none',
-                            background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
-                            '&:hover': { background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)' }
-                        }}
-                    >
-                        Download All
-                    </Button>
-                </Stack>
-            </Box>
-
-            {/* Deep Scan Progress Bar */}
-            {deepScanning && (
-                <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(6, 182, 212, 0.05)' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <RefreshCw size={14} className="animate-spin text-cyan-400" />
-                            <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 700 }}>
-                                Full Page Scan — {scanProgress.scrollPercent}%
-                            </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
-                                {scanProgress.imagesFound} found
-                            </Typography>
-                            <Button
-                                size="small"
-                                onClick={cancelDeepScan}
-                                sx={{ minWidth: 'auto', color: 'error.main', fontSize: '0.7rem', fontWeight: 700, textTransform: 'none', p: '2px 8px' }}
-                            >
-                                Cancel
-                            </Button>
-                        </Box>
-                    </Box>
-                    <Box sx={{ width: '100%', height: 4, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
-                        <Box sx={{
-                            width: `${scanProgress.scrollPercent}%`,
-                            height: '100%',
-                            background: 'linear-gradient(90deg, #06b6d4, #0891b2)',
-                            borderRadius: 2,
-                            transition: 'width 0.3s ease'
-                        }} />
-                    </Box>
+                    <Tooltip title={selected.size === filteredImages.length && filteredImages.length > 0 ? t('deselectAll') : t('selectAll')}>
+                        <IconButton size="small" onClick={selected.size === filteredImages.length && filteredImages.length > 0 ? clearSelection : selectAll} sx={{ color: 'text.secondary', bgcolor: 'rgba(255,255,255,0.03)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' } }}>
+                            {selected.size > 0 ? <CheckSquare size={16} /> : <Square size={16} />}
+                        </IconButton>
+                    </Tooltip>
+                    <ToggleButtonGroup value={viewMode} exclusive onChange={(_, v) => { if (v) { setViewMode(v); if (v === 'grid') setActiveGroup(null); } }} size="small" sx={{ height: 28, '& .MuiToggleButton-root': { px: 1, border: 'none', bgcolor: 'rgba(255,255,255,0.03)', color: 'text.secondary', '&.Mui-selected': { bgcolor: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4' } } }}>
+                        <ToggleButton value="grid"><Grid size={14} /></ToggleButton>
+                        <ToggleButton value="grouped"><Layers size={14} /></ToggleButton>
+                    </ToggleButtonGroup>
                 </Box>
-            )}
 
-            {/* Content Area */}
-            <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
-                {images.length === 0 && !deepScanning ? (
-                    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, textAlign: 'center' }}>
-                        <Box sx={{ position: 'relative', p: 4, borderRadius: '32px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.1)', display: 'flex' }}>
-                            <ImageIcon size={64} strokeWidth={1} />
-                            <Box sx={{ position: 'absolute', bottom: -10, right: -10, p: 1.5, borderRadius: '16px', bgcolor: 'primary.main', color: 'white', boxShadow: '0 10px 20px -5px rgba(37, 99, 235, 0.5)', display: 'flex' }}>
-                                <Search size={20} />
+                <Collapse in={showFilters}>
+                    <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        <Stack spacing={1.5}>
+                            <Box>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.5, display: 'block' }}>{t('format')}</Typography>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                    {['jpg', 'png', 'svg', 'gif', 'webp', 'avif'].map(type => (
+                                        <Chip key={type} label={type} onClick={() => { const next = new Set(fileTypes); if (next.has(type)) next.delete(type); else next.add(type); setFileTypes(next); }} size="small" color={fileTypes.has(type) ? 'primary' : 'default'} variant={fileTypes.has(type) ? 'filled' : 'outlined'} sx={{ borderRadius: '6px', fontSize: '0.65rem', fontWeight: 700, height: 22 }} />
+                                    ))}
+                                </Box>
                             </Box>
-                        </Box>
-                        <Box sx={{ maxWidth: 300 }}>
-                            <Typography variant="h6" fontWeight="700" gutterBottom>No images detected</Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ opacity: 0.7 }}>
-                                Run a quick scan for visible images, or a full page scan that auto-scrolls and catches lazy-loaded content.
-                            </Typography>
-                        </Box>
-
-                        {/* Scroll Speed Slider */}
-                        <Box sx={{ width: '80%', maxWidth: 260, mt: 1 }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600, display: 'block', mb: 0.5, textAlign: 'left' }}>
-                                Scroll Speed: {scrollDelay}ms delay
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>Fast</Typography>
-                                <input
-                                    type="range"
-                                    min={50}
-                                    max={2000}
-                                    step={50}
-                                    value={scrollDelay}
-                                    onChange={(e) => setScrollDelay(Number(e.target.value))}
-                                    style={{ flex: 1, accentColor: '#06b6d4', cursor: 'pointer' }}
-                                />
-                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>Slow</Typography>
+                            <Box>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.5, display: 'block' }}>{t('size')}</Typography>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                    {[{ id: 'small', label: '< 500px' }, { id: 'medium', label: 'Medium' }, { id: 'large', label: 'Large' }].map(cat => (
+                                        <Chip key={cat.id} label={cat.label} onClick={() => { const next = new Set(sizeCategories); if (next.has(cat.id)) next.delete(cat.id); else next.add(cat.id); setSizeCategories(next); }} size="small" color={sizeCategories.has(cat.id) ? 'secondary' : 'default'} variant={sizeCategories.has(cat.id) ? 'filled' : 'outlined'} sx={{ borderRadius: '6px', fontSize: '0.65rem', fontWeight: 700, height: 22 }} />
+                                    ))}
+                                </Box>
                             </Box>
-                        </Box>
-
-                        <Stack direction="row" spacing={2}>
-                            <Button
-                                variant="outlined"
-                                onClick={scanImages}
-                                disabled={loading}
-                                size="large"
-                                startIcon={loading ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-                                sx={{ borderRadius: '16px', px: 3, py: 1.5, border: '2px solid rgba(255,255,255,0.1)', color: 'white', fontWeight: 700, textTransform: 'none', '&:hover': { border: '2px solid primary.main', bgcolor: 'rgba(6, 182, 212, 0.05)' } }}
-                            >
-                                Quick Scan
-                            </Button>
-                            <Button
-                                variant="contained"
-                                onClick={deepScanImages}
-                                disabled={deepScanning}
-                                size="large"
-                                startIcon={deepScanning ? <RefreshCw size={18} className="animate-spin" /> : <Search size={18} />}
-                                sx={{ borderRadius: '16px', px: 3, py: 1.5, fontWeight: 800, textTransform: 'none', background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)', boxShadow: '0 8px 20px -4px rgba(6, 182, 212, 0.4)', '&:hover': { background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)' } }}
-                            >
-                                Full Page Scan
-                            </Button>
+                            <Box>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.5, display: 'block' }}>{t('dimensions')}</Typography>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+                                    <TextField size="small" placeholder={t('minW')} type="number" value={minWidth} onChange={(e) => setMinWidth(e.target.value ? Number(e.target.value) : '')} InputProps={{ sx: { borderRadius: '8px', bgcolor: 'rgba(0,0,0,0.2)', fontSize: '0.7rem', height: 28 } }} sx={{ width: 70, '& .MuiOutlinedInput-notchedOutline': { border: 'none' } }} />
+                                    <TextField size="small" placeholder={t('maxW')} type="number" value={maxWidth} onChange={(e) => setMaxWidth(e.target.value ? Number(e.target.value) : '')} InputProps={{ sx: { borderRadius: '8px', bgcolor: 'rgba(0,0,0,0.2)', fontSize: '0.7rem', height: 28 } }} sx={{ width: 70, '& .MuiOutlinedInput-notchedOutline': { border: 'none' } }} />
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.6rem', px: 0.25 }}>×</Typography>
+                                    <TextField size="small" placeholder={t('minH')} type="number" value={minHeight} onChange={(e) => setMinHeight(e.target.value ? Number(e.target.value) : '')} InputProps={{ sx: { borderRadius: '8px', bgcolor: 'rgba(0,0,0,0.2)', fontSize: '0.7rem', height: 28 } }} sx={{ width: 70, '& .MuiOutlinedInput-notchedOutline': { border: 'none' } }} />
+                                    <TextField size="small" placeholder={t('maxH')} type="number" value={maxHeight} onChange={(e) => setMaxHeight(e.target.value ? Number(e.target.value) : '')} InputProps={{ sx: { borderRadius: '8px', bgcolor: 'rgba(0,0,0,0.2)', fontSize: '0.7rem', height: 28 } }} sx={{ width: 70, '& .MuiOutlinedInput-notchedOutline': { border: 'none' } }} />
+                                </Box>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <FormControlLabel control={<Switch checked={onlyVisible} onChange={(e) => setOnlyVisible(e.target.checked)} size="small" />} label={<Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>{t('visibleOnly')}</Typography>} sx={{ ml: 0 }} />
+                            </Box>
                         </Stack>
                     </Box>
-                ) : (
-                    <Stack spacing={4}>
-                        {Object.entries(groupedImages).map(([groupName, groupImgs]) => {
-                            const isExpanded = expandedGroups.has(groupName);
-                            const limit = 24;
-                            const displayedImgs = isExpanded ? groupImgs : groupImgs.slice(0, limit);
-                            const hasMore = groupImgs.length > limit;
+                </Collapse>
+            </Paper>
 
-                            return (
-                                <Box key={groupName}>
-                                    {grouping !== 'none' && (
-                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, pb: 1, borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.02em' }}>
-                                                    {groupName}
-                                                </Typography>
-                                                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 600 }}>
-                                                    {groupImgs.length} images
-                                                </Typography>
-                                            </Box>
-                                            <Button size="small" variant="text" startIcon={<Download size={14} />} onClick={() => downloadGroup(groupImgs, groupName)} sx={{ textTransform: 'none', fontWeight: 600, color: 'rgba(255, 255, 255, 0.5)', '&:hover': { color: 'primary.main', bgcolor: 'rgba(6, 182, 212, 0.05)' } }}>
-                                                Zip Group
-                                            </Button>
+            {/* Image Grid */}
+            <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5, '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.08)', borderRadius: 4 } }}>
+                {filteredImages.length === 0 && !scanning ? (
+                    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, textAlign: 'center', opacity: 0.6 }}>
+                        <ImageIcon size={48} strokeWidth={1} />
+                        <Box>
+                            <Typography variant="body2" fontWeight={600}>{t('noImagesFound')}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                {images.length > 0 ? t('tryAdjustFilters') : t('navigateAndScan')}
+                            </Typography>
+                        </Box>
+                        {images.length === 0 && (
+                            <Button variant="contained" size="small" onClick={startDeepScan} disabled={scanning} startIcon={<Search size={14} />} sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, mt: 1 }}>
+                                {t('scanPage')}
+                            </Button>
+                        )}
+                    </Box>
+                ) : viewMode === 'grouped' && activeGroup === null ? (
+                    <Stack spacing={1}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', px: 0.5 }}>
+                            {t('sizeDistribution', { count: sizeGroups.length })}
+                        </Typography>
+                        {sizeGroups.map((group, idx) => (
+                            <Paper key={idx} elevation={0} onClick={() => selectGroup(idx)} sx={{ p: 1.5, borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', cursor: 'pointer', transition: 'all 0.15s', '&:hover': { borderColor: 'rgba(6, 182, 212, 0.4)', bgcolor: 'rgba(6, 182, 212, 0.03)' } }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <Box sx={{ width: 40, height: 40, borderRadius: '8px', overflow: 'hidden', flexShrink: 0, bgcolor: 'rgba(0,0,0,0.3)' }}>
+                                        <img src={group.images[0].src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                                    </Box>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.78rem', lineHeight: 1.2 }}>
+                                                {group.label}
+                                            </Typography>
+                                            <Chip label={`${group.images.length}`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4', borderRadius: '6px', minWidth: 28 }} />
                                         </Box>
-                                    )}
-                                    <Grid container spacing={1.5}>
-                                        {displayedImgs.map((img, i) => {
-                                            const isSelected = selected.has(img.src);
-                                            return (
-                                                <Grid key={i} size={{ xs: 6, sm: 4 }}>
-                                                    <ImageCard selected={isSelected} onClick={() => toggleSelection(img.src)}>
-                                                        <img src={img.src} alt={img.alt || 'Extracted'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-                                                        <Box className="img-overlay" sx={{ position: 'absolute', inset: 0, bgcolor: isSelected ? 'rgba(6, 182, 212, 0.2)' : 'rgba(0,0,0,0.3)', opacity: isSelected ? 1 : 0, transition: 'all 0.2s', display: 'flex', alignItems: 'start', justifyContent: 'end', p: 1 }}>
-                                                            <Box sx={{ width: 20, height: 20, borderRadius: '6px', bgcolor: isSelected ? 'primary.main' : 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                                                                {isSelected && <Check size={14} strokeWidth={3} />}
-                                                            </Box>
-                                                        </Box>
-                                                        <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, p: 1, background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <Typography variant="caption" sx={{ color: 'white', fontWeight: 700, fontSize: '10px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
-                                                                {img.naturalWidth}×{img.naturalHeight}
-                                                            </Typography>
-                                                            <Box sx={{ px: 0.75, py: 0.25, borderRadius: '4px', bgcolor: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)', color: 'white', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase' }}>
-                                                                {getExtension(img.src).toUpperCase()}
-                                                            </Box>
-                                                        </Box>
-                                                        <IconButton className="download-btn" size="small" onClick={(e) => downloadImage(img.src, e)} sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', bgcolor: 'primary.main', color: 'white', opacity: 0, transition: 'all 0.2s', boxShadow: '0 10px 25px -5px rgba(6, 182, 212, 0.5)', '&:hover': { bgcolor: 'primary.dark', transform: 'translate(-50%, -50%) scale(1.1)' } }}>
-                                                            <Download size={16} />
-                                                        </IconButton>
-                                                    </ImageCard>
-                                                </Grid>
-                                            );
-                                        })}
-                                    </Grid>
-                                    {hasMore && !isExpanded && (
-                                        <Button fullWidth variant="outlined" size="small" onClick={() => toggleGroupExpansion(groupName)} sx={{ mt: 3, borderRadius: '12px', borderStyle: 'dashed', borderColor: 'rgba(255, 255, 255, 0.1)', color: 'rgba(255, 255, 255, 0.4)', '&:hover': { borderColor: 'primary.main', color: 'primary.main', bgcolor: 'rgba(6, 182, 212, 0.05)' } }}>
-                                            Show {groupImgs.length - limit} more
-                                        </Button>
-                                    )}
+                                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.62rem' }}>
+                                            {t('percentOfImages', { percent: Math.round(group.images.length / filteredImages.length * 100) })}
+                                        </Typography>
+                                    </Box>
+                                    <Stack direction="row" spacing={0.5}>
+                                        <Tooltip title={t('downloadGroup')}>
+                                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); downloadGroup(idx); }} sx={{ color: 'text.secondary', bgcolor: 'rgba(255,255,255,0.03)', width: 28, height: 28, '&:hover': { bgcolor: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4' } }}>
+                                                <Download size={13} />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </Stack>
                                 </Box>
+                            </Paper>
+                        ))}
+                    </Stack>
+                ) : (
+                    <Box>
+                        {viewMode === 'grouped' && activeGroup !== null && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, px: 0.5 }}>
+                                <Chip label={sizeGroups[activeGroup]?.label} size="small" onDelete={() => { setActiveGroup(null); clearSelection(); }} sx={{ height: 22, fontSize: '0.65rem', fontWeight: 700, borderRadius: '6px', bgcolor: 'rgba(6, 182, 212, 0.12)', color: '#06b6d4' }} />
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.62rem' }}>
+                                    {t('imagesInGroup', { count: displayImages.length })}
+                                </Typography>
+                            </Box>
+                        )}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+                        {displayImages.slice(0, visibleCount).map((img, i) => {
+                            const isSelected = selected.has(img.src);
+                            return (
+                                <ImageCard key={img.src + i} selected={isSelected} onClick={() => toggleSelection(img.src)}>
+                                    <img src={img.src} alt={img.alt || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                                    <Box className="img-overlay" sx={{ position: 'absolute', inset: 0, bgcolor: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'rgba(0,0,0,0.25)', opacity: isSelected ? 1 : 0, transition: 'opacity 0.15s', display: 'flex', alignItems: 'start', justifyContent: 'end', p: 0.5 }}>
+                                        <Box sx={{ width: 18, height: 18, borderRadius: '5px', bgcolor: isSelected ? '#06b6d4' : 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            {isSelected && <Check size={12} strokeWidth={3} color="white" />}
+                                        </Box>
+                                    </Box>
+                                    <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, px: 0.5, py: 0.25, background: 'linear-gradient(transparent, rgba(0,0,0,0.75))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography sx={{ color: 'white', fontWeight: 700, fontSize: '8px' }}>{img.naturalWidth}{'\u00d7'}{img.naturalHeight}</Typography>
+                                        <Box sx={{ px: 0.5, borderRadius: '3px', bgcolor: 'rgba(255,255,255,0.12)', fontSize: '7px', fontWeight: 800, color: 'white', textTransform: 'uppercase' }}>{getExtension(img.src)}</Box>
+                                    </Box>
+                                    <IconButton className="download-btn" size="small" onClick={(e) => downloadSingle(img.src, e)} sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', bgcolor: 'rgba(6, 182, 212, 0.9)', color: 'white', opacity: 0, transition: 'opacity 0.15s', width: 28, height: 28, '&:hover': { bgcolor: '#06b6d4' } }}>
+                                        <Download size={14} />
+                                    </IconButton>
+                                </ImageCard>
                             );
                         })}
-                    </Stack>
+                    </Box>
+                    {visibleCount < displayImages.length && (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1.5 }}>
+                            <Typography onClick={() => setVisibleCount(c => c + PAGE_SIZE)} variant="caption" sx={{ cursor: 'pointer', color: '#06b6d4', '&:hover': { textDecoration: 'underline' } }}>
+                                Show more ({displayImages.length - visibleCount} remaining)
+                            </Typography>
+                        </Box>
+                    )}
+                    </Box>
+                )}
+                {scanning && filteredImages.length > 0 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, py: 2, opacity: 0.5 }}>
+                        <Loader size={14} className="animate-spin" />
+                        <Typography variant="caption">{t('discoveringMore')}</Typography>
+                    </Box>
                 )}
             </Box>
 
-            {/* Float Footer */}
-            <Fade in={selected.size > 0}>
-                <Box sx={{ position: 'absolute', bottom: 24, left: 24, right: 24, zIndex: 30 }}>
-                    <GlassPaper sx={{ p: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(15, 23, 42, 0.9)', boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.7)' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Box sx={{ width: 32, height: 32, borderRadius: '10px', bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem' }}>
-                                {selected.size}
+            {/* Floating Footer */}
+            <Fade in={selected.size > 0 || scanning}>
+                <Paper elevation={8} sx={{ position: 'absolute', bottom: 12, left: 12, right: 12, zIndex: 30, p: '10px 16px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 12px 32px -8px rgba(0, 0, 0, 0.6)' }}>
+                    {selected.size > 0 ? (
+                        <>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                <Box sx={{ minWidth: 26, height: 26, borderRadius: '8px', bgcolor: '#06b6d4', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.75rem', px: 0.5 }}>{selected.size}</Box>
+                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>{t('selected')}</Typography>
                             </Box>
-                            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
-                                Images selected
-                            </Typography>
-                        </Box>
-                        <Stack direction="row" spacing={1}>
-                            <Button onClick={() => setSelected(new Set())} sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'none' }}>
-                                Clear
-                            </Button>
-                            <Button variant="contained" startIcon={downloading ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />} disabled={downloading} onClick={downloadSelected} sx={{ borderRadius: '12px', px: 3, fontWeight: 700, textTransform: 'none', background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)', boxShadow: '0 8px 16px -4px rgba(6, 182, 212, 0.4)' }}>
-                                {downloading ? 'Packing...' : 'Download'}
-                            </Button>
-                        </Stack>
-                    </GlassPaper>
-                </Box>
+                            <Stack direction="row" spacing={1}>
+                                <Button size="small" onClick={clearSelection} sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'none', minWidth: 'auto', fontSize: '0.72rem' }}>{t('clear')}</Button>
+                                <Button variant="contained" size="small" startIcon={downloading ? <Loader size={13} className="animate-spin" /> : <Download size={13} />} disabled={downloading} onClick={downloadSelected} sx={{ borderRadius: '10px', px: 2, fontWeight: 700, textTransform: 'none', fontSize: '0.72rem', background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)' }}>
+                                    {downloading ? t('packing') : t('downloadZip')}
+                                </Button>
+                            </Stack>
+                        </>
+                    ) : scanning ? (
+                        <>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Loader size={14} className="animate-spin" style={{ color: '#06b6d4' }} />
+                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>{scanPhase === 'watching' ? t('watching') : `${scanProgress}%`}</Typography>
+                            </Box>
+                            <Button size="small" onClick={cancelScan} sx={{ color: 'error.main', fontWeight: 600, textTransform: 'none', fontSize: '0.72rem' }}>{t('cancelScan')}</Button>
+                        </>
+                    ) : null}
+                </Paper>
+            </Fade>
+
+            <Fade in={filteredImages.length > 0 && selected.size === 0 && !scanning}>
+                <Button variant="contained" startIcon={<Download size={14} />} onClick={downloadAll} disabled={downloading} sx={{ position: 'absolute', bottom: 16, right: 16, zIndex: 20, borderRadius: '12px', px: 2, py: 1, fontWeight: 700, textTransform: 'none', fontSize: '0.75rem', background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)', boxShadow: '0 8px 20px -4px rgba(6, 182, 212, 0.4)', '&:hover': { background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)' } }}>
+                    {t('downloadAll', { count: filteredImages.length })}
+                </Button>
             </Fade>
         </Box>
     );

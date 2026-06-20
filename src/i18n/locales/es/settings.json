@@ -1,0 +1,50 @@
+{
+  "title": "Configuración",
+  "language": { "title": "Idioma", "description": "Elige tu idioma de visualización preferido" },
+  "dataStorage": {
+    "title": "Datos y Almacenamiento",
+    "storageUsed": "Almacenamiento Usado",
+    "calculating": "Calculando...",
+    "autoClear": "Limpiar Datos Antiguos Automáticamente",
+    "autoClearDescription": "Eliminar datos más antiguos que el período seleccionado.",
+    "clearButton": "Borrar Datos de Más de {{days}} Días ({{count}} Trabajos)",
+    "daysLabel": "{{count}} Días"
+  },
+  "integrations": {
+    "title": "Integraciones (PRO)",
+    "proFeature": "FUNCIÓN PRO",
+    "proDescription": "Actualiza a PRO para desbloquear Webhooks, Airtable e integraciones de Google Sheets.",
+    "webhookZapier": "Webhook y Zapier",
+    "webhookUrl": "URL de Webhook",
+    "zapierWebhook": "Webhook de Zapier",
+    "airtable": "Airtable",
+    "apiKey": "Clave API",
+    "baseId": "ID de Base",
+    "tableName": "Nombre de Tabla",
+    "googleSheets": "Google Sheets",
+    "connectSheets": "Conectar Google Sheets",
+    "connectedSheets": "Conectado a Google Sheets"
+  },
+  "feedback": {
+    "title": "Compartir Opinión",
+    "description": "Ayúdanos a mejorar CrawlPilot — dinos qué funciona y qué no.",
+    "openForm": "Abrir Formulario de Opinión"
+  },
+  "dangerZone": {
+    "title": "Zona de Peligro",
+    "deleteAll": "Eliminar Todos los Datos",
+    "deleteAllDescription": "Elimina todo permanentemente. Esto no se puede deshacer.",
+    "confirmDeletion": "Confirmar Eliminación",
+    "deleteJobsConfirm": "¿Eliminar {{count}} trabajos antiguos?",
+    "typeToConfirm": "Escribe DELETE para confirmar:",
+    "deleteEverything": "Eliminar Todo"
+  },
+  "support": {
+    "title": "Soporte y Comunidad",
+    "contactSupport": "Contactar Soporte",
+    "contactSupportSub": "Envíanos un correo para obtener ayuda",
+    "github": "Repositorio GitHub",
+    "githubSub": "Danos una estrella en GitHub",
+    "version": "Versión"
+  }
+}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import DataSourceSelector from '../components/DataSourceSelector';
 import { useSelectionMode } from '../hooks/useSelectionMode';
 import { useBulkExtraction } from '../hooks/useBulkExtraction';
@@ -10,35 +11,50 @@ import { Step3Review } from '../components/page-extractor/wizard/Step3Review';
 
 interface PageExtractorPageProps {
     onBack: () => void;
-    onSettings?: () => void;
 }
 
 export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
+    const { t } = useTranslation('pageExtractor');
     const [step, setStep] = useState(1);
     const [showDataSourceSelector, setShowDataSourceSelector] = useState(false);
     const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
+    const [isTabLoading, setIsTabLoading] = useState(false);
 
-    // [NEW] Selection Logic
-    const { startSelection, stopSelection, status: selectionStatus, setStatus: setSelectionStatus } = useSelectionMode();
-    const [elements, setElements] = useState<any[]>([]);
-
-    // Persist state across unmounts (session-only)
+    // Track active tab loading state for the YouTube-style loading bar
     useEffect(() => {
-        chrome.storage.session.get(['page_extractor_state'], (result) => {
-            const data = result as { page_extractor_state?: any };
-            if (data.page_extractor_state) {
-                const { selectedUrls: savedUrls, elements: savedElements } = data.page_extractor_state;
-                if (savedUrls) setSelectedUrls(savedUrls);
-                if (savedElements) setElements(savedElements);
+        let activeTabId: number | null = null;
+
+        const checkTab = () => {
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                const tab = tabs[0];
+                if (!tab) return;
+                activeTabId = tab.id ?? null;
+                setIsTabLoading(tab.status === 'loading');
+            });
+        };
+        checkTab();
+
+        const onUpdated = (tabId: number, changeInfo: { status?: string }) => {
+            if (tabId === activeTabId) {
+                if (changeInfo.status === 'loading') setIsTabLoading(true);
+                else if (changeInfo.status === 'complete') setIsTabLoading(false);
             }
-        });
+        };
+
+        const onActivated = () => {
+            checkTab();
+        };
+
+        chrome.tabs.onUpdated.addListener(onUpdated);
+        chrome.tabs.onActivated.addListener(onActivated);
+        return () => {
+            chrome.tabs.onUpdated.removeListener(onUpdated);
+            chrome.tabs.onActivated.removeListener(onActivated);
+        };
     }, []);
 
-    useEffect(() => {
-        chrome.storage.session.set({
-            page_extractor_state: { selectedUrls, elements }
-        });
-    }, [selectedUrls, elements]);
+    const { startSelection, stopSelection, status: selectionStatus, setStatus: setSelectionStatus } = useSelectionMode();
+    const [elements, setElements] = useState<any[]>([]);
 
     // UI State for editing
     const [showEditModal, setShowEditModal] = useState(false);
@@ -47,33 +63,81 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
     const [elementName, setElementName] = useState('');
     const [elementAction, setElementAction] = useState<'extract' | 'click'>('extract');
 
-    // [NEW] Extraction State
     const {
         isExtracting,
+        isStopping,
+        hasStopped,
+        stoppedTableId,
+        hasCompleted,
+        completedTableId,
         completedPages,
+        totalPages,
+        activeTabs,
+        urlStatuses,
+        previewTableId,
+        duplicatesRemoved,
         startBulkExtraction,
-        stopBulkExtraction
+        stopBulkExtraction,
+        resetStoppedState
     } = useBulkExtraction();
 
-    const [useParallel, setUseParallel] = useState(false);
     const [maxConcurrent, setMaxConcurrent] = useState(3);
+    const [clickWaitMs, setClickWaitMs] = useState(1000);
+    const [requestDelay, setRequestDelay] = useState(1000);
+    const [loadTimeout, setLoadTimeout] = useState(10000);
+    const [waitForLoad, setWaitForLoad] = useState(true);
+    const [enableRandomization, setEnableRandomization] = useState(false);
+    const [waitForElements, setWaitForElements] = useState(false);
+    const [elementTimeout, setElementTimeout] = useState(0);
+    const [extractionViewport, setExtractionViewport] = useState<{ width: number; height: number } | null>(null);
+
+    const handleReset = useCallback(() => {
+        setStep(1);
+        setSelectedUrls([]);
+        setElements([]);
+        setExtractionViewport(null);
+        setMaxConcurrent(3);
+        setClickWaitMs(1000);
+        setRequestDelay(1000);
+        setLoadTimeout(10000);
+        setWaitForLoad(true);
+        setEnableRandomization(false);
+        setWaitForElements(false);
+        setElementTimeout(0);
+        resetStoppedState();
+    }, [resetStoppedState]);
+
+    const handleViewPartialResults = useCallback((tableId: number) => {
+        const targetUrl = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`);
+        chrome.tabs.create({ url: targetUrl });
+    }, []);
 
     const handleStartExtraction = async () => {
         if (selectedUrls.length === 0 || elements.length === 0) return;
 
-        await startBulkExtraction(selectedUrls, elements, {
-            useParallel,
-            maxConcurrent,
-            onComplete: (tableId: number) => {
-                // Redirect to results (New Tab)
-                const targetUrl = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`);
-                chrome.tabs.create({ url: targetUrl });
-
-                // Reset after success
-                setStep(1);
-                setSelectedUrls([]);
-                setElements([]);
+        let viewport = extractionViewport;
+        if (!viewport) {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab?.id) {
+                const [result] = await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    func: () => ({ width: window.outerWidth, height: window.outerHeight })
+                });
+                if (result?.result) viewport = result.result as { width: number; height: number };
             }
+        }
+
+        await startBulkExtraction(selectedUrls, elements, {
+            maxConcurrent,
+            clickWaitMs,
+            requestDelay,
+            loadTimeout,
+            waitForLoad,
+            enableRandomization,
+            waitForElements,
+            elementTimeout,
+            viewportWidth: viewport?.width,
+            viewportHeight: viewport?.height
         });
     };
 
@@ -98,8 +162,6 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
     useEffect(() => {
         const handleMessage = (message: any) => {
             if (message.type === 'ELEMENT_SELECTED' && message.payload.selectionMode === 'detail') {
-                console.log('Element selected:', message.payload);
-
                 const newElement = {
                     id: Date.now().toString(),
                     name: message.payload.tagName || 'New Element',
@@ -108,6 +170,10 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                     type: message.payload.extractionType || 'text',
                     value: message.payload.previewValue
                 };
+
+                if (message.payload.viewportWidth && message.payload.viewportHeight) {
+                    setExtractionViewport({ width: message.payload.viewportWidth, height: message.payload.viewportHeight });
+                }
 
                 setElements(prev => [...prev, newElement]);
                 setSelectionStatus('idle'); // Picker auto-deactivates
@@ -175,10 +241,13 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
     const handleDeleteElement = (id: string) => {
         setElements(prev => {
             const updated = prev.filter(el => el.id !== id);
-            // Refresh all highlights after deletion
             sendHighlightMessage('SHOW_SELECTION_HIGHLIGHTS', { elements: updated });
             return updated;
         });
+    };
+
+    const handleClearAllElements = () => {
+        setElements([]);
     };
 
     const handleChangeElementType = (id: string, newType: string) => {
@@ -199,24 +268,6 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                 onSelect={(urls: string[]) => {
                     setSelectedUrls(urls);
                     setShowDataSourceSelector(false);
-                    // Automatically open the first URL to start selection
-                    if (urls.length > 0) {
-                        try {
-                            // Check if chrome API is available (extension context)
-                            if (typeof chrome !== 'undefined' && chrome.tabs) {
-                                chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                                    if (tabs.length > 0 && tabs[0].id) {
-                                        chrome.tabs.update(tabs[0].id, { url: urls[0] });
-                                    }
-                                });
-                            } else {
-                                // Fallback for dev/web environment
-                                window.open(urls[0], '_blank');
-                            }
-                        } catch (e) {
-                            console.error('Failed to navigate to URL:', e);
-                        }
-                    }
                 }}
             />
         );
@@ -231,7 +282,16 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                         setSelectedUrls={setSelectedUrls}
                         setShowDataSourceSelector={setShowDataSourceSelector}
                         handleRemoveUrl={handleRemoveUrl}
-                        onNext={() => setStep(2)}
+                        onNext={() => {
+                            if (selectedUrls.length > 0) {
+                                chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                                    if (tabs.length > 0 && tabs[0].id) {
+                                        chrome.tabs.update(tabs[0].id, { url: selectedUrls[0] });
+                                    }
+                                });
+                            }
+                            setStep(2);
+                        }}
                     />
                 );
             case 2:
@@ -239,11 +299,13 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                     <Step2Schema
                         elements={elements}
                         selectionStatus={selectionStatus}
+                        isTabLoading={isTabLoading}
                         startSelection={(mode, action) => {
                             if (action) setElementAction(action);
                             startSelection(mode, action || elementAction);
                         }}
                         handleDeleteElement={handleDeleteElement}
+                        handleClearAllElements={handleClearAllElements}
                         handleChangeElementType={handleChangeElementType}
                         handleEditElement={handleEditElement}
                         showEditModal={showEditModal}
@@ -264,16 +326,40 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                 return (
                     <Step3Review
                         elements={elements}
-                        selectedUrls={selectedUrls} // Pass original for UI count, dedupe is internal
+                        selectedUrls={selectedUrls}
                         isExtracting={isExtracting}
+                        isStopping={isStopping}
+                        hasStopped={hasStopped}
+                        stoppedTableId={stoppedTableId}
+                        hasCompleted={hasCompleted}
+                        completedTableId={completedTableId}
                         completedPages={completedPages}
-                        useParallel={useParallel}
-                        setUseParallel={setUseParallel}
+                        totalUniquePages={totalPages}
+                        duplicatesRemoved={duplicatesRemoved}
                         maxConcurrent={maxConcurrent}
                         setMaxConcurrent={setMaxConcurrent}
+                        clickWaitMs={clickWaitMs}
+                        setClickWaitMs={setClickWaitMs}
+                        requestDelay={requestDelay}
+                        setRequestDelay={setRequestDelay}
+                        loadTimeout={loadTimeout}
+                        setLoadTimeout={setLoadTimeout}
+                        waitForLoad={waitForLoad}
+                        setWaitForLoad={setWaitForLoad}
+                        enableRandomization={enableRandomization}
+                        setEnableRandomization={setEnableRandomization}
+                        waitForElements={waitForElements}
+                        setWaitForElements={setWaitForElements}
+                        elementTimeout={elementTimeout}
+                        setElementTimeout={setElementTimeout}
+                        activeTabs={activeTabs}
+                        urlStatuses={urlStatuses}
+                        previewTableId={previewTableId}
                         handleStartExtraction={handleStartExtraction}
                         onStop={stopBulkExtraction}
                         onBack={() => setStep(2)}
+                        onViewPartialResults={handleViewPartialResults}
+                        onReset={handleReset}
                     />
                 );
             default:
@@ -283,15 +369,16 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
 
     return (
         <WizardLayout
-            title="Page Extractor"
+            title={t('title')}
             subtitle={
-                step === 1 ? "Select target web pages" :
-                    step === 2 ? "Configure extraction fields" :
-                        "Review and extract data"
+                step === 1 ? t('step1.subtitle') :
+                    step === 2 ? t('step2.subtitle') :
+                        t('step3.subtitle')
             }
             currentStep={step}
             totalSteps={3}
             onBack={step === 1 ? onBack : () => setStep(step - 1)}
+            isLoading={isTabLoading && step <= 2}
         >
             {renderStep()}
         </WizardLayout>

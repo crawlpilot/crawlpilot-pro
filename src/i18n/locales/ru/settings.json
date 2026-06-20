@@ -1,0 +1,53 @@
+{
+  "title": "Настройки",
+  "language": {
+    "title": "Язык",
+    "description": "Выберите предпочитаемый язык интерфейса"
+  },
+  "dataStorage": {
+    "title": "Данные и хранилище",
+    "storageUsed": "Использовано места",
+    "calculating": "Вычисление...",
+    "autoClear": "Авто-очистка старых данных",
+    "autoClearDescription": "Удалять данные старше выбранного периода.",
+    "clearButton": "Очистить данные старше {{days}} дней ({{count}} задач)",
+    "daysLabel": "{{count}} дней"
+  },
+  "integrations": {
+    "title": "Интеграции (PRO)",
+    "proFeature": "PRO ФУНКЦИЯ",
+    "proDescription": "Перейдите на PRO для доступа к Webhooks, Airtable и Google Sheets.",
+    "webhookZapier": "Webhook и Zapier",
+    "webhookUrl": "URL вебхука",
+    "zapierWebhook": "Zapier Webhook",
+    "airtable": "Airtable",
+    "apiKey": "API-ключ",
+    "baseId": "ID базы",
+    "tableName": "Название таблицы",
+    "googleSheets": "Google Sheets",
+    "connectSheets": "Подключить Google Sheets",
+    "connectedSheets": "Подключено к Google Sheets"
+  },
+  "feedback": {
+    "title": "Оставить отзыв",
+    "description": "Помогите нам улучшить CrawlPilot — расскажите, что работает, а что нет.",
+    "openForm": "Открыть форму обратной связи"
+  },
+  "dangerZone": {
+    "title": "Опасная зона",
+    "deleteAll": "Удалить все данные",
+    "deleteAllDescription": "Безвозвратно удаляет всё. Действие необратимо.",
+    "confirmDeletion": "Подтвердить удаление",
+    "deleteJobsConfirm": "Удалить {{count}} старых задач?",
+    "typeToConfirm": "Введите DELETE для подтверждения:",
+    "deleteEverything": "Удалить всё"
+  },
+  "support": {
+    "title": "Поддержка и сообщество",
+    "contactSupport": "Связаться с поддержкой",
+    "contactSupportSub": "Напишите нам по электронной почте",
+    "github": "Репозиторий GitHub",
+    "githubSub": "Поставьте звезду на GitHub",
+    "version": "Версия"
+  }
+}

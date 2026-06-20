@@ -1,0 +1,34 @@
+{
+  "title": "Estrattore di Metadati",
+  "back": "Indietro",
+  "step1": {
+    "subtitle": "Aggiungi URL per estrarre metadati"
+  },
+  "step2": {
+    "title": "Estrazione Metadati",
+    "subtitle": "Configura ed esegui l'estrazione",
+    "extract": "Estrai {{count}} URL"
+  },
+  "options": {
+    "title": "Opzioni di Estrazione",
+    "includeLinks": "Preserva i link nel markdown",
+    "includeImages": "Includi immagini nel markdown",
+    "outputText": "Esporta anche in testo normale",
+    "concurrency": "Schede simultanee",
+    "concurrencyHint": "Massimo schede aperte contemporaneamente (1–5)",
+    "requestDelay": "Ritardo tra le pagine (ms)",
+    "requestDelayHint": "Pausa tra le richieste"
+  },
+  "results": {
+    "extracting": "Estrazione in corso…",
+    "complete": "Estrazione Completata",
+    "activeTabs": "schede attive",
+    "viewResults": "Visualizza Risultati",
+    "previewResults": "Anteprima in tempo reale",
+    "stop": "Ferma Estrazione",
+    "stopping": "Arresto in corso…",
+    "reset": "Ricomincia",
+    "completeSummary": "Metadati estratti da {{count}} pagina/e",
+    "stoppedSummary": "Fermato dopo {{count}} pagina/e"
+  }
+}

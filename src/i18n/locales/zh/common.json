@@ -1,0 +1,50 @@
+{
+  "cancel": "取消",
+  "save": "保存",
+  "back": "返回",
+  "close": "关闭",
+  "delete": "删除",
+  "confirm": "确认",
+  "export": "导出",
+  "clear": "清除",
+  "search": "搜索",
+  "stop": "停止",
+  "rerun": "重新运行",
+  "data": "数据",
+  "copy": "复制",
+  "loading": "加载中...",
+  "yes": "是",
+  "no": "否",
+  "na": "不适用",
+  "status": {
+    "running": "运行中",
+    "completed": "已完成",
+    "stopped": "已停止",
+    "failed": "失败",
+    "paused": "已暂停",
+    "pending": "待处理",
+    "active": "活跃"
+  },
+  "time": {
+    "justNow": "刚刚",
+    "minutesAgo": "{{count}}分钟前",
+    "hoursAgo": "{{count}}小时前",
+    "daysAgo": "{{count}}天前",
+    "yesterday": "昨天",
+    "days": "{{count}} 天"
+  },
+  "connection": {
+    "notConnected": "扩展程序未连接到此标签页",
+    "notConnectedHint": "请导航到网页，然后点击连接以启用抓取",
+    "connect": "连接",
+    "connecting": "连接中..."
+  },
+  "nav": {
+    "home": "主页",
+    "homeTooltip": "所有工具和功能",
+    "runs": "运行记录",
+    "runsTooltip": "您可以重新运行的历史提取任务",
+    "data": "数据",
+    "dataTooltip": "浏览并导出您提取的数据集"
+  }
+}

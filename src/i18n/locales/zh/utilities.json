@@ -1,0 +1,13 @@
+{
+  "title": "浏览器工具",
+  "subtitle": "增强您浏览体验的实用工具",
+  "rightClickUnlocker": {
+    "title": "右键解锁",
+    "description": "在受限网站上重新启用右键菜单、复制、粘贴和文本选择",
+    "active": "已激活",
+    "rightClick": "右键",
+    "copyPaste": "复制/粘贴",
+    "textSelect": "文本选择"
+  },
+  "comingSoon": "更多工具即将推出"
+}

@@ -21,20 +21,28 @@ export class MessageClient {
 
     public send(message: any): Promise<any> {
         return new Promise((resolve, reject) => {
+            // Guard: extension context is invalidated when the service worker restarts.
+            // The content script cannot recover from this — log and resolve empty so
+            // callers don't hang on an unresolved promise.
+            if (!chrome.runtime?.id) {
+                console.warn('[MessageClient] Extension context invalidated — cannot send message');
+                resolve(undefined);
+                return;
+            }
+
             try {
-                if (!chrome.runtime?.id) {
-                    console.warn('Extension context invalidated');
-                    return;
-                }
                 chrome.runtime.sendMessage(message, (response) => {
                     if (chrome.runtime.lastError) {
-                        console.warn('Runtime error:', chrome.runtime.lastError);
-                        // reject(chrome.runtime.lastError); // Don't always reject, just warn
+                        // "Could not establish connection" is expected on first message after SW restart.
+                        // Resolve rather than reject so the caller degrades gracefully.
+                        console.warn('[MessageClient] lastError:', chrome.runtime.lastError.message);
+                        resolve(undefined);
+                        return;
                     }
                     resolve(response);
                 });
             } catch (e) {
-                console.error('Failed to send message:', e);
+                console.error('[MessageClient] Failed to send message:', e);
                 reject(e);
             }
         });
@@ -45,13 +53,9 @@ export class MessageClient {
             const callback = this.listeners.get(message.type)!;
             const result = callback(message, sendResponse);
 
-            // In Chrome Extensions, an onMessage listener MUST explicitly return `true`
-            // if sendResponse will be called asynchronously. If the callback returns a Promise,
-            // we must return true.
             if (result instanceof Promise) {
-                // We don't want an unhandled promise rejection to crash the listener
                 result.catch(err => {
-                    console.error(`Error in async message handler for ${message.type}:`, err);
+                    console.error(`[MessageClient] Async handler error for ${message.type}:`, err);
                     sendResponse({ success: false, error: err.message });
                 });
                 return true;

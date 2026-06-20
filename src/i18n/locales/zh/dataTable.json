@@ -1,0 +1,80 @@
+{
+  "toolbar": {
+    "filters": "筛选",
+    "filtersActive": "{{count}} 个启用",
+    "mergeColumns": "合并列",
+    "filterTooltip": "切换数据质量筛选以清理视图",
+    "mergeTooltip": "使用分隔符将两列合并为一列",
+    "status": "{{rows}} 行 · {{cols}} 列",
+    "statusTooltip": "应用所有活动筛选后的行列数"
+  },
+  "filters": {
+    "title": "全局筛选",
+    "resetToDefault": "重置",
+    "resetTooltip": "将所有筛选重置为默认状态",
+    "emptyRows": "空行",
+    "emptyRowsDesc": "删除所有单元格均为空的行",
+    "emptyColumns": "空列",
+    "emptyColumnsDesc": "隐藏任何行中均无数据的列",
+    "repeatingData": "重复数据",
+    "repeatingDataDesc": "隐藏每行值相同的列",
+    "noDuplicates": "无重复列",
+    "noDuplicatesDesc": "删除内容相同的列",
+    "richFirst": "优先显示丰富列",
+    "richFirstDesc": "按数据完整度对列排序（填充最多的优先）",
+    "showImages": "显示图片",
+    "showImagesDesc": "切换单元格中的图片预览",
+    "sparseColumns": "稀疏列",
+    "sparseColumnsDesc": "隐藏填充率低于20%的列"
+  },
+  "merge": {
+    "title": "合并两列",
+    "column1": "列 1",
+    "column2": "列 2",
+    "separator": "分隔符",
+    "newName": "新名称",
+    "selectColumn": "选择列...",
+    "separatorPlaceholder": "（空格）",
+    "newNamePlaceholder": "合并列",
+    "tip": "提示：合并姓氏和名字，或将地址字段组合到一列中。",
+    "button": "合并"
+  },
+  "header": {
+    "saveName": "保存名称",
+    "cancel": "取消",
+    "confirmDelete": "确认删除",
+    "rename": "重命名列",
+    "delete": "删除列",
+    "deletePrompt": "删除？"
+  },
+  "empty": {
+    "waiting": "等待提取数据",
+    "runCrawl": "运行爬取以填充结果"
+  },
+  "preview": {
+    "close": "关闭预览"
+  },
+  "page": {
+    "loadingDatasets": "正在加载数据集...",
+    "loadingTable": "正在加载表格数据...",
+    "errorTitle": "加载数据出错",
+    "noExtractionsTitle": "尚无提取记录",
+    "noExtractionsDesc": "您尚未提取任何数据。请使用主页的提取工具开始操作。",
+    "selectDataset": "选择数据集",
+    "selectDatasetDesc": "从下拉菜单选择数据集以查看其内容",
+    "selectPlaceholder": "选择提取记录...",
+    "source": "来源",
+    "export": "导出",
+    "localExport": "本地导出",
+    "integrations": "集成",
+    "exportCSV": "CSV / Excel",
+    "exportJSON": "JSON",
+    "exportMarkdown": "Markdown (.md)",
+    "exportGoogleSheets": "Google 表格",
+    "exportWebhook": "Webhook",
+    "exportAirtable": "Airtable",
+    "exportZapier": "Zapier",
+    "rows": "行",
+    "columns": "列"
+  }
+}

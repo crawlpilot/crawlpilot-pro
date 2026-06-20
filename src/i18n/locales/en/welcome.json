@@ -1,0 +1,14 @@
+{
+  "title": "Welcome to CrawlPilot",
+  "description": "Extract structured data from any website — no code required. Here's what you can do:",
+  "listExtractor": {
+    "title": "List Extractor",
+    "description": "Click any repeating item — product cards, search results, table rows — and we'll scrape them all."
+  },
+  "pageExtractor": {
+    "title": "Page Extractor",
+    "description": "Define fields once, run on hundreds of URLs. Great for bulk data collection across many pages."
+  },
+  "tryFirstScrape": "Try your first scrape",
+  "goHome": "Go to Home"
+}

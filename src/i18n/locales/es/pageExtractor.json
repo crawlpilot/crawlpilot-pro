@@ -1,0 +1,22 @@
+{
+  "title": "Extractor de Páginas",
+  "subtitle": "Visita muchas URLs y extrae los mismos campos de cada una",
+  "step1": {
+    "subtitle": "Proporciona las URLs a extraer",
+    "pagesToScrape": "Páginas a Extraer",
+    "urlsLoaded": "{{count}} Cargadas",
+    "urlList": "Lista de URLs",
+    "clear": "Limpiar",
+    "chooseDifferentSource": "Elegir Otra Fuente",
+    "provideUrls": "Proporciona una lista de URLs de páginas para extraer datos estructurados de cada una",
+    "uploadCsv": "Subir CSV",
+    "uploadCsvDesc": "Importar URLs desde un archivo",
+    "selectDataSource": "Seleccionar Fuente de Datos",
+    "selectDataSourceDesc": "Usar enlaces de tablas existentes",
+    "expectedFormat": "Formato CSV esperado",
+    "formatDesc": "Una URL por línea, o separadas por comas con una fila de encabezado.",
+    "nextStep": "Siguiente paso"
+  },
+  "step2": { "subtitle": "Define los campos a extraer", "title": "Definir Esquema" },
+  "step3": { "subtitle": "Revisa y ejecuta la extracción", "title": "Revisar y Ejecutar" }
+}

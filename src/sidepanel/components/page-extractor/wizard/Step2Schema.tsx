@@ -1,13 +1,15 @@
 import { useEffect } from 'react';
-import { MousePointerClick, X } from 'lucide-react';
+import { MousePointerClick, X, Loader2 } from 'lucide-react';
 import Badge from '../../ui/Badge';
 import Input from '../../ui/Input';
 
 interface Step2SchemaProps {
     elements: any[];
     selectionStatus: 'idle' | 'selecting' | 'ready';
+    isTabLoading?: boolean;
     startSelection: (mode: 'list' | 'nextButton' | 'detail', action?: 'extract' | 'click') => void;
     handleDeleteElement: (id: string) => void;
+    handleClearAllElements: () => void;
     handleChangeElementType: (id: string, newType: string) => void;
     handleEditElement: (el: any) => void;
     showEditModal: boolean;
@@ -27,8 +29,10 @@ interface Step2SchemaProps {
 export function Step2Schema({
     elements,
     selectionStatus,
+    isTabLoading = false,
     startSelection,
     handleDeleteElement,
+    handleClearAllElements,
     handleChangeElementType,
     handleEditElement,
     showEditModal,
@@ -87,30 +91,87 @@ export function Step2Schema({
     return (
         <div className="space-y-4 animate-fade-in-up">
             <div className="card">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="w-6 h-6 rounded-md bg-surface-lighter text-text-secondary border border-border-subtle flex items-center justify-center text-xs font-bold">
-                        2
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-6 h-6 rounded-md bg-surface-lighter text-text-secondary border border-border-subtle flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            2
+                        </div>
+                        <h2 className="font-semibold text-sm text-text-primary">Define Fields to Extract</h2>
+                        {elements.length > 0 && (() => {
+                            const fieldCount = elements.filter(el => el.action !== 'click').length;
+                            const clickCount = elements.filter(el => el.action === 'click').length;
+                            return (
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                    {fieldCount > 0 && (
+                                        <Badge variant="success">{fieldCount} field{fieldCount !== 1 ? 's' : ''}</Badge>
+                                    )}
+                                    {clickCount > 0 && (
+                                        <Badge variant="warning">{clickCount} click{clickCount !== 1 ? 's' : ''}</Badge>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
-                    <h2 className="font-semibold text-sm text-text-primary">Extraction Schema</h2>
+                    {elements.length > 0 && (
+                        <button
+                            onClick={() => {
+                                handleClearAllElements();
+                                sendHighlightMessage('CLEAR_SELECTION_HIGHLIGHTS');
+                            }}
+                            className="text-[10px] text-accent-error hover:text-red-400 uppercase tracking-wider font-medium flex-shrink-0 ml-2"
+                        >
+                            Clear All
+                        </button>
+                    )}
                 </div>
 
-                {selectionStatus === 'selecting' && (
-                    <div className="mb-4 p-6 border-2 border-dashed border-primary bg-primary/5 text-center rounded-xl">
-                        <div className="flex justify-center mb-4 text-primary animate-pulse">
-                            <MousePointerClick className="w-10 h-10" />
+                {isTabLoading && selectionStatus !== 'selecting' && (
+                    <div className="mb-4 p-5 border border-border-subtle rounded-xl bg-surface-lighter/60 flex flex-col items-center justify-center text-center gap-3">
+                        <Loader2 className="w-7 h-7 text-primary animate-spin" />
+                        <div>
+                            <p className="text-sm font-semibold text-text-primary">Page loading…</p>
+                            <p className="text-xs text-text-muted mt-0.5">Wait for the page to finish loading before picking elements.</p>
                         </div>
-                        <h3 className="text-base font-semibold text-primary mb-1">
-                            Selection Mode Active
-                        </h3>
-                        <p className="text-sm text-text-muted mb-4">
-                            Click on an element in the page to select it.
-                        </p>
-                        <button
-                            onClick={onCancel}
-                            className="text-sm text-text-muted hover:text-text-primary underline transition-colors"
-                        >
-                            Press ESC to cancel
-                        </button>
+                    </div>
+                )}
+
+                {selectionStatus === 'selecting' && (
+                    <div className="mb-4 border-2 border-dashed border-primary bg-primary/5 rounded-xl overflow-hidden">
+                        <div className="p-5 text-center">
+                            <div className="flex justify-center mb-3 text-primary animate-pulse">
+                                <MousePointerClick className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-sm font-semibold text-primary mb-1">
+                                Hover over the page, then click to select
+                            </h3>
+                            <p className="text-xs text-text-muted mb-0">
+                                Move your cursor over any element on the page to highlight it.
+                            </p>
+                        </div>
+                        <div className="border-t border-primary/20 bg-primary/5 px-4 py-3">
+                            <p className="text-[10px] text-text-muted mb-2 font-medium uppercase tracking-wider">Keyboard shortcuts</p>
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                                {[
+                                    ['↑', 'Expand to parent'],
+                                    ['↓', 'Narrow to child'],
+                                    ['Enter', 'Confirm selection'],
+                                    ['Esc', 'Cancel picker'],
+                                ].map(([key, label]) => (
+                                    <div key={key} className="flex items-center gap-1.5">
+                                        <kbd className="inline-flex items-center justify-center min-w-[28px] px-1 h-5 rounded bg-surface-darker border border-border-subtle text-[10px] font-mono text-text-primary">{key}</kbd>
+                                        <span className="text-[10px] text-text-muted">{label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="px-4 py-2.5 border-t border-primary/20 text-center">
+                            <button
+                                onClick={onCancel}
+                                className="text-[10px] text-text-muted hover:text-text-primary underline transition-colors"
+                            >
+                                Press ESC or click here to cancel
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -124,9 +185,9 @@ export function Step2Schema({
                                 <MousePointerClick className="w-4 h-4 text-primary" />
                             </div>
                             <h3 className="text-xs font-medium text-text-primary mb-0.5">
-                                Select Elements
+                                Pick Data Fields
                             </h3>
-                            <p className="text-[10px] text-text-muted">Extract data fields</p>
+                            <p className="text-[10px] text-text-muted">Select text, links, or images to scrape from each page</p>
                         </div>
 
                         <div
@@ -139,9 +200,9 @@ export function Step2Schema({
                                 </svg>
                             </div>
                             <h3 className="text-xs font-medium text-text-primary mb-0.5">
-                                Register Click
+                                Add Click Action
                             </h3>
-                            <p className="text-[10px] text-text-muted">Interactions/Pagination</p>
+                            <p className="text-[10px] text-text-muted">Click a button to reveal hidden content — tabs, dropdowns, overlays, "Show more", cookie banners</p>
                         </div>
                     </div>
                 ) : (
@@ -212,9 +273,13 @@ export function Step2Schema({
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-current">
                                     <path d="M14 9l6 6-6 6"></path><path d="M4 4v5"></path><path d="M4 4h5"></path><path d="M4 4l16 16"></path>
                                 </svg>
-                                Register Click
+                                Add Click Action
                             </button>
                         </div>
+                        <p className="text-[10px] text-text-muted mt-2 leading-snug">
+                            <span className="font-medium">Add Field</span> — select text, links, or images to extract from each page. &nbsp;
+                            <span className="font-medium">Add Click Action</span> — fires a click before extracting, useful for revealing hidden content: dropdowns, accordions, tabs, overlays, or cookie banners.
+                        </p>
                     </div>
                 )}
 

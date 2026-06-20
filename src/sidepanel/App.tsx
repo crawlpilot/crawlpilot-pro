@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ThemeProvider, CssBaseline, Box } from '@mui/material';
+import { ThemeProvider, CssBaseline, Box, Button, Typography } from '@mui/material';
+import { Zap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { muiTheme } from './theme/muiTheme';
 import HomePage from './pages/HomePage';
 import ListExtractorPage from './pages/ListExtractorPage';
@@ -8,15 +10,20 @@ import HistoryPage from './pages/HistoryPage';
 import ImageDownloaderPage from './pages/ImageDownloaderPage';
 import EmailExtractorPage from './pages/EmailExtractorPage';
 import UtilitiesPage from './pages/UtilitiesPage';
-import DataTablePage from './pages/DataTablePage'; // Assuming this import exists or I will create it
+import DataTablePage from './pages/DataTablePage';
 import SettingsPage from './pages/SettingsPage';
 import TextSummarizerPage from './pages/TextSummarizerPage';
+import WelcomePage from './pages/WelcomePage';
+import MetadataExtractorPage from './pages/MetadataExtractorPage';
 
 import Header from './components/ui/Header';
+import { useTabSync } from './hooks/useTabSync';
 
 function App() {
     const [currentView, setCurrentView] = useState('home');
     const [isGlobalExtracting, setIsGlobalExtracting] = useState(false);
+    const { isTabConnected, isConnecting, connectTab } = useTabSync();
+    const { t } = useTranslation('common');
 
 
     useEffect(() => {
@@ -37,6 +44,8 @@ function App() {
                 />;
             case 'page-extractor':
                 return <PageExtractorPage onBack={() => setCurrentView('home')} />;
+            case 'metadata-extractor':
+                return <MetadataExtractorPage onBack={() => setCurrentView('home')} />;
             case 'text-summarizer':
                 return <TextSummarizerPage onBack={() => setCurrentView('home')} />;
             case 'image-downloader':
@@ -57,8 +66,10 @@ function App() {
                 return <DataTablePage />;
             case 'settings':
                 return <SettingsPage onBack={() => setCurrentView('home')} />;
+            case 'welcome':
+                return <WelcomePage onNavigate={setCurrentView} />;
             default:
-                return <HomePage onNavigate={setCurrentView} />;
+                return <HomePage onNavigate={setCurrentView} isTabConnected={isTabConnected} />;
         }
     };
 
@@ -68,6 +79,66 @@ function App() {
         <ThemeProvider theme={muiTheme}>
             <CssBaseline />
             <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+                {/* Global Connection Banner */}
+                {!isTabConnected && currentView !== 'data-table' && (
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        px: 2,
+                        py: 1,
+                        bgcolor: 'rgba(245, 158, 11, 0.08)',
+                        borderBottom: '1px solid rgba(245, 158, 11, 0.2)',
+                        gap: 1.5,
+                        animation: 'slideDown 0.2s ease-out',
+                        '@keyframes slideDown': {
+                            from: { transform: 'translateY(-100%)', opacity: 0 },
+                            to: { transform: 'translateY(0)', opacity: 1 }
+                        }
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{
+                                width: 8, height: 8, borderRadius: '50%',
+                                bgcolor: '#F59E0B',
+                                animation: 'pulse 1.5s ease-in-out infinite',
+                                '@keyframes pulse': {
+                                    '0%, 100%': { opacity: 1 },
+                                    '50%': { opacity: 0.4 }
+                                }
+                            }} />
+                            <Box>
+                                <Typography variant="caption" sx={{ color: '#F59E0B', fontWeight: 600, fontSize: '0.7rem', display: 'block' }}>
+                                    {t('connection.notConnected')}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: 'rgba(245, 158, 11, 0.7)', fontSize: '0.6rem', display: 'block' }}>
+                                    {t('connection.notConnectedHint')}
+                                </Typography>
+                            </Box>
+                        </Box>
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={connectTab}
+                            disabled={isConnecting}
+                            startIcon={<Zap size={12} />}
+                            sx={{
+                                color: '#F59E0B',
+                                borderColor: 'rgba(245, 158, 11, 0.3)',
+                                fontSize: '0.65rem',
+                                py: 0.25,
+                                px: 1.5,
+                                minHeight: 24,
+                                '&:hover': {
+                                    borderColor: '#F59E0B',
+                                    bgcolor: 'rgba(245, 158, 11, 0.1)',
+                                    transform: 'none',
+                                }
+                            }}
+                        >
+                            {isConnecting ? t('connection.connecting') : t('connection.connect')}
+                        </Button>
+                    </Box>
+                )}
                 {currentView !== 'data-table' && <Header onNavigate={setCurrentView} activeView={currentView} disabled={isGlobalExtracting} />}
                 <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
                     {renderView()}

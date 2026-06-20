@@ -157,20 +157,11 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                 .substring(0, 40)
                 || (currentTab.url ? new URL(currentTab.url).hostname : 'Page');
 
-            const now = new Date();
-            const dateStr = now.toLocaleString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-            });
+            const modeLabel = pagination.mode === 'pagination' ? 'paginated'
+                : pagination.mode === 'loadMore' ? 'load-more'
+                    : 'list';
 
-            const modePrefix = pagination.mode === 'pagination' ? 'PAGINATION'
-                : pagination.mode === 'loadMore' ? 'LOAD-MORE'
-                    : 'LISTING';
-
-            const pageTitle = customName || `${modePrefix} - ${cleanTitle} - ${dateStr}`;
+            const pageTitle = customName || `${cleanTitle} · ${modeLabel}`;
             const automationTitle = pageTitle;
 
             // 0. Use existing or create new Recipe
@@ -285,7 +276,8 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 chrome.tabs.sendMessage(activeTabId!, {
                                     type: 'EXECUTE_AUTO_SCROLL',
                                     payload: {
-                                        selector: sel.itemSelector || sel.containerSelector,
+                                        selector: sel.itemSelector,
+                                        containerSelector: sel.containerSelector,
                                         selectorType: 'selector',
                                         selectionMode: 'items',
                                         enableInfiniteScroll: true,

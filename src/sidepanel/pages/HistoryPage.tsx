@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useJobHistory } from '../hooks/useDatabase';
 import { useExtractionProcess } from '../hooks/useExtractionProcess';
 import { useBulkExtraction } from '../hooks/useBulkExtraction';
@@ -47,6 +48,7 @@ import {
     FormHelperText
 } from '@mui/material';
 import { Job, AutomationRecipe } from '@/shared/types/database';
+import contentScriptPath from '../../content/element-selector?script';
 
 type JobWithRecipe = Job & { recipe?: AutomationRecipe };
 
@@ -59,6 +61,8 @@ type FilterStatus = 'all' | 'running' | 'completed' | 'paused' | 'failed';
 
 export default function HistoryPage({ onViewData }: HistoryPageProps) {
     const theme = useTheme();
+    const { t } = useTranslation('history');
+    const { t: tc } = useTranslation('common');
     const { jobs, loading: jobsLoading, refresh, deleteJob } = useJobHistory();
     const { startExtraction, stopExtraction, status: extractionStatus } = useExtractionProcess(() => {
         setReRunningId(null);
@@ -67,7 +71,14 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
         setReRunningId(jobId);
         refresh();
     });
-    const { startBulkExtraction, stopBulkExtraction } = useBulkExtraction();
+    const { startBulkExtraction, stopBulkExtraction, hasCompleted, hasStopped } = useBulkExtraction();
+
+    useEffect(() => {
+        if (hasCompleted || hasStopped) {
+            setReRunningId(null);
+            refresh();
+        }
+    }, [hasCompleted, hasStopped]);
     const [filter, setFilter] = useState<FilterStatus>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [reRunningId, setReRunningId] = useState<number | null>(null);
@@ -75,23 +86,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
 
     // Rerun Dialog State
     const [rerunDialogOpen, setRerunDialogOpen] = useState(false);
-    const [userPlan, setUserPlan] = useState<string>('free');
 
-    useEffect(() => {
-        chrome.storage.local.get(['user_plan'], (result) => {
-            if (typeof result.user_plan === 'string') {
-                setUserPlan(result.user_plan);
-            }
-        });
-    }, []);
-
-    const isPaid = userPlan === 'paid';
-
-    const handleUpgradeClick = () => {
-        if (confirm('This is a PRO feature. Upgrade to unlock reruns, export and more. Would you like to visit the website to upgrade?')) {
-            window.open('https://crawlpilot.tech/profile', '_blank');
-        }
-    };
     const [rerunTarget, setRerunTarget] = useState<JobWithRecipe | null>(null);
     const [rerunName, setRerunName] = useState('');
     const [rerunMaxPages, setRerunMaxPages] = useState<number>(10);
@@ -161,24 +156,71 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
 
     const getTimeAgo = (timestamp: number) => {
         const seconds = Math.floor((Date.now() - timestamp) / 1000);
-        if (seconds < 60) return 'Just now';
+        if (seconds < 60) return tc('time.justNow');
         const minutes = Math.floor(seconds / 60);
-        if (minutes < 60) return `${minutes}m ago`;
+        if (minutes < 60) return tc('time.minutesAgo', { count: minutes });
         const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours}h ago`;
+        if (hours < 24) return tc('time.hoursAgo', { count: hours });
         const days = Math.floor(hours / 24);
-        if (days === 1) return 'Yesterday';
-        return `${days}d ago`;
+        if (days === 1) return tc('time.yesterday');
+        return tc('time.daysAgo', { count: days });
     };
 
     const openRerunDialog = (job: JobWithRecipe) => {
         setRerunTarget(job);
         const config = job.configSnapshot || job.recipe?.config;
-        setRerunName(job.name ? `${job.name} (Rerun)` : `Rerun: ${job.recipe?.name || 'Untitled'}`);
+        setRerunName(job.name ? `${job.name} (${t('rerun')})` : `${t('rerun')}: ${job.recipe?.name || tc('na')}`);
         setRerunMaxPages(config?.options?.pagination?.maxPages || 10);
         setRerunParallel(config?.options?.useParallel || false);
         setRerunConcurrent(config?.options?.maxConcurrent || 3);
         setRerunDialogOpen(true);
+    };
+
+    /** Wait for the active tab to finish loading & inject content script */
+    const waitForTabReady = async (timeout = 15000): Promise<void> => {
+        const start = Date.now();
+        // Wait for tab to finish loading
+        while (Date.now() - start < timeout) {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab?.status === 'complete' && tab?.url && !tab.url.startsWith('chrome://')) {
+                break;
+            }
+            await new Promise(r => setTimeout(r, 300));
+        }
+        // Inject content script and verify connection
+        await ensureContentScriptInjected();
+    };
+
+    /** Inject content script into active tab and verify it responds */
+    const ensureContentScriptInjected = async (maxRetries = 5): Promise<void> => {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.id) throw new Error('No active tab found');
+
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                // Try pinging first — if it responds, script is already there
+                await chrome.tabs.sendMessage(tab.id, { type: 'PING' });
+                return; // Connected!
+            } catch {
+                // Not injected yet — inject it
+                try {
+                    await chrome.scripting.executeScript({
+                        target: { tabId: tab.id },
+                        files: [contentScriptPath]
+                    });
+                } catch (injectErr) {
+                    console.warn(`[Rerun] Injection attempt ${attempt + 1} failed:`, injectErr);
+                }
+                await new Promise(r => setTimeout(r, 600));
+            }
+        }
+        // Final check
+        try {
+            const [finalTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (finalTab?.id) await chrome.tabs.sendMessage(finalTab.id, { type: 'PING' });
+        } catch {
+            throw new Error('Failed to establish connection with content script after navigation.');
+        }
     };
 
     const handleConfirmRerun = async () => {
@@ -202,11 +244,14 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
             if (isFullPageExtension && targetUrl) {
                 // @ts-ignore
                 await chrome.tabs.create({ url: targetUrl, active: true });
-                await new Promise(r => setTimeout(r, 4000));
+                await waitForTabReady();
             } else if (activeTab && targetUrl && activeTab.url !== targetUrl) {
                 // @ts-ignore
                 await chrome.tabs.update(activeTab.id!, { url: targetUrl });
-                await new Promise(r => setTimeout(r, 3000));
+                await waitForTabReady();
+            } else {
+                // Same URL — just ensure content script is injected
+                await ensureContentScriptInjected();
             }
 
             // [NEW] RE-QUERY active tab after any navigation/creation
@@ -226,14 +271,9 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                 await startBulkExtraction(urls, elements, {
                     recipeId: job.recipeId,
                     customName: rerunName,
-                    useParallel: rerunParallel,
                     maxConcurrent: rerunConcurrent,
                     onStart: (newId) => {
                         setReRunningId(newId);
-                        refresh();
-                    },
-                    onComplete: () => {
-                        setReRunningId(null);
                         refresh();
                     }
                 }).catch(err => {
@@ -288,13 +328,13 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                         <Typography variant="h6" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, lineHeight: 1.2 }}>
                             <Clock size={18} color={theme.palette.secondary.main} />
-                            Job History
+                            {t('title')}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                            {stats.all} jobs found
+                            {t('jobsFound', { count: stats.all })}
                         </Typography>
                     </Box>
-                    <Tooltip title="Refresh">
+                    <Tooltip title={t('refresh')}>
                         <IconButton onClick={() => refresh()} size="small">
                             <RefreshCcw size={18} />
                         </IconButton>
@@ -304,7 +344,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                 <Box sx={{ px: 2, pb: 2, pt: 0 }}>
                     <TextField
                         fullWidth
-                        placeholder="Search by title, URL or type..."
+                        placeholder={t('searchPlaceholder')}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         variant="outlined"
@@ -333,11 +373,11 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                     />
 
                     <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', pb: 0.5 }} className="no-scrollbar">
-                        <FilterChip label="All" count={stats.all} active={filter === 'all'} onClick={() => setFilter('all')} icon={<Database size={12} />} />
-                        <FilterChip label="Running" count={stats.running} active={filter === 'running'} onClick={() => setFilter('running')} icon={<Play size={12} />} color="secondary" />
-                        <FilterChip label="Completed" count={stats.completed} active={filter === 'completed'} onClick={() => setFilter('completed')} icon={<CheckCircle2 size={12} />} color="success" />
-                        <FilterChip label="Stopped" count={stats.stopped} active={filter === 'paused'} onClick={() => setFilter('paused')} icon={<PauseCircle size={12} />} />
-                        <FilterChip label="Failed" count={stats.failed} active={filter === 'failed'} onClick={() => setFilter('failed')} icon={<XCircle size={12} />} color="error" />
+                        <FilterChip label={t('filter.all')} count={stats.all} active={filter === 'all'} onClick={() => setFilter('all')} icon={<Database size={12} />} />
+                        <FilterChip label={t('filter.running')} count={stats.running} active={filter === 'running'} onClick={() => setFilter('running')} icon={<Play size={12} />} color="secondary" />
+                        <FilterChip label={t('filter.completed')} count={stats.completed} active={filter === 'completed'} onClick={() => setFilter('completed')} icon={<CheckCircle2 size={12} />} color="success" />
+                        <FilterChip label={t('filter.stopped')} count={stats.stopped} active={filter === 'paused'} onClick={() => setFilter('paused')} icon={<PauseCircle size={12} />} />
+                        <FilterChip label={t('filter.failed')} count={stats.failed} active={filter === 'failed'} onClick={() => setFilter('failed')} icon={<XCircle size={12} />} color="error" />
                     </Stack>
                 </Box>
             </AppBar>
@@ -362,8 +402,8 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                 {filteredJobs.length > 0 ? (
                     filteredJobs.map((job: JobWithRecipe) => {
                         const isRunning = reRunningId === job.id || job.status === 'running';
-                        const title = job.name || job.recipe?.name || 'Untitled Job';
-                        const url = job.sourceUrl || 'Unknown URL';
+                        const title = job.name || job.recipe?.name || t('untitledJob');
+                        const url = job.sourceUrl || t('unknownUrl');
 
                         let emoji = '🌐';
                         if (title.includes('Amazon')) emoji = '📦';
@@ -456,7 +496,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                                             startIcon={<XCircle size={14} />}
                                                             sx={{ minWidth: 'auto', px: 1.5, py: 0.2 }}
                                                         >
-                                                            Stop
+                                                            {tc('stop')}
                                                         </Button>
                                                     ) : (
                                                         <Button
@@ -465,24 +505,18 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                                             color="inherit"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                if (!isPaid) {
-                                                                    handleUpgradeClick();
-                                                                } else {
-                                                                    openRerunDialog(job);
-                                                                }
+                                                                openRerunDialog(job);
                                                             }}
                                                             disabled={extractionStatus.isExtracting}
-                                                            startIcon={isRunning ? <Loader2 size={14} className="animate-spin" /> : (!isPaid ? <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg> : <RefreshCcw size={14} />)}
+                                                            startIcon={isRunning ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}
                                                             sx={{
                                                                 minWidth: 'auto',
                                                                 px: 1.5,
                                                                 py: 0.2,
                                                                 borderColor: 'divider',
-                                                                opacity: !isPaid ? 0.7 : 1,
-                                                                bgcolor: !isPaid ? alpha(theme.palette.action.disabledBackground, 0.05) : 'transparent'
                                                             }}
                                                         >
-                                                            Rerun
+                                                            {t('rerun')}
                                                         </Button>
                                                     )}
 
@@ -495,7 +529,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                                         startIcon={<Database size={14} />}
                                                         sx={{ minWidth: 'auto', px: 1.5, py: 0.2 }}
                                                     >
-                                                        Data
+                                                        {t('data')}
                                                     </Button>
 
                                                     <IconButton
@@ -516,8 +550,8 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                 ) : (
                     <Box sx={{ mt: 8 }}>
                         <EmptyState
-                            title="No jobs found"
-                            description={searchQuery ? "No results match your search query." : "You haven't run any jobs yet."}
+                            title={t('noJobsFound')}
+                            description={searchQuery ? t('noSearchResults') : t('noJobsYet')}
                             icon={<Search className="w-12 h-12 text-blue-500" />}
                         />
                     </Box>
@@ -534,21 +568,21 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                     sx: { borderRadius: 3, bgcolor: 'background.paper', backgroundImage: 'none' }
                 }}
             >
-                <DialogTitle sx={{ pb: 1 }}>Configure Rerun</DialogTitle>
+                <DialogTitle sx={{ pb: 1 }}>{t('configureRerun')}</DialogTitle>
                 <DialogContent>
                     <Stack spacing={3} sx={{ mt: 1 }}>
                         <TextField
-                            label="Run Name"
+                            label={t('runName')}
                             fullWidth
                             size="small"
                             value={rerunName}
                             onChange={(e) => setRerunName(e.target.value)}
-                            placeholder="Enter a name for this run"
+                            placeholder={t('runNamePlaceholder')}
                         />
                         {rerunTarget?.configSnapshot?.options?.pagination?.mode === 'pagination' && (
                             <Box>
                                 <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={1}>
-                                    MAX PAGES TO EXTRACT
+                                    {t('maxPages')}
                                 </Typography>
                                 <TextField
                                     type="number"
@@ -557,7 +591,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                     value={rerunMaxPages}
                                     onChange={(e) => setRerunMaxPages(parseInt(e.target.value) || 1)}
                                     InputProps={{ inputProps: { min: 1 } }}
-                                    helperText="Limits pagination to avoid long runs"
+                                    helperText={t('maxPagesHelper')}
                                 />
                             </Box>
                         )}
@@ -573,15 +607,15 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                                 color="secondary"
                                             />
                                         }
-                                        label={<Typography variant="body2">Parallel Mode</Typography>}
+                                        label={<Typography variant="body2">{t('parallelMode')}</Typography>}
                                     />
-                                    <FormHelperText>Extract multiple URLs simultaneously</FormHelperText>
+                                    <FormHelperText>{t('parallelModeHelper')}</FormHelperText>
                                 </Box>
 
                                 {rerunParallel && (
                                     <Box>
                                         <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={1}>
-                                            CONCURRENCY LIMIT
+                                            {t('concurrencyLimit')}
                                         </Typography>
                                         <TextField
                                             type="number"
@@ -590,7 +624,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                             value={rerunConcurrent}
                                             onChange={(e) => setRerunConcurrent(parseInt(e.target.value) || 1)}
                                             InputProps={{ inputProps: { min: 1, max: 10 } }}
-                                            helperText="Number of tabs to run in parallel"
+                                            helperText={t('concurrencyHelper')}
                                         />
                                     </Box>
                                 )}
@@ -599,14 +633,14 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ p: 2, pt: 0 }}>
-                    <Button onClick={() => setRerunDialogOpen(false)} color="inherit">Cancel</Button>
+                    <Button onClick={() => setRerunDialogOpen(false)} color="inherit">{tc('cancel')}</Button>
                     <Button
                         variant="contained"
                         color="secondary"
                         onClick={handleConfirmRerun}
                         startIcon={<Play size={16} />}
                     >
-                        Start Now
+                        {t('startNow')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -627,8 +661,8 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                             <Settings size={20} />
                         </Box>
                         <Box>
-                            <Typography variant="h6" lineHeight={1.2}>Details</Typography>
-                            <Typography variant="caption" color="text.secondary">ID: {detailsJob?.id}</Typography>
+                            <Typography variant="h6" lineHeight={1.2}>{t('details')}</Typography>
+                            <Typography variant="caption" color="text.secondary">{t('idLabel', { id: detailsJob?.id })}</Typography>
                         </Box>
                     </Box>
                     <IconButton onClick={() => setDetailsJob(null)} size="small">
@@ -641,20 +675,20 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                         <>
                             <Box>
                                 <Typography variant="overline" color="secondary" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                    <Activity size={14} /> Performance
+                                    <Activity size={14} /> {t('performance')}
                                 </Typography>
                                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                                    <DetailItem label="Status" value={detailsJob.stats?.stoppedByUser ? 'STOPPED' : detailsJob.status} capitalize />
-                                    <DetailItem label="Items Extracted" value={detailsJob.stats?.itemsExtracted || 0} />
-                                    <DetailItem label="Pages Visited" value={detailsJob.stats?.pagesVisited || 1} />
-                                    <DetailItem label="Duration" value={detailsJob.stats?.endTime
+                                    <DetailItem label={t('statusLabel')} value={detailsJob.stats?.stoppedByUser ? tc('status.stopped').toUpperCase() : detailsJob.status} capitalize />
+                                    <DetailItem label={t('itemsExtracted')} value={detailsJob.stats?.itemsExtracted || 0} />
+                                    <DetailItem label={t('pagesVisited')} value={detailsJob.stats?.pagesVisited || 1} />
+                                    <DetailItem label={t('duration')} value={detailsJob.stats?.endTime
                                         ? `${Math.round((detailsJob.stats.endTime - detailsJob.stats.startTime) / 1000)}s`
-                                        : 'N/A'}
+                                        : tc('na')}
                                     />
                                     {detailsJob.configSnapshot?.type === 'bulk-extraction' && (
                                         <>
-                                            <DetailItem label="Parallel" value={detailsJob.configSnapshot.options?.useParallel ? 'Yes' : 'No'} />
-                                            <DetailItem label="Concurrency" value={detailsJob.configSnapshot.options?.maxConcurrent || 1} />
+                                            <DetailItem label={t('parallel')} value={detailsJob.configSnapshot.options?.useParallel ? tc('yes') : tc('no')} />
+                                            <DetailItem label={t('concurrency')} value={detailsJob.configSnapshot.options?.maxConcurrent || 1} />
                                         </>
                                     )}
                                 </Box>
@@ -664,13 +698,13 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
 
                             <Box>
                                 <Typography variant="overline" color="secondary" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                    <Settings size={14} /> Configuration
+                                    <Settings size={14} /> {t('configuration')}
                                 </Typography>
 
                                 <Box sx={{ p: 2, bgcolor: alpha(theme.palette.background.default, 0.5), borderRadius: 2, border: 1, borderColor: 'divider', mb: 2 }}>
-                                    <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>Source URL</Typography>
+                                    <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>{t('sourceUrl')}</Typography>
                                     <Typography variant="body2" fontFamily="monospace" sx={{ wordBreak: 'break-all', display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        {detailsJob.sourceUrl || 'N/A'}
+                                        {detailsJob.sourceUrl || tc('na')}
                                         {detailsJob.sourceUrl && (
                                             <IconButton size="small" onClick={() => window.open(detailsJob.sourceUrl, '_blank')}>
                                                 <ExternalLink size={12} />
@@ -681,12 +715,12 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
 
                                 <Stack spacing={1}>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <Typography variant="caption" color="text.secondary">Recipe Type</Typography>
-                                        <Typography variant="caption" fontFamily="monospace">{detailsJob.recipe?.type || detailsJob.configSnapshot?.type || 'N/A'}</Typography>
+                                        <Typography variant="caption" color="text.secondary">{t('recipeType')}</Typography>
+                                        <Typography variant="caption" fontFamily="monospace">{detailsJob.recipe?.type || detailsJob.configSnapshot?.type || tc('na')}</Typography>
                                     </Box>
                                     {(detailsJob.recipe?.type !== 'bulk-extraction' && detailsJob.configSnapshot?.type !== 'bulk-extraction') && (
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <Typography variant="caption" color="text.secondary">Pagination Mode</Typography>
+                                            <Typography variant="caption" color="text.secondary">{t('paginationMode')}</Typography>
                                             <Typography variant="caption" fontFamily="monospace">{detailsJob.configSnapshot?.options?.pagination?.mode || 'none'}</Typography>
                                         </Box>
                                     )}
@@ -699,19 +733,14 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                 <DialogActions sx={{ p: 2, borderTop: 1, borderColor: 'divider', justifyContent: 'space-between' }}>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                         <Button
-                            startIcon={!isPaid ? <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg> : <Copy size={16} />}
+                            startIcon={<Copy size={16} />}
                             color="inherit"
                             onClick={() => {
-                                if (!isPaid) {
-                                    handleUpgradeClick();
-                                    return;
-                                }
                                 navigator.clipboard.writeText(JSON.stringify(detailsJob, null, 2));
-                                alert("Copied to clipboard");
+                                alert(t('copiedToClipboard'));
                             }}
-                            sx={{ opacity: !isPaid ? 0.7 : 1 }}
                         >
-                            Export
+                            {tc('export')}
                         </Button>
                         <Button
                             startIcon={<Trash2 size={16} />}
@@ -723,32 +752,21 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                 }
                             }}
                         >
-                            Delete
+                            {tc('delete')}
                         </Button>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button onClick={() => setDetailsJob(null)} color="inherit">Close</Button>
+                        <Button onClick={() => setDetailsJob(null)} color="inherit">{tc('close')}</Button>
                         <Button
                             variant="contained"
                             color="secondary"
                             onClick={() => {
-                                if (!isPaid) {
-                                    handleUpgradeClick();
-                                    return;
-                                }
                                 const job = detailsJob;
                                 setDetailsJob(null);
                                 openRerunDialog(job);
                             }}
-                            sx={{
-                                opacity: !isPaid ? 0.8 : 1,
-                                bgcolor: !isPaid ? 'grey.700' : 'secondary.main',
-                                '&:hover': {
-                                    bgcolor: !isPaid ? 'grey.600' : 'secondary.dark',
-                                }
-                            }}
                         >
-                            {!isPaid ? 'Upgrade' : 'Rerun'}
+                            {t('rerun')}
                         </Button>
                     </Box>
                 </DialogActions>

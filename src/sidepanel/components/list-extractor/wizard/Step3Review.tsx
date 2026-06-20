@@ -44,8 +44,8 @@ export function Step3Review({
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, animation: 'fadeIn 0.3s ease-out' }}>
             {!isExtracting && (
                 <Box>
-                    <Typography variant="h6" gutterBottom>Ready to Extract</Typography>
-                    <Typography variant="body2" color="text.secondary">Review your setup and start the extraction.</Typography>
+                    <Typography variant="h6" gutterBottom>Review & Run</Typography>
+                    <Typography variant="body2" color="text.secondary">Check your configuration below, then start extraction.</Typography>
                 </Box>
             )}
 
@@ -59,8 +59,8 @@ export function Step3Review({
                 <List dense disablePadding>
                     <ListItem>
                         <ListItemText
-                            primary="Data Points"
-                            secondary={`${selectors.length} fields selected (${selectors[0]?.count || 0} items preview)`}
+                            primary="Fields Selected"
+                            secondary={`${selectors.length} fields · ${selectors[0]?.count || 0} items per page`}
                             primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                             secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
                         />
@@ -83,22 +83,22 @@ export function Step3Review({
                     <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
                         <Box sx={{ bgcolor: 'background.paper', p: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="subtitle2" textTransform="uppercase" letterSpacing={1} color="text.secondary">
-                                Execution Speed
+                                Crawl Speed
                             </Typography>
                             <Gauge size={16} className="text-gray-400" />
                         </Box>
                         <Box sx={{ p: 2 }}>
                             <FormControl fullWidth size="small">
-                                <InputLabel id="speed-select-label">Speed Profile</InputLabel>
+                                <InputLabel id="speed-select-label">Speed</InputLabel>
                                 <Select
                                     labelId="speed-select-label"
                                     value={speed}
-                                    label="Speed Profile"
+                                    label="Speed"
                                     onChange={handleSpeedChange}
                                 >
-                                    <MenuItem value="slow">Slow (Safe, reliable for heavy sites)</MenuItem>
-                                    <MenuItem value="normal">Normal (Balanced)</MenuItem>
-                                    <MenuItem value="fast">Fast (Aggressive, for simple sites)</MenuItem>
+                                    <MenuItem value="slow">Careful — heavy or protected sites</MenuItem>
+                                    <MenuItem value="normal">Balanced — default for most sites</MenuItem>
+                                    <MenuItem value="fast">Aggressive — fast, simple pages only</MenuItem>
                                 </Select>
                             </FormControl>
                             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
@@ -232,7 +232,7 @@ export function Step3Review({
                             color="primary"
                             onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html?view=data-table') })}
                         >
-                            View Extracted Data
+                            Open Results Table
                         </Button>
                         <Button
                             variant="outlined"
@@ -241,7 +241,7 @@ export function Step3Review({
                             onClick={onReset}
                             startIcon={<RotateCcw size={16} />}
                         >
-                            Start New Extraction
+                            New Extraction
                         </Button>
                     </Box>
                 )

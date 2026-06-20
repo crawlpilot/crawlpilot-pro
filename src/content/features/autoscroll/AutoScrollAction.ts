@@ -3,8 +3,6 @@ import { IScrollStrategy, ScrollStrategyConfig } from './IScrollStrategy';
 import { MutationAwareScrollStrategy } from './MutationAwareScrollStrategy';
 import { IndexedScrollStrategy } from './IndexedScrollStrategy';
 
-export type { ScrollStrategyConfig as AutoScrollConfig };
-
 export type ScrollStrategyType = 'mutationAware' | 'indexed';
 
 /**
@@ -75,90 +73,4 @@ export class AutoScrollAction extends BaseAction {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Legacy API — kept for backward compatibility with existing callers
-    // -------------------------------------------------------------------------
-
-    /**
-     * @deprecated Use AutoScrollAction with 'indexed' strategy instead.
-     * Kept for backward compatibility.
-     */
-    public async scrollByRows(options: ScrollStrategyConfig) {
-        const indexed = new IndexedScrollStrategy();
-        return indexed.execute(options);
-    }
-
-    /**
-     * @deprecated Use AutoScrollAction with 'mutationAware' strategy instead.
-     * Kept for backward compatibility.
-     */
-    public async executeInfiniteScroll(selector: string, selectorType: string = 'selector', options: any = {}) {
-        const strategy = new MutationAwareScrollStrategy();
-        return strategy.execute({
-            selector,
-            selectorType: selectorType as 'selector' | 'xpath',
-            ...options
-        });
-    }
-
-    /**
-     * Calculates a content hash for change detection.
-     * Kept for backward compatibility with callers that use this directly.
-     */
-    public calculateContentHash(selector: string, sampleSize: number = 30, selectorType: string = 'selector', selectionMode: 'container' | 'items' = 'container') {
-        let container: HTMLElement | null = null;
-        let children: Element[] = [];
-
-        if (selectorType.toLowerCase() === 'selector') {
-            if (selectionMode === 'items') {
-                children = Array.from(document.querySelectorAll(selector));
-                container = children.length > 0 ? (children[0].parentElement as HTMLElement) : null;
-            } else {
-                container = document.querySelector(selector) as HTMLElement;
-            }
-        } else if (selectorType.toLowerCase() === 'xpath') {
-            const result = document.evaluate(selector, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-            container = result.singleNodeValue as HTMLElement;
-        }
-
-        if (!container && selectionMode === 'container') {
-            return { count: 0, hash: '0', scrollTop: 0, scrollHeight: 0, sampleSize: 0, containerHeight: 0 };
-        }
-
-        if (selectionMode === 'container' && container) {
-            children = Array.from(container.children);
-        }
-
-        const count = children.length;
-        let diffString = '';
-        const indices: number[] = [];
-        const limit = Math.min(sampleSize, count);
-
-        for (let i = 0; i < limit; i++) indices.push(i);
-        if (count > sampleSize) {
-            for (let i = Math.max(limit, count - sampleSize); i < count; i++) indices.push(i);
-        }
-
-        const uniqueIndices = [...new Set(indices)];
-        uniqueIndices.forEach(idx => {
-            const child = children[idx];
-            diffString += child.textContent?.substring(0, 50) || '';
-        });
-
-        return {
-            count,
-            hash: btoa(encodeURIComponent(diffString.substring(0, 1000)).replace(/%([0-9A-F]{2})/g, (_, p1) => {
-                return String.fromCharCode(parseInt(p1, 16));
-            })),
-            scrollTop: container ? container.scrollTop : window.scrollY,
-            scrollHeight: container ? container.scrollHeight : document.body.scrollHeight,
-            sampleSize: uniqueIndices.length,
-            containerHeight: container ? container.offsetHeight : window.innerHeight
-        };
-    }
 }
-
-// Re-export implementations for direct use
-export { MutationAwareScrollStrategy } from './MutationAwareScrollStrategy';
-export { IndexedScrollStrategy } from './IndexedScrollStrategy';
-export type { IScrollStrategy } from './IScrollStrategy';

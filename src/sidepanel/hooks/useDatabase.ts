@@ -3,58 +3,65 @@ import { db } from '@/shared/db/db-manager';
 import { NEW_TABLE_NAMES, TableData, TableRow, Job, AutomationRecipe } from '@/shared/types/database';
 import { TableUnifier } from '@/shared/utils/TableUnifier';
 
+const ROW_PAGE_LIMIT = 2000;
+
 /**
- * Hook for managing table data
+ * Hook for managing table data.
+ *
+ * Loads the first ROW_PAGE_LIMIT rows to keep memory bounded on low-end devices.
+ * When the table has more rows than that, `hasMore` is true and `totalRows` reflects
+ * the actual count so callers can display an informational notice.
  */
 export function useTableData(tableDataId?: number | null) {
     const [tableData, setTableData] = useState<TableData | null>(null);
     const [rows, setRows] = useState<TableRow[]>([]);
+    const [totalRows, setTotalRows] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    const load = async (id: number) => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            const [data, count, pageRows] = await Promise.all([
+                db.getTableData(id),
+                db.getTableRowCount(id),
+                db.getTableRowsPage(id, 0, ROW_PAGE_LIMIT),
+            ]);
+
+            let tableRows = pageRows;
+            if (data && data.columns && tableRows) {
+                const unified = TableUnifier.unifyTableData(data.columns, tableRows);
+                data.columns = unified.columns;
+                tableRows = unified.rows;
+            }
+
+            setTableData(data);
+            setRows(tableRows);
+            setTotalRows(count);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to load data');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (!tableDataId) {
             setLoading(false);
             return;
         }
-
-        (async () => {
-            try {
-                console.log(`📥 [useTableData] Fetching data for ID: ${tableDataId}...`);
-                setLoading(true);
-                setError(null);
-
-                let data = await db.getTableData(tableDataId);
-                let tableRows = await db.getTableRows(tableDataId);
-
-                if (data && data.columns && tableRows) {
-                    const unified = TableUnifier.unifyTableData(data.columns, tableRows);
-                    data.columns = unified.columns;
-                    tableRows = unified.rows;
-                }
-
-                console.log(`✅ [useTableData] Loaded. Rows: ${tableRows.length}, Columns: ${data?.columns?.length}`);
-
-                if (tableRows.length > 0) {
-                    console.log('📦 [useTableData] First Row Data Sample:', JSON.stringify(tableRows[0].data, null, 2));
-                    console.log('📦 [useTableData] First Row ID:', tableRows[0].id);
-                }
-                if (data?.columns && data.columns.length > 0) {
-                    console.log('📦 [useTableData] First Column Def:', JSON.stringify(data.columns[0], null, 2));
-                }
-
-                setTableData(data);
-                setRows(tableRows);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to load data');
-                console.error('Error loading table data:', err);
-            } finally {
-                setLoading(false);
-            }
-        })();
+        load(tableDataId);
     }, [tableDataId]);
 
-    return { tableData, rows, loading, error };
+    const refresh = () => {
+        if (tableDataId) load(tableDataId);
+    };
+
+    const hasMore = totalRows > rows.length;
+
+    return { tableData, rows, totalRows, hasMore, loading, error, refresh };
 }
 
 /**
@@ -246,7 +253,32 @@ export function useExportData() {
         return false;
     };
 
-    return { exportToCSV, exportToJSON, exportToWebhook, exportToAirtable, exportToGoogleSheets };
+    const exportToMarkdown = (columns: { id: string, name: string, type?: string }[], data: any[], fileName: string) => {
+        try {
+            const urlCol = columns.find(c => c.id === 'source_url' || c.type === 'url');
+            const mdCols = columns.filter(c => c.type === 'markdown');
+            if (mdCols.length === 0) return;
+
+            const sections = data.map(row => {
+                const url = urlCol ? (row[urlCol.id] || '') : '';
+                const header = url ? `# ${url}\n` : '';
+                return mdCols.map(col => {
+                    const content = (row[col.id] || '').trim();
+                    if (!content) return '';
+                    const label = mdCols.length > 1 ? `## ${col.name}\n\n` : '';
+                    return `${header}${label}${content}`;
+                }).filter(Boolean).join('\n\n');
+            }).filter(Boolean);
+
+            const md = sections.join('\n\n---\n\n');
+            downloadFile(md, `${fileName}.md`, 'text/markdown;charset=utf-8;');
+        } catch (err) {
+            console.error('Export Markdown failed:', err);
+            throw err;
+        }
+    };
+
+    return { exportToCSV, exportToJSON, exportToWebhook, exportToAirtable, exportToGoogleSheets, exportToMarkdown };
 }
 
 /**

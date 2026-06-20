@@ -1,8 +1,7 @@
 import { ReactNode } from 'react';
-import { Box, Paper, Typography, Stepper, Step, StepLabel, Button, Alert, StepConnector, stepConnectorClasses, styled } from '@mui/material';
-import { ChevronLeft, Zap, AlertCircle, Check } from 'lucide-react';
+import { Box, Paper, Typography, Stepper, Step, StepLabel, StepConnector, stepConnectorClasses, styled } from '@mui/material';
+import { ChevronLeft, Check } from 'lucide-react';
 import { IconButton } from '@mui/material';
-import { useTabSync } from '../../hooks/useTabSync';
 
 // Custom Styled Connector
 const QontoConnector = styled(StepConnector)(() => ({
@@ -75,6 +74,7 @@ interface WizardLayoutProps {
     currentStep: number;
     totalSteps: number;
     onBack?: () => void;
+    isLoading?: boolean;
     children: ReactNode;
 }
 
@@ -84,10 +84,10 @@ export function WizardLayout({
     currentStep,
     totalSteps,
     onBack,
+    isLoading = false,
     children
 }: WizardLayoutProps) {
     const activeStep = currentStep - 1;
-    const { isTabConnected, isConnecting, connectTab } = useTabSync();
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden' }}>
@@ -95,58 +95,46 @@ export function WizardLayout({
             <Paper
                 elevation={0}
                 sx={{
-                    p: 2.5,
+                    p: 2,
                     borderBottom: '1px solid',
                     borderColor: 'divider',
                     bgcolor: 'background.paper',
                     zIndex: 10,
+                    position: 'relative',
+                    overflow: 'hidden',
                     background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)',
                     backdropFilter: 'blur(10px)'
                 }}
             >
-                {/* Connection Status Banner */}
-                {!isTabConnected && (
-                    <Alert
-                        severity="warning"
-                        variant="filled"
-                        icon={<AlertCircle size={18} />}
-                        sx={{
-                            mb: 2.5,
-                            borderRadius: 3,
-                            bgcolor: 'rgba(255, 167, 38, 0.05)',
-                            border: '1px solid rgba(255, 167, 38, 0.15)',
-                            color: '#ffa726',
-                            '& .MuiAlert-icon': { color: '#ffa726' },
-                            py: 0.5
-                        }}
-                        action={
-                            <Button
-                                color="inherit"
-                                size="small"
-                                variant="outlined"
-                                onClick={connectTab}
-                                disabled={isConnecting}
-                                startIcon={isConnecting ? null : <Zap size={14} />}
-                                sx={{
-                                    textTransform: 'none',
-                                    borderWidth: '1.5px !important',
-                                    fontWeight: 'bold',
-                                    borderRadius: 2,
-                                    px: 2
-                                }}
-                            >
-                                {isConnecting ? 'Connecting...' : 'Connect to Tab'}
-                            </Button>
+                {/* YouTube-style loading bar */}
+                {isLoading && (
+                    <Box sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '3px',
+                        bgcolor: 'transparent',
+                        overflow: 'hidden',
+                        zIndex: 20,
+                        '&::after': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            height: '100%',
+                            width: '40%',
+                            background: 'linear-gradient(90deg, transparent, #22D3EE, #06b6d4, transparent)',
+                            animation: 'wizardLoadingSlide 1.4s ease-in-out infinite',
+                        },
+                        '@keyframes wizardLoadingSlide': {
+                            '0%': { transform: 'translateX(-150%)' },
+                            '100%': { transform: 'translateX(350%)' },
                         }
-                    >
-                        <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
-                            Disconnected from current tab
-                        </Typography>
-                    </Alert>
+                    }} />
                 )}
-
                 {/* Navigation & Title */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
                     {onBack && (
                         <IconButton
                             onClick={onBack}
@@ -199,7 +187,7 @@ export function WizardLayout({
             </Paper>
 
             {/* Content Area */}
-            <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
+            <Box sx={{ flex: 1, overflowY: 'auto', p: 2.5 }}>
                 <div className="animate-fade-in-up">
                     {children}
                 </div>

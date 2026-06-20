@@ -1,0 +1,28 @@
+{
+  "title": "Page Extractor",
+  "subtitle": "Visit many URLs and extract the same fields from each",
+  "step1": {
+    "subtitle": "Provide URLs to scrape",
+    "pagesToScrape": "Pages to Scrape",
+    "urlsLoaded": "{{count}} Loaded",
+    "urlList": "URL List",
+    "clear": "Clear",
+    "chooseDifferentSource": "Choose Different Source",
+    "provideUrls": "Provide a list of page URLs to extract structured data from each one",
+    "uploadCsv": "Upload CSV",
+    "uploadCsvDesc": "Import URLs from a file",
+    "selectDataSource": "Select Data Source",
+    "selectDataSourceDesc": "Use links from existing tables",
+    "expectedFormat": "Expected CSV format",
+    "formatDesc": "One URL per line, or comma-separated with a header row.",
+    "nextStep": "Next step"
+  },
+  "step2": {
+    "subtitle": "Define fields to extract",
+    "title": "Define Schema"
+  },
+  "step3": {
+    "subtitle": "Review and run extraction",
+    "title": "Review & Run"
+  }
+}

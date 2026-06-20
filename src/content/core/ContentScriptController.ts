@@ -12,6 +12,8 @@ import { ImageScanner } from '../features/universal-images/ImageScanner';
 import { ProgressiveImageScanner } from '../features/universal-images/ProgressiveImageScanner';
 import { RightClickUnlocker } from '../features/utility/RightClickUnlocker';
 import { SelectionHighlightManager } from '../services/page/SelectionHighlightManager';
+import { extractMetadata } from '../services/metadata/MetadataExtractionService';
+import { HL_COLOR, HL_BG, HL_GLOW, HL_GLOW_STRONG, DUR_VALIDATE, DUR_FADE } from '../utils/highlight-tokens';
 
 export class ContentScriptController {
     private picker: VisualElementPicker | null = null;
@@ -27,11 +29,18 @@ export class ContentScriptController {
     private pageExtractor = new PageExtractor();
     private selectionHighlightManager = new SelectionHighlightManager();
 
+    // Throttle state for scroll updates (Step 2.2)
+    private scrollUpdateBuffer: any[] = [];
+    private scrollUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+    private readonly SCROLL_UPDATE_INTERVAL = 500;
+    private readonly SCROLL_UPDATE_BATCH_SIZE = 10;
+
     constructor() {
         this.messageClient = MessageClient.getInstance();
         this.initializeListeners();
         this.checkAutoResume();
         this.initializeBridge();
+        ContentScriptController.injectHighlightStyle();
     }
 
     private initializeBridge() {
@@ -126,7 +135,16 @@ export class ContentScriptController {
                     },
                     {
                         scrollStep: options.scrollStep || 800,
-                        scrollDelay: options.scrollDelay || 100
+                        scrollDelay: options.scrollDelay || 100,
+                        maxScrollHeight: options.maxScrollHeight || 50000,
+                        watchDuration: options.watchDuration ?? 3000
+                    },
+                    (newImages) => {
+                        // Stream image batches as they're discovered
+                        chrome.runtime.sendMessage({
+                            type: 'SCAN_IMAGES_BATCH',
+                            payload: newImages
+                        }).catch(() => {});
                     }
                 );
                 sendResponse({ success: true, data: images });
@@ -141,6 +159,25 @@ export class ContentScriptController {
         this.messageClient.on('SCAN_IMAGES_DEEP_CANCEL', (_, sendResponse) => {
             if (this.progressiveScanner) {
                 this.progressiveScanner.cancel();
+                this.progressiveScanner = null;
+            }
+            sendResponse({ success: true });
+        });
+
+        this.messageClient.on('SCAN_IMAGES_LIVE_START', (_, sendResponse) => {
+            this.progressiveScanner = new ProgressiveImageScanner();
+            this.progressiveScanner.startLiveWatch((newImages) => {
+                chrome.runtime.sendMessage({
+                    type: 'SCAN_IMAGES_BATCH',
+                    payload: newImages
+                }).catch(() => {});
+            });
+            sendResponse({ success: true });
+        });
+
+        this.messageClient.on('SCAN_IMAGES_LIVE_STOP', (_, sendResponse) => {
+            if (this.progressiveScanner) {
+                this.progressiveScanner.stopLiveWatch();
                 this.progressiveScanner = null;
             }
             sendResponse({ success: true });
@@ -166,6 +203,85 @@ export class ContentScriptController {
             );
 
             sendResponse({ success: true, result });
+        });
+
+        this.messageClient.on('CMD_EXTRACT_PAGE_BACKGROUND', async (msg, sendResponse) => {
+            console.log('📄 [Content Script] CMD_EXTRACT_PAGE_BACKGROUND Received (no-scroll mode)');
+            const { url, elements, config } = msg.payload;
+
+            // Use BackgroundElementProcessor (no scroll, no highlights)
+            const { BackgroundElementProcessor } = await import('../services/page/processors/BackgroundElementProcessor');
+            const processor = new BackgroundElementProcessor(config || {});
+
+            // Aggregator mirrors PageExtractionStrategy logic:
+            // - table type → row explosion (multiple rows)
+            // - list type → numbered column flattening (single row)
+            // - simple → scalar merge (single row)
+            const allColumns: any[] = [];
+            const elementData: Record<string, any> = {};
+
+            for (const element of (elements || [])) {
+                const result = await processor.processElement(element);
+
+                if (result.columns) {
+                    result.columns.forEach((col: any) => {
+                        if (!allColumns.find((c: any) => c.id === col.id)) {
+                            allColumns.push(col);
+                        }
+                    });
+                }
+
+                if (result.success && result.data) {
+                    if (result.data.items && Array.isArray(result.data.items)) {
+                        // List or Table with multiple items
+                        const dataType = result.data.type || element.type || 'list';
+                        elementData[element.id] = {
+                            __type: dataType === 'table' ? 'table' : 'list',
+                            items: result.data.items,
+                            columns: result.columns || result.data.columns || []
+                        };
+                    } else {
+                        // Simple scalar or JSON-consolidated table
+                        elementData[element.id] = result.data[element.id] ?? result.data.value ?? null;
+                        const rawKey = element.id + '__tabledata';
+                        if (result.data[rawKey] !== undefined) elementData[rawKey] = result.data[rawKey];
+                    }
+                } else {
+                    elementData[element.id] = null;
+                }
+            }
+
+            // Always produce a single row: scalars, JSON-consolidated tables, flattened lists
+            const recordId = `rec_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+            const recordIdCol = { id: 'recordId', originalId: 'recordId', name: 'RECORD ID', type: 'text' };
+
+            const singleRow: any = { recordId };
+            const singleColumns: any[] = [];
+
+            Object.entries(elementData).forEach(([key, value]) => {
+                if (value && typeof value === 'object' && (value as any).__type === 'list') {
+                    const listCols = (value as any).columns || [];
+                    ((value as any).items || []).forEach((item: any, idx: number) => {
+                        listCols.forEach((col: any) => {
+                            const numberedId = `${col.id}_${idx + 1}`;
+                            const numberedName = `${col.name} ${idx + 1}`;
+                            singleRow[numberedId] = item[col.id] ?? null;
+                            singleColumns.push({ id: numberedId, originalId: col.id, name: numberedName, type: col.type || 'text' });
+                        });
+                    });
+                } else {
+                    singleRow[key] = value;
+                    const col = allColumns.find((c: any) => c.id === key);
+                    if (col) singleColumns.push(col);
+                }
+            });
+
+            const finalColumns = [recordIdCol, ...singleColumns];
+
+            sendResponse({
+                success: true,
+                result: { item: singleRow, columns: finalColumns, url }
+            });
         });
 
         this.messageClient.on('TEST_SELECTOR', (msg, sendResponse) => {
@@ -195,6 +311,19 @@ export class ContentScriptController {
                 this.selectionHighlightManager.addHighlight(element);
             }
             sendResponse({ success: true });
+        });
+
+        this.messageClient.on('CMD_EXTRACT_METADATA', async (msg, sendResponse) => {
+            console.log('🔍 [Content Script] CMD_EXTRACT_METADATA Received');
+            const options = msg.payload?.options || {};
+            try {
+                await this.waitForDomStability();       // wait for React/SPA hydration + API data
+                await this.scrollToRevealLazyContent(); // trigger IntersectionObserver lazy loaders
+                const result = extractMetadata(options);
+                sendResponse({ success: true, result });
+            } catch (err: any) {
+                sendResponse({ success: false, error: err?.message || 'Metadata extraction failed' });
+            }
         });
 
         this.messageClient.on('PING', (_, sendResponse) => {
@@ -244,7 +373,7 @@ export class ContentScriptController {
     }
 
     private async startAutoScroll(payload: any) {
-        const { selector, selectorType, selectionMode, enableInfiniteScroll, loadMoreSelector, loadMoreSelectorType } = payload;
+        const { selector, selectorType, selectionMode, containerSelector, enableInfiniteScroll, loadMoreSelector, loadMoreSelectorType, scrollDelay, contentLoadDelay } = payload;
         this.stopAutoScroll();
 
         this.autoScrollAbortController = new AbortController();
@@ -253,15 +382,20 @@ export class ContentScriptController {
         const results: any[] = [];
         const processedHashes = new Set<string>();
 
+        const rootElement = containerSelector
+            ? (document.querySelector(containerSelector) as HTMLElement) ?? undefined
+            : undefined;
+
         const scrollOptions = {
             selector,
             selectorType: selectorType || 'selector',
             selectionMode: selectionMode || 'container',
+            rootElement,
             enableInfiniteScroll,
             loadMoreSelector,
             loadMoreSelectorType,
-            scrollDelay: 800, // Slower scrolling for better visualization
-            contentLoadDelay: 2500,
+            scrollDelay: scrollDelay || 800,
+            contentLoadDelay: contentLoadDelay || 2500,
             maxNoChanges: 5,
             scrollCallback: async (info: any) => {
                 await this.processScrollItem(info, selector, selectorType, selectionMode, processedHashes, results);
@@ -292,7 +426,7 @@ export class ContentScriptController {
 
     private async processScrollItem(info: any, _selector: string, _selectorType: string, _selectionMode: string, processedHashes: Set<string>, results: any[]) {
         try {
-            let element = info.element;
+            const element = info.element;
 
             if (element) {
                 const rowData = this.extractor.extractRow(element);
@@ -304,13 +438,9 @@ export class ContentScriptController {
                     processedHashes.add(contentHash);
                     results.push(rowData);
 
-                    const schemaRes = this.schemaGenerator.generateSchema([rowData]);
-                    const normalizedItem = this.extractor.normalizeRow(rowData, schemaRes.columns);
-
-                    this.messageClient.send({
-                        type: 'AUTO_SCROLL_UPDATE',
-                        payload: { count: results.length, latestItem: normalizedItem, columns: schemaRes.columns }
-                    });
+                    // Buffer updates instead of sending per-item (Step 1.1 + 2.2)
+                    this.scrollUpdateBuffer.push(rowData);
+                    this.flushScrollUpdatesIfNeeded(results.length);
 
                     this.highlightProcessedElement(element);
                 } else {
@@ -324,6 +454,35 @@ export class ContentScriptController {
         }
     }
 
+    private flushScrollUpdatesIfNeeded(totalCount: number) {
+        // Flush when batch size reached
+        if (this.scrollUpdateBuffer.length >= this.SCROLL_UPDATE_BATCH_SIZE) {
+            this.flushScrollUpdates(totalCount);
+            return;
+        }
+        // Otherwise set a timer to flush after interval
+        if (!this.scrollUpdateTimer) {
+            this.scrollUpdateTimer = setTimeout(() => {
+                this.flushScrollUpdates(totalCount);
+            }, this.SCROLL_UPDATE_INTERVAL);
+        }
+    }
+
+    private flushScrollUpdates(totalCount: number) {
+        if (this.scrollUpdateTimer) {
+            clearTimeout(this.scrollUpdateTimer);
+            this.scrollUpdateTimer = null;
+        }
+        if (this.scrollUpdateBuffer.length === 0) return;
+
+        // Send lightweight count update — no per-item schema generation
+        this.messageClient.send({
+            type: 'AUTO_SCROLL_UPDATE',
+            payload: { count: totalCount }
+        });
+        this.scrollUpdateBuffer = [];
+    }
+
     private generateRowHash(data: any): string {
         const str = JSON.stringify(data);
         let hash = 0;
@@ -335,28 +494,33 @@ export class ContentScriptController {
     }
 
     private highlightProcessedElement(element: HTMLElement) {
-        // Use outline/box-shadow for robustness against scrolling (moves with element)
-        const originalOutline = element.style.outline;
-        const originalOffset = element.style.outlineOffset;
-        const originalBoxShadow = element.style.boxShadow;
-        const originalTransition = element.style.transition;
+        // Use a CSS class + single removal timer instead of per-element style manipulation
+        element.classList.add('crawlpilot-highlight');
+        // Batch removal: debounce class add/remove via a shared timeout
+        setTimeout(() => element.classList.remove('crawlpilot-highlight'), 600);
+    }
 
-        // Apply Blue Highlight (Primary)
-        element.style.outline = '2px solid #2563EB';
-        element.style.outlineOffset = '-2px'; // Inset slightly to ensure visibility if container clipped
-        element.style.boxShadow = '0 0 8px rgba(37, 99, 235, 0.4), inset 0 0 20px rgba(37, 99, 235, 0.1)';
-        element.style.transition = 'all 0.2s ease-out';
-
-        // Revert after delay
-        setTimeout(() => {
-            element.style.outline = originalOutline;
-            element.style.outlineOffset = originalOffset;
-            element.style.boxShadow = originalBoxShadow;
-            element.style.transition = originalTransition;
-        }, 600);
+    // Inject highlight styles once (CSS-based, no per-element style writes)
+    private static highlightStyleInjected = false;
+    private static injectHighlightStyle() {
+        if (ContentScriptController.highlightStyleInjected) return;
+        ContentScriptController.highlightStyleInjected = true;
+        const style = document.createElement('style');
+        style.textContent = `
+            .crawlpilot-highlight {
+                outline: 2px solid ${HL_COLOR} !important;
+                outline-offset: -2px !important;
+                box-shadow: 0 0 8px ${HL_GLOW}, inset 0 0 16px rgba(34, 211, 238, 0.08) !important;
+                transition: all 0.2s ease-out !important;
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     private finishAutoScroll(results: any[]) {
+        // Flush any remaining buffered updates
+        this.flushScrollUpdates(results.length);
+
         const schemaResult = this.schemaGenerator.generateSchema(results);
         const normalizedResults = results.map(row => {
             return this.extractor.normalizeRow(row, schemaResult.columns);
@@ -418,6 +582,11 @@ export class ContentScriptController {
 
 
     public stopAutoScroll() {
+        if (this.scrollUpdateTimer) {
+            clearTimeout(this.scrollUpdateTimer);
+            this.scrollUpdateTimer = null;
+        }
+        this.scrollUpdateBuffer = [];
         if (this.autoScrollAbortController) {
             this.autoScrollAbortController.abort();
             this.autoScrollAbortController = null;
@@ -434,63 +603,129 @@ export class ContentScriptController {
     }
 
 
+    private waitForDomStability(stableMs = 1500, timeoutMs = 12000): Promise<void> {
+        return new Promise(resolve => {
+            let stableTimer: ReturnType<typeof setTimeout>;
+
+            const finish = () => {
+                observer.disconnect();
+                clearTimeout(deadline);
+                resolve();
+            };
+
+            const deadline = setTimeout(finish, timeoutMs);
+
+            const reset = () => {
+                clearTimeout(stableTimer);
+                stableTimer = setTimeout(finish, stableMs);
+            };
+
+            const observer = new MutationObserver(reset);
+            observer.observe(document.body, { childList: true, subtree: true });
+            reset(); // start the idle timer immediately
+        });
+    }
+
+    private async scrollToRevealLazyContent(): Promise<void> {
+        const viewportHeight = window.innerHeight || 800;
+        const STEP_DELAY_MS = 600;  // clamped to ~1000ms in inactive background tabs
+        const SETTLE_DELAY_MS = 800;
+        const MAX_STEPS = 12;       // caps at ~12 viewport heights to avoid infinite-scroll pages
+
+        for (let step = 1; step <= MAX_STEPS; step++) {
+            const y = step * viewportHeight;
+            const totalHeight = Math.max(
+                document.body.scrollHeight,
+                document.documentElement.scrollHeight
+            );
+            if (y >= totalHeight) break;
+
+            window.scrollTo({ top: y, behavior: 'instant' });
+            window.dispatchEvent(new Event('scroll'));
+            await new Promise(r => setTimeout(r, STEP_DELAY_MS));
+        }
+
+        // Return to top so the content scoring algorithm operates on the full page
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        await new Promise(r => setTimeout(r, SETTLE_DELAY_MS));
+    }
+
     private scrollToPotentialNextButton() {
         console.log('🎯 [Content Script] Attempting to auto-locate potential next button...');
 
-        // Heuristics for common "Next" button text/attributes
         const indicators = [
-            'next', 'load more', 'show more', 'older', '>', '→', '»', 'page 2',
-            'continue', 'further', 'more results'
+            'next', 'load more', 'show more', 'older', '>', '→', '»',
+            'continue', 'further', 'more results', 'next page', 'forward'
         ];
 
-        // 1. Search for buttons/links containing these indicators
+        // Score a candidate by semantic signals — higher = more likely to be the Next button
+        const scoreCandidate = (el: Element): number => {
+            const e = el as HTMLElement;
+            const tag = e.tagName.toLowerCase();
+            const text = e.textContent?.trim().toLowerCase() || '';
+            const cls = e.className?.toLowerCase() || '';
+            const ariaLabel = e.getAttribute('aria-label')?.toLowerCase() || '';
+            let s = 0;
+
+            if (tag === 'button') s += 5;
+            else if (tag === 'a') s += 4;
+            else if (e.getAttribute('role') === 'button') s += 3;
+
+            if (text === 'next' || text === 'next >' || text === 'next page') s += 6;
+            else if (text.startsWith('next')) s += 4;
+            else if (text.includes('next')) s += 3;
+            else if (text.includes('load more') || text.includes('show more')) s += 3;
+
+            if (cls.includes('next') || cls.includes('pagination')) s += 2;
+            if (ariaLabel.includes('next')) s += 2;
+            if (e.onclick !== null || e.getAttribute('onclick')) s += 1;
+
+            // Mild preference for elements in the lower half of the page
+            const absY = e.getBoundingClientRect().top + window.scrollY;
+            if (absY > document.body.scrollHeight * 0.5) s += 1;
+
+            return s;
+        };
+
         const candidates = Array.from(document.querySelectorAll('a, button, [role="button"], span, div'))
             .filter(el => {
-                const text = el.textContent?.toLowerCase().trim();
+                const text = el.textContent?.toLowerCase().trim() || '';
                 const title = el.getAttribute('title')?.toLowerCase() || '';
                 const ariaLabel = el.getAttribute('aria-label')?.toLowerCase() || '';
+                const rect = (el as HTMLElement).getBoundingClientRect();
+                const style = window.getComputedStyle(el as HTMLElement);
 
-                // Must be visible and small enough to be a button (avoids container matches)
-                const rect = el.getBoundingClientRect();
                 const isVisible = rect.width > 0 && rect.height > 0 &&
-                    window.getComputedStyle(el).display !== 'none' &&
-                    window.getComputedStyle(el).visibility !== 'hidden';
-
+                    style.display !== 'none' && style.visibility !== 'hidden';
                 if (!isVisible || rect.width > 500 || rect.height > 200) return false;
 
                 return indicators.some(ind =>
                     text === ind ||
-                    (text?.includes(ind) && text.length < 20) ||
+                    (text.includes(ind) && text.length < 30) ||
                     title.includes(ind) ||
                     ariaLabel.includes(ind)
                 );
-            });
-
-        // 2. Prioritize candidates that are lower on the page (common for pagination)
-        candidates.sort((a, b) => {
-            const rectA = a.getBoundingClientRect();
-            const rectB = b.getBoundingClientRect();
-            // Higher Y coordinate = lower on page
-            return (rectB.top + window.scrollY) - (rectA.top + window.scrollY);
-        });
+            })
+            .sort((a, b) => scoreCandidate(b) - scoreCandidate(a));
 
         if (candidates.length > 0) {
-            const bestMatch = candidates[0];
-            console.log('✨ [Content Script] Found potential next button, scrolling...', bestMatch);
+            const bestMatch = candidates[0] as HTMLElement;
+            console.log('✨ [Content Script] Found potential next button, scrolling to center...', bestMatch);
             bestMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-            // Add a subtle temporary "hint" animation
-            const originalColor = (bestMatch as HTMLElement).style.outline;
-            (bestMatch as HTMLElement).style.outline = '3px solid rgba(37, 99, 235, 0.5)';
-            (bestMatch as HTMLElement).style.outlineOffset = '2px';
+            const originalOutline = bestMatch.style.outline;
+            const originalOffset = bestMatch.style.outlineOffset;
+            bestMatch.style.outline = `2px solid ${HL_GLOW}`;
+            bestMatch.style.outlineOffset = '2px';
             setTimeout(() => {
-                (bestMatch as HTMLElement).style.outline = originalColor;
+                bestMatch.style.outline = originalOutline;
+                bestMatch.style.outlineOffset = originalOffset;
             }, 2000);
         } else {
-            // 3. Fallback: Scroll to bottom of the page if no match found
-            console.log('🤷 [Content Script] No next button detected, scrolling to bottom fallback.');
+            // Fallback: scroll to ~70% of page height where pagination typically lives
+            console.log('🤷 [Content Script] No next button detected, scrolling to pagination zone.');
             window.scrollTo({
-                top: document.body.scrollHeight,
+                top: document.body.scrollHeight * 0.7,
                 behavior: 'smooth'
             });
         }
@@ -542,11 +777,11 @@ export class ContentScriptController {
                     left: ${rect.left}px !important;
                     width: ${rect.width}px !important;
                     height: ${rect.height}px !important;
-                    border: 3px solid #2563EB !important; /* Primary Blue */
-                    background-color: rgba(37, 99, 235, 0.15) !important;
+                    border: 2px solid ${HL_COLOR} !important;
+                    background-color: ${HL_BG} !important;
                     z-index: 2147483647 !important;
                     pointer-events: none !important;
-                    box-shadow: 0 0 15px rgba(37, 99, 235, 0.6) !important;
+                    box-shadow: 0 0 12px ${HL_GLOW_STRONG} !important;
                     border-radius: 4px !important;
                     transition: opacity 0.3s ease !important;
                 `;
@@ -559,8 +794,8 @@ export class ContentScriptController {
                         position: absolute !important;
                         top: -24px !important;
                         left: 0 !important;
-                        background: #2563EB !important;
-                        color: white !important;
+                        background: ${HL_COLOR} !important;
+                        color: #000 !important;
                         font-size: 11px !important;
                         font-family: sans-serif !important;
                         font-weight: bold !important;
@@ -574,11 +809,10 @@ export class ContentScriptController {
 
                 document.body.appendChild(highlight);
 
-                // Extended duration for better verification
                 setTimeout(() => {
                     highlight.style.opacity = '0';
-                    setTimeout(() => highlight.remove(), 300);
-                }, 8000);
+                    setTimeout(() => highlight.remove(), DUR_FADE);
+                }, DUR_VALIDATE);
             });
         } catch (e) {
             console.error('Test selector failed', e);
@@ -615,7 +849,8 @@ export class ContentScriptController {
                 console.log('🚀 [ContentScript] Triggering startPagination with resume payload:', payload);
                 this.startPagination(payload);
             } else {
-                console.log('❌ [ContentScript] No valid running state found (isRunning: ' + (state?.isRunning) + ')');
+                // Stale or malformed state — purge it so it doesn't litter storage
+                if (state) chrome.storage.local.remove('pagination_state');
             }
         });
 

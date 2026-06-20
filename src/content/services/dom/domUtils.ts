@@ -11,13 +11,97 @@ export function generateRobustSelectors(element: HTMLElement, options?: Selector
 }
 
 /**
- * Robustly simulates a click by dispatching mousedown, mouseup, and click sequence.
- * This mimics legacy Module 588 logic from reference code.
+ * Escapes parentheses that appear inside CSS class names (e.g. Tailwind v4 CSS-variable
+ * utilities like `.h-(--slider-height)` or `.pt-(--border-width)`).
+ *
+ * `querySelector` throws a DOMException/SyntaxError when a selector contains bare `(`/`)`
+ * inside a class token because it tries to parse them as CSS function-call syntax.
+ *
+ * Strategy: walk the selector character by character; when inside a `.class-name` token
+ * (entered after `.`, exited at whitespace / combinators / `[` / `:` / another `.`),
+ * escape any `(` → `\(` and `)` → `\)`. All other selector syntax is left unchanged so
+ * pseudo-classes like `:nth-of-type(1)` are never touched.
+ */
+export function sanitizeCssSelector(selector: string): string {
+    let result = '';
+    let i = 0;
+    while (i < selector.length) {
+        if (selector[i] === '.') {
+            result += '.';
+            i++;
+            // If the class token starts with a digit, escape it (e.g. .25 → .\32 5 is one way,
+            // but simpler: escape with unicode point so querySelector accepts it).
+            if (i < selector.length && selector[i] >= '0' && selector[i] <= '9') {
+                result += `\\3${selector[i]} `;
+                i++;
+            }
+            // Consume the rest of the class name token.
+            // Escape ( ) and dots-before-digits (Tailwind decimal classes like space-y-1.25).
+            // Break on structural separators or dots that start a new class name.
+            let depth = 0;
+            while (i < selector.length) {
+                const c = selector[i];
+                if (depth === 0) {
+                    if (c === '(') {
+                        result += '\\(';
+                        depth++;
+                        i++;
+                    } else if (c === ')') {
+                        result += '\\)';
+                        if (depth > 0) depth--;
+                        i++;
+                    } else if (c === '.') {
+                        const next = i + 1 < selector.length ? selector[i + 1] : '';
+                        if (next >= '0' && next <= '9') {
+                            // Decimal dot inside class name (e.g. space-y-1.25) — escape it
+                            result += '\\.';
+                            i++;
+                        } else {
+                            // New class selector (.foo.bar) — let outer loop handle it
+                            break;
+                        }
+                    } else if (c === ' ' || c === '>' || c === '+' || c === '~' ||
+                               c === '[' || c === ':' || c === ',') {
+                        break;
+                    } else {
+                        result += c;
+                        i++;
+                    }
+                } else {
+                    if (c === '(') {
+                        result += '\\(';
+                        depth++;
+                        i++;
+                    } else if (c === ')') {
+                        result += '\\)';
+                        depth--;
+                        i++;
+                    } else {
+                        result += c;
+                        i++;
+                    }
+                }
+            }
+        } else {
+            result += selector[i];
+            i++;
+        }
+    }
+    return result;
+}
+
+/**
+ * Robustly simulates a click by dispatching the full pointer/mouse event sequence.
+ *
+ * Yields between phases via queueMicrotask instead of setTimeout so that:
+ * - React and other frameworks process each phase before the next one fires
+ * - Background tabs are NOT affected (microtasks run at full speed; setTimeout
+ *   is throttled to ≥1000ms per phase in hidden tabs)
  */
 export async function clickElementRobust(element: HTMLElement): Promise<boolean> {
-    try {
-        console.log('👆 [domUtils] Starting robust multi-event click sequence on:', element.tagName, element.className);
+    const tick = () => new Promise<void>(r => queueMicrotask(r));
 
+    try {
         const rect = element.getBoundingClientRect();
         const clientX = rect.left + rect.width / 2;
         const clientY = rect.top + rect.height / 2;
@@ -35,43 +119,33 @@ export async function clickElementRobust(element: HTMLElement): Promise<boolean>
             isPrimary: true
         } as any;
 
-        // 1. Entrance events
+        // 1. Entrance
         element.dispatchEvent(new MouseEvent('mouseover', eventInit));
         element.dispatchEvent(new MouseEvent('mouseenter', eventInit));
         element.dispatchEvent(new PointerEvent('pointerover', eventInit));
         element.dispatchEvent(new PointerEvent('pointerenter', eventInit));
 
-        await new Promise(r => setTimeout(r, 30));
+        await tick();
 
-        // 2. Interaction starts
+        // 2. Press
         element.dispatchEvent(new PointerEvent('pointerdown', eventInit));
         element.dispatchEvent(new MouseEvent('mousedown', eventInit));
-
-        // Handle focus
         if (element.focus) element.focus();
 
-        await new Promise(r => setTimeout(r, 50));
+        await tick();
 
-        // 3. Interaction release
+        // 3. Release
         element.dispatchEvent(new PointerEvent('pointerup', eventInit));
         element.dispatchEvent(new MouseEvent('mouseup', eventInit));
 
-        await new Promise(r => setTimeout(r, 30));
+        await tick();
 
-        // 4. Final Click event
-        const clickEvent = new MouseEvent('click', eventInit);
-        element.dispatchEvent(clickEvent);
+        // 4. Click
+        element.dispatchEvent(new MouseEvent('click', eventInit));
 
-        // 5. Native Fallback
-        // Removed unconditional native fallback to prevent double-clicks
-        // if (element.click && typeof element.click === 'function') {
-        //     element.click();
-        // }
-
-        console.log('✅ [domUtils] Sequence complete.');
         return true;
     } catch (e) {
-        console.error('❌ [domUtils] Robust click sequence failed:', e);
+        console.error('[domUtils] clickElementRobust failed:', e);
         return false;
     }
 }

@@ -1,6 +1,7 @@
 import {
     getStructuralFingerprint,
-    calculateSimilarityScore
+    calculateSimilarityScore,
+    StructuralFingerprint
 } from '../../utils/similarity';
 
 /**
@@ -9,8 +10,6 @@ import {
  * ContainerDetector has expanded to a larger grid.
  */
 export class ItemSelectorRefiner {
-    constructor() { }
-
     /**
      * Finds the primary repeating element (the "Item") that contains the target.
      * It looks for the largest block that is still repeating within the container.
@@ -25,6 +24,7 @@ export class ItemSelectorRefiner {
             return target;
         }
 
+        const targetFingerprint = getStructuralFingerprint(target);
         let current: HTMLElement | null = target;
         let bestItem: HTMLElement = target;
         let maxCount = 0;
@@ -42,8 +42,8 @@ export class ItemSelectorRefiner {
             // Check if this level is a repeating unit
             // We climb as HIGH as possible as long as it still repeats.
             const similarCount = parentElement === container
-                ? this.countSimilarInContainer(current, container)
-                : this.countSimilarSiblings(current, parentElement);
+                ? this.countSimilar(current, container, targetFingerprint)
+                : this.countSimilar(current, parentElement, targetFingerprint);
 
             // Heuristic for picking the "best" level:
             // 1. If this level has many more repeating siblings than the previous best, it's likely better.
@@ -66,19 +66,10 @@ export class ItemSelectorRefiner {
         return bestItem;
     }
 
-    private countSimilarSiblings(target: HTMLElement, parent: HTMLElement): number {
-        const targetData = getStructuralFingerprint(target);
-        return (Array.from(parent.children) as HTMLElement[]).filter(child => {
-            const childData = getStructuralFingerprint(child);
-            return calculateSimilarityScore(targetData, childData) >= 25;
-        }).length;
-    }
-
-    private countSimilarInContainer(target: HTMLElement, container: HTMLElement): number {
-        const targetData = getStructuralFingerprint(target);
-        return (Array.from(container.children) as HTMLElement[]).filter(child => {
-            const childData = getStructuralFingerprint(child);
-            return calculateSimilarityScore(targetData, childData) >= 25;
-        }).length;
+    private countSimilar(target: HTMLElement, parent: HTMLElement, targetData?: StructuralFingerprint): number {
+        const data = targetData ?? getStructuralFingerprint(target);
+        return (Array.from(parent.children) as HTMLElement[]).filter(child =>
+            calculateSimilarityScore(data, getStructuralFingerprint(child)) >= 35
+        ).length;
     }
 }

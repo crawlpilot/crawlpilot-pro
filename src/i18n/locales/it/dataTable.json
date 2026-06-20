@@ -1,0 +1,80 @@
+{
+  "toolbar": {
+    "filters": "Filtri",
+    "filtersActive": "{{count}} attivi",
+    "mergeColumns": "Unisci colonne",
+    "filterTooltip": "Attiva/disattiva i filtri di qualità per ripulire la visualizzazione",
+    "mergeTooltip": "Combina due colonne in una con un separatore",
+    "status": "{{rows}} righe · {{cols}} col",
+    "statusTooltip": "Conteggio di righe e colonne dopo tutti i filtri attivi"
+  },
+  "filters": {
+    "title": "Filtri globali",
+    "resetToDefault": "Ripristina",
+    "resetTooltip": "Ripristina tutti i filtri al loro stato predefinito",
+    "emptyRows": "Righe vuote",
+    "emptyRowsDesc": "Rimuovi le righe in cui tutte le celle sono vuote",
+    "emptyColumns": "Colonne vuote",
+    "emptyColumnsDesc": "Nascondi le colonne senza dati in nessuna riga",
+    "repeatingData": "Dati ripetuti",
+    "repeatingDataDesc": "Nascondi le colonne in cui ogni riga ha lo stesso valore",
+    "noDuplicates": "Nessun duplicato",
+    "noDuplicatesDesc": "Rimuovi le colonne con contenuto identico",
+    "richFirst": "Ricche per prime",
+    "richFirstDesc": "Ordina le colonne per completezza dei dati (le più riempite per prime)",
+    "showImages": "Mostra immagini",
+    "showImagesDesc": "Attiva l'anteprima delle immagini nelle celle",
+    "sparseColumns": "Colonne sparse",
+    "sparseColumnsDesc": "Nascondi le colonne compilate in meno del 20% delle righe"
+  },
+  "merge": {
+    "title": "Unisci due colonne",
+    "column1": "Colonna 1",
+    "column2": "Colonna 2",
+    "separator": "Separatore",
+    "newName": "Nuovo nome",
+    "selectColumn": "Seleziona colonna...",
+    "separatorPlaceholder": "(spazio)",
+    "newNamePlaceholder": "Colonna unita",
+    "tip": "Suggerimento: Unisci nome e cognome, o combina campi indirizzo in una colonna.",
+    "button": "Unisci"
+  },
+  "header": {
+    "saveName": "Salva nome",
+    "cancel": "Annulla",
+    "confirmDelete": "Conferma eliminazione",
+    "rename": "Rinomina colonna",
+    "delete": "Elimina colonna",
+    "deletePrompt": "Eliminare?"
+  },
+  "empty": {
+    "waiting": "In attesa dei dati estratti",
+    "runCrawl": "Esegui una scansione per popolare i risultati"
+  },
+  "preview": {
+    "close": "Chiudi anteprima"
+  },
+  "page": {
+    "loadingDatasets": "Caricamento set di dati...",
+    "loadingTable": "Caricamento dati tabella...",
+    "errorTitle": "Errore nel caricamento",
+    "noExtractionsTitle": "Nessuna estrazione",
+    "noExtractionsDesc": "Non hai ancora estratto dati. Usa gli strumenti di estrazione dalla pagina principale.",
+    "selectDataset": "Seleziona set di dati",
+    "selectDatasetDesc": "Scegli un set di dati dal menu a tendina per visualizzarne il contenuto",
+    "selectPlaceholder": "Seleziona un'estrazione...",
+    "source": "Fonte",
+    "export": "Esporta",
+    "localExport": "Esportazione locale",
+    "integrations": "Integrazioni",
+    "exportCSV": "CSV / Excel",
+    "exportJSON": "JSON",
+    "exportMarkdown": "Markdown (.md)",
+    "exportGoogleSheets": "Google Sheets",
+    "exportWebhook": "Webhook",
+    "exportAirtable": "Airtable",
+    "exportZapier": "Zapier",
+    "rows": "righe",
+    "columns": "colonne"
+  }
+}

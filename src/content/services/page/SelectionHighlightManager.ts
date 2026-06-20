@@ -1,10 +1,12 @@
 /**
  * SelectionHighlightManager
- * 
+ *
  * Manages persistent visual highlights on the page for elements that the user
  * has already selected in the Page Extractor schema step. This gives users
  * a clear visual reference of what has been selected so far.
  */
+
+import { sanitizeCssSelector } from '../dom/domUtils';
 
 interface HighlightEntry {
     elementDef: HighlightableElement;
@@ -179,7 +181,7 @@ export class SelectionHighlightManager {
                     const el = result.singleNodeValue as HTMLElement;
                     if (el) return el;
                 } else {
-                    const el = document.querySelector(selector.value) as HTMLElement;
+                    const el = document.querySelector(sanitizeCssSelector(selector.value)) as HTMLElement;
                     if (el) return el;
                 }
             } catch (e) {

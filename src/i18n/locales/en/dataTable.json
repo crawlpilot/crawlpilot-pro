@@ -1,0 +1,80 @@
+{
+  "toolbar": {
+    "filters": "Filters",
+    "filtersActive": "{{count}} active",
+    "mergeColumns": "Merge Columns",
+    "filterTooltip": "Toggle data quality filters to clean the view",
+    "mergeTooltip": "Combine two columns into one with a separator",
+    "status": "{{rows}} rows · {{cols}} cols",
+    "statusTooltip": "Row and column counts after all active filters are applied"
+  },
+  "filters": {
+    "title": "Global Filters",
+    "resetToDefault": "Reset to Default",
+    "resetTooltip": "Reset all filters to their default state",
+    "emptyRows": "Empty Rows",
+    "emptyRowsDesc": "Remove rows where all cells are empty",
+    "emptyColumns": "Empty Columns",
+    "emptyColumnsDesc": "Hide columns with no data in any row",
+    "repeatingData": "Repeating Data",
+    "repeatingDataDesc": "Hide columns where every row has the same value",
+    "noDuplicates": "No Duplicates",
+    "noDuplicatesDesc": "Remove columns with identical content",
+    "richFirst": "Rich First",
+    "richFirstDesc": "Sort columns by data completeness (most filled first)",
+    "showImages": "Show Images",
+    "showImagesDesc": "Toggle image preview in cells",
+    "sparseColumns": "Sparse Columns",
+    "sparseColumnsDesc": "Hide columns filled in fewer than 20% of rows"
+  },
+  "merge": {
+    "title": "Merge Two Columns",
+    "column1": "Column 1",
+    "column2": "Column 2",
+    "separator": "Separator",
+    "newName": "New Name",
+    "selectColumn": "Select column...",
+    "separatorPlaceholder": "(space)",
+    "newNamePlaceholder": "Merged Column",
+    "tip": "Tip: Merge first & last name, or combine address fields into one column.",
+    "button": "Merge"
+  },
+  "header": {
+    "saveName": "Save name",
+    "cancel": "Cancel",
+    "confirmDelete": "Confirm delete",
+    "rename": "Rename column",
+    "delete": "Delete column",
+    "deletePrompt": "Delete?"
+  },
+  "empty": {
+    "waiting": "Waiting for extracted data",
+    "runCrawl": "Run a crawl to populate results"
+  },
+  "preview": {
+    "close": "Close preview"
+  },
+  "page": {
+    "loadingDatasets": "Loading datasets...",
+    "loadingTable": "Loading table data...",
+    "errorTitle": "Error Loading Data",
+    "noExtractionsTitle": "No Extractions Yet",
+    "noExtractionsDesc": "You haven't extracted any data yet. Use the extraction tools from the home page to get started.",
+    "selectDataset": "Select a Dataset",
+    "selectDatasetDesc": "Choose a dataset from the dropdown above to view its contents",
+    "selectPlaceholder": "Select an extraction run...",
+    "source": "Source",
+    "export": "Export",
+    "localExport": "Local Export",
+    "integrations": "Integrations",
+    "exportCSV": "CSV / Excel",
+    "exportJSON": "JSON",
+    "exportMarkdown": "Markdown (.md)",
+    "exportGoogleSheets": "Google Sheets",
+    "exportWebhook": "Webhook",
+    "exportAirtable": "Airtable",
+    "exportZapier": "Zapier",
+    "rows": "rows",
+    "columns": "columns"
+  }
+}

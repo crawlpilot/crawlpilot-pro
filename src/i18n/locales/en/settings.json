@@ -1,0 +1,53 @@
+{
+  "title": "Settings",
+  "language": {
+    "title": "Language",
+    "description": "Choose your preferred display language"
+  },
+  "dataStorage": {
+    "title": "Data & Storage",
+    "storageUsed": "Storage Used",
+    "calculating": "Calculating...",
+    "autoClear": "Auto-Clear Old Data",
+    "autoClearDescription": "Remove data older than the selected timeframe.",
+    "clearButton": "Clear Data Older Than {{days}} Days ({{count}} Jobs)",
+    "daysLabel": "{{count}} Days"
+  },
+  "integrations": {
+    "title": "Integrations (PRO)",
+    "proFeature": "PRO FEATURE",
+    "proDescription": "Upgrade to PRO to unlock Webhooks, Airtable, and Google Sheets integrations.",
+    "webhookZapier": "Webhook & Zapier",
+    "webhookUrl": "Webhook URL",
+    "zapierWebhook": "Zapier Webhook",
+    "airtable": "Airtable",
+    "apiKey": "API Key",
+    "baseId": "Base ID",
+    "tableName": "Table Name",
+    "googleSheets": "Google Sheets",
+    "connectSheets": "Connect Google Sheets",
+    "connectedSheets": "Connected to Google Sheets"
+  },
+  "feedback": {
+    "title": "Share Feedback",
+    "description": "Help us improve CrawlPilot — tell us what's working and what isn't.",
+    "openForm": "Open Feedback Form"
+  },
+  "dangerZone": {
+    "title": "Danger Zone",
+    "deleteAll": "Delete All Data",
+    "deleteAllDescription": "Permanently wipes everything. This cannot be undone.",
+    "confirmDeletion": "Confirm Deletion",
+    "deleteJobsConfirm": "Delete {{count}} old jobs?",
+    "typeToConfirm": "Type DELETE to confirm:",
+    "deleteEverything": "Delete Everything"
+  },
+  "support": {
+    "title": "Support & Community",
+    "contactSupport": "Contact Support",
+    "contactSupportSub": "Email us for help",
+    "github": "GitHub Repository",
+    "githubSub": "Star us on GitHub",
+    "version": "Version"
+  }
+}

@@ -1,6 +1,7 @@
 import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult } from '../types';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { SchemaGenerator } from '../../../services/extraction/SchemaGenerator';
+import { sanitizeCssSelector } from '../../../services/dom/domUtils';
 
 export class ElementProcessor {
     private extractor: DataExtractor;
@@ -22,18 +23,25 @@ export class ElementProcessor {
         };
 
         try {
-            const foundElement = await this.findView(elementDef.selectors, elementDef.name);
+            // Step 1: Fast-path find — element is already in DOM
+            let foundElement = await this.findView(elementDef.selectors, elementDef.name);
+
+            // Step 2: Fallback — element not yet in DOM (lazy-loaded).
+            // Scroll the page progressively to trigger IntersectionObserver-based loaders,
+            // then retry the query.
+            if (!foundElement.success || !foundElement.element) {
+                await this.scrollPageToReveal();
+                foundElement = await this.findView(elementDef.selectors, elementDef.name);
+            }
 
             if (!foundElement.success || !foundElement.element) {
                 result.error = foundElement.error || 'Element not found';
                 return result;
             }
 
-            // Scroll element into viewport using native scrollIntoView (reliable)
-            foundElement.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // Wait for scroll animation to complete (smooth scroll can take 500ms+)
-            const scrollWait = Math.max(500, (this.config?.actionSpeed || 500));
-            await new Promise(r => setTimeout(r, scrollWait));
+            // Step 3: Scroll element into view (instant — reliable in background tabs)
+            // and wait for any lazy content it contains to finish loading.
+            await this.scrollIntoViewAndWait(foundElement.element);
 
             await this.highlightElement(foundElement.element, elementDef.name);
 
@@ -65,7 +73,7 @@ export class ElementProcessor {
                     const result = document.evaluate(selector.value, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                     element = result.singleNodeValue as HTMLElement;
                 } else {
-                    element = document.querySelector(selector.value) as HTMLElement;
+                    element = document.querySelector(sanitizeCssSelector(selector.value)) as HTMLElement;
                 }
 
                 if (element) {
@@ -77,6 +85,49 @@ export class ElementProcessor {
         }
 
         return { success: false, error: `Could not find element "${elementName}"` };
+    }
+
+    /**
+     * Scrolls the page in viewport-sized chunks to trigger IntersectionObserver-based
+     * lazy loaders. Called only when findView() returns nothing (element not yet in DOM).
+     * Uses `instant` scroll + explicit `scroll` event dispatch — both are required because
+     * background tabs often skip smooth animation and may not fire scroll events on their own.
+     */
+    private async scrollPageToReveal(): Promise<void> {
+        const viewportHeight = window.innerHeight || 800;
+        const totalHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+
+        for (let y = 0; y < totalHeight; y += viewportHeight) {
+            window.scrollTo({ top: y, behavior: 'instant' });
+            window.dispatchEvent(new Event('scroll'));
+            await new Promise(r => setTimeout(r, 150));
+        }
+        // Final pause for any triggered network fetches / renders
+        await new Promise(r => setTimeout(r, 400));
+    }
+
+    /**
+     * Scrolls an element to the center of the viewport using `instant` (reliable in
+     * background tabs), dispatches scroll events to wake IntersectionObserver loaders,
+     * waits for content to render, and verifies the element has non-zero dimensions.
+     */
+    private async scrollIntoViewAndWait(element: HTMLElement): Promise<void> {
+        element.scrollIntoView({ behavior: 'instant', block: 'center' });
+        window.dispatchEvent(new Event('scroll'));
+        document.dispatchEvent(new Event('scroll'));
+
+        const baseWait = Math.max(600, this.config?.actionSpeed || 500);
+        await new Promise(r => setTimeout(r, baseWait));
+
+        // If the element still has no dimensions, the browser may not have committed the
+        // scroll (common in background tabs). Fall back to window.scrollTo directly.
+        const rect = element.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+            const absoluteTop = rect.top + window.scrollY;
+            window.scrollTo({ top: Math.max(0, absoluteTop - window.innerHeight / 2), behavior: 'instant' });
+            window.dispatchEvent(new Event('scroll'));
+            await new Promise(r => setTimeout(r, 400));
+        }
     }
 
     private async highlightElement(element: HTMLElement, elementName?: string): Promise<void> {
@@ -193,6 +244,19 @@ export class ElementProcessor {
                     }
                 }
                 break;
+            case 'image_array': {
+                const imgs = Array.from(element.querySelectorAll('img')) as HTMLImageElement[];
+                return { success: true, data: { [elementDef.id]: imgs.map(img => img.currentSrc || img.src).filter(Boolean) } };
+            }
+            case 'link_array': {
+                const anchors = Array.from(element.querySelectorAll('a[href]')) as HTMLAnchorElement[];
+                return { success: true, data: { [elementDef.id]: anchors.map(a => a.href).filter(v => v && !v.startsWith('javascript:')) } };
+            }
+            case 'text_array': {
+                const skipTags = new Set(['BR', 'HR', 'SCRIPT', 'STYLE', 'LINK', 'META']);
+                const kids = Array.from(element.children).filter(c => !skipTags.has(c.tagName)) as HTMLElement[];
+                return { success: true, data: { [elementDef.id]: kids.map(c => (c.textContent || '').trim()).filter(Boolean) } };
+            }
             case 'smart':
             case 'list': {
                 // List Extraction: extract all rows from the container directly.
@@ -210,19 +274,19 @@ export class ElementProcessor {
             }
 
             case 'table': {
-                // Table Extraction: extract rows directly from the container element.
-                // We bypass findInternalContainer() re-detection because it misidentifies levels
-                // (e.g., <table> has <tbody> children, not <tr> directly).
-                // Instead we directly enumerate all meaningful child elements.
                 const tableData = this.extractContainerRows(element, 'table');
                 if (tableData.items && tableData.items.length > 0) {
-                    return {
+                    const json = this.collapseTableToJson(tableData.items, tableData.columns);
+                    const tableResult: any = {
                         success: true,
-                        data: tableData,
-                        columns: tableData.columns
+                        data: {
+                            [elementDef.id]: json,
+                            [elementDef.id + '__tabledata']: JSON.stringify({ items: tableData.items, columns: tableData.columns })
+                        },
+                        _columnCount: tableData.columns.length
                     };
+                    return tableResult;
                 }
-                // Fallback
                 value = element.innerText || element.textContent;
                 break;
             }
@@ -263,8 +327,13 @@ export class ElementProcessor {
                 element.dispatchEvent(new Event('change', { bubbles: true }));
             }
 
-            // Wait for expansion/animation to complete
-            const waitTime = _elementDef.waitTimeAfterClick || this.config?.actionSpeed || 500;
+            // Wait for expansion/animation to complete.
+            // clickWaitMs (from orchestrator config) takes priority so accordion/tab
+            // animations have time to finish before the next element is processed.
+            const waitTime = _elementDef.waitTimeAfterClick
+                || this.config?.clickWaitMs
+                || this.config?.actionSpeed
+                || 1000;
             await new Promise(r => setTimeout(r, waitTime));
 
             return {
@@ -281,15 +350,53 @@ export class ElementProcessor {
     }
 
     private extractColumns(elementDef: ElementDefinition, actionResult: ExtractionResult): any[] {
+        // Table elements are JSON-consolidated: one visible JSON column + one hidden raw-data column
+        if (elementDef.type === 'table' && (actionResult as any)._columnCount !== undefined) {
+            const groupId = elementDef.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+            const columnCount = (actionResult as any)._columnCount;
+            return [
+                {
+                    id: elementDef.id,
+                    originalId: elementDef.id,
+                    name: elementDef.name,
+                    type: 'json',
+                    elementId: elementDef.id,
+                    elementName: elementDef.name,
+                    group: { id: groupId, name: elementDef.name },
+                    isKeyValue: columnCount === 2,
+                    columnCount
+                },
+                {
+                    id: elementDef.id + '__tabledata',
+                    originalId: elementDef.id + '__tabledata',
+                    name: elementDef.name + ' (raw)',
+                    type: 'tabledata',
+                    hidden: true,
+                    elementId: elementDef.id,
+                    elementName: elementDef.name
+                }
+            ];
+        }
+
+        const isListOrSmart = elementDef.type === 'list' || elementDef.type === 'smart';
+
         if (actionResult.columns) {
-            return actionResult.columns.map(col => ({
+            const cols = actionResult.columns;
+            const groupId = elementDef.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+            const isKeyValue = isListOrSmart && cols.length === 2;
+
+            return cols.map(col => ({
                 ...col,
                 elementId: elementDef.id,
-                elementName: elementDef.name
+                elementName: elementDef.name,
+                ...(isListOrSmart ? {
+                    group: { id: groupId, name: elementDef.name },
+                    name: `${elementDef.name} - ${col.name}`,
+                    ...(isKeyValue ? { isKeyValue: true } : {})
+                } : {})
             }));
         }
 
-        // Return a column definition for the extracted data
         return [{
             id: elementDef.id,
             originalId: elementDef.id,
@@ -298,6 +405,21 @@ export class ElementProcessor {
             elementId: elementDef.id,
             elementName: elementDef.name
         }];
+    }
+
+    private collapseTableToJson(items: any[], columns: any[]): string {
+        const cols = columns || [];
+        if (cols.length === 0 || items.length === 0) return '[]';
+
+        const rowValues = items.map(row =>
+            cols.map(col => row[col.id]).filter(v => v != null && String(v).trim() !== '')
+        );
+
+        if (cols.length === 1) {
+            return JSON.stringify(rowValues.flat());
+        }
+
+        return JSON.stringify(rowValues.filter(vals => vals.length > 0));
     }
 
     /**
@@ -319,6 +441,9 @@ export class ElementProcessor {
         const rowElements = childNodes.filter(child => {
             // Skip header rows in tbody if present
             if (child.tagName === 'THEAD') return false;
+            // Skip hidden elements
+            const style = window.getComputedStyle(child);
+            if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
             // Must have some text content
             const text = (child.innerText || child.textContent || '').trim();
             return text.length > 0;
