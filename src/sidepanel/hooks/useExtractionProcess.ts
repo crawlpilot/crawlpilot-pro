@@ -3,6 +3,7 @@ import { db } from '../../shared/db/db-manager';
 import { SelectorState, PaginationConfig, ExtractionStatus, SelectorMetadata } from '../../shared/types/extraction';
 import { PAGINATION_PROFILES, PaginationSpeed } from '../../shared/constants/paginationConfig';
 import { consolidateSelectors } from '../../shared/utils/extractionLogic';
+import { filterPersistableChain } from '../../shared/selectors/stability';
 
 export function useExtractionProcess(onComplete?: (tableId: number) => void, onStart?: (jobId: number) => void) {
     const [status, setStatus] = useState<ExtractionStatus>({
@@ -177,8 +178,13 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                         selectors: selectors.map(s => s.containerSelector),
                         options: {
                             pagination,
-                            fullSelectors: selectors.map(({ data, ...rest }) => ({
+                            // Volatile entries (CSS-in-JS hash classes, :nth-child) are dropped
+                            // from persisted fallback chains so saved recipes survive redeploys —
+                            // they're still tried live during picking/preview, just not stored.
+                            fullSelectors: selectors.map(({ data, containerSelectors, itemSelectors, ...rest }) => ({
                                 ...rest,
+                                containerSelectors: filterPersistableChain(containerSelectors),
+                                itemSelectors: filterPersistableChain(itemSelectors),
                                 data: { columns: data?.columns || [] }
                             }))
                         }
@@ -268,7 +274,9 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                     type: 'EXECUTE_AUTO_SCROLL',
                                     payload: {
                                         selector: sel.itemSelector,
+                                        selectors: sel.itemSelectors,
                                         containerSelector: sel.containerSelector,
+                                        containerSelectors: sel.containerSelectors,
                                         selectorType: 'selector',
                                         selectionMode: 'items',
                                         enableInfiniteScroll: true,
@@ -331,7 +339,8 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 contentLoadDelay: profile.contentLoadDelay,
                                 pageLoadDelay: profile.pageLoadDelay,
                                 urlChangeTimeout: profile.urlChangeTimeout,
-                                itemSelector: sel.itemSelector
+                                itemSelector: sel.itemSelector,
+                                itemSelectors: sel.itemSelectors
                             }
                         });
                     });

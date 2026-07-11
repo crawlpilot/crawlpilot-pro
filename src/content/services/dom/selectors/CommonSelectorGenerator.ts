@@ -1,5 +1,6 @@
 import { generateRobustSelectors } from '../domUtils';
 import { isUnstableClass, isStableAttributeValue, isHashClass } from '../domBase';
+import { isVolatileSelector } from '../../../../shared/selectors/stability';
 
 export interface DerivedSelector {
     selector: string;
@@ -113,8 +114,16 @@ export class CommonSelectorGenerator {
             }
         }
 
-        // Sort by quality descending so best candidate is always first
-        validResults.sort((a, b) => this.scoreSelectorQuality(b.selector) - this.scoreSelectorQuality(a.selector));
+        // Sort non-volatile candidates (no hash class, no :nth-child) before volatile ones —
+        // a saved recipe must never commit to a hash class or positional selector as its
+        // primary choice, since those rot across redeploys / DOM reorders. Within each
+        // group, sort by quality descending so the best candidate is first.
+        validResults.sort((a, b) => {
+            const aVolatile = isVolatileSelector(a.selector);
+            const bVolatile = isVolatileSelector(b.selector);
+            if (aVolatile !== bVolatile) return aVolatile ? 1 : -1;
+            return this.scoreSelectorQuality(b.selector) - this.scoreSelectorQuality(a.selector);
+        });
 
         // Deduplicate (after sorting so quality order is preserved)
         const seen = new Set<string>();

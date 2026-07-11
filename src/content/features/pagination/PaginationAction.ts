@@ -5,12 +5,19 @@ import { SelectorMetadata } from '../../../shared/types/extraction';
 import { BaseAction, ActionContext } from '../../core/BaseAction';
 import { AutoScrollAction } from '../autoscroll/AutoScrollAction';
 import { HL_COLOR, HL_BG, HL_GLOW_STRONG } from '../../utils/highlight-tokens';
+import { resolveAll } from '../../../shared/selectors/resolve';
 
 export interface PaginationConfig {
     startSelector: string;
     startSelectors?: string[];
     nextButtonSelector: string;
     nextButtonSelectors?: SelectorMetadata[];
+    // [NEW] Item-level selector chain — when present, each page's rows are found via
+    // this chain (with fallback) instead of blindly walking container.children. Fixes
+    // the bug where the picker's derived item selector was silently dropped during
+    // next-button pagination.
+    itemSelector?: string;
+    itemSelectors?: SelectorMetadata[];
     maxPages?: number;
     resumeState?: any;
     mode?: 'pagination' | 'loadMore' | 'auto';
@@ -218,12 +225,29 @@ export class PaginationAction extends BaseAction {
 
         this.context?.onProgress?.({ type: 'extract', page: pageCount, message: 'Scrolling and extracting data...' });
 
+        // [NEW] Resolve the item selector chain against this page's container, with
+        // fallback across the chain entries. Only CSS entries can scope IndexedScrollStrategy's
+        // items mode (XPath entries fall back to walking container.children below).
+        let itemSelectionMode: 'container' | 'items' = 'container';
+        let resolvedItemSelector: string | undefined;
+        const itemChain = this.config.itemSelectors && this.config.itemSelectors.length > 0
+            ? this.config.itemSelectors
+            : (this.config.itemSelector ? [this.config.itemSelector] : []);
+        if (itemChain.length > 0) {
+            const { elements, used } = resolveAll(itemChain, container);
+            if (elements.length > 0 && used && used.kind === 'css') {
+                itemSelectionMode = 'items';
+                resolvedItemSelector = used.value;
+            }
+        }
+
         // Use 'indexed' strategy: the container is a static DOM element during pagination,
         // not an infinite feed. MutationAware would wait unnecessarily for new nodes.
         const autoScroll = new AutoScrollAction({
             rootElement: container,
             scrollDelay: this.config.scrollDelay || 400,
-            selectionMode: 'container',
+            selectionMode: itemSelectionMode,
+            selector: resolvedItemSelector,
             scrollCallback: async (info: any) => {
                 const { element, scrolledToIndex } = info;
                 if (!element || processedInPage.has(scrolledToIndex)) return;

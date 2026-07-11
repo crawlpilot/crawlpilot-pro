@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isUnstableClass, isHashClass, isStableAttributeValue, isVolatileSelector } from './stability';
+import { isUnstableClass, isHashClass, isStableAttributeValue, isVolatileSelector, filterPersistableChain } from './stability';
 
 describe('isUnstableClass', () => {
     it('flags Tailwind utility classes', () => {
@@ -65,5 +65,24 @@ describe('isVolatileSelector', () => {
     it('allows structural/semantic selectors', () => {
         expect(isVolatileSelector('.product-card')).toBe(false);
         expect(isVolatileSelector('[data-testid="price"]')).toBe(false);
+    });
+});
+
+describe('filterPersistableChain', () => {
+    it('drops volatile entries when a stable entry exists', () => {
+        const chain = [
+            { selector: '.css-dy3i81', strategy: 'CSS Gen' },
+            { selector: '.product-card', strategy: 'Minimal' },
+            { selector: 'div:nth-child(3)', strategy: 'Path' },
+        ];
+        expect(filterPersistableChain(chain)).toEqual([{ selector: '.product-card', strategy: 'Minimal' }]);
+    });
+    it('keeps the whole chain when every entry is volatile', () => {
+        const chain = [{ selector: '.css-dy3i81', strategy: 'CSS Gen' }, { selector: 'div:nth-child(3)', strategy: 'Path' }];
+        expect(filterPersistableChain(chain)).toEqual(chain);
+    });
+    it('passes through empty/undefined chains unchanged', () => {
+        expect(filterPersistableChain(undefined)).toBeUndefined();
+        expect(filterPersistableChain([])).toEqual([]);
     });
 });

@@ -14,6 +14,7 @@ import { RightClickUnlocker } from '../features/utility/RightClickUnlocker';
 import { SelectionHighlightManager } from '../services/page/SelectionHighlightManager';
 import { extractMetadata } from '../services/metadata/MetadataExtractionService';
 import { HL_COLOR, HL_BG, HL_GLOW, HL_GLOW_STRONG, DUR_VALIDATE, DUR_FADE } from '../utils/highlight-tokens';
+import { resolveFirst, resolveAll } from '../../shared/selectors/resolve';
 
 export class ContentScriptController {
     private picker: VisualElementPicker | null = null;
@@ -373,7 +374,7 @@ export class ContentScriptController {
     }
 
     private async startAutoScroll(payload: any) {
-        const { selector, selectorType, selectionMode, containerSelector, enableInfiniteScroll, loadMoreSelector, loadMoreSelectorType, scrollDelay, contentLoadDelay } = payload;
+        const { selector, selectors, selectorType, selectionMode, containerSelector, containerSelectors, enableInfiniteScroll, loadMoreSelector, loadMoreSelectorType, scrollDelay, contentLoadDelay } = payload;
         this.stopAutoScroll();
 
         this.autoScrollAbortController = new AbortController();
@@ -382,12 +383,31 @@ export class ContentScriptController {
         const results: any[] = [];
         const processedHashes = new Set<string>();
 
-        const rootElement = containerSelector
-            ? (document.querySelector(containerSelector) as HTMLElement) ?? undefined
+        // [NEW] Resolve the container via its fallback chain (falls back to the single
+        // containerSelector string when no chain is provided — old callers keep working).
+        const containerChain = (containerSelectors && containerSelectors.length > 0)
+            ? containerSelectors
+            : (containerSelector ? [containerSelector] : []);
+        const rootElement = containerChain.length > 0
+            ? (resolveFirst(containerChain, document).element as HTMLElement | null) ?? undefined
             : undefined;
 
+        // [NEW] When in 'items' mode, resolve the best matching entry from the item
+        // selector chain (scoped to the resolved container) instead of committing
+        // blindly to the first-picked selector string.
+        let effectiveSelector = selector;
+        if (selectionMode === 'items') {
+            const itemChain = (selectors && selectors.length > 0) ? selectors : (selector ? [selector] : []);
+            if (itemChain.length > 0) {
+                const { used } = resolveAll(itemChain, rootElement || document);
+                if (used && used.kind === 'css') {
+                    effectiveSelector = used.value;
+                }
+            }
+        }
+
         const scrollOptions = {
-            selector,
+            selector: effectiveSelector,
             selectorType: selectorType || 'selector',
             selectionMode: selectionMode || 'container',
             rootElement,
@@ -398,7 +418,7 @@ export class ContentScriptController {
             contentLoadDelay: contentLoadDelay || 2500,
             maxNoChanges: 5,
             scrollCallback: async (info: any) => {
-                await this.processScrollItem(info, selector, selectorType, selectionMode, processedHashes, results);
+                await this.processScrollItem(info, effectiveSelector, selectorType, selectionMode, processedHashes, results);
             }
         };
 
@@ -533,13 +553,13 @@ export class ContentScriptController {
     }
 
     private async startPagination(payload: any) {
-        const { startSelector, startSelectors, nextButtonSelector, nextButtonSelectors, maxPages, resumeState, mode } = payload;
+        const { startSelector, startSelectors, nextButtonSelector, nextButtonSelectors, itemSelector, itemSelectors, maxPages, resumeState, mode } = payload;
         this.stopPagination();
 
         this.paginationAbortController = new AbortController();
         const signal = this.paginationAbortController.signal;
 
-        // Compatibility: nextButtonSelectors is now the metadata array. 
+        // Compatibility: nextButtonSelectors is now the metadata array.
         // If it's a string array (legacy), we handle it.
         let effectiveMetadata = nextButtonSelectors;
         if (effectiveMetadata && effectiveMetadata.length > 0 && typeof effectiveMetadata[0] === 'string') {
@@ -551,6 +571,11 @@ export class ContentScriptController {
             startSelectors,
             nextButtonSelector: nextButtonSelector || (effectiveMetadata && effectiveMetadata.length > 0 ? effectiveMetadata[0].selector : null),
             nextButtonSelectors: effectiveMetadata,
+            // [NEW] Plumb the picker's derived item-selector chain through to PaginationAction
+            // so each page's rows are found via the chain instead of always walking
+            // container.children (previously silently dropped here).
+            itemSelector,
+            itemSelectors,
             maxPages,
             resumeState,
             mode
