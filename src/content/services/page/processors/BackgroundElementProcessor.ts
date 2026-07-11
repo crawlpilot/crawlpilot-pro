@@ -16,6 +16,7 @@ import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { SchemaGenerator } from '../../../services/extraction/SchemaGenerator';
 import { clickElementRobust } from '../../../services/dom/domUtils';
 import { resolveFirst } from '../../../../shared/selectors/resolve';
+import { extractColumns, collapseTableToJson } from './columnHelpers';
 
 export class BackgroundElementProcessor {
     private extractor: DataExtractor;
@@ -67,7 +68,7 @@ export class BackgroundElementProcessor {
             if (actionResult.success) {
                 result.success = true;
                 result.data = actionResult.data;
-                result.columns = this.extractColumns(elementDef, actionResult);
+                result.columns = extractColumns(elementDef, actionResult);
             } else {
                 result.error = actionResult.error;
             }
@@ -231,7 +232,7 @@ export class BackgroundElementProcessor {
             case 'table': {
                 const tableData = this.extractContainerRows(element, 'table');
                 if (tableData.items && tableData.items.length > 0) {
-                    const json = this.collapseTableToJson(tableData.items, tableData.columns);
+                    const json = collapseTableToJson(tableData.items, tableData.columns);
                     const tableResult: any = {
                         success: true,
                         data: {
@@ -292,78 +293,6 @@ export class BackgroundElementProcessor {
         element.scrollIntoView({ behavior: 'instant', block: 'center' });
         window.dispatchEvent(new Event('scroll'));
         document.dispatchEvent(new Event('scroll'));
-    }
-
-    private extractColumns(elementDef: ElementDefinition, actionResult: ExtractionResult): any[] {
-        if (elementDef.type === 'table' && (actionResult as any)._columnCount !== undefined) {
-            const groupId = elementDef.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-            const columnCount = (actionResult as any)._columnCount;
-            return [
-                {
-                    id: elementDef.id,
-                    originalId: elementDef.id,
-                    name: elementDef.name,
-                    type: 'json',
-                    elementId: elementDef.id,
-                    elementName: elementDef.name,
-                    group: { id: groupId, name: elementDef.name },
-                    isKeyValue: columnCount === 2,
-                    columnCount
-                },
-                {
-                    id: elementDef.id + '__tabledata',
-                    originalId: elementDef.id + '__tabledata',
-                    name: elementDef.name + ' (raw)',
-                    type: 'tabledata',
-                    hidden: true,
-                    elementId: elementDef.id,
-                    elementName: elementDef.name
-                }
-            ];
-        }
-
-        const isListOrSmart = elementDef.type === 'list' || elementDef.type === 'smart';
-
-        if (actionResult.columns) {
-            const cols = actionResult.columns;
-            const groupId = elementDef.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-            const isKeyValue = isListOrSmart && cols.length === 2;
-
-            return cols.map(col => ({
-                ...col,
-                elementId: elementDef.id,
-                elementName: elementDef.name,
-                ...(isListOrSmart ? {
-                    group: { id: groupId, name: elementDef.name },
-                    name: `${elementDef.name} - ${col.name}`,
-                    ...(isKeyValue ? { isKeyValue: true } : {})
-                } : {})
-            }));
-        }
-
-        return [{
-            id: elementDef.id,
-            originalId: elementDef.id,
-            name: elementDef.name,
-            type: elementDef.type || 'text',
-            elementId: elementDef.id,
-            elementName: elementDef.name
-        }];
-    }
-
-    private collapseTableToJson(items: any[], columns: any[]): string {
-        const cols = columns || [];
-        if (cols.length === 0 || items.length === 0) return '[]';
-
-        const rowValues = items.map(row =>
-            cols.map(col => row[col.id]).filter(v => v != null && String(v).trim() !== '')
-        );
-
-        if (cols.length === 1) {
-            return JSON.stringify(rowValues.flat());
-        }
-
-        return JSON.stringify(rowValues.filter(vals => vals.length > 0));
     }
 
     private extractContainerRows(element: HTMLElement, _type: 'table' | 'list'): any {
