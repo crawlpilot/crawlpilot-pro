@@ -35,7 +35,7 @@ ModuleRegistry.registerModules([
 ]);
 
 export interface DataTableRef {
-    getProcessedData: (overrideRows?: TableRow[]) => { columns: { id: string, name: string, type?: string }[], rows: any[] };
+    getProcessedData: () => { columns: { id: string, name: string, type?: string }[], rows: any[] };
 }
 
 type MergeDefinition = { id: string; name: string; sources: string[]; separator: string };
@@ -167,7 +167,6 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
     const [removeEmptyColumns, setRemoveEmptyColumns] = useState(true);
     const [hideRepeatingData, setHideRepeatingData] = useState(true);
     const [removeDuplicateColumns, setRemoveDuplicateColumns] = useState(true);
-    const [prioritizeRichColumns, setPrioritizeRichColumns] = useState(true);
     const [showImages, setShowImages] = useState(true);
     const [hideMostlyEmptyColumns, setHideMostlyEmptyColumns] = useState(defaultHideMostlyEmptyColumns);
 
@@ -407,7 +406,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
         });
 
         return activeCols;
-    }, [baseColumns, filteredRows, hideRepeatingData, removeEmptyColumns, hideMostlyEmptyColumns, removeDuplicateColumns, prioritizeRichColumns]);
+    }, [baseColumns, filteredRows, hideRepeatingData, removeEmptyColumns, hideMostlyEmptyColumns, removeDuplicateColumns]);
 
     // Stage 4: Column defs (depends on activeColumns + renames + showImages)
     const processedColumnDefs = useMemo(() => {
@@ -527,10 +526,8 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
     const availableColumns = activeColumns;
 
     useImperativeHandle(ref, () => ({
-        getProcessedData: (overrideRows?: TableRow[]) => {
-            // Export uses original compact rows (non-exploded), no tabledata columns.
-            // overrideRows lets callers export the full DB row set when only the
-            // first page is loaded in the grid.
+        getProcessedData: () => {
+            // Export uses original compact rows (non-exploded), no tabledata columns
             const exportCols = columns.filter(c => !(c as any).hidden && (c as any).type !== 'tabledata');
             return {
                 columns: exportCols.map(col => ({
@@ -538,7 +535,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
                     name: renames[col.id] || col.name,
                     type: col.type,
                 })),
-                rows: (overrideRows ?? rows).map(r => {
+                rows: rows.map(r => {
                     const out: Record<string, any> = {};
                     exportCols.forEach(col => {
                         let val = r.data[col.id];
@@ -569,7 +566,6 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
         setRemoveEmptyColumns(true);
         setHideRepeatingData(true);
         setRemoveDuplicateColumns(true);
-        setPrioritizeRichColumns(true);
         setShowImages(true);
         setHideMostlyEmptyColumns(defaultHideMostlyEmptyColumns);
         setRenames({});
@@ -577,7 +573,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
         setMergedCols([]);
     };
 
-    const activeFilterCount = [removeEmptyRows, removeEmptyColumns, hideRepeatingData, removeDuplicateColumns, prioritizeRichColumns, showImages, hideMostlyEmptyColumns].filter(Boolean).length;
+    const activeFilterCount = [removeEmptyRows, removeEmptyColumns, hideRepeatingData, removeDuplicateColumns, showImages, hideMostlyEmptyColumns].filter(Boolean).length;
 
     if (columns.length === 0 || rows.length === 0) {
         return (

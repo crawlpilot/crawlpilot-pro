@@ -39,12 +39,18 @@ export function consolidateSelectors(selectors: SelectorState[], currentTabUrl?:
         }
     });
 
-    // Callers set `timestamp` on the result themselves where needed.
     return {
         type: 'list',
         columns: allColumns,
         items: allItems,
         source_url: sourceUrl || currentTabUrl || 'unknown',
         count: allItems.length,
+        // formatted timestamp, or caller can override
+        // validation: we don't return timestamp here to keep it pure data? 
+        // actually existing code expects timestamp in ExtractionResult usually?
+        // Let's add it for compatibility with saveExtraction expectations if it's not strictly typed to exclude it.
+        // The ExtractionResult interface in database.ts doesn't explicitly have timestamp, 
+        // but TableData does. The saveExtraction payload usually wraps it.
+        // Let's perform a check. data.ts ExtractionResult has columns, items, source_url, type.
     };
 }

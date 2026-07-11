@@ -33,9 +33,6 @@ export class TabPool {
     private maxSize: number;
     private onTabRemoved: ((tabId: number) => void) | null = null;
     private tabRemovedListener: ((tabId: number) => void) | null = null;
-    // Reservations for acquisitions that passed the size gate but haven't been
-    // inserted into `tabs` yet (tab/window creation is async).
-    private pendingCount = 0;
     shouldStop = false;
 
     constructor(
@@ -85,44 +82,38 @@ export class TabPool {
      *   extraction where no clicks are fired and rAF speed doesn't matter.
      */
     async acquireTab(url: string, needsInteraction = false): Promise<number | null> {
-        // Reserve a slot synchronously before any await — otherwise two concurrent
-        // acquisitions can both pass the size gate and exceed maxSize.
-        if (this.tabs.size + this.pendingCount >= this.maxSize) {
-            console.warn(`[TabPool] Pool full (${this.tabs.size}+${this.pendingCount} pending/${this.maxSize}) — returning null for ${url}`);
+        if (this.tabs.size >= this.maxSize) {
+            console.warn(`[TabPool] Pool full (${this.tabs.size}/${this.maxSize}) — returning null for ${url}`);
             return null;
         }
-        this.pendingCount++;
-        try {
-            if (needsInteraction) {
-                // Popup window: focused:false keeps user focus, but the tab IS active in its
-                // own window → full-speed rAF → React accordion clicks work correctly.
-                const win = await chrome.windows.create({
-                    url,
-                    type: 'popup',
-                    focused: false,
-                    width: 1280,
-                    height: 900,
-                    left: 0,
-                    top: 0,
-                });
-                if (!win) return null;
-                const tab = win.tabs?.[0];
-                if (!tab?.id || !win.id) {
-                    try { await chrome.windows.remove(win.id!); } catch { /* already gone */ }
-                    return null;
-                }
-                console.log(`[TabPool] Created popup window ${win.id}, tab ${tab.id} for ${url}`);
-                return await this._finishAcquire(tab.id, url, win.id, true);
-            }
 
-            // Background tab: silent, no popup. rAF is throttled but no clicks are needed.
-            const tab = await chrome.tabs.create({ url, active: false });
-            if (!tab.id) return null;
-            console.log(`[TabPool] Created background tab ${tab.id} for ${url}`);
-            return await this._finishAcquire(tab.id, url, tab.windowId!, false);
-        } finally {
-            this.pendingCount--;
+        if (needsInteraction) {
+            // Popup window: focused:false keeps user focus, but the tab IS active in its
+            // own window → full-speed rAF → React accordion clicks work correctly.
+            const win = await chrome.windows.create({
+                url,
+                type: 'popup',
+                focused: false,
+                width: 1280,
+                height: 900,
+                left: 0,
+                top: 0,
+            });
+            if (!win) return null;
+            const tab = win.tabs?.[0];
+            if (!tab?.id || !win.id) {
+                try { await chrome.windows.remove(win.id!); } catch { /* already gone */ }
+                return null;
+            }
+            console.log(`[TabPool] Created popup window ${win.id}, tab ${tab.id} for ${url}`);
+            return this._finishAcquire(tab.id, url, win.id, true);
         }
+
+        // Background tab: silent, no popup. rAF is throttled but no clicks are needed.
+        const tab = await chrome.tabs.create({ url, active: false });
+        if (!tab.id) return null;
+        console.log(`[TabPool] Created background tab ${tab.id} for ${url}`);
+        return this._finishAcquire(tab.id, url, tab.windowId!, false);
     }
 
     private async _finishAcquire(tabId: number, url: string, windowId: number, isPopup: boolean): Promise<number | null> {

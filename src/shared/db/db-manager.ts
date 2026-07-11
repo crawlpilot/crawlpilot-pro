@@ -659,16 +659,13 @@ export class DBManager {
         await this.ensureConnection();
         return new Promise((resolve, reject) => {
             const transaction = this.db!.transaction([NEW_TABLE_NAMES.JOBS], 'readwrite');
-            transaction.onabort = () => reject(transaction.error ?? new Error('updateJob transaction aborted'));
             const store = transaction.objectStore(NEW_TABLE_NAMES.JOBS);
             const getRequest = store.get(id);
             getRequest.onsuccess = () => {
                 const job = getRequest.result;
                 if (!job) return reject(new Error('Job not found'));
                 const updated = { ...job, ...updates, updatedAt: Date.now() };
-                const putRequest = store.put(updated);
-                putRequest.onsuccess = () => resolve();
-                putRequest.onerror = () => reject(putRequest.error);
+                store.put(updated).onsuccess = () => resolve();
             };
             getRequest.onerror = () => reject(getRequest.error);
         });

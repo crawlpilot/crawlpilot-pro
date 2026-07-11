@@ -135,7 +135,6 @@ export class BulkExtractionOrchestrator {
     private isActive = false;
     private previewTableId: number | null = null;
     private previewSavedCount = 0;
-    private keepAliveInterval: ReturnType<typeof setInterval> | null = null;
 
     async start(extractionConfig: BulkExtractionConfig): Promise<{ jobId: number; originalCount: number; uniqueCount: number }> {
         if (this.isActive) {
@@ -730,13 +729,7 @@ export class BulkExtractionOrchestrator {
                 urlStatuses: this.state.urlStatuses.map(u => ({ url: u.url, status: u.status, error: u.error })),
                 resultCount: this.state.results.length,
                 isRunning: this.state.isRunning,
-                startTime: this.state.startTime,
-                // Everything below exists so a killed service worker can resume the run.
-                elements: this.elements,
-                config: this.config,
-                finalColumns: this.state.finalColumns,
-                previewTableId: this.previewTableId,
-                openTabs: this.tabPool?.getState().map(t => ({ tabId: t.tabId, windowId: t.windowId, isPopup: t.isPopup })) ?? []
+                startTime: this.state.startTime
             }
         });
     }
@@ -746,134 +739,31 @@ export class BulkExtractionOrchestrator {
     }
 
     private startKeepAlive() {
-        // MV3 kills an idle SW after ~30 s and clamps alarms to ≥30 s, so an alarm
-        // alone cannot keep the worker alive. Any extension-API call resets the idle
-        // timer, so ping one every 20 s while a run is active. The alarm stays as a
-        // resurrection backstop: if the SW dies anyway, the alarm re-spawns it and
-        // module-level recovery resumes the run.
-        if (this.keepAliveInterval === null) {
-            this.keepAliveInterval = setInterval(() => { void chrome.runtime.getPlatformInfo(); }, 20_000);
-        }
-        chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 0.5 });
+        chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 0.4 });
     }
 
     private stopKeepAlive() {
-        if (this.keepAliveInterval !== null) {
-            clearInterval(this.keepAliveInterval);
-            this.keepAliveInterval = null;
-        }
         chrome.alarms.clear(KEEPALIVE_ALARM);
     }
 
     /**
-     * Called by the background script's alarm listener. If the SW was killed
-     * mid-run, this alarm is what re-spawned it — try to recover the run.
+     * Called by the background script's alarm listener to keep the service worker alive.
      */
     handleKeepAliveAlarm() {
-        if (this.isActive) return;
-        this.recoverIfNeeded().catch(e => console.error('[Orchestrator] Recovery from alarm failed:', e));
+        if (this.isActive) {
+            console.log('[Orchestrator] Keep-alive ping — extraction active');
+        }
     }
 
     /**
-     * Resumes (or finalizes) a run whose service worker died mid-extraction.
-     * Safe to call any time: no-ops when a run is active or nothing was persisted.
+     * Check if there's a persisted extraction state (for recovery after SW restart).
      */
-    async recoverIfNeeded(): Promise<void> {
-        if (this.isActive) return;
+    async checkForRecovery(): Promise<{ jobId: number; isRunning: boolean } | null> {
         const data = await chrome.storage.local.get([STORAGE_KEY]);
-        const saved = data[STORAGE_KEY] as any;
-        if (!saved?.isRunning || !saved.jobId) return;
-        if (this.isActive) return; // re-check: a start() may have won the race during the await
-
-        console.warn(`[Orchestrator] Found interrupted run (job ${saved.jobId}) — recovering`);
-
-        // Close tabs/popup windows orphaned by the previous worker instance.
-        for (const t of saved.openTabs ?? []) {
-            try {
-                if (t.isPopup) await chrome.windows.remove(t.windowId);
-                else await chrome.tabs.remove(t.tabId);
-            } catch { /* already gone */ }
+        const state = data[STORAGE_KEY] as { jobId?: number; isRunning?: boolean } | undefined;
+        if (state && state.isRunning && state.jobId) {
+            return { jobId: state.jobId, isRunning: true };
         }
-
-        const statuses: UrlStatus[] = (saved.urlStatuses ?? []).map((u: any) => ({
-            url: u.url,
-            // URLs that were mid-extraction when the SW died go back in the queue.
-            status: u.status === 'extracting' ? 'queued' : u.status,
-            error: u.error
-        }));
-        const pending = statuses.filter(u => u.status === 'queued').length;
-
-        if (pending === 0 || !Array.isArray(saved.elements) || saved.elements.length === 0) {
-            // Nothing left to do (or not enough info to resume) — finalize so the job
-            // doesn't sit in 'running' forever and the sidepanel stops waiting.
-            console.warn(`[Orchestrator] Cannot resume job ${saved.jobId} (pending: ${pending}) — marking as failed`);
-            try {
-                await db.updateJob(saved.jobId, {
-                    status: 'failed',
-                    stats: {
-                        startTime: saved.startTime,
-                        endTime: Date.now(),
-                        itemsExtracted: saved.resultCount ?? 0,
-                        pagesVisited: statuses.filter(u => u.status === 'done').length,
-                        errors: statuses.filter(u => u.status === 'error').length
-                    }
-                });
-            } catch (e) {
-                console.error('[Orchestrator] Failed to finalize interrupted job:', e);
-            }
-            await this.clearPersistedState();
-            chrome.alarms.clear(KEEPALIVE_ALARM);
-            chrome.runtime.sendMessage({
-                type: 'BULK_EXTRACTION_COMPLETE',
-                payload: {
-                    jobId: saved.jobId,
-                    tableDataId: saved.previewTableId ?? undefined,
-                    totalItems: saved.resultCount ?? 0,
-                    success: false,
-                    error: 'Extraction was interrupted and could not be resumed',
-                    stoppedByUser: false
-                },
-                timestamp: Date.now()
-            }).catch(() => { /* sidepanel may not be open */ });
-            return;
-        }
-
-        // Rebuild in-memory state and resume the remaining queue. Rows already
-        // flushed to the preview table survive; the dataHash dedup index absorbs
-        // any overlap from re-extracting a URL that was mid-flight.
-        this.isActive = true;
-        this.shouldStop = false;
-        this.elements = saved.elements;
-        this.config = saved.config ?? {};
-        this.previewTableId = saved.previewTableId ?? null;
-        this.previewSavedCount = 0;
-        this.state = {
-            jobId: saved.jobId,
-            urlStatuses: statuses,
-            results: [],
-            finalColumns: saved.finalColumns ?? [],
-            isRunning: true,
-            startTime: saved.startTime ?? Date.now()
-        };
-
-        this.startKeepAlive();
-
-        const viewportWidth = this.config.viewportWidth || 800;
-        const viewportHeight = this.config.viewportHeight || 600;
-        const tabLoadTimeout = this.config.loadTimeout || 30000;
-        const shouldWaitForLoad = this.config.waitForLoad !== false;
-        const deviceMemoryGB = (navigator as any).deviceMemory ?? 4;
-        const cpuCores = navigator.hardwareConcurrency ?? 4;
-        const concurrency = Math.max(1, Math.min(Math.floor(deviceMemoryGB), Math.floor(cpuCores / 2), 5));
-        this.tabPool = new TabPool(concurrency, viewportWidth, viewportHeight, tabLoadTimeout, shouldWaitForLoad);
-        this.tabPool.setOnTabRemoved((tabId) => this.handleTabClosed(tabId));
-
-        console.log(`[Orchestrator] Resuming job ${saved.jobId}: ${pending} URL(s) remaining`);
-        this.broadcastProgress();
-
-        this.executeExtraction().catch(err => {
-            console.error('[Orchestrator] Fatal error during resumed run:', err);
-            this.finishExtraction(true, err.message);
-        });
+        return null;
     }
 }

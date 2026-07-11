@@ -8,16 +8,15 @@ import { MetadataExtractionOrchestrator } from './extraction/MetadataExtractionO
 const bulkOrchestrator = new BulkExtractionOrchestrator();
 const metadataOrchestrator = new MetadataExtractionOrchestrator();
 
-// Service-worker health. Chrome clamps alarm periods to ≥30 s, which is too slow
-// to prevent the ~30 s MV3 idle kill — real keep-alive during a run is a 20 s
-// extension-API ping inside each orchestrator. This alarm exists to periodically
-// wake the SW so interrupted runs get recovered even if their run-specific
-// backstop alarm was somehow cleared.
-chrome.alarms.create('sw_keepalive', { periodInMinutes: 0.5 });
+// Keep-alive alarm listener for background extraction and service-worker health.
+// MV3 service workers idle out after ~30 s. A periodic alarm every 25 s prevents
+// the SW from sleeping while the sidepanel is open, which would drop pending
+// chrome.tabs.sendMessage calls and cause "Extension not connected" errors.
+chrome.alarms.create('sw_keepalive', { periodInMinutes: 25 / 60 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === 'sw_keepalive') {
-        bulkOrchestrator.recoverIfNeeded().catch(e => console.error('Recovery check failed:', e));
+        // No-op — the alarm firing is enough to keep the service worker alive.
         return;
     }
     if (alarm.name === 'bulk_extraction_keepalive') {
@@ -33,15 +32,9 @@ chrome.runtime.onInstalled.addListener(async (_) => {
     await db.init();
 });
 
-chrome.runtime.onStartup.addListener(() => {
-    bulkOrchestrator.recoverIfNeeded().catch(e => console.error('Recovery on startup failed:', e));
-});
-
-// Initialize database on startup, then recover any run the previous service
-// worker instance was killed in the middle of.
+// Initialize database on startup
 (async () => {
     await db.init();
-    await bulkOrchestrator.recoverIfNeeded().catch(e => console.error('Recovery on SW spawn failed:', e));
 })();
 
 // Set up side panel behavior
@@ -66,7 +59,7 @@ onMessage(async (message: Message, _sender) => {
                 };
 
                 // Broadcast to all extension contexts
-                chrome.runtime.sendMessage(dataSaved).catch(() => { /* sidepanel may not be open */ });
+                chrome.runtime.sendMessage(dataSaved);
 
                 return { success: true, tableDataId };
             } catch (error) {

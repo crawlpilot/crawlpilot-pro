@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTableData, useAllTableData, useExportData } from '../hooks/useDatabase';
 import { db } from '@/shared/db/db-manager';
-import { TableUnifier } from '@/shared/utils/TableUnifier';
 import DataTable from '../components/ui/DataTable';
 import Select from '../components/ui/Select';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -27,22 +26,12 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
     // Real-time refresh: listen for extraction progress and completion messages.
     // When the currently-viewed table is a live preview, reload its rows as new
     // data is appended. Also refresh the table list when a new extraction completes.
-    // Progress refreshes are debounced: each one reloads up to 2000 rows and reruns
-    // the full table pipeline, and progress messages arrive per completed URL.
     useEffect(() => {
-        let refreshTimer: ReturnType<typeof setTimeout> | null = null;
-        const debouncedRefreshTable = () => {
-            if (refreshTimer !== null) return;
-            refreshTimer = setTimeout(() => {
-                refreshTimer = null;
-                refreshTable();
-            }, 300);
-        };
         const handleMessage = (message: any) => {
             if (message.type === 'BULK_EXTRACTION_PROGRESS' || message.type === 'METADATA_EXTRACTION_PROGRESS') {
                 const { previewTableId } = message.payload;
                 if (previewTableId != null && previewTableId === selectedId) {
-                    debouncedRefreshTable();
+                    refreshTable();
                 }
             } else if (
                 message.type === 'BULK_EXTRACTION_COMPLETE' ||
@@ -57,10 +46,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
             }
         };
         chrome.runtime.onMessage.addListener(handleMessage);
-        return () => {
-            chrome.runtime.onMessage.removeListener(handleMessage);
-            if (refreshTimer !== null) clearTimeout(refreshTimer);
-        };
+        return () => chrome.runtime.onMessage.removeListener(handleMessage);
     }, [selectedId, refreshTable, refreshAll]);
 
     // Close export dropdown on outside click
@@ -94,38 +80,25 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
         await db.updateTableData(selectedId, { metadata: { columnMerges: [...existing, merge] } });
     }, [selectedId, tableData]);
 
-    // Exports must include ALL rows, not just the first page loaded into the grid.
-    // When the table has more rows than loaded, pull the full set from IndexedDB
-    // and run it through the same unification the loaded page went through.
-    const getExportData = useCallback(async () => {
-        if (!tableRef.current) return null;
-        if (hasMore && selectedId) {
-            const [freshData, allRows] = await Promise.all([
-                db.getTableData(selectedId),
-                db.getTableRows(selectedId),
-            ]);
-            if (freshData?.columns) {
-                const unified = TableUnifier.unifyTableData(freshData.columns, allRows);
-                return tableRef.current.getProcessedData(unified.rows);
-            }
-            return tableRef.current.getProcessedData(allRows);
+    const handleExportCSV = () => {
+        if (tableRef.current) {
+            const { columns, rows } = tableRef.current.getProcessedData();
+            exportToCSV(columns, rows, tableData?.name || 'export');
         }
-        return tableRef.current.getProcessedData();
-    }, [hasMore, selectedId]);
-
-    const handleExportCSV = async () => {
-        const data = await getExportData();
-        if (data) exportToCSV(data.columns, data.rows, tableData?.name || 'export');
     };
 
-    const handleExportJSON = async () => {
-        const data = await getExportData();
-        if (data) exportToJSON(data.columns, data.rows, tableData?.name || 'export');
+    const handleExportJSON = () => {
+        if (tableRef.current) {
+            const { columns, rows } = tableRef.current.getProcessedData();
+            exportToJSON(columns, rows, tableData?.name || 'export');
+        }
     };
 
-    const handleExportMarkdown = async () => {
-        const data = await getExportData();
-        if (data) exportToMarkdown(data.columns, data.rows, tableData?.name || 'export');
+    const handleExportMarkdown = () => {
+        if (tableRef.current) {
+            const { columns, rows } = tableRef.current.getProcessedData();
+            exportToMarkdown(columns, rows, tableData?.name || 'export');
+        }
     };
 
     const hasMarkdownColumns = tableData?.columns.some(c => c.type === 'markdown') ?? false;
@@ -134,9 +107,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
         if (!tableRef.current) return;
 
         try {
-            const data = await getExportData();
-            if (!data) return;
-            const { columns, rows } = data;
+            const { columns, rows } = tableRef.current.getProcessedData();
             let success = false;
 
             if (type === 'webhook' || type === 'zapier') {
