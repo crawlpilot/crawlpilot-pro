@@ -248,11 +248,6 @@ export function useExportData() {
         }
     };
 
-    const exportToGoogleSheets = async (_columns: { id: string, name: string }[], _data: any[]) => {
-        alert("Google Sheets Authentication is coming soon. Please use Webhooks/Zapier for automated exports.");
-        return false;
-    };
-
     const exportToMarkdown = (columns: { id: string, name: string, type?: string }[], data: any[], fileName: string) => {
         try {
             const urlCol = columns.find(c => c.id === 'source_url' || c.type === 'url');
@@ -278,7 +273,7 @@ export function useExportData() {
         }
     };
 
-    return { exportToCSV, exportToJSON, exportToWebhook, exportToAirtable, exportToGoogleSheets, exportToMarkdown };
+    return { exportToCSV, exportToJSON, exportToWebhook, exportToAirtable, exportToMarkdown };
 }
 
 /**

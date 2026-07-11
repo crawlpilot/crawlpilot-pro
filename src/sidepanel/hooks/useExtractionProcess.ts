@@ -254,15 +254,6 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                         const delta = currentCount - previousCount;
                                         previousCount = currentCount;
 
-                                        // Incrementally update data
-                                        const { latestItem, columns } = message.payload;
-                                        if (latestItem) {
-                                            sel.data.items = [...(sel.data.items || []), latestItem];
-                                        }
-                                        if (columns) {
-                                            sel.data.columns = columns;
-                                        }
-
                                         setStatus(prev => ({
                                             ...prev,
                                             progress: { id: sel.id, count: currentCount },

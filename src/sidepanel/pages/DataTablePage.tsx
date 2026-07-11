@@ -7,7 +7,7 @@ import Select from '../components/ui/Select';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
-import { Database, Calendar, Download, FileText, FileJson, Share2, Webhook, Zap } from 'lucide-react';
+import { Database, Calendar, Download, FileText, FileJson, Webhook, Zap } from 'lucide-react';
 
 interface DataTablePageProps {
     initialTableId?: number | null;
@@ -18,7 +18,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
     const { tableDatas, loading: loadingAll, error: loadError, refresh: refreshAll } = useAllTableData();
     const [selectedId, setSelectedId] = useState<number | null>(initialTableId);
     const { tableData, rows, totalRows, hasMore, loading, error, refresh: refreshTable } = useTableData(selectedId);
-    const { exportToCSV, exportToJSON, exportToWebhook, exportToAirtable, exportToGoogleSheets, exportToMarkdown } = useExportData();
+    const { exportToCSV, exportToJSON, exportToWebhook, exportToAirtable, exportToMarkdown } = useExportData();
     const tableRef = useRef<any>(null);
     const [exportOpen, setExportOpen] = useState(false);
     const exportRef = useRef<HTMLDivElement>(null);
@@ -103,7 +103,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
 
     const hasMarkdownColumns = tableData?.columns.some(c => c.type === 'markdown') ?? false;
 
-    const handlePremiumExport = async (type: 'webhook' | 'zapier' | 'airtable' | 'google-sheets') => {
+    const handlePremiumExport = async (type: 'webhook' | 'zapier' | 'airtable') => {
         if (!tableRef.current) return;
 
         try {
@@ -114,8 +114,6 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                 success = await exportToWebhook(columns, rows, type);
             } else if (type === 'airtable') {
                 success = await exportToAirtable(columns, rows);
-            } else if (type === 'google-sheets') {
-                success = await exportToGoogleSheets(columns, rows);
             }
 
             if (success) {
@@ -283,13 +281,6 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                                         <div className="px-3 py-1.5 text-xs font-bold text-gray-500 uppercase border-y border-border-subtle bg-white/5">
                                             {t('page.integrations')}
                                         </div>
-                                        <button
-                                            onClick={() => { handlePremiumExport('google-sheets'); setExportOpen(false); }}
-                                            role="menuitem"
-                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-white/5 focus-visible:bg-white/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
-                                        >
-                                            <Share2 className="w-3 h-3 text-blue-400" /> {t('page.exportGoogleSheets')}
-                                        </button>
                                         <button
                                             onClick={() => { handlePremiumExport('webhook'); setExportOpen(false); }}
                                             role="menuitem"

@@ -717,7 +717,6 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
                         <FilterOption label={t('filters.emptyColumns')} active={removeEmptyColumns} onClick={() => setRemoveEmptyColumns(!removeEmptyColumns)} icon="🪄" description={t('filters.emptyColumnsDesc')} />
                         <FilterOption label={t('filters.repeatingData')} active={hideRepeatingData} onClick={() => setHideRepeatingData(!hideRepeatingData)} icon="🔄" description={t('filters.repeatingDataDesc')} />
                         <FilterOption label={t('filters.noDuplicates')} active={removeDuplicateColumns} onClick={() => setRemoveDuplicateColumns(!removeDuplicateColumns)} icon="👥" description={t('filters.noDuplicatesDesc')} />
-                        <FilterOption label={t('filters.richFirst')} active={prioritizeRichColumns} onClick={() => setPrioritizeRichColumns(!prioritizeRichColumns)} icon="📈" description={t('filters.richFirstDesc')} />
                         <FilterOption label={t('filters.showImages')} active={showImages} onClick={() => setShowImages(!showImages)} icon="🖼️" description={t('filters.showImagesDesc')} />
                         <FilterOption label={t('filters.sparseColumns')} active={hideMostlyEmptyColumns} onClick={() => setHideMostlyEmptyColumns(!hideMostlyEmptyColumns)} icon="🎯" description={t('filters.sparseColumnsDesc')} />
                     </div>
