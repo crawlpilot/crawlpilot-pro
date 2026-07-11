@@ -15,6 +15,7 @@ import { SelectionHighlightManager } from '../services/page/SelectionHighlightMa
 import { extractMetadata } from '../services/metadata/MetadataExtractionService';
 import { HL_COLOR, HL_BG, HL_GLOW, HL_GLOW_STRONG, DUR_VALIDATE, DUR_FADE } from '../utils/highlight-tokens';
 import { resolveFirst, resolveAll } from '../../shared/selectors/resolve';
+import { hashString } from '../../shared/utils/hash';
 
 export class ContentScriptController {
     private picker: VisualElementPicker | null = null;
@@ -504,13 +505,7 @@ export class ContentScriptController {
     }
 
     private generateRowHash(data: any): string {
-        const str = JSON.stringify(data);
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = ((hash << 5) - hash) + str.charCodeAt(i);
-            hash |= 0;
-        }
-        return hash.toString();
+        return hashString(JSON.stringify(data)).toString();
     }
 
     private highlightProcessedElement(element: HTMLElement) {

@@ -7,6 +7,7 @@ import { AutoScrollAction } from '../autoscroll/AutoScrollAction';
 import { HL_COLOR, HL_BG, HL_GLOW_STRONG } from '../../utils/highlight-tokens';
 import { resolveAll } from '../../../shared/selectors/resolve';
 import { CommonSelectorGenerator } from '../../services/dom/selectors/CommonSelectorGenerator';
+import { hashString } from '../../../shared/utils/hash';
 
 export interface PaginationConfig {
     startSelector: string;
@@ -614,12 +615,7 @@ export class PaginationAction extends BaseAction {
             // Add container state
             combinedData += `|st:${container.scrollTop},${container.scrollHeight}|`;
 
-            let hash = 0;
-            for (let i = 0; i < combinedData.length; i++) {
-                hash = (hash << 5) - hash + combinedData.charCodeAt(i);
-                hash |= 0;
-            }
-            return "v1-" + hash.toString();
+            return "v1-" + hashString(combinedData).toString();
         } catch (e) {
             console.error('[Pagination] Error calculating page hash:', e);
             return "error-" + Date.now();

@@ -1,4 +1,5 @@
 import { IScrollStrategy, ScrollStrategyConfig, ScrollStrategyResult } from './IScrollStrategy';
+import { hashString } from '../../../shared/utils/hash';
 
 /**
  * MutationAwareScrollStrategy — default for infinite/dynamic feeds.
@@ -361,11 +362,6 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
         const id = element.id || '';
         const className = element.className || '';
         const raw = `${element.tagName}#${id}.${className}[${index}]${text.substring(0, 100)}`;
-        let hash = 0;
-        for (let i = 0; i < raw.length; i++) {
-            hash = ((hash << 5) - hash) + raw.charCodeAt(i);
-            hash |= 0;
-        }
-        return JSON.stringify({ hash: hash.toString(), index });
+        return JSON.stringify({ hash: hashString(raw).toString(), index });
     }
 }

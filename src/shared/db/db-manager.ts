@@ -1,4 +1,5 @@
 import { TABLE_NAMES, NEW_TABLE_NAMES, TableData, TableRow, ExtractionResult, Column, AutomationRecipe, Job } from '../types/database';
+import { hashString } from '../utils/hash';
 
 /**
  * IndexedDB Manager for Chrome Extension data storage
@@ -282,13 +283,7 @@ export class DBManager {
     // Helper for hashing data (consistent with reference/data aggregator)
     private hashData(data: any): string {
         const sorted = this.sortObjectKeys(data);
-        const json = JSON.stringify(sorted);
-        let hash = 0;
-        for (let i = 0; i < json.length; i++) {
-            hash = ((hash << 5) - hash) + json.charCodeAt(i);
-            hash |= 0;
-        }
-        return hash.toString();
+        return hashString(JSON.stringify(sorted)).toString();
     }
 
     private sortObjectKeys(obj: any): any {

@@ -1,4 +1,5 @@
 import { IScrollStrategy, ScrollStrategyConfig, ScrollStrategyResult } from './IScrollStrategy';
+import { hashString } from '../../../shared/utils/hash';
 
 interface ChildHashData {
     hash: string;
@@ -183,14 +184,9 @@ export class IndexedScrollStrategy implements IScrollStrategy {
         }
 
         const rawString = `${tagName}#${id}.${className}[${index}][${attributesStr}][${childrenStr}]${innerText.substring(0, 100)}`;
-        let hash = 0;
-        for (let i = 0; i < rawString.length; i++) {
-            hash = ((hash << 5) - hash) + rawString.charCodeAt(i);
-            hash |= 0;
-        }
 
         return {
-            hash: hash.toString(),
+            hash: hashString(rawString).toString(),
             contextData: {
                 index, tagName, id, className,
                 attributes: attributesStr,

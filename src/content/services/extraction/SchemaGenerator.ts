@@ -1,4 +1,5 @@
 import { Column, ColumnType } from './ExtractionTypes';
+import { hashString } from '../../../shared/utils/hash';
 
 /**
  * Handles schema generation and column inference matching the reference implementation
@@ -243,11 +244,6 @@ export class SchemaGenerator {
      * background-readable.js lines 2128-2134
      */
     private generateHashId(str: string): string {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = (hash << 5) - hash + str.charCodeAt(i);
-            hash |= 0; // Convert to 32bit integer
-        }
-        return Math.abs(hash).toString(36).slice(0, 8);
+        return Math.abs(hashString(str)).toString(36).slice(0, 8);
     }
 }

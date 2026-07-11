@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { SchemaGenerator } from './SchemaGenerator';
 import { generateNodeName } from './nodeName';
+import { hashString } from '../../../shared/utils/hash';
 
 /**
  * Extracts structured data from DOM elements
@@ -300,15 +301,7 @@ export class DataExtractor {
      */
     private hashData(data: any): string {
         const sorted = this.sortObjectKeys(data);
-        const json = JSON.stringify(sorted);
-
-        let hash = 0;
-        for (let i = 0; i < json.length; i++) {
-            hash = ((hash << 5) - hash) + json.charCodeAt(i);
-            hash |= 0; // Convert to 32-bit integer
-        }
-
-        return hash.toString();
+        return hashString(JSON.stringify(sorted)).toString();
     }
 
     /**
