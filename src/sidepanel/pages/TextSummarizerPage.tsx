@@ -36,16 +36,23 @@ export default function TextSummarizerPage({ onBack }: TextSummarizerPageProps) 
                     target: { tabId },
                     func: () => {
                         try {
+                            // Score every candidate instead of taking the first
+                            // selector match — a short sidebar/nav block matching
+                            // an earlier selector shouldn't win over the real
+                            // article body matched by a later one.
                             const selectors = ['article', 'main', '[role="main"]', '.post-content', '.entry-content', '#content'];
+                            let best = '';
                             for (const sel of selectors) {
-                                const el = document.querySelector(sel) as HTMLElement;
-                                if (el) {
-                                    const text = (el.innerText || el.textContent || '').trim();
-                                    if (text.length > 200) return text;
-                                }
+                                document.querySelectorAll(sel).forEach((el) => {
+                                    const text = ((el as HTMLElement).innerText || el.textContent || '').trim();
+                                    if (text.length > best.length) best = text;
+                                });
                             }
+                            if (best.length > 200) return best.substring(0, 40000);
+
                             // Fallback to body
-                            return (document.body?.innerText || document.body?.textContent || '').trim();
+                            const bodyText = (document.body?.innerText || document.body?.textContent || '').trim();
+                            return bodyText.substring(0, 40000);
                         } catch (e) {
                             return 'Error during extraction: ' + (e as Error).message;
                         }
