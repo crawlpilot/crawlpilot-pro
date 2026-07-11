@@ -135,6 +135,10 @@ export class BulkExtractionOrchestrator {
     private isActive = false;
     private previewTableId: number | null = null;
     private previewSavedCount = 0;
+    // Single-flight chain — savePreview() is called from every worker's finally block
+    // concurrently. Without this, two workers can both observe previewTableId === null
+    // and each create a separate preview table, and previewSavedCount updates can race.
+    private previewChain: Promise<void> = Promise.resolve();
 
     async start(extractionConfig: BulkExtractionConfig): Promise<{ jobId: number; originalCount: number; uniqueCount: number }> {
         if (this.isActive) {
@@ -228,6 +232,7 @@ export class BulkExtractionOrchestrator {
         // Initialize state
         this.previewTableId = null;
         this.previewSavedCount = 0;
+        this.previewChain = Promise.resolve();
         this.state = {
             jobId,
             urlStatuses: uniqueUrls.map(url => ({ url, status: 'queued' })),
@@ -385,8 +390,12 @@ export class BulkExtractionOrchestrator {
             this.broadcastProgress();
             await this.persistState();
 
-            // Fire-and-forget partial preview — gives users live visibility into results
-            this.savePreview().catch(e => console.warn('[Orchestrator] Preview save failed:', e));
+            // Partial preview — gives users live visibility into results. Chained (not
+            // parallel fire-and-forget) so concurrent workers can't both create a preview
+            // table or race on previewSavedCount.
+            this.previewChain = this.previewChain
+                .then(() => this.savePreview())
+                .catch(e => console.warn('[Orchestrator] Preview save failed:', e));
 
             // Delay between pages (with optional random jitter for anti-bot)
             let requestDelay = this.config.requestDelay ?? 1000;
@@ -583,6 +592,10 @@ export class BulkExtractionOrchestrator {
     private async finishExtraction(stoppedByUser: boolean, error?: string) {
         if (!this.state) return;
 
+        // Wait for any in-flight savePreview() to settle before reading previewSavedCount/
+        // previewTableId below — otherwise the flush here can race the last worker's preview save.
+        await this.previewChain.catch(() => { /* already logged by the chain itself */ });
+
         this.state.isRunning = false;
         const jobId = this.state.jobId;
         const allItems = this.state.results;
@@ -726,7 +739,9 @@ export class BulkExtractionOrchestrator {
         await chrome.storage.local.set({
             [STORAGE_KEY]: {
                 jobId: this.state.jobId,
-                urlStatuses: this.state.urlStatuses.map(u => ({ url: u.url, status: u.status, error: u.error })),
+                // tabId included so a post-SW-restart recovery pass can close any tabs
+                // that were still open mid-extraction (otherwise they leak permanently).
+                urlStatuses: this.state.urlStatuses.map(u => ({ url: u.url, status: u.status, error: u.error, tabId: u.tabId })),
                 resultCount: this.state.results.length,
                 isRunning: this.state.isRunning,
                 startTime: this.state.startTime
@@ -756,14 +771,47 @@ export class BulkExtractionOrchestrator {
     }
 
     /**
-     * Check if there's a persisted extraction state (for recovery after SW restart).
+     * Called once at service-worker startup. If a bulk extraction was still marked
+     * 'running' in storage, the SW was killed mid-run (MV3 suspension, crash, browser
+     * restart) — nothing will ever call finishExtraction() for it. Without this, the
+     * job stays 'running' forever in the DB and any popup/background tabs it opened
+     * leak permanently. Closes what it can find, marks the job failed, and clears state.
      */
     async checkForRecovery(): Promise<{ jobId: number; isRunning: boolean } | null> {
         const data = await chrome.storage.local.get([STORAGE_KEY]);
-        const state = data[STORAGE_KEY] as { jobId?: number; isRunning?: boolean } | undefined;
-        if (state && state.isRunning && state.jobId) {
-            return { jobId: state.jobId, isRunning: true };
+        const state = data[STORAGE_KEY] as {
+            jobId?: number;
+            isRunning?: boolean;
+            urlStatuses?: { url: string; status: string; tabId?: number }[];
+        } | undefined;
+
+        if (!state || !state.isRunning || !state.jobId) return null;
+
+        console.warn(`[Orchestrator] Recovering from interrupted bulk extraction (job ${state.jobId}) — service worker was likely restarted mid-run.`);
+
+        const leakedTabIds = (state.urlStatuses || [])
+            .filter(u => u.status === 'extracting' && typeof u.tabId === 'number')
+            .map(u => u.tabId as number);
+
+        for (const tabId of leakedTabIds) {
+            try {
+                await chrome.tabs.remove(tabId);
+            } catch {
+                // Tab already closed by the browser — nothing to do.
+            }
         }
-        return null;
+
+        try {
+            await db.updateJob(state.jobId, {
+                status: 'failed',
+                error: 'Extraction interrupted — the browser or extension was restarted mid-run.',
+                stats: { startTime: Date.now(), endTime: Date.now(), itemsExtracted: 0, stoppedByUser: false }
+            });
+        } catch (e) {
+            console.error('[Orchestrator] Failed to mark interrupted job as failed:', e);
+        }
+
+        await this.clearPersistedState();
+        return { jobId: state.jobId, isRunning: true };
     }
 }

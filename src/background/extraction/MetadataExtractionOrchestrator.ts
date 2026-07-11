@@ -92,6 +92,10 @@ export class MetadataExtractionOrchestrator {
     private isActive = false;
     private previewTableId: number | null = null;
     private previewSavedCount = 0;
+    // Single-flight chain — see BulkExtractionOrchestrator for why this is needed:
+    // concurrent workers calling savePreview() unserialized can create duplicate preview
+    // tables and race on previewSavedCount.
+    private previewChain: Promise<void> = Promise.resolve();
 
     async start(config: MetadataExtractionConfig): Promise<{ jobId: number; uniqueCount: number }> {
         if (this.isActive) throw new Error('A metadata extraction is already in progress');
@@ -137,6 +141,7 @@ export class MetadataExtractionOrchestrator {
 
         this.previewTableId = null;
         this.previewSavedCount = 0;
+        this.previewChain = Promise.resolve();
         this.state = {
             jobId,
             urlStatuses: uniqueUrls.map(url => ({ url, status: 'queued' as const })),
@@ -233,7 +238,9 @@ export class MetadataExtractionOrchestrator {
             if (tabId !== null) await this.tabPool.releaseTab(tabId);
             this.broadcastProgress();
             await this.persistState();
-            this.savePreview().catch(() => {});
+            this.previewChain = this.previewChain
+                .then(() => this.savePreview())
+                .catch(() => {});
 
             if (this.requestDelay > 0 && !this.shouldStop) {
                 await new Promise(r => setTimeout(r, this.requestDelay));
@@ -296,6 +303,9 @@ export class MetadataExtractionOrchestrator {
 
     private async finishExtraction(stoppedByUser: boolean, error?: string) {
         if (!this.state) return;
+
+        // Wait for any in-flight savePreview() to settle before flushing below.
+        await this.previewChain.catch(() => {});
 
         this.state.isRunning = false;
         const { jobId, urlStatuses, results, startTime } = this.state;
@@ -386,7 +396,9 @@ export class MetadataExtractionOrchestrator {
         await chrome.storage.local.set({
             [STORAGE_KEY]: {
                 jobId: this.state.jobId,
-                urlStatuses: this.state.urlStatuses.map(u => ({ url: u.url, status: u.status })),
+                // tabId included so a post-SW-restart recovery pass can close any tabs
+                // that were still open mid-extraction (otherwise they leak permanently).
+                urlStatuses: this.state.urlStatuses.map(u => ({ url: u.url, status: u.status, tabId: u.tabId })),
                 isRunning: this.state.isRunning,
                 startTime: this.state.startTime,
             },
@@ -407,5 +419,48 @@ export class MetadataExtractionOrchestrator {
 
     handleKeepAliveAlarm() {
         if (this.isActive) console.log('[MetadataOrchestrator] Keep-alive ping — extraction active');
+    }
+
+    /**
+     * Called once at service-worker startup — see BulkExtractionOrchestrator.checkForRecovery
+     * for the full rationale. Closes any tabs left open by an interrupted metadata run,
+     * marks the job failed, and clears the stale persisted state.
+     */
+    async checkForRecovery(): Promise<{ jobId: number; isRunning: boolean } | null> {
+        const data = await chrome.storage.local.get([STORAGE_KEY]);
+        const state = data[STORAGE_KEY] as {
+            jobId?: number;
+            isRunning?: boolean;
+            urlStatuses?: { url: string; status: string; tabId?: number }[];
+        } | undefined;
+
+        if (!state || !state.isRunning || !state.jobId) return null;
+
+        console.warn(`[MetadataOrchestrator] Recovering from interrupted metadata extraction (job ${state.jobId}) — service worker was likely restarted mid-run.`);
+
+        const leakedTabIds = (state.urlStatuses || [])
+            .filter(u => u.status === 'extracting' && typeof u.tabId === 'number')
+            .map(u => u.tabId as number);
+
+        for (const tabId of leakedTabIds) {
+            try {
+                await chrome.tabs.remove(tabId);
+            } catch {
+                // Tab already closed by the browser — nothing to do.
+            }
+        }
+
+        try {
+            await db.updateJob(state.jobId, {
+                status: 'failed',
+                error: 'Extraction interrupted — the browser or extension was restarted mid-run.',
+                stats: { startTime: Date.now(), endTime: Date.now(), itemsExtracted: 0, stoppedByUser: false }
+            });
+        } catch (e) {
+            console.error('[MetadataOrchestrator] Failed to mark interrupted job as failed:', e);
+        }
+
+        await this.clearPersistedState();
+        return { jobId: state.jobId, isRunning: true };
     }
 }

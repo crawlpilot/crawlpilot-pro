@@ -20,6 +20,11 @@ export class DBManager {
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
                 this.db = request.result;
+                // The browser can force-close the connection (e.g. another tab triggers a
+                // version change, or IndexedDB is evicted under storage pressure). Without
+                // this, ensureConnection()'s `if (!this.db)` check would never be true again
+                // and every subsequent call would throw InvalidStateError on a dead handle.
+                this.db.onclose = () => { this.db = null; };
                 console.log('✅ IndexedDB initialized:', this.dbName);
                 resolve();
             };
@@ -199,13 +204,14 @@ export class DBManager {
             ? `Preview: ${baseName}`
             : baseName;
 
+        let existing: Awaited<ReturnType<typeof this.getTableData>> | null = null;
         if (tableDataId) {
             console.log(`Update existing TableData ${tableDataId}`);
 
             // Safeguard: only block overwriting PRODUCTION records that belong to a different job.
             // Preview records (isPreview === true) are always safe to overwrite — they exist
             // precisely to be replaced by the real extraction result.
-            const existing = await this.getTableData(tableDataId);
+            existing = await this.getTableData(tableDataId);
             if (existing && existing.metadata?.isPreview !== true) {
                 const existingJobId = existing.jobId || (existing.metadata as any)?.automationId;
                 if (options?.jobId !== existingJobId) {
@@ -226,12 +232,18 @@ export class DBManager {
                 await this.clearTableRows(tableDataId);
             }
 
+            // Incremental append (no clearExisting) — `items` here is only the new batch
+            // being appended, not the full table, so totalRows must accumulate on top of
+            // whatever was already recorded rather than being overwritten by the batch size.
+            const previousTotal = options?.clearExisting ? 0 : (existing?.metadata?.totalRows ?? 0);
+            const totalRows = options?.clearExisting ? items.length : previousTotal + items.length;
+
             await this.updateTableData(tableDataId, {
                 name: name,
                 jobId: options?.jobId,
                 metadata: {
                     extractionType: data.type || 'list',
-                    totalRows: items.length,
+                    totalRows,
                     isPreview: isPreview,
                     // automationId: options?.automationId // Removed redundant metadata
                 }
@@ -665,7 +677,9 @@ export class DBManager {
                 const job = getRequest.result;
                 if (!job) return reject(new Error('Job not found'));
                 const updated = { ...job, ...updates, updatedAt: Date.now() };
-                store.put(updated).onsuccess = () => resolve();
+                const putRequest = store.put(updated);
+                putRequest.onsuccess = () => resolve();
+                putRequest.onerror = () => reject(putRequest.error);
             };
             getRequest.onerror = () => reject(getRequest.error);
         });

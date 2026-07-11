@@ -27,14 +27,26 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     }
 });
 
+// Recovers from a service-worker restart that happened mid-extraction: closes any tabs
+// the interrupted run left open and marks its job 'failed' instead of leaving it stuck
+// 'running' forever. See BulkExtractionOrchestrator/MetadataExtractionOrchestrator.checkForRecovery.
+async function recoverInterruptedExtractions() {
+    await Promise.all([
+        bulkOrchestrator.checkForRecovery().catch(e => console.error('[SW] Bulk recovery check failed:', e)),
+        metadataOrchestrator.checkForRecovery().catch(e => console.error('[SW] Metadata recovery check failed:', e)),
+    ]);
+}
+
 // Initialize database on install
 chrome.runtime.onInstalled.addListener(async (_) => {
     await db.init();
+    await recoverInterruptedExtractions();
 });
 
 // Initialize database on startup
 (async () => {
     await db.init();
+    await recoverInterruptedExtractions();
 })();
 
 // Set up side panel behavior
@@ -43,8 +55,28 @@ chrome.sidePanel
     .catch((error) => console.error('Side panel setup error:', error));
 
 
+// Message types that are pure broadcasts/passthroughs handled elsewhere (content script /
+// sidepanel) — the background script has nothing to do with them. Checked synchronously,
+// before any async work starts, so onMessage's `result instanceof Promise` check sees a
+// plain `undefined` and does NOT keep the message channel open for these (previously the
+// whole handler was `async`, so every message — including these — held the channel open
+// until its microtask settled, for no benefit).
+const PASSTHROUGH_MESSAGE_TYPES = new Set<Message['type']>([
+    'METADATA_EXTRACTION_PROGRESS', 'METADATA_EXTRACTION_COMPLETE',
+    'BULK_EXTRACTION_PROGRESS', 'BULK_EXTRACTION_COMPLETE',
+    'AUTO_SCROLL_UPDATE', 'AUTO_SCROLL_STATUS', 'AUTO_SCROLL_COMPLETE',
+    'EXECUTE_AUTO_SCROLL', 'STOP_AUTO_SCROLL', 'ELEMENT_SELECTED',
+    'START_PICKER', 'STOP_PICKER', 'PAGINATION_UPDATE', 'PAGINATION_STATUS',
+    'PAGINATION_COMPLETE', 'SCAN_IMAGES_PROGRESS', 'SCAN_IMAGES_BATCH',
+]);
+
 // Message handling
-onMessage(async (message: Message, _sender) => {
+onMessage((message: Message, sender) => {
+    if (PASSTHROUGH_MESSAGE_TYPES.has(message.type)) return undefined;
+    return handleMessage(message, sender);
+});
+
+async function handleMessage(message: Message, _sender: chrome.runtime.MessageSender): Promise<any> {
     switch (message.type) {
         case 'EXTRACTION_COMPLETE': {
             const msg = message as ExtractionCompleteMessage;
