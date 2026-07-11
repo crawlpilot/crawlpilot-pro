@@ -205,9 +205,11 @@ export class TabPool {
      * Falls back to programmatic injection if the manifest-declared script didn't inject.
      */
     private async ensureContentScript(tabId: number): Promise<boolean> {
-        console.log(`[TabPool] Waiting ${CONTENT_SCRIPT_INIT_WAIT_FRESH} ms for content script init on tab ${tabId}`);
-        await new Promise(r => setTimeout(r, CONTENT_SCRIPT_INIT_WAIT_FRESH));
-
+        // No fixed pre-PING sleep — the manifest content script runs at document_idle,
+        // which by the time waitForTabLoad() resolves (tab status 'complete') has almost
+        // always already loaded. The retry loop below still backs off CONTENT_SCRIPT_PING_INTERVAL
+        // between attempts, so a genuinely slow-loading script gets the same total budget
+        // (~10s); this just removes a wasted fixed delay in the common already-ready case.
         let lastError: string | undefined;
         let injectionAttempted = false;
 

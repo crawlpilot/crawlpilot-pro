@@ -18,6 +18,7 @@ import {
     ICellRendererParams
 } from 'ag-grid-community';
 import type { Column, TableRow } from '@/shared/types/database';
+import { hashString } from '@/shared/utils/hash';
 import { Edit, Trash2, GitMerge, X, Check, ArrowRight, Filter, Table2, FileText } from 'lucide-react';
 import { IconButton, Tooltip } from '@mui/material';
 import Button from './Button';
@@ -318,7 +319,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
         activeCols = activeCols.filter(c => !hiddenIds.has(c.id));
 
         return { baseRows: activeRows, baseColumns: activeCols };
-    }, [columns, rows, mergedCols, deletedCols]);
+    }, [displayRows, displayColumns, mergedCols, deletedCols]);
 
     // Stage 2: Row filtering (depends on baseRows + row filter toggles)
     const filteredRows = useMemo(() => {
@@ -372,37 +373,48 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
         }
 
         if (removeDuplicateColumns) {
-            const uniqueContentMap = new Map<string, string>();
+            // Sample the first 50 rows instead of hashing every row — with large datasets
+            // (thousands of rows) building a full '||'-joined string per column was the
+            // single hottest allocation in this pipeline. Two columns that match on their
+            // first 50 rows but diverge later would (rarely) be mis-flagged as duplicates,
+            // but this only affects a view-time hide toggle, not the underlying data.
+            const SAMPLE_SIZE = 50;
+            const sampleRows = filteredRows.length > SAMPLE_SIZE ? filteredRows.slice(0, SAMPLE_SIZE) : filteredRows;
+            const seenHashes = new Map<number, string>();
             const colsKeep = new Set<string>();
             activeCols.forEach(col => {
-                const contentStr = filteredRows.map(r => r[col.id]).join('||');
-                if (!uniqueContentMap.has(contentStr)) {
-                    uniqueContentMap.set(contentStr, col.id);
+                const contentStr = sampleRows.map(r => r[col.id]).join('||');
+                const hash = hashString(contentStr);
+                if (!seenHashes.has(hash)) {
+                    seenHashes.set(hash, col.id);
                     colsKeep.add(col.id);
                 }
             });
             activeCols = activeCols.filter(c => colsKeep.has(c.id));
         }
 
-        // Sort: pinned columns first, then by density
+        // Sort: pinned columns first, then by density. Density (non-empty count) is
+        // precomputed once per column here — the comparator used to recompute it with a
+        // fresh O(rows) filter() on every comparison the sort made (O(cols log cols) calls).
         const colPriority = (col: Column): number => {
             if (col.id === 'recordId') return 0;
             if (col.id === 'url' || (col as any).type === 'link') return 1;
             if ((col as any).type === 'image_array') return 2;
             return 3;
         };
+        const densityById = new Map<string, number>();
+        activeCols.forEach(col => {
+            let count = 0;
+            for (const r of filteredRows) {
+                const val = r[col.id];
+                if (val !== undefined && val !== null && String(val).trim() !== '') count++;
+            }
+            densityById.set(col.id, count);
+        });
         activeCols.sort((a, b) => {
             const pa = colPriority(a), pb = colPriority(b);
             if (pa !== pb) return pa - pb;
-            const countA = filteredRows.filter(r => {
-                const val = r[a.id];
-                return val !== undefined && val !== null && String(val).trim() !== '';
-            }).length;
-            const countB = filteredRows.filter(r => {
-                const val = r[b.id];
-                return val !== undefined && val !== null && String(val).trim() !== '';
-            }).length;
-            return countB - countA;
+            return (densityById.get(b.id) ?? 0) - (densityById.get(a.id) ?? 0);
         });
 
         return activeCols;

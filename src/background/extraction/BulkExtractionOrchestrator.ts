@@ -291,7 +291,10 @@ export class BulkExtractionOrchestrator {
         console.log(`[Orchestrator] Starting extraction: ${urlQueue.length} URLs, ${workerCount} workers`);
 
         for (let i = 0; i < workerCount; i++) {
-            if (i > 0) await new Promise(r => setTimeout(r, 1500));
+            // Stagger worker startup so tab/window creation calls don't all land on Chrome's
+            // APIs in the same tick. 400ms is enough spacing for that without meaningfully
+            // slowing ramp-up to full parallelism (was 1500ms — 6s+ to spin up 5 workers).
+            if (i > 0) await new Promise(r => setTimeout(r, 400));
             workers.push(this.worker(urlQueue, i));
         }
 

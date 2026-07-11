@@ -391,23 +391,6 @@ export class DBManager {
     }
 
     /**
-     * Get rows for a specific table (loads all — use getTableRowsPage for large tables).
-     */
-    async getTableRows(tableDataId: number): Promise<TableRow[]> {
-        await this.ensureConnection();
-
-        return new Promise((resolve, reject) => {
-            const transaction = this.db!.transaction([TABLE_NAMES.TABLE_ROWS], 'readonly');
-            const store = transaction.objectStore(TABLE_NAMES.TABLE_ROWS);
-            const index = store.index('tableDataId');
-            const request = index.getAll(tableDataId);
-
-            request.onsuccess = () => resolve(request.result || []);
-            request.onerror = () => reject(request.error);
-        });
-    }
-
-    /**
      * Count rows for a specific table without loading them into memory.
      */
     async getTableRowCount(tableDataId: number): Promise<number> {
@@ -456,21 +439,6 @@ export class DBManager {
             };
             request.onerror = () => reject(request.error);
         });
-    }
-
-    /**
-     * Get table data with its rows
-     */
-    async getTableColumnsAndRows(
-        tableDataId: number
-    ): Promise<{ columns: Column[]; data: TableRow[] }> {
-        const tableData = await this.getTableData(tableDataId);
-        const rows = await this.getTableRows(tableDataId);
-
-        return {
-            columns: tableData?.columns || [],
-            data: rows,
-        };
     }
 
     /**

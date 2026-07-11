@@ -179,7 +179,8 @@ export class MetadataExtractionOrchestrator {
 
         const workers: Promise<void>[] = [];
         for (let i = 0; i < maxWorkers; i++) {
-            if (i > 0) await new Promise(r => setTimeout(r, 1500));
+            // See BulkExtractionOrchestrator for why 400ms (was 1500ms).
+            if (i > 0) await new Promise(r => setTimeout(r, 400));
             workers.push(this.worker(queue, i));
         }
         await Promise.all(workers);
