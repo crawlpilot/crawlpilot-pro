@@ -6,6 +6,7 @@ import { BaseAction, ActionContext } from '../../core/BaseAction';
 import { AutoScrollAction } from '../autoscroll/AutoScrollAction';
 import { HL_COLOR, HL_BG, HL_GLOW_STRONG } from '../../utils/highlight-tokens';
 import { resolveAll } from '../../../shared/selectors/resolve';
+import { CommonSelectorGenerator } from '../../services/dom/selectors/CommonSelectorGenerator';
 
 export interface PaginationConfig {
     startSelector: string;
@@ -238,6 +239,18 @@ export class PaginationAction extends BaseAction {
             if (elements.length > 0 && used && used.kind === 'css') {
                 itemSelectionMode = 'items';
                 resolvedItemSelector = used.value;
+            } else {
+                // [NEW] Verify-and-heal: the whole stored chain is stale (e.g. the site
+                // redeployed with new hash classes). Re-derive a fresh item selector from
+                // this page's actual children rather than silently reverting to
+                // container.children, which can pull in ads/spacers the original pick excluded.
+                const healed = this.healItemSelector(container);
+                if (healed) {
+                    itemSelectionMode = 'items';
+                    resolvedItemSelector = healed;
+                    console.log('[PaginationAction] Item selector chain stale — healed to:', healed);
+                    this.context?.onProgress?.({ type: 'selector_healed', message: `Item selector re-derived: ${healed}` });
+                }
             }
         }
 
@@ -285,6 +298,25 @@ export class PaginationAction extends BaseAction {
         }
 
         return { extractedCount, newTotal };
+    }
+
+    /**
+     * Re-derives a CSS item selector from this page's container children when the
+     * stored chain no longer matches anything. Uses the same CommonSelectorGenerator
+     * majority-vote logic the picker uses, anchored on the container's own children —
+     * there's no "target element" to anchor on here (the user's original pick is gone),
+     * so this is best-effort and only fires when the chain is fully broken.
+     */
+    private healItemSelector(container: HTMLElement): string | null {
+        try {
+            const children = Array.from(container.children) as HTMLElement[];
+            if (children.length < 2) return null;
+            const candidates = new CommonSelectorGenerator().deriveCommonSelector(children, container);
+            const cssCandidate = candidates.find(c => c.type === 'CSS');
+            return cssCandidate?.selector ?? null;
+        } catch {
+            return null;
+        }
     }
 
     private async findContainerWithRetry(selectors: string[], timeoutMs: number = 5000): Promise<HTMLElement | null> {

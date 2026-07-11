@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { SchemaGenerator } from './SchemaGenerator';
+import { generateNodeName } from './nodeName';
 
 /**
  * Extracts structured data from DOM elements
@@ -144,7 +145,7 @@ export class DataExtractor {
         // Skip elements with no offset parent and no text (display:none ancestors catch this)
         if (!isHidden && t.offsetParent === null && !(t.textContent || '').trim()) return;
 
-        const displayLabel = this.generateNodeName(t);
+        const displayLabel = generateNodeName(t);
 
         // Update counts for this label in the parent's context
         parentCounts[displayLabel] = (parentCounts[displayLabel] || 0) + 1;
@@ -266,15 +267,6 @@ export class DataExtractor {
         pathParts.pop();
         return `${origin}${pathParts.length > 0 ? `/${pathParts.join("/")}/` : "/"}${t}`;
     }
-
-    private generateNodeName(t: HTMLElement): string {
-        const classes = (t.getAttribute("class") || "").split(/\s+/).filter(c =>
-            c && !["js-", "data-"].some(exc => c.startsWith(exc)) && !/^\d+$/.test(c)
-        );
-        return classes.length > 0 ? classes[0] : t.tagName.toLowerCase();
-    }
-
-
 
     public normalizeData(rows: any[], columns: any[]) {
         return rows.map(row => this.normalizeRow(row, columns));
