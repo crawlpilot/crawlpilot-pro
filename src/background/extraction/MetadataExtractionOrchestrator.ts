@@ -92,6 +92,7 @@ export class MetadataExtractionOrchestrator {
     private isActive = false;
     private previewTableId: number | null = null;
     private previewSavedCount = 0;
+    private keepAliveInterval: ReturnType<typeof setInterval> | null = null;
 
     async start(config: MetadataExtractionConfig): Promise<{ jobId: number; uniqueCount: number }> {
         if (this.isActive) throw new Error('A metadata extraction is already in progress');
@@ -398,10 +399,19 @@ export class MetadataExtractionOrchestrator {
     }
 
     private startKeepAlive() {
-        chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 0.4 });
+        // Alarms are clamped to ≥30 s so they can't stop the ~30 s MV3 idle kill;
+        // an extension-API call every 20 s does. The alarm remains as a backstop.
+        if (this.keepAliveInterval === null) {
+            this.keepAliveInterval = setInterval(() => { void chrome.runtime.getPlatformInfo(); }, 20_000);
+        }
+        chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 0.5 });
     }
 
     private stopKeepAlive() {
+        if (this.keepAliveInterval !== null) {
+            clearInterval(this.keepAliveInterval);
+            this.keepAliveInterval = null;
+        }
         chrome.alarms.clear(KEEPALIVE_ALARM);
     }
 

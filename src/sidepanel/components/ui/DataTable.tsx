@@ -35,7 +35,7 @@ ModuleRegistry.registerModules([
 ]);
 
 export interface DataTableRef {
-    getProcessedData: () => { columns: { id: string, name: string, type?: string }[], rows: any[] };
+    getProcessedData: (overrideRows?: TableRow[]) => { columns: { id: string, name: string, type?: string }[], rows: any[] };
 }
 
 type MergeDefinition = { id: string; name: string; sources: string[]; separator: string };
@@ -527,8 +527,10 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
     const availableColumns = activeColumns;
 
     useImperativeHandle(ref, () => ({
-        getProcessedData: () => {
-            // Export uses original compact rows (non-exploded), no tabledata columns
+        getProcessedData: (overrideRows?: TableRow[]) => {
+            // Export uses original compact rows (non-exploded), no tabledata columns.
+            // overrideRows lets callers export the full DB row set when only the
+            // first page is loaded in the grid.
             const exportCols = columns.filter(c => !(c as any).hidden && (c as any).type !== 'tabledata');
             return {
                 columns: exportCols.map(col => ({
@@ -536,7 +538,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
                     name: renames[col.id] || col.name,
                     type: col.type,
                 })),
-                rows: rows.map(r => {
+                rows: (overrideRows ?? rows).map(r => {
                     const out: Record<string, any> = {};
                     exportCols.forEach(col => {
                         let val = r.data[col.id];
