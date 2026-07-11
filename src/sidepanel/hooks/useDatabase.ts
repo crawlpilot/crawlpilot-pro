@@ -130,15 +130,17 @@ export function useExportData() {
             const csvRows = data.map((row) => {
                 return columns
                     .map((col) => {
-                        const value = row[col.id];
-                        if (typeof value === 'string') {
-                            const escaped = value.replace(/"/g, '""');
-                            if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
-                                return `"${escaped}"`;
-                            }
-                            return value;
+                        const raw = row[col.id];
+                        if (raw === undefined || raw === null) return '';
+                        // Arrays/objects (e.g. image_array columns) must be stringified before
+                        // quoting — passed through raw they'd implicitly join with commas via
+                        // Array.prototype.toString, silently shifting every column after them.
+                        const value = typeof raw === 'string' ? raw : JSON.stringify(raw);
+                        const escaped = value.replace(/"/g, '""');
+                        if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+                            return `"${escaped}"`;
                         }
-                        return value ?? '';
+                        return value;
                     })
                     .join(',');
             });

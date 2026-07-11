@@ -81,23 +81,32 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
     }, [selectedId, tableData]);
 
     const handleExportCSV = () => {
-        if (tableRef.current) {
+        if (!tableRef.current) return;
+        try {
             const { columns, rows } = tableRef.current.getProcessedData();
             exportToCSV(columns, rows, tableData?.name || 'export');
+        } catch (err: any) {
+            alert(`Export failed: ${err.message}`);
         }
     };
 
     const handleExportJSON = () => {
-        if (tableRef.current) {
+        if (!tableRef.current) return;
+        try {
             const { columns, rows } = tableRef.current.getProcessedData();
             exportToJSON(columns, rows, tableData?.name || 'export');
+        } catch (err: any) {
+            alert(`Export failed: ${err.message}`);
         }
     };
 
     const handleExportMarkdown = () => {
-        if (tableRef.current) {
+        if (!tableRef.current) return;
+        try {
             const { columns, rows } = tableRef.current.getProcessedData();
             exportToMarkdown(columns, rows, tableData?.name || 'export');
+        } catch (err: any) {
+            alert(`Export failed: ${err.message}`);
         }
     };
 
