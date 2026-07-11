@@ -87,6 +87,16 @@ export interface DataSavedMessage extends BaseMessage {
     };
 }
 
+export interface DownloadImageProxyMessage extends BaseMessage {
+    type: 'DOWNLOAD_IMAGE_PROXY';
+    payload: { url: string };
+}
+
+export interface DownloadViaChromeMessage extends BaseMessage {
+    type: 'DOWNLOAD_VIA_CHROME';
+    payload: { url: string; filename?: string };
+}
+
 export interface ExtractionCompleteMessage extends BaseMessage {
     type: 'EXTRACTION_COMPLETE';
     payload: {
@@ -126,6 +136,7 @@ export interface BulkExtractionProgressMessage extends BaseMessage {
         currentUrl?: string;
         activeTabs: number;
         urlStatuses: Array<{ url: string; status: 'queued' | 'extracting' | 'done' | 'error'; error?: string }>;
+        previewTableId?: number | null;
     };
 }
 
@@ -198,4 +209,6 @@ export type Message =
     | MetadataExtractionStopMessage
     | MetadataExtractionProgressMessage
     | MetadataExtractionCompleteMessage
+    | DownloadImageProxyMessage
+    | DownloadViaChromeMessage
     | BaseMessage;

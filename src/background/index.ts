@@ -1,6 +1,6 @@
 import { db } from '../shared/db/db-manager';
 import { onMessage } from '../shared/utils/messaging';
-import type { Message, DataSavedMessage, ExtractionCompleteMessage, BulkExtractionStartMessage } from '../shared/types/messages';
+import type { Message, DataSavedMessage, ExtractionCompleteMessage, BulkExtractionStartMessage, MetadataExtractionStartMessage, DownloadImageProxyMessage, DownloadViaChromeMessage } from '../shared/types/messages';
 import { BulkExtractionOrchestrator } from './extraction/BulkExtractionOrchestrator';
 import { MetadataExtractionOrchestrator } from './extraction/MetadataExtractionOrchestrator';
 
@@ -108,7 +108,7 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
 
         case 'DOWNLOAD_IMAGE_PROXY': {
             // Fetch image via background to bypass CORS restrictions
-            const { url } = (message as any).payload as { url: string };
+            const { url } = (message as DownloadImageProxyMessage).payload;
             try {
                 const response = await fetch(url, {
                     mode: 'cors',
@@ -126,7 +126,7 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
 
         case 'DOWNLOAD_VIA_CHROME': {
             // Use chrome.downloads API to save a file directly
-            const { url: dlUrl, filename } = (message as any).payload as { url: string; filename?: string };
+            const { url: dlUrl, filename } = (message as DownloadViaChromeMessage).payload;
             try {
                 const downloadId = await chrome.downloads.download({
                     url: dlUrl,
@@ -166,17 +166,18 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
         }
 
         case 'METADATA_EXTRACTION_START': {
+            const startMsg = message as MetadataExtractionStartMessage;
             try {
                 if (metadataOrchestrator.running) {
                     return { success: false, error: 'A metadata extraction is already in progress' };
                 }
                 const { jobId, uniqueCount } = await metadataOrchestrator.start({
-                    urls: (message as any).payload.urls,
-                    options: (message as any).payload.options ?? {},
-                    maxConcurrent: (message as any).payload.maxConcurrent,
-                    requestDelay: (message as any).payload.requestDelay,
-                    loadTimeout: (message as any).payload.loadTimeout,
-                    customName: (message as any).payload.customName,
+                    urls: startMsg.payload.urls,
+                    options: startMsg.payload.options ?? {},
+                    maxConcurrent: startMsg.payload.maxConcurrent,
+                    requestDelay: startMsg.payload.requestDelay,
+                    loadTimeout: startMsg.payload.loadTimeout,
+                    customName: startMsg.payload.customName,
                 });
                 return { success: true, jobId, uniqueCount };
             } catch (error) {
@@ -189,39 +190,13 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
             return { success: true };
         }
 
-        case 'METADATA_EXTRACTION_PROGRESS':
-        case 'METADATA_EXTRACTION_COMPLETE':
-            return undefined;
-
-        case 'BULK_EXTRACTION_PROGRESS':
-        case 'BULK_EXTRACTION_COMPLETE':
-            // These are outbound messages from orchestrator to sidepanel
-            // Just pass through (already sent via chrome.runtime.sendMessage)
-            return undefined;
-
-        case 'AUTO_SCROLL_UPDATE':
-        case 'AUTO_SCROLL_STATUS':
-        case 'AUTO_SCROLL_COMPLETE':
-        case 'EXECUTE_AUTO_SCROLL':
-        case 'STOP_AUTO_SCROLL':
-        case 'ELEMENT_SELECTED':
-        case 'START_PICKER':
-        case 'STOP_PICKER':
-        case 'PAGINATION_UPDATE':
-        case 'PAGINATION_STATUS':
-        case 'PAGINATION_COMPLETE':
-        case 'SCAN_IMAGES_PROGRESS':
-        case 'SCAN_IMAGES_BATCH':
-            // These are handled by other parts of the extension (content script / sidepanel)
-            // We just ignore them here to prevent warning logs
-            return undefined;
-
-
+        // Passthrough/broadcast types are filtered out before handleMessage is ever
+        // called — see PASSTHROUGH_MESSAGE_TYPES above.
 
         default:
             return { error: 'Unknown message type' };
     }
-});
+}
 
 // Export for use in other parts
 export { db };

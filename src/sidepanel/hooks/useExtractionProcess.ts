@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { db } from '../../shared/db/db-manager';
 import { SelectorState, PaginationConfig, ExtractionStatus, SelectorMetadata } from '../../shared/types/extraction';
 import { PAGINATION_PROFILES, PaginationSpeed } from '../../shared/constants/paginationConfig';
@@ -18,6 +18,29 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
     const activeModeRef = useRef<'auto' | 'pagination' | 'loadMore' | null>(null);
     const pagesVisitedRef = useRef(1);
     const extractionTabIdRef = useRef<number | null>(null); // [NEW] Track the extraction tab ID
+
+    // Tracks chrome.runtime.onMessage listeners registered by startExtraction's auto-scroll/
+    // pagination promises so they can be force-removed on unmount. Without this, navigating
+    // away from the sidepanel mid-extraction leaks the listener (and the promise it belongs
+    // to never resolves, since only *_COMPLETE removes it normally).
+    const activeListenersRef = useRef<Array<(message: any) => void>>([]);
+
+    const registerListener = useCallback((listener: (message: any) => void) => {
+        activeListenersRef.current.push(listener);
+        chrome.runtime.onMessage.addListener(listener);
+    }, []);
+
+    const unregisterListener = useCallback((listener: (message: any) => void) => {
+        chrome.runtime.onMessage.removeListener(listener);
+        activeListenersRef.current = activeListenersRef.current.filter(l => l !== listener);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            activeListenersRef.current.forEach(l => chrome.runtime.onMessage.removeListener(l));
+            activeListenersRef.current = [];
+        };
+    }, []);
 
     const stopExtraction = useCallback((force: boolean = false) => {
         stopExtractionRef.current = true;
@@ -249,7 +272,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 let previousCount = 0;
                                 const listener = async (message: any) => {
                                     if (message.type === 'AUTO_SCROLL_COMPLETE') {
-                                        chrome.runtime.onMessage.removeListener(listener);
+                                        unregisterListener(listener);
                                         const payload = message.payload;
                                         resolve(payload.success
                                             ? { items: payload.items || [], columns: payload.columns || [] }
@@ -268,7 +291,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                         }));
                                     }
                                 };
-                                chrome.runtime.onMessage.addListener(listener);
+                                registerListener(listener);
 
                                 chrome.tabs.sendMessage(activeTabId!, {
                                     type: 'EXECUTE_AUTO_SCROLL',
@@ -309,7 +332,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                     await new Promise<void>((resolve) => {
                         const listener = (message: any) => {
                             if (message.type === 'PAGINATION_COMPLETE') {
-                                chrome.runtime.onMessage.removeListener(listener);
+                                unregisterListener(listener);
                                 resolve();
                             } else if (message.type === 'PAGINATION_UPDATE') {
                                 const { items, total, page } = message.payload;
@@ -325,7 +348,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 }));
                             }
                         };
-                        chrome.runtime.onMessage.addListener(listener);
+                        registerListener(listener);
 
                         chrome.tabs.sendMessage(activeTabId!, {
                             type: 'EXECUTE_PAGINATION',
@@ -401,7 +424,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                 error: (err as Error).message || 'Failed to save extracted data.'
             }));
         }
-    }, [onComplete]);
+    }, [onComplete, registerListener, unregisterListener]);
 
     const reset = useCallback(() => {
         setStatus({
