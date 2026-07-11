@@ -14,7 +14,8 @@
 import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult } from '../types';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { SchemaGenerator } from '../../../services/extraction/SchemaGenerator';
-import { clickElementRobust, sanitizeCssSelector } from '../../../services/dom/domUtils';
+import { clickElementRobust } from '../../../services/dom/domUtils';
+import { resolveFirst } from '../../../../shared/selectors/resolve';
 
 export class BackgroundElementProcessor {
     private extractor: DataExtractor;
@@ -144,19 +145,7 @@ export class BackgroundElementProcessor {
 
     private waitForElement(selectors: any[], timeout: number): Promise<void> {
         return new Promise((resolve) => {
-            const check = (): boolean => {
-                for (const sel of selectors) {
-                    try {
-                        if (sel.type === 'xpath') {
-                            const r = document.evaluate(sel.value, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                            if (r.singleNodeValue) return true;
-                        } else {
-                            if (document.querySelector(sanitizeCssSelector(sel.value))) return true;
-                        }
-                    } catch { /* ignore */ }
-                }
-                return false;
-            };
+            const check = (): boolean => resolveFirst(selectors, document).element !== null;
 
             if (check()) { resolve(); return; }
 
@@ -174,25 +163,10 @@ export class BackgroundElementProcessor {
     }
 
     private findElement(selectors: any[], elementName: string): { success: boolean; element?: HTMLElement; error?: string } {
-        for (const selector of selectors) {
-            try {
-                let element: HTMLElement | null = null;
-
-                if (selector.type === 'xpath') {
-                    const result = document.evaluate(selector.value, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                    element = result.singleNodeValue as HTMLElement;
-                } else {
-                    element = document.querySelector(sanitizeCssSelector(selector.value)) as HTMLElement;
-                }
-
-                if (element) {
-                    return { success: true, element };
-                }
-            } catch (e) {
-                console.warn(`[BackgroundProcessor] Failed to query selector for ${elementName}:`, e);
-            }
+        const { element } = resolveFirst(selectors, document);
+        if (element) {
+            return { success: true, element: element as HTMLElement };
         }
-
         return { success: false, error: `Could not find element "${elementName}"` };
     }
 

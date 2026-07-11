@@ -1,7 +1,7 @@
 import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult } from '../types';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { SchemaGenerator } from '../../../services/extraction/SchemaGenerator';
-import { sanitizeCssSelector } from '../../../services/dom/domUtils';
+import { resolveFirst } from '../../../../shared/selectors/resolve';
 
 export class ElementProcessor {
     private extractor: DataExtractor;
@@ -65,25 +65,10 @@ export class ElementProcessor {
     }
 
     private async findView(selectors: any[], elementName: string): Promise<{ success: boolean; element?: HTMLElement; error?: string; selector?: string }> {
-        for (const selector of selectors) {
-            try {
-                let element: HTMLElement | null = null;
-
-                if (selector.type === 'xpath') {
-                    const result = document.evaluate(selector.value, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                    element = result.singleNodeValue as HTMLElement;
-                } else {
-                    element = document.querySelector(sanitizeCssSelector(selector.value)) as HTMLElement;
-                }
-
-                if (element) {
-                    return { success: true, element, selector: selector.value };
-                }
-            } catch (e) {
-                console.warn(`Failed to query selector ${selector.value} for ${elementName}:`, e);
-            }
+        const { element, used } = resolveFirst(selectors, document);
+        if (element) {
+            return { success: true, element: element as HTMLElement, selector: used?.value };
         }
-
         return { success: false, error: `Could not find element "${elementName}"` };
     }
 
