@@ -137,3 +137,12 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# OS cruft
+.DS_Store
+
+# Build/packaging artifacts
+chrome-extension.zip
+
+# Decompiled reference bundles — never commit these
+*-readable.js
