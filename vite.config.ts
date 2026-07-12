@@ -63,6 +63,9 @@ export default defineConfig({
                 manualChunks(id) {
                     if (id.includes('node_modules')) {
                         // Separate large libraries into their own chunks for better caching
+                        // Readability gets its own chunk so the injected summarizer
+                        // extraction script doesn't pull the whole vendor bundle into pages.
+                        if (id.includes('@mozilla/readability')) return 'vendor-readability';
                         if (id.includes('ag-grid')) return 'vendor-aggrid';
                         if (id.includes('@mui/') || id.includes('@emotion/')) return 'vendor-mui';
                         // Keep react, react-dom, and scheduler together to avoid init order issues.
