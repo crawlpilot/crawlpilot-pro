@@ -289,8 +289,14 @@ export class DataExtractor {
                 }
                 if (images.length > 0) newRow[col.id] = JSON.stringify(images);
             } else {
-                const val = row[col.originalId];
-                if (val !== undefined) newRow[col.id] = val;
+                const keys = col.sourceKeys || [col.originalId];
+                for (const key of keys) {
+                    const val = row[key];
+                    if (val !== undefined && val !== null && val !== '') {
+                        newRow[col.id] = val;
+                        break;
+                    }
+                }
             }
         });
         return newRow;

@@ -50,16 +50,21 @@ export function isUnstableClass(c: string): boolean {
 }
 
 /**
- * Returns true if the class is a CSS-in-JS content-hash class:
+ * Returns true if the class is a build-generated content-hash class:
  *   Emotion: css-[4-10 lowercase alnum]  e.g. css-dy3i81, css-1mbp38s
  *   styled-components: sc-[4-10 alnum]
+ *   Obfuscated atomic CSS (LinkedIn 2026 web, some Meta surfaces): bare hex tokens,
+ *   optionally underscore-prefixed  e.g. _75228706, e6d1c6b3, fee11784
  *
  * These are deterministic per build (hash of the CSS string), not runtime IDs.
  * Safe to use in majority-vote list selectors; NOT safe for single-element uniqueness,
  * and NOT safe to persist in a saved recipe — they change on every redeploy.
  */
 export function isHashClass(c: string): boolean {
-    return /^css-[a-z0-9]{4,10}$/.test(c) || /^sc-[a-z0-9]{4,10}$/.test(c);
+    if (/^css-[a-z0-9]{4,10}$/.test(c) || /^sc-[a-z0-9]{4,10}$/.test(c)) return true;
+    // Bare hex hash: require a digit so real words spelled in hex letters
+    // ("facade", "decade") never match.
+    return /^_?[0-9a-f]{6,12}$/.test(c) && /\d/.test(c);
 }
 
 /**

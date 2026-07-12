@@ -17,39 +17,78 @@ export class SchemaGenerator {
             Object.keys(row).forEach(key => allKeys.add(key));
         });
 
+        const keyList = Array.from(allKeys);
+        const infoByKey = new Map<string, { id: string, name: string, type: ColumnType }>();
+        keyList.forEach((key, index) => {
+            infoByKey.set(key, this.processColumnInfo(key, index, allKeys.size));
+        });
+
+        // Group keys by their normalized column ID (indices stripped)
+        const groups = new Map<string, string[]>();
+        keyList.forEach(key => {
+            const { id } = infoByKey.get(key)!;
+            if (!groups.has(id)) groups.set(id, []);
+            groups.get(id)!.push(key);
+        });
+
         // Map to track unique columns by ID
         const columnMap = new Map<string, Column>();
         const mapping = new Map<string, string[]>(); // columnId -> [originalKeys]
 
-        Array.from(allKeys).forEach((originalKey, index) => {
-            const { id, name, type } = this.processColumnInfo(originalKey, index, allKeys.size);
+        groups.forEach((keys, id) => {
+            const firstInfo = infoByKey.get(keys[0])!;
 
-            if (!columnMap.has(id)) {
+            // Sibling images (same parent, differ by (N) index) → merge into array
+            if (keys.length > 1 && keys.every(k => infoByKey.get(k)!.type === 'image')) {
+                let name = firstInfo.name;
+                if (name.endsWith(' Image')) {
+                    name = name.replace(/ Image$/, ' Images');
+                }
                 columnMap.set(id, {
                     id,
-                    originalId: originalKey,
+                    originalId: keys[0],
                     name,
-                    type,
-                    selector: originalKey
+                    type: 'image_array',
+                    selector: keys[0],
+                    mergedKeys: [...keys]
                 });
-                mapping.set(id, [originalKey]);
-            } else {
-                const existing = columnMap.get(id)!;
-                if (existing.originalId !== originalKey) {
-                    // Sibling images (same parent, differ by (N) index) → merge into array
-                    if ((existing.type === 'image' || existing.type === 'image_array') && type === 'image') {
-                        if (existing.type === 'image') {
-                            existing.type = 'image_array';
-                            if (existing.name.endsWith(' Image')) {
-                                existing.name = existing.name.replace(/ Image$/, ' Images');
-                            }
-                            existing.mergedKeys = [existing.originalId];
-                        }
-                        existing.mergedKeys!.push(originalKey);
-                    }
-                    mapping.get(id)!.push(originalKey);
-                }
+                mapping.set(id, [...keys]);
+                return;
             }
+
+            // Keys that only differ by positional index but hold different values in the
+            // same row are distinct fields, not row-variants. This happens on sites with
+            // obfuscated/atomic class names (e.g. LinkedIn) where every sibling gets the
+            // same label and only the (N) counter distinguishes name/headline/location.
+            // Keep each as its own column instead of collapsing them into one.
+            if (keys.length > 1 && this.hasCoOccurrenceCollision(keys, rawRows)) {
+                keys.forEach(key => {
+                    const info = infoByKey.get(key)!;
+                    const splitId = this.generateHashId(key);
+                    if (!columnMap.has(splitId)) {
+                        columnMap.set(splitId, {
+                            id: splitId,
+                            originalId: key,
+                            name: info.name,
+                            type: info.type,
+                            selector: key
+                        });
+                        mapping.set(splitId, [key]);
+                    }
+                });
+                return;
+            }
+
+            // Row-variant aliases of the same field → one column, coalesced per row
+            columnMap.set(id, {
+                id,
+                originalId: keys[0],
+                name: firstInfo.name,
+                type: firstInfo.type,
+                selector: keys[0],
+                ...(keys.length > 1 ? { sourceKeys: [...keys] } : {})
+            });
+            mapping.set(id, [...keys]);
         });
 
         // Reference Logic: Extract Image Metadata (Dimensions) matching lines 2188-2213
@@ -214,6 +253,29 @@ export class SchemaGenerator {
         const id = this.generateHashId(normalizedKey);
 
         return { id, name, type };
+    }
+
+    /**
+     * True when at least one raw row contains two of the given keys with different
+     * values — i.e. the keys represent distinct fields that must not be merged.
+     * Object values (image dimension metadata) are ignored.
+     */
+    private hasCoOccurrenceCollision(keys: string[], rawRows: any[]): boolean {
+        for (const row of rawRows) {
+            let firstVal: any;
+            let seen = 0;
+            for (const key of keys) {
+                const val = row[key];
+                if (val === undefined || val === null || val === '' || typeof val === 'object') continue;
+                seen++;
+                if (seen === 1) {
+                    firstVal = val;
+                } else if (val !== firstVal) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // unifyColumns and mergeRowData removed - logic delegated to TableUnifier in UI

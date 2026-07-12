@@ -9,6 +9,8 @@ export interface Column {
     selector?: string;
     isVirtual?: boolean;
     mergedKeys?: string[];
+    /** Raw keys that alias this column across row variants; coalesced at normalize time */
+    sourceKeys?: string[];
     validation?: {
         required?: boolean;
         pattern?: string;

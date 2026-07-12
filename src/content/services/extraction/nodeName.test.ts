@@ -42,4 +42,9 @@ describe('generateNodeName', () => {
         const node = el('<div class="css-hash1"></div>');
         expect(generateNodeName(node)).toBe('div');
     });
+
+    it('skips obfuscated hex hash classes (LinkedIn-style atomic CSS)', () => {
+        const node = el('<div class="_75228706 e6d1c6b3 _57a8c203 fb259d69" role="listitem">Item</div>');
+        expect(generateNodeName(node)).toBe('div[listitem]');
+    });
 });
