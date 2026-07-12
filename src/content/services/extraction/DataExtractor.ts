@@ -132,9 +132,15 @@ export class DataExtractor {
         if (!t || !t.tagName || ["SCRIPT", "STYLE", "NOSCRIPT", "SVG", "PATH"].includes(t.tagName)) return;
 
         // Check visibility via cheap inline style checks + offsetParent
-        const isHidden = (t.offsetParent === null && t.offsetHeight === 0 && t.offsetWidth === 0)
+        let isHidden = (t.offsetParent === null && t.offsetHeight === 0 && t.offsetWidth === 0)
             || t.style.display === 'none'
             || t.style.visibility === 'hidden';
+
+        // display:contents wrappers (0x0, offsetParent null) render through their children
+        if (isHidden && t.style.display !== 'none' && t.style.visibility !== 'hidden'
+            && t.childElementCount > 0 && getComputedStyle(t).display === 'contents') {
+            isHidden = false;
+        }
 
         // Fully skip if hidden AND has no useful content or attributes
         if (isHidden) {

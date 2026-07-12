@@ -2,6 +2,7 @@
  * Handles the visual selection UI (overlay, tooltip, highlighting)
  */
 import { ISelectionStrategy } from './strategies/ISelectionStrategy';
+import { hasRenderedBox } from '../../utils/rendering';
 export class VisualElementPicker {
     private overlay: HTMLElement | null = null;
     private tooltip: HTMLElement | null = null;
@@ -62,7 +63,7 @@ export class VisualElementPicker {
             // Navigate into the first meaningful child element
             const children = Array.from(this.currentElement.children) as HTMLElement[];
             const firstMeaningful = children.find(c =>
-                c.offsetHeight > 0 && (c.innerText || c.textContent || '').trim().length > 0
+                hasRenderedBox(c) && (c.innerText || c.textContent || '').trim().length > 0
             );
             if (firstMeaningful) {
                 this.currentElement = firstMeaningful;
@@ -416,7 +417,7 @@ export class VisualElementPicker {
             e.stopImmediatePropagation();
             const children = Array.from(this.currentElement.children) as HTMLElement[];
             const firstMeaningful = children.find(c =>
-                c.offsetHeight > 0 && (c.innerText || c.textContent || '').trim().length > 0
+                hasRenderedBox(c) && (c.innerText || c.textContent || '').trim().length > 0
             );
             if (firstMeaningful) {
                 this.currentElement = firstMeaningful;

@@ -4,6 +4,7 @@ import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { ContainerDetector, ContainerResult } from '../ContainerDetector';
 import { generateCssSelector, generateXPath, generateRobustSelectors, clickElementRobust } from '../../../services/dom/domUtils';
 import type { SelectorResult } from '../../../services/dom/selectors/SelectorGenerator';
+import { hasRenderedBox } from '../../../utils/rendering';
 
 function bestCss(results: SelectorResult[], fallback: () => string): string {
     return results.find(r => !r.selector.startsWith('/') && !r.selector.startsWith('(') && !r.selector.startsWith('./'))?.selector ?? fallback();
@@ -226,7 +227,7 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
         const matchingSiblings = siblings.filter(sib =>
             sib.tagName === siblingTag &&
             Math.abs(sib.children.length - childCount) <= 1 &&
-            sib.offsetHeight > 0 &&
+            hasRenderedBox(sib) &&
             (sib.textContent || '').trim().length > 0
         );
 

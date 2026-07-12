@@ -1,4 +1,5 @@
 import { IContainerDetector, ContainerResult } from './IContainerDetector';
+import { hasRenderedBox } from '../../utils/rendering';
 
 /**
  * Simplified container detection using tag homogeneity.
@@ -52,7 +53,10 @@ export class GroupParentContainerDetector implements IContainerDetector {
         const visible: HTMLElement[] = [];
         for (const child of el.children) {
             const c = child as HTMLElement;
-            if ((c.offsetHeight > 0 || c.offsetWidth > 0) && !INTERACTIVE_TAGS.has(c.tagName)) {
+            // HRs are decorative separators between cards, not items — they'd
+            // break the homogeneity ratio on lists that interleave them.
+            if (c.tagName === 'HR') continue;
+            if (hasRenderedBox(c) && !INTERACTIVE_TAGS.has(c.tagName)) {
                 visible.push(c);
             }
         }
@@ -94,7 +98,7 @@ export class GroupParentContainerDetector implements IContainerDetector {
         const filterVisible = (els: Iterable<Element>) =>
             Array.from(els).filter(c => {
                 const el = c as HTMLElement;
-                return (el.offsetHeight > 0 || el.offsetWidth > 0) &&
+                return hasRenderedBox(el) &&
                     (el.textContent || '').trim().length > 0 &&
                     !INTERACTIVE_TAGS.has(el.tagName);
             }) as HTMLElement[];
@@ -166,7 +170,7 @@ export class GroupParentContainerDetector implements IContainerDetector {
         // so clicking a wrapper like <div.a-box-group> still surfaces the inner content grid.
         const isVisible = (c: Element) => {
             const el = c as HTMLElement;
-            return (el.offsetHeight > 0 || el.offsetWidth > 0) &&
+            return hasRenderedBox(el) &&
                 (el.textContent || '').trim().length > 0 &&
                 !INTERACTIVE_TAGS.has(el.tagName);
         };

@@ -1,4 +1,5 @@
 import { calculateSimilarityScore, getStructuralFingerprint } from '../../utils/similarity';
+import { hasRenderedBox } from '../../utils/rendering';
 import { VisualBlockExtractor } from './VisualBlockExtractor';
 import { IContainerDetector, ContainerResult } from './IContainerDetector';
 
@@ -107,7 +108,7 @@ export class FingerprintContainerDetector implements IContainerDetector {
         const cluster: HTMLElement[] = [];
 
         children.forEach(child => {
-            if (child.offsetWidth === 0 || child.offsetHeight === 0) return;
+            if (!hasRenderedBox(child)) return;
 
             if (child === seedNode) {
                 cluster.push(child);
@@ -131,7 +132,7 @@ export class FingerprintContainerDetector implements IContainerDetector {
 
     private calculateClusterScore(container: HTMLElement, cluster: HTMLElement[]): number {
         const validChildrenCount = Array.from(container.children).filter(c =>
-            (c as HTMLElement).offsetWidth > 0 && (c as HTMLElement).offsetHeight > 0
+            hasRenderedBox(c as HTMLElement)
         ).length;
 
         const coverage = cluster.length / (validChildrenCount || 1);
