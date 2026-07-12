@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import contentScriptPath from '../../content/element-selector?script';
-import { requestAllUrlsPermission, openPermissionOnboarding } from '../../shared/utils/hostPermissions';
+import { hasAllUrlsPermission, requestAllUrlsPermission, openSiteAccessSettings } from '../../shared/utils/hostPermissions';
 
 const RESTRICTED_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'edge://'];
 
@@ -17,8 +17,18 @@ const INJECT_POLL_MAX_ATTEMPTS = 6;
 // a language change) before we issue the first PING.
 const MOUNT_SETTLE_MS = 200;
 
-function isRestrictedUrl(url?: string): boolean {
-    return !url || RESTRICTED_PREFIXES.some(p => url.startsWith(p));
+/**
+ * Whether this tab is a page the extension can never run on (chrome://, the Web Store,
+ * other extensions). CRITICAL: `tab.url` is only visible once the extension has host
+ * access to that tab. Before `<all_urls>` is granted, EVERY url comes back undefined —
+ * treating that as "restricted" made checkConnection mark all tabs as connected, so the
+ * banner (and with it the permission confirmation) never appeared on fresh installs.
+ * Hidden url therefore only counts as restricted when we DO hold `<all_urls>` (then a
+ * hidden url really is a chrome:// style page).
+ */
+async function isRestrictedTab(tab: chrome.tabs.Tab): Promise<boolean> {
+    if (tab.url) return RESTRICTED_PREFIXES.some(p => tab.url!.startsWith(p));
+    return hasAllUrlsPermission();
 }
 
 export function useTabSync() {
@@ -54,7 +64,7 @@ export function useTabSync() {
         for (let attempt = 0; attempt <= retries; attempt++) {
             try {
                 const tab = await chrome.tabs.get(tabId);
-                if (isRestrictedUrl(tab.url)) {
+                if (await isRestrictedTab(tab)) {
                     cancelDisconnect();
                     setIsTabConnected(true);
                     return true;
@@ -77,7 +87,7 @@ export function useTabSync() {
     const autoConnect = useCallback(async (tabId: number) => {
         try {
             const tab = await chrome.tabs.get(tabId);
-            if (isRestrictedUrl(tab.url)) return;
+            if (await isRestrictedTab(tab)) return;
 
             // Try injecting even without <all_urls>: activeTab (granted when the user
             // opened the panel from the action icon) often covers the active tab. If
@@ -111,9 +121,9 @@ export function useTabSync() {
             } catch {
                 const result = await requestAllUrlsPermission();
                 if (result === 'unavailable') {
-                    // Chrome couldn't show the confirmation from the side panel — fall back
-                    // to the full-page onboarding flow where the prompt shows reliably.
-                    openPermissionOnboarding();
+                    // Chrome couldn't show the confirmation dialog at all — send the user
+                    // to the extension's site-access settings as a manual fallback.
+                    openSiteAccessSettings();
                     setIsConnecting(false);
                     return;
                 }

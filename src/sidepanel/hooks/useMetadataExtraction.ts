@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { MetadataExtractOptions } from '../../shared/types/metadata';
-import { hasAllUrlsPermission, requestAllUrlsPermission, openPermissionOnboarding } from '../../shared/utils/hostPermissions';
+import { hasAllUrlsPermission, requestAllUrlsPermission, openSiteAccessSettings } from '../../shared/utils/hostPermissions';
 
 interface UrlStatus {
     url: string;
@@ -82,7 +82,7 @@ export function useMetadataExtraction() {
 
         if (!(await hasAllUrlsPermission())) {
             const result = await requestAllUrlsPermission();
-            if (result === 'unavailable') openPermissionOnboarding();
+            if (result === 'unavailable') openSiteAccessSettings();
             if (result !== 'granted') return;
         }
 

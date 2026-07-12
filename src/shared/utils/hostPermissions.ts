@@ -12,8 +12,8 @@ export function hasAllUrlsPermission(): Promise<boolean> {
  * chrome.permissions.request() can reject without ever showing a dialog — e.g. when the
  * user-gesture token has expired or when the prompt can't be anchored to the side panel.
  * Callers must treat 'unavailable' differently from 'denied': the user never saw a
- * confirmation, so fall back to openPermissionOnboarding() where the request runs from a
- * full extension tab and the dialog shows reliably.
+ * confirmation, so give them a manual path via openSiteAccessSettings() instead of
+ * failing silently.
  */
 export async function requestAllUrlsPermission(): Promise<PermissionRequestResult> {
     try {
@@ -25,8 +25,12 @@ export async function requestAllUrlsPermission(): Promise<PermissionRequestResul
     }
 }
 
-export function openPermissionOnboarding(): void {
-    void chrome.tabs.create({ url: chrome.runtime.getURL('permissions.html') });
+/**
+ * Last-resort fallback when the permission dialog can't be shown: open the extension's
+ * own details page where the user can set Site access → "On all sites" manually.
+ */
+export function openSiteAccessSettings(): void {
+    void chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}` });
 }
 
 /**

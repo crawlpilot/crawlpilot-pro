@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { hasAllUrlsPermission, requestAllUrlsPermission, openPermissionOnboarding } from '../../shared/utils/hostPermissions';
+import { hasAllUrlsPermission, requestAllUrlsPermission, openSiteAccessSettings } from '../../shared/utils/hostPermissions';
 
 interface UrlStatus {
     url: string;
@@ -135,7 +135,7 @@ export function useBulkExtraction() {
 
         if (!(await hasAllUrlsPermission())) {
             const result = await requestAllUrlsPermission();
-            if (result === 'unavailable') openPermissionOnboarding();
+            if (result === 'unavailable') openSiteAccessSettings();
             if (result !== 'granted') return;
         }
 
