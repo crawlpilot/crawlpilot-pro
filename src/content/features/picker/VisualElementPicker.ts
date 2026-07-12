@@ -2,13 +2,13 @@
  * Handles the visual selection UI (overlay, tooltip, highlighting)
  */
 import { ISelectionStrategy } from './strategies/ISelectionStrategy';
-import { hasRenderedBox } from '../../utils/rendering';
+import { hasRenderedBox, getVisualRect } from '../../utils/rendering';
 export class VisualElementPicker {
     private overlay: HTMLElement | null = null;
     private tooltip: HTMLElement | null = null;
     private shortcutBar: HTMLElement | null = null;
     private highlightBox: HTMLElement | null = null;
-    private siblingHighlights: HTMLElement[] = []; // Stores dashed boxes
+    private siblingHighlights: Array<{ target: HTMLElement; box: HTMLElement }> = []; // Dashed boxes + their tracked elements
     private currentElement: HTMLElement | null = null;
     private isActive: boolean = false;
     private strategy: ISelectionStrategy | null = null;
@@ -193,7 +193,7 @@ export class VisualElementPicker {
     }
 
     private clearSiblingHighlights() {
-        this.siblingHighlights.forEach(el => el.remove());
+        this.siblingHighlights.forEach(({ box }) => box.remove());
         this.siblingHighlights = [];
     }
 
@@ -268,8 +268,10 @@ export class VisualElementPicker {
         // Updating it causes an infinite loop in handleMouseMove and breaks click targeting.
         // this.currentElement = element;
 
-        const rect = element.getBoundingClientRect();
-        const anchorRect = anchorElement ? anchorElement.getBoundingClientRect() : rect;
+        // getVisualRect: display:contents items (LinkedIn cards) have a 0x0
+        // bounding rect of their own — union their children so boxes stay visible
+        const rect = getVisualRect(element);
+        const anchorRect = anchorElement ? getVisualRect(anchorElement) : rect;
 
         // Update highlight box
         this.highlightBox.style.display = 'block';
@@ -285,7 +287,8 @@ export class VisualElementPicker {
                 // Don't highlight the container itself if it's in the list (unlikely)
                 if (sibling === element) return;
 
-                const sRect = sibling.getBoundingClientRect();
+                const sRect = getVisualRect(sibling);
+                if (sRect.width === 0 && sRect.height === 0) return;
                 const box = document.createElement('div');
                 box.style.cssText = `
                     position: fixed !important;
@@ -301,7 +304,7 @@ export class VisualElementPicker {
                     border-radius: 2px !important;
                 `;
                 document.documentElement.appendChild(box);
-                this.siblingHighlights.push(box);
+                this.siblingHighlights.push({ target: sibling, box });
             });
         }
 
@@ -436,10 +439,23 @@ export class VisualElementPicker {
     }
 
     private handleScroll() {
-        if (this.currentElement && this.highlightBox) {
-            const rect = this.currentElement.getBoundingClientRect();
+        // Track the highlighted container (what the box actually outlines),
+        // not the hovered leaf — otherwise the box jumps to the leaf on scroll.
+        const tracked = this.lastHighlightedElement || this.currentElement;
+        if (tracked && this.highlightBox) {
+            const rect = getVisualRect(tracked);
             this.highlightBox.style.top = `${rect.top}px`;
             this.highlightBox.style.left = `${rect.left}px`;
+            this.highlightBox.style.width = `${rect.width}px`;
+            this.highlightBox.style.height = `${rect.height}px`;
         }
+        // Keep sibling boxes glued to their elements while scrolling
+        this.siblingHighlights.forEach(({ target, box }) => {
+            const r = getVisualRect(target);
+            box.style.top = `${r.top}px`;
+            box.style.left = `${r.left}px`;
+            box.style.width = `${r.width}px`;
+            box.style.height = `${r.height}px`;
+        });
     }
 }

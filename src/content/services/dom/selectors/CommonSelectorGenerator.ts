@@ -95,6 +95,27 @@ export class CommonSelectorGenerator {
             }
         }
 
+        // 2.5 Direct-child candidates — essential on obfuscated/atomic-class DOMs
+        // (LinkedIn) where every "common" class also appears on nested elements, so
+        // all descendant-scoped candidates overshoot and fail majority validation.
+        // `:scope > ...` only matches the items themselves. Downstream resolvers all
+        // query relative to the container element, and in chains resolved against
+        // `document` a `:scope` entry simply matches nothing and falls through.
+        if (commonTag) {
+            const directCandidates = [`:scope > ${commonTag}`];
+            for (const cls of commonClasses) {
+                directCandidates.push(`:scope > ${commonTag}${cls}`);
+            }
+            for (const attr of commonAttrs) {
+                directCandidates.push(`:scope > ${commonTag}${attr}`);
+            }
+            for (const sel of directCandidates) {
+                if (this.validateSelectorMajority(sel, root, targetCount)) {
+                    validResults.push({ selector: sel, type: 'CSS' });
+                }
+            }
+        }
+
         // 3. FR-6: Child-Based Targeting ("CSS :has") — skip for large lists (expensive DOM traversal)
         const childFeatures = targetSet.length <= 15 ? this.findCommonChildFeatures(targetSet) : [];
         for (const feature of childFeatures) {

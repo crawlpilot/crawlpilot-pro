@@ -10,7 +10,10 @@ import { hasRenderedBox } from '../../utils/rendering';
 const INTERACTIVE_TAGS = new Set(['BUTTON', 'INPUT', 'SELECT', 'OPTION', 'TEXTAREA', 'LABEL']);
 
 export class GroupParentContainerDetector implements IContainerDetector {
-    private readonly maxLevelsUp = 8;
+    // Deep enough to reach the list container from a leaf inside a card —
+    // modern SPAs (LinkedIn) nest card content 12-14 wrapper levels deep, and 8
+    // forced users to hover the exact card boundary before detection kicked in.
+    private readonly maxLevelsUp = 16;
     private readonly minItems = 2;
 
     public findContainer(element: HTMLElement): ContainerResult {
