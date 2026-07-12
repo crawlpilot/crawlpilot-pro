@@ -3,6 +3,7 @@ import { onMessage } from '../shared/utils/messaging';
 import type { Message, DataSavedMessage, ExtractionCompleteMessage, BulkExtractionStartMessage, MetadataExtractionStartMessage, DownloadImageProxyMessage, DownloadViaChromeMessage } from '../shared/types/messages';
 import { BulkExtractionOrchestrator } from './extraction/BulkExtractionOrchestrator';
 import { MetadataExtractionOrchestrator } from './extraction/MetadataExtractionOrchestrator';
+import { hasAllUrlsPermission, injectContentScriptIntoOpenTabs } from '../shared/utils/hostPermissions';
 
 // Bulk extraction orchestrator (singleton)
 const bulkOrchestrator = new BulkExtractionOrchestrator();
@@ -38,9 +39,28 @@ async function recoverInterruptedExtractions() {
 }
 
 // Initialize database on install
-chrome.runtime.onInstalled.addListener(async (_) => {
+chrome.runtime.onInstalled.addListener(async (details) => {
     await db.init();
     await recoverInterruptedExtractions();
+
+    // First install: host access is optional (`optional_host_permissions`), so nothing
+    // works until the user grants it. Requesting from the side panel is unreliable (the
+    // prompt needs a user gesture and can fail to anchor there), so open a full-page
+    // onboarding tab where chrome.permissions.request() reliably shows the confirmation.
+    if (details.reason === 'install' && !(await hasAllUrlsPermission())) {
+        chrome.tabs.create({ url: chrome.runtime.getURL('permissions.html') });
+    }
+});
+
+// The moment host access is granted (from the onboarding page or the side panel), inject
+// the content script into every already-open tab — static manifest content scripts only
+// apply to pages loaded afterwards, which is why extractors appeared dead right after
+// granting until the user manually reloaded each tab.
+chrome.permissions.onAdded.addListener((added) => {
+    if (added.origins?.length) {
+        injectContentScriptIntoOpenTabs().catch(e =>
+            console.error('[SW] Content script injection after permission grant failed:', e));
+    }
 });
 
 // Initialize database on startup

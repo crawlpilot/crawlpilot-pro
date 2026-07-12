@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import contentScriptPath from '../../content/element-selector?script';
+import { requestAllUrlsPermission, openPermissionOnboarding } from '../../shared/utils/hostPermissions';
 
 const RESTRICTED_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'edge://'];
 
@@ -78,9 +79,9 @@ export function useTabSync() {
             const tab = await chrome.tabs.get(tabId);
             if (isRestrictedUrl(tab.url)) return;
 
-            const hasPermission = await chrome.permissions.contains({ origins: ['<all_urls>'] });
-            if (!hasPermission) return;
-
+            // Try injecting even without <all_urls>: activeTab (granted when the user
+            // opened the panel from the action icon) often covers the active tab. If
+            // neither permission applies, executeScript rejects and we land in the catch.
             await chrome.scripting.executeScript({ target: { tabId }, files: [contentScriptPath] });
 
             // Poll until the injected script responds (max ~3 s).
@@ -101,14 +102,24 @@ export function useTabSync() {
 
         setIsConnecting(true);
         try {
-            const hasPermission = await chrome.permissions.contains({ origins: ['<all_urls>'] });
+            const inject = () =>
+                chrome.scripting.executeScript({ target: { tabId: tab.id! }, files: [contentScriptPath] });
 
-            if (!hasPermission) {
-                const granted = await chrome.permissions.request({ origins: ['<all_urls>'] });
-                if (!granted) { setIsConnecting(false); return; }
+            try {
+                // activeTab may already cover the current tab — no permission prompt needed.
+                await inject();
+            } catch {
+                const result = await requestAllUrlsPermission();
+                if (result === 'unavailable') {
+                    // Chrome couldn't show the confirmation from the side panel — fall back
+                    // to the full-page onboarding flow where the prompt shows reliably.
+                    openPermissionOnboarding();
+                    setIsConnecting(false);
+                    return;
+                }
+                if (result === 'denied') { setIsConnecting(false); return; }
+                await inject();
             }
-
-            await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [contentScriptPath] });
 
             let attempts = 0;
             const poll = setInterval(async () => {

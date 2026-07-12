@@ -58,6 +58,7 @@ export default defineConfig({
         rollupOptions: {
             input: {
                 sidepanel: 'sidepanel.html',
+                permissions: 'permissions.html',
             },
             output: {
                 manualChunks(id) {

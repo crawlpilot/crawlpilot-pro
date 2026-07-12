@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crawl Pilot — Enable Site Access</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f7f7f5;
+            color: #1a1a1a;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid #e5e5e0;
+            border-radius: 16px;
+            max-width: 480px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        }
+
+        .logo { width: 56px; height: 56px; margin-bottom: 20px; }
+
+        h1 {
+            font-size: 20px;
+            font-weight: 700;
+            line-height: 1.35;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: #6b6b66;
+            line-height: 1.55;
+            margin-bottom: 24px;
+        }
+
+        .reasons {
+            text-align: left;
+            list-style: none;
+            margin-bottom: 28px;
+        }
+
+        .reasons li {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            font-size: 13px;
+            color: #3d3d38;
+            line-height: 1.5;
+            padding: 8px 0;
+            border-top: 1px solid #f0f0ec;
+        }
+
+        .reasons li:first-child { border-top: none; }
+
+        .reasons .dot {
+            flex-shrink: 0;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #f59e0b;
+            margin-top: 6px;
+        }
+
+        button {
+            width: 100%;
+            height: 46px;
+            border: none;
+            border-radius: 10px;
+            background: #1a1a1a;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        button:hover { background: #333333; }
+        button:disabled { background: #a3a39e; cursor: default; }
+
+        .status {
+            margin-top: 16px;
+            font-size: 13px;
+            line-height: 1.5;
+            display: none;
+        }
+
+        .status.visible { display: block; }
+        .status.success { color: #15803d; }
+        .status.error { color: #b45309; }
+
+        .privacy {
+            margin-top: 20px;
+            font-size: 11.5px;
+            color: #8a8a84;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="card">
+        <img class="logo" src="/public/icons/icon128.png" alt="Crawl Pilot" />
+        <h1>Allow Crawl Pilot to read the pages you scrape</h1>
+        <p class="subtitle">
+            Crawl Pilot needs permission to access websites so its extractors can see the page
+            content you point them at. Chrome will ask you to confirm.
+        </p>
+
+        <ul class="reasons">
+            <li><span class="dot"></span>Pick elements and preview data directly on the page with the visual selector.</li>
+            <li><span class="dot"></span>Run list, page, and metadata extractions — including bulk runs across many URLs.</li>
+            <li><span class="dot"></span>Everything stays on your device: extracted data is stored locally, never sent to a server.</li>
+        </ul>
+
+        <button id="grant">Allow access to websites</button>
+        <p id="status" class="status"></p>
+
+        <p class="privacy">
+            You can change this anytime in <strong>chrome://extensions → Crawl Pilot → Site access</strong>.
+        </p>
+    </main>
+    <script type="module" src="/src/permissions/main.ts"></script>
+</body>
+
+</html>

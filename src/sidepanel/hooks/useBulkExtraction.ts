@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { hasAllUrlsPermission, requestAllUrlsPermission, openPermissionOnboarding } from '../../shared/utils/hostPermissions';
 
 interface UrlStatus {
     url: string;
@@ -132,10 +133,10 @@ export function useBulkExtraction() {
 
         if (urls.length === 0 || elements.length === 0) return;
 
-        const hasPermission = await chrome.permissions.contains({ origins: ['<all_urls>'] });
-        if (!hasPermission) {
-            const granted = await chrome.permissions.request({ origins: ['<all_urls>'] });
-            if (!granted) return;
+        if (!(await hasAllUrlsPermission())) {
+            const result = await requestAllUrlsPermission();
+            if (result === 'unavailable') openPermissionOnboarding();
+            if (result !== 'granted') return;
         }
 
         callbacksRef.current = { onProgress, onStart };
