@@ -11,3 +11,18 @@ served. Gzipped to keep the repository small.
 
 The synthetic and trimmed pages one level up (`bootstrap-grid.html`, `tailwind-grid.html`, `emotion-hashed.html`,
 `walmart-carousel.html`) are part of the corpus too.
+
+## Product pages
+
+`pdp-*.html.gz` and `src/test/corpus/pdp-targets.json` (30 annotated targets: titles, prices, spec rows with their
+labels, controls) are the product-page corpus captured for thenos's selector work on 2026-10-08:
+
+| File | Page | How |
+|---|---|---|
+| `pdp-amazon.html.gz` | https://www.amazon.com/Lenovo-Essential-Laptop-Processor-Storage/dp/B0HJCRV1J6/ | browser session (direct downloads got the anti-bot page) |
+| `pdp-walmart.html.gz` | https://www.walmart.com/ip/EG-4-BURNER-GRILL/17070020028 | browser session |
+| `pdp-uniqlo.html.gz` | https://www.uniqlo.com/in/en/products/E481040-000/00 | Chrome, after scrolling |
+| `pdp-zara.html.gz` | https://www.zara.com/in/en/straight-leg-jeans-p00774360.html | Chrome, after scrolling |
+
+The capture tool marked elements with `data-tn-*` attributes; the corpus removes them before measuring, since a live
+page has none. Amazon's capture has no buy-box price (the item did not ship to the capture's region).

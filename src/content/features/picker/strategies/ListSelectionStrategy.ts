@@ -5,8 +5,8 @@ import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { refreshNetSources } from '../../../services/extraction/structuredRows';
 import { findList, itemOf, ListMatch } from '../../../services/extraction/items';
 import { withAtomCache } from '../../../services/extraction/atoms';
-import { generateCssSelector, generateXPath, generateRobustSelectors } from '../../../services/selectors/generate';
 import { listLocators } from '../../../services/selectors/specs';
+import { elementChain } from '../../../services/selectors/element';
 import { looksLikeXPath } from '../../../../shared/selectors/resolve';
 
 export class ListSelectionStrategy implements ISelectionStrategy {
@@ -122,11 +122,11 @@ export class ListSelectionStrategy implements ISelectionStrategy {
             });
         } else {
             data = this.extractor.extract(targetItem, containerInfo);
-            selector = generateCssSelector(element, false);
-            xpath = generateXPath(element);
+            const elementResults = elementChain(element);
+            selector = elementResults.find(r => !looksLikeXPath(r.selector))?.selector ?? '';
+            xpath = elementResults.find(r => looksLikeXPath(r.selector))?.selector ?? '';
             containerSelector = selector;
             containerXPath = xpath;
-            const elementResults = generateRobustSelectors(element);
             containerMetadata = elementResults;
             itemMetadata = elementResults;
 

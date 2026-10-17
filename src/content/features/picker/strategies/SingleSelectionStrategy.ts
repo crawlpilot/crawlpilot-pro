@@ -2,7 +2,7 @@ import type { ElementSelected } from '../../../../shared/messages';
 import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
-import { generateCssSelector, generateXPath } from '../../../services/selectors/generate';
+import { elementLocators } from '../../../services/selectors/specs';
 import { nextButtonSelectors } from '../../../services/selectors/nextButton';
 import { looksLikeXPath } from '../../../../shared/selectors/resolve';
 
@@ -29,8 +29,7 @@ export class SingleSelectionStrategy implements ISelectionStrategy {
         console.log('Single Strategy Selected:', element);
 
         const data = this.extractor.extract(element, { isContainer: false, siblings: [], container: null, childCount: 0 });
-        const selector = generateCssSelector(element, false);
-        const xpath = generateXPath(element);
+        const { css: selector, xpath } = elementLocators(element);
 
         const paginationSelectors = nextButtonSelectors(element);
 

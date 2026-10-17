@@ -3,7 +3,8 @@
  * get graded alternatives from each evidence family. Independent of the extraction picker so it can be
  * used on any page without starting a run.
  */
-import { generateRobustSelectors } from '../../services/selectors/generate';
+import { elementCandidates } from '../../services/selectors/element';
+import { listLocators } from '../../services/selectors/list';
 import { looksLikeXPath } from '../../../shared/selectors/resolve';
 import { gradeSelector, GradedSelector } from '../../../shared/selectors/grade';
 import { sanitizeCssSelector } from '../../../shared/selectors/sanitize';
@@ -95,6 +96,26 @@ export function highlightSelector(selector: string): number {
     return elements.length;
 }
 
+/**
+ * Document-wide selectors for the element and its look-alike siblings: the list's container chain
+ * joined with its item chain.
+ */
+function listSelectors(el: HTMLElement): { selector: string; strategy: string }[] {
+    const parent = el.parentElement;
+    if (!parent) return [];
+    const siblings = Array.from(parent.children).filter(c => c.tagName === el.tagName) as HTMLElement[];
+    if (siblings.length < 2) return [];
+    const { container, items } = listLocators(parent, siblings);
+    const cssContainer = container.find(c => !looksLikeXPath(c.selector))?.selector;
+    const xpathContainer = container.find(c => looksLikeXPath(c.selector))?.selector;
+    return items.flatMap(item => {
+        if (looksLikeXPath(item.selector)) return xpathContainer ? [{ selector: `${xpathContainer}${item.selector.slice(1)}`, strategy: item.strategy }] : [];
+        if (!cssContainer) return [];
+        const own = item.selector.replace(/^:scope\s*>\s*/, '');
+        return [{ selector: `${cssContainer}${own === item.selector ? ' ' : ' > '}${own}`, strategy: item.strategy }];
+    });
+}
+
 export function candidatesFor(el: HTMLElement): LabCandidate[] {
     const out: LabCandidate[] = [];
     const seen = new Set<string>();
@@ -106,8 +127,8 @@ export function candidatesFor(el: HTMLElement): LabCandidate[] {
         if (list && ev.count < 2) return;
         out.push({ ...ev, strategy, list });
     };
-    for (const r of generateRobustSelectors(el)) add(r.selector, r.strategy, false);
-    for (const r of generateRobustSelectors(el, { isList: true })) add(r.selector, r.strategy, true);
+    for (const r of elementCandidates(el)) add(r.selector, r.strategy, false);
+    for (const r of listSelectors(el)) add(r.selector, r.strategy, true);
     const order = { strong: 0, fragile: 1, broken: 2 };
     return out.sort((a, b) => Number(a.list) - Number(b.list) || order[a.grade.grade] - order[b.grade.grade]);
 }

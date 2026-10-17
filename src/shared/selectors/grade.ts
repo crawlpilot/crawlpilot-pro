@@ -97,24 +97,47 @@ export function gradeSelector(selector: string, matchCount: number, expected?: n
     return { grade: 'strong', reason: why[family], family };
 }
 
+/** Top-level steps of a selector, target last: CSS compounds or XPath location steps (brackets, parens and quotes kept whole). */
+function stepsOf(selector: string): string[] {
+    const xpath = looksLikeXPath(selector);
+    const out: string[] = [];
+    let current = '';
+    let depth = 0;
+    let quote = '';
+    for (const ch of selector) {
+        if (quote) { if (ch === quote) quote = ''; current += ch; continue; }
+        if (ch === '"' || ch === "'") quote = ch;
+        else if (ch === '[' || ch === '(') depth++;
+        else if ((ch === ']' || ch === ')') && depth > 0) depth--;
+        const split = depth === 0 && (xpath ? ch === '/' : ch === ' ' || ch === '>' || ch === '+' || ch === '~');
+        if (split) { if (current.trim()) out.push(current.trim()); current = ''; continue; }
+        current += ch;
+    }
+    if (current.trim()) out.push(current.trim());
+    return out.filter(step => step !== ':scope' && step !== '.' && step !== '(');
+}
+
+/** What one step costs: a test id 1, an id 150, an attribute value 200, its presence 350, a class 400 (+100 per extra), a tag 600. */
+function stepCost(step: string): number {
+    const classes = (step.match(/\.-?[_a-zA-Z][\w-]*/g) || []).length + (step.match(/contains\(concat\(/g) || []).length;
+    if (TEST_ATTR.test(step)) return 1;
+    if (/#-?[_a-zA-Z]|@id=/.test(step)) return 150;
+    if (/\[[\w-]+[~|^$*]?=|@[\w-]+=/.test(step.replace(/@class=/g, ''))) return 200;
+    if (/\[[\w-]+\]|\[@[\w-]+\]/.test(step)) return 350;
+    if (classes > 0) return 400 + 100 * (classes - 1);
+    return 600;
+}
+
 /**
- * What a selector costs to keep, lowest first (after Playwright's codegen): a test id 1, an id 150,
- * another attribute value 200, an attribute's presence 350, a class 400 (+100 per extra class),
- * a bare tag 600; +50 per scope step, +10,000 per position. A selector that names what an element
- * is is cheap; one that says where it sits is dear.
+ * What a selector costs to keep, lowest first (after Playwright's codegen): the target step's own
+ * cost (`stepCost`), plus 50 and a tenth of its cost for each scope step above it, plus 10,000 per
+ * position. A selector that names what an element is is cheap; one that says where it sits is dear.
  */
 export function selectorCost(selector: string): number {
-    const s = selector.trim();
-    const classes = (s.match(/\.-?[_a-zA-Z][\w-]*/g) || []).length + (s.match(/contains\(concat\(/g) || []).length;
-    let cost = 600;
-    if (TEST_ATTR.test(s)) cost = 1;
-    else if (/#-?[_a-zA-Z]|@id=/.test(s)) cost = 150;
-    else if (/\[[\w-]+[~|^$*]?=|@[\w-]+=/.test(s.replace(/@class=/g, ''))) cost = 200;
-    else if (/\[[\w-]+\]|\[@[\w-]+\]/.test(s)) cost = 350;
-    else if (classes > 0) cost = 400 + 100 * (classes - 1);
-    const steps = s.replace(/^\.?\/\/?|^:scope\s*>\s*/, '').split(/\s*>\s*|\s+(?![^[(]*[\])])|\/+/).filter(Boolean).length - 1;
-    const positions = (s.match(/:nth-(child|of-type)\(|(?<!-sibling::[\w*-]+)\[\d+\]/g) || []).length;
-    return cost + 50 * Math.max(0, steps) + 10_000 * positions;
+    const steps = stepsOf(selector.trim());
+    const target = steps.pop() ?? '';
+    const positions = (selector.match(/:nth-(child|of-type)\(|(?<!-sibling::[\w*-]+)\[\d+\]/g) || []).length;
+    return stepCost(target) + steps.reduce((sum, step) => sum + 50 + stepCost(step) / 10, 0) + 10_000 * positions;
 }
 
 /** The kind of evidence a selector rests on (`test id`, `id`, `label`, `attribute`, `text`, `class`, `structure`). */

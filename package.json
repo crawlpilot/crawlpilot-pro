@@ -49,7 +49,6 @@
     "@types/turndown": "^5.0.6",
     "ag-grid-community": "^35.0.0",
     "ag-grid-react": "^35.0.0",
-    "css-selector-generator": "^3.8.0",
     "file-saver": "^2.0.5",
     "i18next": "^26.2.0",
     "jszip": "^3.10.1",

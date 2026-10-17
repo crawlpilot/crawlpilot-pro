@@ -3,7 +3,7 @@
  * element, prefixed with [eN]. Each ref maps back to the live element, so a model answer can be
  * checked against the page (grounding) and turned into selectors for runs that need no model.
  */
-import { generateRobustSelectors, generateXPath } from '../selectors/generate';
+import { elementChain } from '../selectors/element';
 import { isGrounded } from '../../../shared/ai/extractPrompt';
 import { gradeSelector, GradedSelector } from '../../../shared/selectors/grade';
 import { looksLikeXPath } from '../../../shared/selectors/resolve';
@@ -146,9 +146,9 @@ export function verifyAndCompile(answers: { name: string; value: string; ref: st
             if (link) { target = link as HTMLElement; type = 'link'; }
         }
 
-        const candidates = generateRobustSelectors(target);
-        const css = candidates.find(c => !looksLikeXPath(c.selector))?.selector;
-        const xpath = generateXPath(target);
+        const chain = elementChain(target);
+        const css = chain.find(c => !looksLikeXPath(c.selector))?.selector;
+        const xpath = chain.find(c => looksLikeXPath(c.selector))?.selector;
         const selectors: VerifiedField['selectors'] = [];
         if (css) selectors.push({ type: 'css', value: css });
         if (xpath) selectors.push({ type: 'xpath', value: xpath });

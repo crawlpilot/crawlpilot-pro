@@ -11,6 +11,14 @@ export interface FieldTarget {
     attr: AtomAttr;
 }
 
+/** A target on a product page (`pdp-targets.json`): `at` is an XPath that finds it; `label` is the spec row's label. */
+export interface PdpTarget {
+    name: string;
+    kind: 'value' | 'control';
+    at: string;
+    label?: string;
+}
+
 export interface PageTargets {
     /** File in `src/test/fixtures` (`.html.gz` is gunzipped). */
     file: string;

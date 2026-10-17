@@ -2,7 +2,7 @@
  * The pagination "Next" button: selector candidates when it is picked, and finding the best
  * clickable match among them on each page of a run.
  */
-import { generateRobustSelectors, SelectorResult } from './generate';
+import { elementCandidates, ChainEntry as SelectorResult } from './element';
 import { isStableId, xpathLiteral } from '../../../shared/selectors/stability';
 import { looksLikeXPath } from '../../../shared/selectors/resolve';
 
@@ -262,7 +262,7 @@ class PaginationSelectors {
      */
     generate(element: HTMLElement): SelectorResult[] {
         // 1. Get base candidates using robust strategies (OptimalSelect, CSS Gen, etc.)
-        const candidates = generateRobustSelectors(element, { isList: false });
+        const candidates = elementCandidates(element, { control: true });
 
         // 2. Add manual semantic selectors commonly used for pagination
         this.addSemanticSelectors(element, candidates);

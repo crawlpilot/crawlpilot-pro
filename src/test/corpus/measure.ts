@@ -8,13 +8,14 @@ import { readFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { resolve } from 'path';
 import { controlLocators, elementLocators, listLocators } from '../../content/services/selectors/specs';
+import { elementChain } from '../../content/services/selectors/element';
 import { keepItems } from '../../content/services/extraction/items';
 import { inferFields, readRow } from '../../content/services/extraction/fields';
 import { readValue } from '../../content/services/extraction/atoms';
 import { gradeSelector } from '../../shared/selectors/grade';
 import { looksLikeXPath } from '../../shared/selectors/resolve';
 import { filterPersistableChain } from '../../shared/selectors/stability';
-import type { PageTargets } from './targets';
+import type { PageTargets, PdpTarget } from './targets';
 
 const FIXTURES = resolve(__dirname, '../fixtures');
 const CHAIN_SHOWN = 3;
@@ -36,7 +37,8 @@ function query(selector: string, root: ParentNode = document): Element[] {
     }
 }
 
-const POSITIONAL = /:nth-(child|of-type)\(|\[\d+\]/;
+/** Positions; `following-sibling::td[1]` is a relation (the next cell), not a position. */
+const POSITIONAL = /:nth-(child|of-type)\(|(?<!-sibling::[\w*-]+)\[\d+\]/;
 /** An instance's own value inside a selector: an item id, a link or image address, a long number, a mixed-case token. */
 const INSTANCE_VALUE = /\[(data-(item-id|asin|sku|id|dca-id)|id|href|src)=|=['"][^'"]*\d{4,}|=['"](?=[^'"]*\d)(?=[^'"]*[A-Z])[A-Za-z0-9]{8,}['"]/;
 
@@ -164,5 +166,49 @@ export function summarize(report: Record<string, ReturnType<typeof measurePage>>
         elementInstanceValue: elements.filter(e => e.instanceValue).length,
         fields: fields.length,
         fieldsRead: fields.filter(f => f.readBy).length,
+    };
+}
+
+/**
+ * A product page: the chain stored for each annotated target (a field value or a control). The
+ * capture tool's `data-tn-*` marks are removed first: a live page has none.
+ */
+export function measurePdp(file: string, targets: PdpTarget[]) {
+    loadPage(file);
+    document.querySelectorAll('*').forEach(el => {
+        for (const name of el.getAttributeNames()) if (name.startsWith('data-tn-')) el.removeAttribute(name);
+    });
+    return Object.fromEntries(targets.map(t => {
+        const target = query(t.at)[0] as HTMLElement | undefined;
+        if (!target) return [t.name, { missing: true }];
+        const chain = elementChain(target, { control: t.kind === 'control' }).map(c => {
+            const matched = query(c.selector);
+            return {
+                selector: c.selector,
+                family: c.strategy,
+                namesTarget: matched.length === 1 && matched[0] === target,
+                grade: gradeSelector(c.selector, matched.length, 1).grade,
+                ...flags(c.selector),
+            };
+        });
+        return [t.name, { kind: t.kind, ...(t.label ? { label: t.label } : {}), chain }];
+    }));
+}
+
+type PdpReport = Record<string, ReturnType<typeof measurePdp>>;
+
+/** Totals over the product pages: the first stored entry of each target, and the label family on spec rows. */
+export function summarizePdp(report: PdpReport) {
+    const targets = Object.values(report).flatMap(p => Object.values(p)) as any[];
+    const found = targets.filter(t => !t.missing);
+    const first = found.map(t => t.chain[0]);
+    const spec = found.filter(t => t.label);
+    return {
+        targets: targets.length,
+        firstNamesTarget: first.filter(c => c?.namesTarget).length,
+        firstStrong: first.filter(c => c?.grade === 'strong').length,
+        firstPositional: first.filter(c => c?.positional).length,
+        anyPositionalStored: found.filter(t => t.chain.some((c: any) => c.positional)).length,
+        specRowsWithLabelFamily: `${spec.filter(t => t.chain.some((c: any) => c.family === 'label')).length} of ${spec.length}`,
     };
 }

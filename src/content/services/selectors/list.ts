@@ -11,10 +11,10 @@
  * The container is named without positions. When the list's own element can't be named (a bare
  * `div`), the nearest ancestor that can is the container, and the items are matched under it.
  */
-import { generateCssSelector, generateRobustSelectors } from './generate';
+import { elementCandidates, elementChain } from './element';
 import { keepItems } from '../extraction/items';
 import { looksLikeXPath } from '../../../shared/selectors/resolve';
-import { selectorCost, selectorFamily } from '../../../shared/selectors/grade';
+import { selectorFamily } from '../../../shared/selectors/grade';
 import {
     AUTHOR_ATTRIBUTES, isNamingClass, isStableAttributeValue, isVolatileSelector, STATE_ATTRIBUTES, xpathLiteral,
 } from '../../../shared/selectors/stability';
@@ -198,11 +198,9 @@ function namesItself(selector: string): boolean {
  * different families and one XPath.
  */
 function containerChain(el: HTMLElement, ownName: boolean): ChainEntry[] {
-    const named = generateRobustSelectors(el)
+    const named = elementCandidates(el, {}, 12)
         .map(r => r.selector)
-        .filter(s => !POSITIONAL.test(s) && !isVolatileSelector(s) && (!ownName || namesItself(s)))
-        .filter(s => { const m = query(document.documentElement, s); return m.length === 1 && m[0] === el; })
-        .sort((a, b) => selectorCost(a) - selectorCost(b));
+        .filter(s => !POSITIONAL.test(s) && !isVolatileSelector(s) && (!ownName || namesItself(s)));
     const css: ChainEntry[] = [];
     const families = new Set<string>();
     for (const s of named.filter(s => !looksLikeXPath(s))) {
@@ -236,7 +234,7 @@ export function listLocators(container: HTMLElement, children: HTMLElement[]): L
     // (the saved row gate keeps headers and ads out of the rows).
     const tag = items[0].tagName.toLowerCase();
     return {
-        container: [{ selector: generateCssSelector(container), strategy: 'path' }],
+        container: elementChain(container),
         items: [{ selector: `:scope > ${tag}`, strategy: 'structure' }],
     };
 }

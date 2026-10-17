@@ -3,7 +3,7 @@
  * these, and the selector corpus (`src/test/corpus`) measures exactly these, so a change to how
  * selectors are chosen is a change here.
  */
-import { generateCssSelector, generateRobustSelectors, generateXPath } from './generate';
+import { elementChain } from './element';
 import { nextButtonSelectors } from './nextButton';
 import { looksLikeXPath } from '../../../shared/selectors/resolve';
 
@@ -12,10 +12,10 @@ export type { ListLocators } from './list';
 
 /** The `[css, xpath]` pair a Page Extractor element stores. */
 export function elementLocators(el: HTMLElement): { css: string; xpath: string } {
-    const results = generateRobustSelectors(el);
+    const chain = elementChain(el);
     return {
-        css: results.find(r => !looksLikeXPath(r.selector))?.selector ?? generateCssSelector(el),
-        xpath: results.find(r => looksLikeXPath(r.selector))?.selector ?? generateXPath(el),
+        css: chain.find(r => !looksLikeXPath(r.selector))?.selector ?? '',
+        xpath: chain.find(r => looksLikeXPath(r.selector))?.selector ?? '',
     };
 }
 

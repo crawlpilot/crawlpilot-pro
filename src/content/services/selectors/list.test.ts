@@ -38,7 +38,7 @@ describe('listLocators', () => {
         </div></div></section><div><div>${card(9)}</div></div>`;
         const list = document.querySelector('section > div > div') as HTMLElement;
         const { container, items: itemChain } = listLocators(list, Array.from(list.children) as HTMLElement[]);
-        expect(container[0].selector).toBe('section[data-testid="search-results"]');
+        expect(container[0].selector).toBe('[data-testid="search-results"]');
         expect(container.every(c => !/nth-|\[\d+\]/.test(c.selector))).toBe(true);
         const root = document.querySelector('section')!;
         expect(items(root, itemChain[0].selector)).toEqual(Array.from(list.children));
