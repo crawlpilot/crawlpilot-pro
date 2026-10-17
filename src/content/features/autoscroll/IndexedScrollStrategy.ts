@@ -92,7 +92,8 @@ export class IndexedScrollStrategy implements IScrollStrategy {
             }
         }
 
-        let lastProcessedHashData: ChildHashData | null = null;
+        // The last processed item; hashed only when a re-sync needs it (every 10 items).
+        let lastProcessed: { el: HTMLElement; index: number } | null = null;
         let consecutiveNoNewItems = 0;
         const maxNoNewItems = 5;
         let resyncCounter = 0;
@@ -119,8 +120,8 @@ export class IndexedScrollStrategy implements IScrollStrategy {
 
             // Re-sync index if DOM shifted — checked every 10 elements to avoid O(n) scan per tick
             resyncCounter++;
-            if (lastProcessedHashData && resyncCounter % 10 === 0) {
-                const syncMatch = this.findChildByHash(children, JSON.stringify(lastProcessedHashData));
+            if (lastProcessed && resyncCounter % 10 === 0) {
+                const syncMatch = this.findChildByHash(children, JSON.stringify(this.generateChildHash(lastProcessed.el, lastProcessed.index)));
                 if (syncMatch.confidence !== 'none' && syncMatch.index !== -1) {
                     const expectedIdx = syncMatch.index + 1;
                     const isReasonableJump = Math.abs(currentIdx - expectedIdx) < 5;
@@ -137,7 +138,7 @@ export class IndexedScrollStrategy implements IScrollStrategy {
             this.throwIfAborted();
 
             const child = children[currentIdx];
-            lastProcessedHashData = this.generateChildHash(child, currentIdx);
+            lastProcessed = { el: child, index: currentIdx };
 
             child.scrollIntoView({ behavior: 'auto', block: 'center' });
 
@@ -158,13 +159,14 @@ export class IndexedScrollStrategy implements IScrollStrategy {
             success: true,
             result: {
                 currentIndex: currentIdx,
-                lastChildHashData: lastProcessedHashData ? JSON.stringify(lastProcessedHashData) : null
+                lastChildHashData: lastProcessed ? JSON.stringify(this.generateChildHash(lastProcessed.el, lastProcessed.index)) : null
             }
         };
     }
 
     private generateChildHash(element: HTMLElement, index: number): ChildHashData {
-        const innerText = element.innerText || '';
+        // textContent, not innerText: innerText forces a layout for every element hashed.
+        const innerText = element.textContent || '';
         const id = element.id || '';
         const className = element.className || '';
         const tagName = element.tagName || '';
@@ -210,16 +212,15 @@ export class IndexedScrollStrategy implements IScrollStrategy {
         const targetHash = targetData.hash;
         const context = targetData.contextData;
 
-        // 1. Exact hash match
-        for (let i = 0; i < children.length; i++) {
-            const h = this.generateChildHash(children[i], i);
-            if (h.hash === targetHash) return { index: i, confidence: 'high' };
-        }
+        // 1. Exact hash match (each child hashed once, for both passes)
+        const hashed = children.map((kid, i) => this.generateChildHash(kid, i));
+        const exact = hashed.findIndex(h => h.hash === targetHash);
+        if (exact !== -1) return { index: exact, confidence: 'high' };
 
         // 2. Fuzzy match — dimensions removed; score on structure and text only
         if (context) {
-            const scores = children.map((kid, idx) => {
-                const kidData = this.generateChildHash(kid, idx).contextData;
+            const scores = hashed.map((h, idx) => {
+                const kidData = h.contextData;
                 let score = 0;
                 if (kidData.tagName === context.tagName) score += 10;
                 if (kidData.id && kidData.id === context.id) score += 20;

@@ -7,6 +7,8 @@ import type { NetEntry } from '../../../shared/network/types';
 let counter = 0;
 
 export function requestNetEntries(timeoutMs = 2500): Promise<{ installed: boolean; entries: NetEntry[] }> {
+    // The hook marks the page when it installs; without the mark nothing would answer, so don't wait.
+    if (!document.documentElement.hasAttribute('data-crawlpilot-net')) return Promise.resolve({ installed: false, entries: [] });
     return new Promise(resolve => {
         const id = `cp-${Date.now()}-${++counter}`;
         const timer = setTimeout(() => {

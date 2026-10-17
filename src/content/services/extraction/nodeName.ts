@@ -18,6 +18,21 @@ function attrSelector(attr: string, value: string): string {
  * skipped so the label survives redeploys.
  */
 export function nodeStep(t: Element): NodeStep {
+    const cached = stepCache?.get(t);
+    if (cached) return cached;
+    const step = computeStep(t);
+    stepCache?.set(t, step);
+    return step;
+}
+
+let stepCache: WeakMap<Element, NodeStep> | null = null;
+
+/** Memoises `nodeStep` while set (see `withAtomCache`); null turns it off. */
+export function setStepCache(cache: WeakMap<Element, NodeStep> | null) {
+    stepCache = cache;
+}
+
+function computeStep(t: Element): NodeStep {
     for (const attr of ['data-testid', 'data-cy', 'itemprop']) {
         const val = t.getAttribute(attr);
         if (val && isStableAttributeValue(attr, val)) return { label: val, css: attrSelector(attr, val) };

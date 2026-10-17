@@ -8,7 +8,7 @@
  * name, found in the row), and the field reads that item. So pagination, auto-scroll and bulk runs
  * need nothing new, and each row still comes from what the page shows.
  */
-import { shapeOf } from './atoms';
+import { atomScope, shapeOf } from './atoms';
 import { requestNetEntries } from '../../features/network/NetworkRelay';
 
 export type JsonPath = (string | number)[];
@@ -49,7 +49,7 @@ function parse(text: string): unknown {
     try { return JSON.parse(text.trim()); } catch { return undefined; }
 }
 
-let cache: { stamp: string; sources: Source[] } | null = null;
+let cache: { scripts: Element[]; sources: Source[] } | null = null;
 
 const STATE_ASSIGN = /(?:window\.)?(__[A-Z0-9_]+__|__remixContext|__APOLLO_STATE__)\s*=\s*/g;
 
@@ -80,10 +80,16 @@ export function jsonValueAt(text: string, start: number): unknown {
 }
 
 /** The page's JSON sources (JSON-LD, JSON scripts, inline state), parsed once per change of its scripts. */
+/**
+ * Every structured source on the page, parsed once per set of inline scripts: the cache is keyed by
+ * the script elements themselves (cheap to list), not their text (megabytes on large pages, and
+ * read for every row and field).
+ */
 export function pageSources(doc: Document = document): Source[] {
     const scripts = Array.from(doc.querySelectorAll('script:not([src])'));
-    const stamp = scripts.map(s => (s.textContent || '').length).join(',');
-    if (cache && cache.stamp === stamp) return [...cache.sources, ...netSources];
+    if (cache && cache.scripts.length === scripts.length && cache.scripts.every((el, i) => el === scripts[i])) {
+        return [...cache.sources, ...netSources];
+    }
     const sources: Source[] = [];
     for (const s of scripts) {
         const text = s.textContent || '';
@@ -104,7 +110,7 @@ export function pageSources(doc: Document = document): Source[] {
             }
         }
     }
-    cache = { stamp, sources };
+    cache = { scripts, sources };
     return [...sources, ...netSources];
 }
 
@@ -115,21 +121,30 @@ let netRefreshedAt = 0;
 const MAX_NET_SOURCES = 40;
 
 /** `timeoutMs`: how long to wait for the hook, which only answers when the API Finder recording is on. */
+/** Parsed recorded responses by hook sequence number. */
+let netParsed = new Map<number, Source | null>();
+
 export async function refreshNetSources(timeoutMs = 1500): Promise<void> {
     netRefreshedAt = Date.now();
     const { installed, entries } = await requestNetEntries(timeoutMs);
     if (!installed) return;
     const fresh: Source[] = [];
+    const parsed = new Map<number, Source | null>();
     for (const e of [...entries].sort((a, b) => b.seq - a.seq)) {
-        const text = (e.responseText || '').trim();
-        if (!text || (text[0] !== '{' && text[0] !== '[')) continue;
-        const data = parse(text);
-        if (data === undefined) continue;
-        let label = e.url;
-        try { label = new URL(e.url).pathname; } catch { /* keep the raw url */ }
-        fresh.push({ kind: 'api', label: `API ${label}`, data });
+        // A response already parsed by an earlier refresh is reused, not parsed again.
+        let src = netParsed.get(e.seq);
+        if (src === undefined) {
+            const text = (e.responseText || '').trim();
+            const data = text && (text[0] === '{' || text[0] === '[') ? parse(text) : undefined;
+            let label = e.url;
+            try { label = new URL(e.url).pathname; } catch { /* keep the raw url */ }
+            src = data === undefined ? null : { kind: 'api', label: `API ${label}`, data };
+        }
+        parsed.set(e.seq, src);
+        if (src) fresh.push(src);
         if (fresh.length >= MAX_NET_SOURCES) break;
     }
+    netParsed = parsed;
     netSources = fresh;
 }
 
@@ -198,7 +213,19 @@ function norm(s: string): string {
 
 interface RowProbe { urls: Set<string>; text: string }
 
+/** Probes by row within one scan (`withAtomCache`): a row's JSON fields are read one after another. */
+const probes = new WeakMap<Element, { scope: number; probe: RowProbe }>();
+
 function probe(row: Element): RowProbe {
+    const scope = atomScope();
+    const hit = probes.get(row);
+    if (scope && hit?.scope === scope) return hit.probe;
+    const p = scanProbe(row);
+    if (scope) probes.set(row, { scope, probe: p });
+    return p;
+}
+
+function scanProbe(row: Element): RowProbe {
     const urls = new Set<string>();
     const links = row.tagName === 'A' ? [row] : Array.from(row.querySelectorAll('a[href]'));
     links.forEach(a => { const k = urlKey(a.getAttribute('href') || ''); if (k) urls.add(k); });

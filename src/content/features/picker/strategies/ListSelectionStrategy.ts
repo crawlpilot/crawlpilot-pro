@@ -4,6 +4,7 @@ import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { refreshNetSources } from '../../../services/extraction/structuredRows';
 import { findList, itemOf, ListMatch } from '../../../services/extraction/items';
+import { withAtomCache } from '../../../services/extraction/atoms';
 import { generateCssSelector, generateXPath, generateRobustSelectors } from '../../../services/selectors/generate';
 import { CommonSelectorGenerator } from '../../../services/selectors/common';
 
@@ -56,7 +57,7 @@ export class ListSelectionStrategy implements ISelectionStrategy {
     handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {
         // Recorded API responses (when the API Finder is recording) can back the list's fields:
         // fetch them first, briefly, so the pick can offer them.
-        void refreshNetSources(300).catch(() => undefined).then(() => this.select(element, picker, report));
+        void refreshNetSources(300).catch(() => undefined).then(() => withAtomCache(() => this.select(element, picker, report)));
     }
 
     private select(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {

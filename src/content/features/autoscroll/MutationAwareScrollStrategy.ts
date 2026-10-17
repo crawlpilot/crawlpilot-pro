@@ -1,5 +1,4 @@
 import { IScrollStrategy, ScrollStrategyConfig, ScrollStrategyResult } from './IScrollStrategy';
-import { hashString } from '../../../shared/utils/hash';
 
 /**
  * MutationAwareScrollStrategy — default for infinite/dynamic feeds.
@@ -71,7 +70,6 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
         const seenFingerprints = new Set<string>();
         const pendingQueue: HTMLElement[] = [];
         let currentIdx = 0;
-        let lastChildHashData: string | null = null;
 
         const fingerprint = (el: HTMLElement): string => {
             const text = (el.textContent || '').substring(0, 200);
@@ -166,7 +164,6 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
                             }
                         }
 
-                        lastChildHashData = this.generateSimpleHash(child, currentIdx);
                         currentIdx++;
 
                         if (scrollDelay > 0) await this.wait(scrollDelay);
@@ -200,7 +197,7 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
                     const newChildren = currentChildren.filter(el => !seenFingerprints.has(fingerprint(el)));
                     if (newChildren.length > 0) {
                         console.log(`[MutationAwareScrollStrategy] ${newChildren.length} items found via DOM check (MutationObserver missed).`);
-                        addToQueue(currentChildren);
+                        addToQueue(newChildren);
                         consecutiveNoChanges = 0;
                         currentWaitTime = contentLoadDelay;
                         continue;
@@ -233,7 +230,7 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
             success: true,
             result: {
                 currentIndex: currentIdx,
-                lastChildHashData
+                lastChildHashData: null
             }
         };
     }
@@ -355,13 +352,5 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
             console.warn('[MutationAwareScrollStrategy] clickLoadMore error:', e);
         }
         return false;
-    }
-
-    private generateSimpleHash(element: HTMLElement, index: number): string {
-        const text = element.innerText || '';
-        const id = element.id || '';
-        const className = element.className || '';
-        const raw = `${element.tagName}#${id}.${className}[${index}]${text.substring(0, 100)}`;
-        return JSON.stringify({ hash: hashString(raw).toString(), index });
     }
 }

@@ -7,6 +7,8 @@
 (function () {
     if (window.__crawlpilotNetHook) return;
     Object.defineProperty(window, '__crawlpilotNetHook', { value: true, enumerable: false });
+    // Visible to the content script (isolated world): lets it skip asking when no hook is recording.
+    try { document.documentElement.setAttribute('data-crawlpilot-net', ''); } catch (e) { /* no document yet */ }
 
     var MAX_ENTRIES = 300;
     var MAX_BODY = 2000000;

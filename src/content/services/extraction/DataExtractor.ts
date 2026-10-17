@@ -1,4 +1,5 @@
 import type { ListMatch } from './items';
+import { withAtomCache } from './atoms';
 import { hashString } from '../../../shared/utils/hash';
 import { inferFields, readRow, hasReaders, structuredColumns, ReaderColumn } from './fields';
 import { findStructuredSource } from './structuredRows';
@@ -80,6 +81,11 @@ export class DataExtractor {
      * infers the fields once from these rows first.
      */
     public extractRows(rowEls: Element[], columns?: unknown): RowsResult {
+        // Inference and the reads scan the same rows: share one scan of each.
+        return withAtomCache(() => this.extractRowsCached(rowEls, columns));
+    }
+
+    private extractRowsCached(rowEls: Element[], columns?: unknown): RowsResult {
         let cols: ReaderColumn[];
         let problems: string[] = [];
         if (hasReaders(columns)) {

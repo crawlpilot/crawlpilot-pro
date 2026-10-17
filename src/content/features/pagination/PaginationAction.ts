@@ -1,5 +1,6 @@
 import { refreshNetSourcesFor } from '../../services/extraction/structuredRows';
 import { hasReaders, inferFields, readRow, similarSiblings, unmappedCount, ReaderColumn } from '../../services/extraction/fields';
+import { withAtomCache } from '../../services/extraction/atoms';
 import { NextButtonSelector } from '../../services/selectors/nextButton';
 import { SelectorMetadata } from '../../../shared/types/extraction';
 import { BaseAction, ActionContext } from '../../core/BaseAction';
@@ -41,6 +42,9 @@ export interface PaginationConfig {
  * PaginationAction handles multi-page navigation and data collection.
  * Roles: Navigation across pages.
  */
+/** Rows per progress message to the side panel. */
+const PROGRESS_BATCH = 10;
+
 export class PaginationAction extends BaseAction {
     private visitedUrls: Set<string>;
     private lastPageHash: string | null = null;
@@ -269,6 +273,24 @@ export class PaginationAction extends BaseAction {
         let pageItems: any[] = [];
         const mode = this.config.mode || 'pagination';
 
+        // Rows go to the side panel in batches, not one message per row.
+        let pending: Record<string, string>[] = [];
+        let pendingUnmapped = 0;
+        let lastColumns: ReaderColumn[] | undefined;
+        const flush = () => {
+            if (pending.length === 0) return;
+            this.context?.onProgress?.({
+                type: 'data',
+                items: pending,
+                columns: lastColumns,
+                unmapped: pendingUnmapped,
+                page: pageCount,
+                cumulativeTotal: mode !== 'loadMore' ? newTotal : pageItems.length
+            });
+            pending = [];
+            pendingUnmapped = 0;
+        };
+
         this.context?.onProgress?.({ type: 'extract', page: pageCount, message: 'Scrolling and extracting data...' });
 
         // [NEW] Resolve the item selector chain against this page's container, with
@@ -311,8 +333,10 @@ export class PaginationAction extends BaseAction {
                 if (!element || processedInPage.has(scrolledToIndex)) return;
 
                 const columns = this.fieldsFor(element, container, resolvedItemSelector);
+                lastColumns = columns;
                 await refreshNetSourcesFor(columns);
-                const normalizedItem = readRow(element, columns);
+                // One scan of the row serves both the read and the unmapped check.
+                const [normalizedItem, unmapped] = withAtomCache(() => [readRow(element, columns), unmappedCount(element, columns)] as const);
                 if (Object.keys(normalizedItem).length > 0) {
                     processedInPage.add(scrolledToIndex);
 
@@ -323,20 +347,15 @@ export class PaginationAction extends BaseAction {
                     if (mode !== 'loadMore') {
                         newTotal++;
                     }
-
-                    this.context?.onProgress?.({
-                        type: 'data',
-                        items: [normalizedItem],
-                        columns,
-                        unmapped: unmappedCount(element, columns) > 0 ? 1 : 0,
-                        page: pageCount,
-                        cumulativeTotal: mode !== 'loadMore' ? newTotal : pageItems.length
-                    });
+                    pending.push(normalizedItem);
+                    if (unmapped > 0) pendingUnmapped++;
+                    if (pending.length >= PROGRESS_BATCH) flush();
                 }
             }
         }, 'indexed');
 
         await autoScroll.execute(this.context!);
+        flush();
 
         if (mode === 'loadMore') {
             newTotal = pageItems.length;

@@ -1,5 +1,5 @@
 /** Reading rows with frozen fields: the same on the preview, every later page and every run. */
-import { alignToTemplate, collectAtoms, isAtomRoot, readValue, Shape, shapeOf } from '../atoms';
+import { alignToTemplate, collectAtoms, isAtomRoot, readValue, Shape, shapeOf, withAtomCache } from '../atoms';
 import { readJsonField } from '../structuredRows';
 import { rowFitsGate } from './gate';
 import { FIELD_SCHEMA_VERSION, FieldReader, query, ReaderColumn } from './types';
@@ -46,6 +46,10 @@ function readOne(row: Element, r: Omit<FieldReader, 'alternates'>, onlyShape?: S
 
 /** Reads a row with frozen columns. A row that isn't an item of the list (see `RowGate`) reads as `{}`. */
 export function readRow(row: Element, columns: ReaderColumn[]): Record<string, string> {
+    return withAtomCache(() => readRowCached(row, columns));
+}
+
+function readRowCached(row: Element, columns: ReaderColumn[]): Record<string, string> {
     const out: Record<string, string> = {};
     const gate = columns.find(c => c.reader?.rowGate)?.reader?.rowGate;
     if (gate && !rowFitsGate(row, gate)) return out;
@@ -64,6 +68,10 @@ export function readRow(row: Element, columns: ReaderColumn[]): Record<string, s
 export function unmappedCount(row: Element, columns: ReaderColumn[]): number {
     // Fields read from the page's JSON cover the row's content without matching its nodes.
     if (columns.some(c => c.reader?.json)) return 0;
+    return withAtomCache(() => unmappedCached(row, columns));
+}
+
+function unmappedCached(row: Element, columns: ReaderColumn[]): number {
     const covered: Element[] = [];
     for (const col of columns) {
         const r = col.reader;

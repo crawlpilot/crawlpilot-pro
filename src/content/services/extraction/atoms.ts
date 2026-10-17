@@ -9,7 +9,7 @@ import { shapeOf, Shape } from '../../../shared/extraction/shape';
 
 export { shapeOf };
 export type { Shape };
-import { nodeStep } from './nodeName';
+import { nodeStep, NodeStep, setStepCache } from './nodeName';
 
 export type AtomAttr = 'text' | 'own' | 'cell' | 'href' | 'src' | 'aria-label' | 'title' | 'datetime';
 
@@ -94,11 +94,22 @@ export function atomText(el: Element): string {
     return (visible || read(false)).slice(0, MAX_VALUE);
 }
 
+/** Resolved URLs by base and raw value: a card repeats its product URL, and every read resolves it again. */
+const resolved = new Map<string, string>();
+let resolvedBase = '';
+
 function absoluteUrl(raw: string | null): string {
     if (!raw) return '';
     const v = raw.trim();
     if (!v || /^(javascript:|#|data:|mailto:|tel:)/i.test(v)) return '';
-    try { return new URL(v, document.baseURI).href; } catch { return ''; }
+    const base = document.baseURI;
+    if (base !== resolvedBase || resolved.size > 5000) { resolved.clear(); resolvedBase = base; }
+    let out = resolved.get(v);
+    if (out === undefined) {
+        try { out = new URL(v, base).href; } catch { out = ''; }
+        resolved.set(v, out);
+    }
+    return out;
 }
 
 /** The largest candidate of a `srcset` (by width or density descriptor). */
@@ -141,11 +152,26 @@ export function readValue(el: Element, attr: AtomAttr): string {
  */
 let textAtomCache: WeakMap<Element, boolean> | null = null;
 
-/** Runs `fn` with `isTextAtom` memoised (inference asks about the same static nodes many times). */
+/**
+ * Runs `fn` with `isTextAtom` and `nodeStep` memoised: inference and row reads ask about the same
+ * nodes many times. Nested calls share the outermost cache, so wrap a whole batch of rows (a page)
+ * to share it across them. The DOM must not change inside `fn`.
+ */
 export function withAtomCache<T>(fn: () => T): T {
-    const outer = textAtomCache;
-    textAtomCache = outer ?? new WeakMap();
-    try { return fn(); } finally { textAtomCache = outer; }
+    if (textAtomCache) return fn();
+    scope++;
+    textAtomCache = new WeakMap();
+    atomsCache = new WeakMap();
+    setStepCache(new WeakMap<Element, NodeStep>());
+    try { return fn(); } finally { textAtomCache = null; atomsCache = null; setStepCache(null); }
+}
+
+let atomsCache: WeakMap<Element, Atom[]> | null = null;
+let scope = 0;
+
+/** The current `withAtomCache` scope (0 outside one): other per-scan caches key on it. */
+export function atomScope(): number {
+    return textAtomCache ? scope : 0;
 }
 
 export function isTextAtom(el: Element): boolean {
@@ -156,13 +182,21 @@ export function isTextAtom(el: Element): boolean {
     return v;
 }
 
+/** At most 16 descendants, all inline (or skipped). Stops at the first that isn't, without listing the subtree. */
+function inlineOnly(el: Element): boolean {
+    let seen = 0;
+    const stack: Element[] = Array.from(el.children);
+    while (stack.length > 0) {
+        const d = stack.pop()!;
+        if (++seen > 16 || (!INLINE.has(d.tagName) && !SKIP.has(d.tagName))) return false;
+        for (let c = d.firstElementChild; c; c = c.nextElementSibling) stack.push(c);
+    }
+    return true;
+}
+
 function computeTextAtom(el: Element): boolean {
     if (el.children.length === 0) return true;
-    const all = el.querySelectorAll('*');
-    if (all.length > 16) return false;
-    for (const d of Array.from(all)) {
-        if (!INLINE.has(d.tagName) && !SKIP.has(d.tagName)) return false;
-    }
+    if (!inlineOnly(el)) return false;
     if (meaningful(ownText(el))) return true;
     return Array.from(el.children).every(c =>
         FORMATTING.has(c.tagName) || c.getAttribute('aria-hidden') === 'true' || SKIP.has(c.tagName) ||
@@ -187,8 +221,16 @@ function sigOf(path: Element[], attr: AtomAttr): string {
     return `${path.map(e => nodeStep(e).label).join('>')}@${attr}`;
 }
 
-/** Every atom of a row, in document order. */
+/** Every atom of a row, in document order (memoised inside `withAtomCache`). */
 export function collectAtoms(row: Element): Atom[] {
+    const cached = atomsCache?.get(row);
+    if (cached) return cached;
+    const atoms = scanAtoms(row);
+    atomsCache?.set(row, atoms);
+    return atoms;
+}
+
+function scanAtoms(row: Element): Atom[] {
     const atoms: Atom[] = [];
     const add = (el: Element, attr: AtomAttr, value: string, path: Element[]) => {
         if (value) atoms.push({ el, attr, value, sig: sigOf(path, attr), path });
