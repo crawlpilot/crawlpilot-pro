@@ -64,8 +64,7 @@ export class ListSelectionStrategy implements ISelectionStrategy {
         const containerInfo = this.lastContainerInfo || this.detector.findContainer(element);
         const targetItem = this.lastItemUnit || element;
 
-        // Use the refined item unit for extraction
-        const data = this.extractor.extract(targetItem, containerInfo);
+        let data: any;
 
         let selector = '';
         let xpath = '';
@@ -116,6 +115,8 @@ export class ListSelectionStrategy implements ISelectionStrategy {
                 }
             }
 
+            // Infer the list's fields from the same rows the run will read.
+            data = this.extractor.extract(targetItem, containerInfo);
             xpath = generateXPath(targetItem);
 
             // Prioritize the best selector in the robust list for the UI
@@ -140,6 +141,7 @@ export class ListSelectionStrategy implements ISelectionStrategy {
                 }
             });
         } else {
+            data = this.extractor.extract(targetItem, containerInfo);
             selector = generateCssSelector(element, false);
             xpath = generateXPath(element);
             containerSelector = selector;

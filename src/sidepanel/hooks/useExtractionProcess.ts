@@ -310,7 +310,9 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                         loadMoreSelectorType: (pagination.nextButtonSelector?.startsWith('//') || pagination.nextButtonSelector?.startsWith('(')) ? 'xpath' : 'selector',
                                         scrollDelay: profile.scrollDelay,
                                         contentLoadDelay: profile.contentLoadDelay,
-                                        itemSelector: sel.itemSelector
+                                        itemSelector: sel.itemSelector,
+                                        // The preview's fields: every scrolled row is read with them.
+                                        columns: sel.data?.columns
                                     }
                                 });
                             });
@@ -341,8 +343,10 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 setStatus(prev => ({ ...prev, stopReason }));
                                 resolve();
                             } else if (message.type === 'PAGINATION_UPDATE') {
-                                const { items, page } = message.payload;
+                                const { items, page, columns } = message.payload;
                                 if (page) pagesVisitedRef.current = page;
+                                // The fields the run reads every page with (frozen): save them as the columns.
+                                if (Array.isArray(columns) && columns.length > 0) sel.data.columns = columns;
                                 if (items && Array.isArray(items)) {
                                     // Drop rows an earlier page already had (sponsored slots, overlapping pages)
                                     const fresh = tracker.add(page || pagesVisitedRef.current, items);
@@ -372,7 +376,8 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 pageLoadDelay: profile.pageLoadDelay,
                                 urlChangeTimeout: profile.urlChangeTimeout,
                                 itemSelector: sel.itemSelector,
-                                itemSelectors: sel.itemSelectors
+                                itemSelectors: sel.itemSelectors,
+                                columns: sel.data?.columns
                             }
                         });
                     });

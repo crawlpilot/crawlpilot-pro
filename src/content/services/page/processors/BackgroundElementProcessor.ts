@@ -8,22 +8,19 @@
  * - Direct DOM query + data extraction only
  * - Faster execution (no scroll/highlight waits)
  * 
- * Reuses the same DataExtractor and SchemaGenerator for data extraction logic.
+ * Reuses the same DataExtractor for data extraction logic.
  */
 
 import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult } from '../types';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
-import { SchemaGenerator } from '../../../services/extraction/SchemaGenerator';
 import { clickElementRobust } from '../../../services/dom/domUtils';
 import { resolveFirst } from '../../../../shared/selectors/resolve';
 import { extractColumns, collapseTableToJson } from './columnHelpers';
 
 export class BackgroundElementProcessor {
     private extractor: DataExtractor;
-    private schemaGenerator: SchemaGenerator;
     constructor(private config: ExtractionConfig) {
         this.extractor = new DataExtractor();
-        this.schemaGenerator = new SchemaGenerator();
     }
 
     async processElement(elementDef: ElementDefinition): Promise<ProcessedElementResult> {
@@ -315,23 +312,11 @@ export class BackgroundElementProcessor {
             return { items: [], columns: [] };
         }
 
-        // Use DataExtractor for row parsing
-        const rawRows: any[] = [];
-
-        for (const row of rowElements) {
-            const rowData = this.extractor.extractRow(row);
-            if (rowData && Object.keys(rowData).length > 0) {
-                rawRows.push(rowData);
-            }
-        }
-
-        if (rawRows.length === 0) {
+        // Field-first: the fields are inferred once from all rows, then every row is read with them.
+        const { columns, items } = this.extractor.extractRows(rowElements);
+        if (items.length === 0) {
             return { items: [], columns: [] };
         }
-
-        // Generate schema and normalize data to use hashed column IDs
-        const { columns } = this.schemaGenerator.generateSchema(rawRows);
-        const items = this.extractor.normalizeData(rawRows, columns);
 
         return { items, columns, type: _type };
     }

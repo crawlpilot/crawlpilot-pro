@@ -1,16 +1,13 @@
 import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult } from '../types';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
-import { SchemaGenerator } from '../../../services/extraction/SchemaGenerator';
 import { resolveFirst } from '../../../../shared/selectors/resolve';
 import { extractColumns, collapseTableToJson } from './columnHelpers';
 
 export class ElementProcessor {
     private extractor: DataExtractor;
-    private schemaGenerator: SchemaGenerator;
 
     constructor(private config: ExtractionConfig) {
         this.extractor = new DataExtractor();
-        this.schemaGenerator = new SchemaGenerator();
     }
 
     async processElement(elementDef: ElementDefinition): Promise<ProcessedElementResult> {
@@ -383,30 +380,9 @@ export class ElementProcessor {
     }
 
     private buildRowsResult(rowElements: HTMLElement[], type: 'table' | 'list'): any {
-        const seenHashes = new Set<string>();
-        const rawRows: any[] = [];
-
-        for (const row of rowElements) {
-            const rowData = this.extractor.extractRow(row);
-            const hash = JSON.stringify(rowData);
-            if (!seenHashes.has(hash) && Object.keys(rowData).length > 0) {
-                seenHashes.add(hash);
-                rawRows.push(rowData);
-            }
-        }
-
-        if (rawRows.length === 0) {
-            return { type, items: [], columns: [] };
-        }
-
-        const schemaResult = this.schemaGenerator.generateSchema(rawRows);
-        const items = this.extractor.normalizeData(rawRows, schemaResult.columns);
-
-        return {
-            type,
-            items,
-            columns: schemaResult.columns,
-            count: items.length
-        };
+        // Field-first: the fields are inferred once from all rows, then every row is read with them.
+        const { columns, items } = this.extractor.extractRows(rowElements);
+        if (items.length === 0) return { type, items: [], columns: [] };
+        return { type, items, columns, count: items.length };
     }
 }

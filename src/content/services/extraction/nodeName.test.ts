@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { generateNodeName } from './nodeName';
+import { nodeStep } from './nodeName';
+
+const generateNodeName = (el: Element) => nodeStep(el).label;
 
 function el(html: string): HTMLElement {
     const wrapper = document.createElement('div');

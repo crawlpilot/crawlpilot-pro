@@ -17,6 +17,14 @@ describe('isUnstableClass', () => {
         expect(isUnstableClass('layout-ss26')).toBe(true);
         expect(isUnstableClass('active')).toBe(true);
     });
+    it('flags Tachyons-style atomic utilities', () => {
+        for (const c of ['ma0', 'mr2', 'mr2-xl', 'ph1', 'mv1', 'nl2', 'f6', 'f5-l', 'lh-title', 'nearer-mid-gray', 'mid-gray', 'black', 'ws-normal', 'dib', 'tc', 'br-pill', 'b']) {
+            expect(isUnstableClass(c), c).toBe(true);
+        }
+        for (const c of ['price', 'brand', 'badge', 'title', 'product-title', 'gray-box-title']) {
+            expect(isUnstableClass(c), c).toBe(false);
+        }
+    });
     it('allows semantic classes through', () => {
         expect(isUnstableClass('product-card')).toBe(false);
         expect(isUnstableClass('article-title')).toBe(false);
@@ -28,6 +36,13 @@ describe('isHashClass', () => {
     it('matches emotion/styled-components hash patterns', () => {
         expect(isHashClass('css-dy3i81')).toBe(true);
         expect(isHashClass('sc-bdvaja')).toBe(true);
+    });
+    it('matches short-prefix module hashes', () => {
+        expect(isHashClass('ld_Ec')).toBe(true);
+        expect(isHashClass('w_iUH7')).toBe(true);
+        expect(isHashClass('ld_AY')).toBe(true);
+        expect(isHashClass('my_title')).toBe(false);
+        expect(isHashClass('sr_only')).toBe(false);
     });
     it('rejects semantic classes', () => {
         expect(isHashClass('product-card')).toBe(false);

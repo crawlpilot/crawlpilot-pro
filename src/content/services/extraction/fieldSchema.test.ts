@@ -1,0 +1,138 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { inferFields, readRow, hasReaders } from './fieldSchema';
+import { alignToTemplate, atomText, collectAtoms } from './atoms';
+
+function rowsOf(html: string, selector = '.card'): Element[] {
+    document.body.innerHTML = html;
+    return Array.from(document.querySelectorAll(selector));
+}
+
+const card = (o: { title: string; price: string; was?: string; brand?: string; badge?: string; sponsored?: boolean; href?: string }) => {
+    const inner = `
+        <a class="card-link" href="${o.href ?? '/p/' + o.title.toLowerCase().replace(/\s+/g, '-')}"><img class="thumb" src="/img/${o.title.length}.jpg"></a>
+        <h3 class="card-title"><a href="${o.href ?? '/p/' + o.title.toLowerCase().replace(/\s+/g, '-')}">${o.title}</a></h3>
+        ${o.badge ? `<span class="badge">${o.badge}</span>` : ''}
+        ${o.brand ? `<div class="brand">${o.brand}</div>` : ''}
+        <div class="price"><span class="sym">$</span><span class="whole">${o.price.split('.')[0]}</span><sup>${o.price.split('.')[1]}</sup></div>
+        ${o.was ? `<div class="price-was"><s>$${o.was}</s></div>` : ''}
+        <button class="add">Add to cart</button>`;
+    return `<li class="card">${o.sponsored ? `<div class="sponsored-wrap">${inner}</div>` : inner}</li>`;
+};
+
+describe('atoms', () => {
+    beforeEach(() => { document.body.innerHTML = ''; });
+
+    it('reads a split price as one value', () => {
+        document.body.innerHTML = '<div id="p"><span>$</span><span>24</span><sup>99</sup></div>';
+        expect(atomText(document.getElementById('p')!)).toBe('$24.99');
+    });
+
+    it('skips the aria-hidden visual copy of a screen-reader price', () => {
+        document.body.innerHTML = '<span id="p"><span class="a-offscreen">$24.99</span><span aria-hidden="true">$<span>24</span>.<span>99</span></span></span>';
+        expect(atomText(document.getElementById('p')!)).toBe('$24.99');
+    });
+
+    it('keeps sibling values apart but byline + link together', () => {
+        const [row] = rowsOf('<div class="card"><div class="meta"><span class="brand">Acme</span><span class="sku">SKU 12</span></div><p class="by">By <a href="/a">Ann</a></p></div>');
+        const texts = collectAtoms(row).filter(a => a.attr === 'text').map(a => a.value);
+        expect(texts).toEqual(['Acme', 'SKU 12', 'By Ann']);
+    });
+
+    it('aligns a row missing its first repeated value', () => {
+        expect(alignToTemplate(['number', 'count'], ['text', 'number', 'count'])).toEqual([1, 2]);
+        expect(alignToTemplate(['text', 'number', 'count'], ['text', 'number', 'count'])).toEqual([0, 1, 2]);
+    });
+});
+
+describe('inferFields', () => {
+    const listing = `<ul>
+        ${card({ title: 'Desk Lamp', price: '24.99', was: '29.99', brand: 'Acme' })}
+        ${card({ title: 'Floor Lamp', price: '59.00', badge: 'Best seller' })}
+        ${card({ title: 'Wall Light', price: '15.50', brand: 'Lumo', sponsored: true })}
+        ${card({ title: 'Table Lamp', price: '33.10', brand: 'Acme' })}
+        ${card({ title: 'Reading Lamp', price: '19.00', was: '25.00' })}
+    </ul>`;
+
+    it('produces one named column per field, no duplicates, no button caption', () => {
+        const { columns } = inferFields(rowsOf(listing));
+        const names = columns.map(c => c.name);
+        expect(new Set(names).size).toBe(names.length);
+        expect(names).toEqual(expect.arrayContaining(['Image', 'Title', 'Price', 'Was Price', 'Brand', 'Badge', 'URL']));
+        expect(names).not.toContain('Add');
+        expect(names.filter(n => /URL/.test(n))).toHaveLength(1); // image link and title link are the same URL
+        expect(columns.every(c => c.id === c.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''))).toBe(true);
+        expect(hasReaders(columns)).toBe(true);
+    });
+
+    it('reads the sponsored card (extra wrapper) into the same columns', () => {
+        const rows = rowsOf(listing);
+        const { columns } = inferFields(rows);
+        const wall = readRow(rows[2], columns);
+        const byName = (n: string) => columns.find(c => c.name === n)!.id;
+        expect(wall[byName('Title')]).toBe('Wall Light');
+        expect(wall[byName('Price')]).toBe('$15.50');
+        expect(wall[byName('Brand')]).toBe('Lumo');
+    });
+
+    it('keeps the struck price apart from the current price', () => {
+        const rows = rowsOf(listing);
+        const { columns } = inferFields(rows);
+        const row = readRow(rows[0], columns);
+        const id = (n: string) => columns.find(c => c.name === n)!.id;
+        expect(row[id('Price')]).toBe('$24.99');
+        expect(row[id('Was Price')]).toBe('$29.99');
+        expect(readRow(rows[1], columns)[id('Was Price')]).toBeUndefined();
+    });
+
+    it('reads a later page with the same column IDs, including rows with an extra badge', () => {
+        const { columns } = inferFields(rowsOf(listing));
+        const page2 = rowsOf(`<ul>
+            ${card({ title: 'Pendant', price: '80.00', badge: 'New', brand: 'Acme' })}
+            ${card({ title: 'Spot', price: '9.99' })}
+        </ul>`);
+        const rows = page2.map(r => readRow(r, columns));
+        const id = (n: string) => columns.find(c => c.name === n)!.id;
+        expect(rows[0]).toMatchObject({ [id('Title')]: 'Pendant', [id('Badge')]: 'New', [id('Brand')]: 'Acme', [id('Price')]: '$80.00' });
+        expect(rows[1]).toMatchObject({ [id('Title')]: 'Spot', [id('Price')]: '$9.99' });
+        const known = new Set(columns.map(c => c.id));
+        rows.forEach(r => Object.keys(r).forEach(k => expect(known.has(k)).toBe(true)));
+    });
+
+    it('splits same-class siblings into slots by shape, even when one is missing', () => {
+        const people = [
+            ['Nitin K', 'Senior Engineer', '4.5 out of 5 stars'],
+            ['Ronit S', 'Recruiter', '4.0 out of 5 stars'],
+            ['Asha P', 'Designer', '3.5 out of 5 stars'],
+        ];
+        const rows = rowsOf(`<div>${people.map(p => `<div class="card"><div class="x9f"><p class="t">${p[0]}</p><p class="t">${p[1]}</p><p class="t">${p[2]}</p></div></div>`).join('')}
+            <div class="card"><div class="x9f"><p class="t">Mia L</p><p class="t">2.0 out of 5 stars</p></div></div></div>`);
+        const { columns } = inferFields(rows);
+        expect(columns).toHaveLength(3);
+        const rating = columns.find(c => c.name === 'Rating')!;
+        expect(rating).toBeTruthy();
+        const last = readRow(rows[3], columns);
+        expect(last[rating.id]).toBe('2.0 out of 5 stars');
+        expect(Object.values(last)).toEqual(expect.arrayContaining(['Mia L']));
+        expect(Object.values(last)).toHaveLength(2);
+    });
+
+    it('collects a gallery as one image list', () => {
+        const rows = rowsOf(`<div>${[1, 2, 3].map(i => `<div class="card"><h2>Item ${i}</h2><div class="gallery"><img src="/a${i}.jpg"><img src="/b${i}.jpg"></div></div>`).join('')}</div>`);
+        const { columns } = inferFields(rows);
+        const images = columns.find(c => c.type === 'image_array')!;
+        expect(images.name).toBe('Images');
+        expect(JSON.parse(readRow(rows[0], columns)[images.id])).toHaveLength(2);
+    });
+
+    it('names from itemprop and dt/dd', () => {
+        const rows = rowsOf(`<div>${[1, 2].map(i => `<div class="card"><span itemprop="name">N${i}</span><span itemprop="sku">S-${i}</span></div>`).join('')}</div>`);
+        expect(inferFields(rows).columns.map(c => c.name)).toEqual(['Name', 'Sku']);
+        const defs = rowsOf(`<dl>${[1, 2, 3].map(i => `<div class="card"><dt>Key ${i}</dt><dd>Val ${i}</dd></div>`).join('')}</dl>`);
+        expect(inferFields(defs).columns.map(c => c.name)).toEqual(['Label', 'Value']);
+    });
+
+    it('reports identical rows', () => {
+        const rows = rowsOf(`<div>${'<div class="card"><span class="a">Same</span><span class="b">Thing</span></div>'.repeat(3)}</div>`);
+        expect(inferFields(rows).problems.join(' ')).toMatch(/identical/);
+    });
+});

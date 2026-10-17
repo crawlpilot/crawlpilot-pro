@@ -344,7 +344,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                             ref={tableRef}
                             columns={tableData.columns}
                             rows={rows}
-                            defaultHideMostlyEmptyColumns={tableData?.metadata?.extractionType !== 'bulk-page'}
+                            defaultHideMostlyEmptyColumns={false}
                             initialMergedCols={tableData.metadata?.columnMerges}
                             initialTypedCols={tableData.metadata?.columnTypes}
                             onTypedColumnsChanged={handleTypedColumnsChanged}

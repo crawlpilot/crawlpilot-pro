@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/shared/db/db-manager';
 import { NEW_TABLE_NAMES, TableData, TableRow, Job, AutomationRecipe } from '@/shared/types/database';
-import { TableUnifier } from '@/shared/utils/TableUnifier';
 
 const ROW_PAGE_LIMIT = 2000;
 
@@ -30,12 +29,8 @@ export function useTableData(tableDataId?: number | null) {
                 db.getTableRowsPage(id, 0, ROW_PAGE_LIMIT),
             ]);
 
-            let tableRows = pageRows;
-            if (data && data.columns && tableRows) {
-                const unified = TableUnifier.unifyTableData(data.columns, tableRows);
-                data.columns = unified.columns;
-                tableRows = unified.rows;
-            }
+            // Columns are final when saved (one per field), so rows load as they are.
+            const tableRows = pageRows;
 
             setTableData(data);
             setRows(tableRows);

@@ -4,8 +4,7 @@ import { PaginationAction } from '../features/pagination/PaginationAction';
 import { MessageClient } from './bus/MessageClient';
 import { ListSelectionStrategy } from '../features/picker/strategies/ListSelectionStrategy';
 import { SingleSelectionStrategy } from '../features/picker/strategies/SingleSelectionStrategy';
-import { SchemaGenerator } from '../services/extraction/SchemaGenerator';
-import { DataExtractor } from '../services/extraction/DataExtractor';
+import { hasReaders, inferFields, readRow, similarSiblings, ReaderColumn } from '../services/extraction/fieldSchema';
 import { PageExtractor } from '../services/page/PageExtractor';
 import { DetailSelectionStrategy } from '../features/picker/strategies/DetailSelectionStrategy';
 import { ImageScanner } from '../features/universal-images/ImageScanner';
@@ -32,8 +31,9 @@ export class ContentScriptController {
     private labPicker = new LabPicker();
 
     private messageClient: MessageClient;
-    private schemaGenerator = new SchemaGenerator();
-    private extractor = new DataExtractor();
+    /** The list's frozen fields for the running auto-scroll (from the preview, or inferred once). */
+    private scrollColumns: ReaderColumn[] | null = null;
+    private sentPaginationColumns: unknown = null;
     private pageExtractor = new PageExtractor();
     private selectionHighlightManager = new SelectionHighlightManager();
 
@@ -434,8 +434,9 @@ export class ContentScriptController {
     }
 
     private async startAutoScroll(payload: any) {
-        const { selector, selectors, selectorType, selectionMode, containerSelector, containerSelectors, enableInfiniteScroll, loadMoreSelector, loadMoreSelectorType, scrollDelay, contentLoadDelay } = payload;
+        const { selector, selectors, selectorType, selectionMode, containerSelector, containerSelectors, enableInfiniteScroll, loadMoreSelector, loadMoreSelectorType, scrollDelay, contentLoadDelay, columns } = payload;
         this.stopAutoScroll();
+        this.scrollColumns = hasReaders(columns) ? columns : null;
 
         this.autoScrollAbortController = new AbortController();
         const signal = this.autoScrollAbortController.signal;
@@ -478,6 +479,13 @@ export class ContentScriptController {
             contentLoadDelay: contentLoadDelay || 2500,
             maxNoChanges: 5,
             scrollCallback: async (info: any) => {
+                if (!this.scrollColumns && info.element) {
+                    // No saved fields: infer them once from the rows loaded now, then freeze them.
+                    let sample: Element[] = [];
+                    try { sample = effectiveSelector ? Array.from((rootElement || document).querySelectorAll(effectiveSelector)) : []; } catch { /* bad selector */ }
+                    if (sample.length < 2) sample = similarSiblings(info.element);
+                    this.scrollColumns = inferFields(sample).columns;
+                }
                 await this.processScrollItem(info, effectiveSelector, selectorType, selectionMode, processedHashes, results);
             }
         };
@@ -509,7 +517,7 @@ export class ContentScriptController {
             const element = info.element;
 
             if (element) {
-                const rowData = this.extractor.extractRow(element);
+                const rowData = readRow(element, this.scrollColumns ?? []);
                 const contentHash = this.generateRowHash(rowData);
 
                 if (processedHashes.has(contentHash)) return;
@@ -595,19 +603,17 @@ export class ContentScriptController {
         // Flush any remaining buffered updates
         this.flushScrollUpdates(results.length);
 
-        const schemaResult = this.schemaGenerator.generateSchema(results);
-        const normalizedResults = results.map(row => {
-            return this.extractor.normalizeRow(row, schemaResult.columns);
-        });
-
+        // Rows were read with the frozen fields as they scrolled in: nothing to re-infer here.
         this.messageClient.send({
             type: 'AUTO_SCROLL_COMPLETE',
-            payload: { success: true, items: normalizedResults, columns: schemaResult.columns }
+            payload: { success: true, items: results, columns: this.scrollColumns ?? [] }
         });
+        this.scrollColumns = null;
     }
 
     private async startPagination(payload: any) {
-        const { startSelector, startSelectors, nextButtonSelector, nextButtonSelectors, itemSelector, itemSelectors, maxPages, resumeState, mode } = payload;
+        const { startSelector, startSelectors, nextButtonSelector, nextButtonSelectors, itemSelector, itemSelectors, maxPages, resumeState, mode, columns } = payload;
+        this.sentPaginationColumns = null;
         this.stopPagination();
 
         this.paginationAbortController = new AbortController();
@@ -632,7 +638,8 @@ export class ContentScriptController {
             itemSelectors,
             maxPages,
             resumeState,
-            mode
+            mode,
+            columns: hasReaders(columns) ? columns : undefined
         };
 
         this.pagination = new PaginationAction(config);
@@ -647,7 +654,10 @@ export class ContentScriptController {
 
     private handlePaginationProgress(progress: any) {
         if (progress.type === 'data') {
-            this.messageClient.send({ type: 'PAGINATION_UPDATE', payload: { items: progress.items, page: progress.page, total: progress.cumulativeTotal } });
+            // The fields go to the side panel once (they are frozen for the run), so it saves them as the columns.
+            const columns = progress.columns && progress.columns !== this.sentPaginationColumns ? progress.columns : undefined;
+            if (columns) this.sentPaginationColumns = columns;
+            this.messageClient.send({ type: 'PAGINATION_UPDATE', payload: { items: progress.items, page: progress.page, total: progress.cumulativeTotal, columns } });
         } else if (progress.type === 'complete') {
             this.messageClient.send({ type: 'PAGINATION_COMPLETE', payload: { success: true, reason: progress.reason } });
             this.pagination = null;

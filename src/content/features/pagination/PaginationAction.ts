@@ -1,5 +1,4 @@
-import { SchemaGenerator } from '../../services/extraction/SchemaGenerator';
-import { DataExtractor } from '../../services/extraction/DataExtractor';
+import { hasReaders, inferFields, readRow, similarSiblings, ReaderColumn } from '../../services/extraction/fieldSchema';
 import { NextButtonSelector } from '../../services/dom/selectors/NextButtonSelector';
 import { SelectorMetadata } from '../../../shared/types/extraction';
 import { BaseAction, ActionContext } from '../../core/BaseAction';
@@ -29,6 +28,12 @@ export interface PaginationConfig {
     pageLoadDelay?: number;
     urlChangeTimeout?: number;
     scrollDelay?: number;
+    /**
+     * The list's fields (columns with readers). Taken from the preview when it has them, otherwise
+     * inferred once on the first page. Kept on the config, so the saved resume state carries them
+     * across page loads and every page is read with the same fields.
+     */
+    columns?: ReaderColumn[];
 }
 
 /**
@@ -36,15 +41,11 @@ export interface PaginationConfig {
  * Roles: Navigation across pages.
  */
 export class PaginationAction extends BaseAction {
-    private extractor: DataExtractor;
-    private schemaGenerator: SchemaGenerator;
     private visitedUrls: Set<string>;
     private lastPageHash: string | null = null;
 
     constructor(private config: PaginationConfig) {
         super();
-        this.extractor = new DataExtractor();
-        this.schemaGenerator = new SchemaGenerator();
         this.visitedUrls = new Set();
     }
 
@@ -227,6 +228,16 @@ export class PaginationAction extends BaseAction {
         };
     }
 
+    /** The frozen fields: the preview's, or inferred once from the first page's rows. */
+    private fieldsFor(row: Element, container: Element, itemSelector?: string): ReaderColumn[] {
+        if (hasReaders(this.config.columns)) return this.config.columns;
+        let sample: Element[] = [];
+        try { sample = itemSelector ? Array.from(container.querySelectorAll(itemSelector)) : Array.from(container.children); } catch { /* bad selector */ }
+        if (sample.length < 2) sample = similarSiblings(row);
+        this.config.columns = inferFields(sample).columns;
+        return this.config.columns;
+    }
+
     private initializeState() {
         const { resumeState } = this.config;
         return {
@@ -298,13 +309,10 @@ export class PaginationAction extends BaseAction {
                 const { element, scrolledToIndex } = info;
                 if (!element || processedInPage.has(scrolledToIndex)) return;
 
-                const rowData = this.extractor.extractRow(element);
-                if (rowData && Object.keys(rowData).length > 0) {
+                const columns = this.fieldsFor(element, container, resolvedItemSelector);
+                const normalizedItem = readRow(element, columns);
+                if (Object.keys(normalizedItem).length > 0) {
                     processedInPage.add(scrolledToIndex);
-
-                    // Normalize Data using unified method
-                    const schemaRes = this.schemaGenerator.generateSchema([rowData]);
-                    const normalizedItem = this.extractor.normalizeRow(rowData, schemaRes.columns);
 
                     pageItems.push(normalizedItem);
                     this.highlightProcessedElement(element);
@@ -317,6 +325,7 @@ export class PaginationAction extends BaseAction {
                     this.context?.onProgress?.({
                         type: 'data',
                         items: [normalizedItem],
+                        columns,
                         page: pageCount,
                         cumulativeTotal: mode !== 'loadMore' ? newTotal : pageItems.length
                     });

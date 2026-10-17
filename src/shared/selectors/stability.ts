@@ -60,6 +60,14 @@ export function isUnstableClass(c: string): boolean {
     if (/^(a-(size|spacing|color|text|font)-|aok-|d-(none|block|flex|inline|grid|table|contents)$)/.test(c)) return true;
     // Design system namespace prefixes (e.g. zds-layout-desktop, mds-grid-main)
     if (/^[a-z]{2,4}-(layout|container|wrapper|main|content|page|section|view|header|footer|sidebar|panel|grid)/.test(c)) return true;
+    // Tachyons-style atomic utilities (Walmart and others): ma0, mr2-xl, ph1, f6, lh-title,
+    // nearer-mid-gray, ws-normal, dib, tc, br-pill.
+    if (/^([mp][atrblhv]?|n[atrblhv])\d(-(ns|m|l|xl))?$/.test(c)) return true;
+    if (/^f[1-7](-(ns|m|l|xl))?$|^f-(headline|subheadline|title|\d)/.test(c)) return true;
+    if (/^lh-(solid|title|copy)/.test(c)) return true;
+    if (/^[hw][1-5](-(ns|m|l|xl))?$/.test(c)) return true;
+    if (/^(near-|nearer-|mid-|dark-|light-|lightest-|moon-)*(black|white|gray|grey|silver|red|blue|green|yellow|orange|purple|pink|navy)(-\d+)?$/.test(c)) return true;
+    if (/^(b|i|tc|tl|tr|tj|ttu|ttc|ttl|underline|no-underline|ws-normal|nowrap|pre|dib|db|dn|di|dtc|fl|fr|fn|cf|bn|ba|bb|bt|bl|tracked|measure|br-pill|br-100|br\d|bw\d|o-\d+|z-\d+|v-(top|mid|btm|base)|ov-[a-z]+|pa|ma)(-(ns|m|l|xl))?$/.test(c)) return true;
     // Responsive/variant suffixes (e.g. product-detail-view-std, card-desktop, layout-compact)
     if (/-(desktop|mobile|tablet|std|alt|wide|narrow|full|compact|primary|secondary|small|large)(-|$)/.test(c)) return true;
     return false;
@@ -83,6 +91,8 @@ export function isHashClass(c: string): boolean {
     // CSS modules: Button__root___1a2b3
     if (/^[A-Za-z0-9]+__[A-Za-z0-9]+___[A-Za-z0-9_-]{5}$/.test(c)) return true;
     const hasDigit = /\d/.test(c);
+    // Short-prefix module hashes: ld_Ec, w_iUH7, ld_AY (lowercase snake_case names never match).
+    if (/^[a-z]{1,4}_[A-Za-z0-9]{2,6}$/.test(c) && /_[A-Za-z0-9]*[A-Z0-9]/.test(c)) return true;
     // CSS modules short form: price_x7f2a. Requires a digit so snake_case names
     // (product_title, card_image) are never mistaken for hashes.
     if (hasDigit && /^[a-z][A-Za-z]+_[a-z0-9]{5,8}$/.test(c)) return true;
