@@ -139,6 +139,14 @@ describe('inferFields', () => {
         expect(unmappedCount(plain, columns)).toBe(0);
     });
 
+    it('reads only its kind of value after a split', () => {
+        const rows = rowsOf(`<div>${['$5.00', 'Free shipping', '$7.50'].map(m => `<div class="card"><h3>T ${m}</h3><span class="meta">${m}</span></div>`).join('')}</div>`);
+        const meta = inferFields(rows).columns.find(c => c.reader!.chain[0].includes('.meta'))!;
+        const priceOnly = { ...meta, id: 'p', reader: { ...meta.reader!, onlyShape: 'price' as const } };
+        expect(readRow(rows[0], [priceOnly])).toEqual({ p: '$5.00' });
+        expect(readRow(rows[1], [priceOnly])).toEqual({});
+    });
+
     it('reports identical rows', () => {
         const rows = rowsOf(`<div>${'<div class="card"><span class="a">Same</span><span class="b">Thing</span></div>'.repeat(3)}</div>`);
         expect(inferFields(rows).problems.join(' ')).toMatch(/identical/);

@@ -9,11 +9,14 @@
  * need nothing new, and each row still comes from what the page shows.
  */
 import { shapeOf } from './atoms';
+import { requestNetEntries } from '../../features/network/NetworkRelay';
 
 export type JsonPath = (string | number)[];
 
+export type SourceKind = 'ld' | 'json' | 'state' | 'api';
+
 export interface JsonSpec {
-    kind: 'ld' | 'json';
+    kind: SourceKind;
     /** Where the array is, inside one source. */
     path: JsonPath;
     /** Dotted path, inside an item, of the value that identifies the item in its DOM row. */
@@ -24,7 +27,7 @@ export interface JsonSpec {
 }
 
 export interface StructuredSource {
-    kind: 'ld' | 'json';
+    kind: SourceKind;
     label: string;
     path: JsonPath;
     anchor: string;
@@ -40,7 +43,7 @@ const SKIP_KEYS = new Set(['@context', '@type', '@id', 'position', '__typename']
 
 // ------------------------------------------------------------------------------------- sources
 
-interface Source { kind: 'ld' | 'json'; label: string; data: unknown }
+interface Source { kind: SourceKind; label: string; data: unknown }
 
 function parse(text: string): unknown {
     try { return JSON.parse(text.trim()); } catch { return undefined; }
@@ -48,21 +51,92 @@ function parse(text: string): unknown {
 
 let cache: { stamp: string; sources: Source[] } | null = null;
 
-/** The page's JSON sources, parsed once per change of the page's data scripts. */
+const STATE_ASSIGN = /(?:window\.)?(__[A-Z0-9_]+__|__remixContext|__APOLLO_STATE__)\s*=\s*/g;
+
+/**
+ * The JSON value that starts at `start` in script text (`window.__STATE__ = {…};`): scans to the
+ * matching bracket, skipping strings, then parses. Undefined when it isn't plain JSON.
+ */
+export function jsonValueAt(text: string, start: number): unknown {
+    const open = text[start];
+    if (open !== '{' && open !== '[') return undefined;
+    let depth = 0;
+    let inString = false;
+    for (let i = start; i < text.length; i++) {
+        const ch = text[i];
+        if (inString) {
+            if (ch === '\\') i++;
+            else if (ch === '"') inString = false;
+            continue;
+        }
+        if (ch === '"') inString = true;
+        else if (ch === '{' || ch === '[') depth++;
+        else if (ch === '}' || ch === ']') {
+            depth--;
+            if (depth === 0) return parse(text.slice(start, i + 1));
+        }
+    }
+    return undefined;
+}
+
+/** The page's JSON sources (JSON-LD, JSON scripts, inline state), parsed once per change of its scripts. */
 export function pageSources(doc: Document = document): Source[] {
-    const scripts = Array.from(doc.querySelectorAll('script[type="application/ld+json"], script[type="application/json"], script#__NEXT_DATA__'));
+    const scripts = Array.from(doc.querySelectorAll('script:not([src])'));
     const stamp = scripts.map(s => (s.textContent || '').length).join(',');
-    if (cache && cache.stamp === stamp) return cache.sources;
+    if (cache && cache.stamp === stamp) return [...cache.sources, ...netSources];
     const sources: Source[] = [];
     for (const s of scripts) {
         const text = s.textContent || '';
-        const isLd = s.getAttribute('type') === 'application/ld+json';
-        if (!isLd && text.length < 200) continue; // config flags, not data
-        const data = parse(text);
-        if (data !== undefined) sources.push({ kind: isLd ? 'ld' : 'json', label: isLd ? 'JSON-LD' : (s.id || 'JSON script'), data });
+        const type = (s.getAttribute('type') || '').toLowerCase();
+        if (type === 'application/ld+json') {
+            const data = parse(text);
+            if (data !== undefined) sources.push({ kind: 'ld', label: 'JSON-LD', data });
+        } else if (type === 'application/json' || s.id === '__NEXT_DATA__') {
+            if (text.length < 200) continue; // config flags, not data
+            const data = parse(text);
+            if (data !== undefined) sources.push({ kind: 'json', label: s.id || 'JSON script', data });
+        } else if ((!type || type === 'text/javascript' || type === 'module') && text.length >= 200) {
+            STATE_ASSIGN.lastIndex = 0;
+            let m: RegExpExecArray | null;
+            while ((m = STATE_ASSIGN.exec(text))) {
+                const data = jsonValueAt(text, m.index + m[0].length);
+                if (data !== undefined) sources.push({ kind: 'state', label: m[1], data });
+            }
+        }
     }
     cache = { stamp, sources };
-    return sources;
+    return [...sources, ...netSources];
+}
+
+// API responses recorded by the API Finder hook (when it is on). Newest first, so a run reads the
+// response of the page it is on.
+let netSources: Source[] = [];
+let netRefreshedAt = 0;
+const MAX_NET_SOURCES = 40;
+
+/** `timeoutMs`: how long to wait for the hook, which only answers when the API Finder recording is on. */
+export async function refreshNetSources(timeoutMs = 1500): Promise<void> {
+    netRefreshedAt = Date.now();
+    const { installed, entries } = await requestNetEntries(timeoutMs);
+    if (!installed) return;
+    const fresh: Source[] = [];
+    for (const e of [...entries].sort((a, b) => b.seq - a.seq)) {
+        const text = (e.responseText || '').trim();
+        if (!text || (text[0] !== '{' && text[0] !== '[')) continue;
+        const data = parse(text);
+        if (data === undefined) continue;
+        let label = e.url;
+        try { label = new URL(e.url).pathname; } catch { /* keep the raw url */ }
+        fresh.push({ kind: 'api', label: `API ${label}`, data });
+        if (fresh.length >= MAX_NET_SOURCES) break;
+    }
+    netSources = fresh;
+}
+
+/** Refreshes recorded API responses before reading rows, when a field reads them (at most every 800 ms). */
+export async function refreshNetSourcesFor(columns: { reader?: { json?: JsonSpec; alternates?: { json?: JsonSpec }[] } }[] | null | undefined): Promise<void> {
+    const usesApi = (columns ?? []).some(c => c.reader?.json?.kind === 'api' || c.reader?.alternates?.some(a => a.json?.kind === 'api'));
+    if (usesApi && Date.now() - netRefreshedAt > 800) await refreshNetSources();
 }
 
 function at(data: unknown, path: JsonPath): unknown {
@@ -153,29 +227,32 @@ function itemIndex(items: Record<string, unknown>[], anchor: string, isUrl: bool
     return idx;
 }
 
-function findArray(kind: 'ld' | 'json', path: JsonPath): Record<string, unknown>[] | undefined {
+/** Every array at `path` in sources of `kind` (API responses: one per page fetched). */
+function findArrays(kind: SourceKind, path: JsonPath): Record<string, unknown>[][] {
+    const out: Record<string, unknown>[][] = [];
     for (const s of pageSources()) {
         if (s.kind !== kind) continue;
         const v = at(s.data, path);
-        if (Array.isArray(v)) return v as Record<string, unknown>[];
+        if (Array.isArray(v)) out.push(v as Record<string, unknown>[]);
     }
-    return undefined;
+    return out;
 }
 
 /** The JSON item behind a DOM row, if any. */
 function itemFor(row: Element, spec: Pick<JsonSpec, 'kind' | 'path' | 'anchor' | 'anchorIsUrl'>): Record<string, unknown> | undefined {
-    const items = findArray(spec.kind, spec.path);
-    if (!items) return undefined;
-    const idx = itemIndex(items, spec.anchor, spec.anchorIsUrl);
     const p = probe(row);
-    if (spec.anchorIsUrl) {
-        for (const u of p.urls) { const hit = idx.get(u); if (hit) return hit; }
-        return undefined;
+    for (const items of findArrays(spec.kind, spec.path)) {
+        const idx = itemIndex(items, spec.anchor, spec.anchorIsUrl);
+        if (spec.anchorIsUrl) {
+            for (const u of p.urls) { const hit = idx.get(u); if (hit) return hit; }
+            continue;
+        }
+        let best: Record<string, unknown> | undefined;
+        let bestLen = 0;
+        idx.forEach((item, key) => { if (key.length > bestLen && p.text.includes(key)) { best = item; bestLen = key.length; } });
+        if (best) return best;
     }
-    let best: Record<string, unknown> | undefined;
-    let bestLen = 0;
-    idx.forEach((item, key) => { if (key.length > bestLen && p.text.includes(key)) { best = item; bestLen = key.length; } });
-    return best;
+    return undefined;
 }
 
 export function readJsonField(row: Element, spec: JsonSpec): string | undefined {

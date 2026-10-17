@@ -4,6 +4,7 @@ import { PaginationAction } from '../features/pagination/PaginationAction';
 import { MessageClient } from './bus/MessageClient';
 import { ListSelectionStrategy } from '../features/picker/strategies/ListSelectionStrategy';
 import { SingleSelectionStrategy } from '../features/picker/strategies/SingleSelectionStrategy';
+import { refreshNetSourcesFor } from '../services/extraction/structuredRows';
 import { hasReaders, inferFields, readRow, similarSiblings, ReaderColumn } from '../services/extraction/fieldSchema';
 import { PageExtractor } from '../services/page/PageExtractor';
 import { buildPageRecord } from '../services/page/processors/columnHelpers';
@@ -463,6 +464,7 @@ export class ContentScriptController {
                     if (sample.length < 2) sample = similarSiblings(info.element);
                     this.scrollColumns = inferFields(sample).columns;
                 }
+                await refreshNetSourcesFor(this.scrollColumns);
                 await this.processScrollItem(info, effectiveSelector, selectorType, selectionMode, processedHashes, results);
             }
         };

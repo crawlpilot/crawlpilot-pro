@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { findStructuredSource } from './structuredRows';
+import { describe, it, expect, vi } from 'vitest';
+import { findStructuredSource, jsonValueAt, refreshNetSources } from './structuredRows';
+
+const net = vi.hoisted(() => ({ entries: [] as any[] }));
+vi.mock('../../features/network/NetworkRelay', () => ({
+    requestNetEntries: async () => ({ installed: true, entries: net.entries }),
+}));
 import { readRow, structuredColumns } from './fieldSchema';
 import { DataExtractor } from './DataExtractor';
 
@@ -58,5 +63,42 @@ describe('structured data first', () => {
         document.head.innerHTML = `<script type="application/ld+json">${JSON.stringify({ '@type': 'Organization', name: 'Shop' })}</script>`;
         document.body.innerHTML = '<ul><li class="c">A item</li><li class="c">B item</li></ul>';
         expect(findStructuredSource(Array.from(document.querySelectorAll('.c')))).toBeNull();
+    });
+});
+
+describe('more sources', () => {
+    const cards = (names: string[]) => {
+        document.body.innerHTML = `<ul>${names.map(n => `<li class="card"><a href="/item/${n.toLowerCase()}">${n}</a></li>`).join('')}</ul>`;
+        return Array.from(document.querySelectorAll('.card'));
+    };
+
+    it('scans inline JSON values, strings with brackets included', () => {
+        const text = 'window.__STATE__ = {"a":"x}]","b":[1,{"c":2}]}; window.other = 1;';
+        expect(jsonValueAt(text, text.indexOf('{'))).toEqual({ a: 'x}]', b: [1, { c: 2 }] });
+        expect(jsonValueAt('= notjson', 2)).toBeUndefined();
+    });
+
+    it('reads inline window state', async () => {
+        net.entries = [];
+        await refreshNetSources();
+        const state = { search: { results: ['Alpha', 'Bravo', 'Charlie'].map((n, i) => ({ title: n, link: `/item/${n.toLowerCase()}`, stock: 10 + i })) }, pad: 'x'.repeat(300) };
+        document.head.innerHTML = `<base href="https://shop.test/"><script>window.__INITIAL_STATE__ = ${JSON.stringify(state)};</script>`;
+        const src = findStructuredSource(cards(['Alpha', 'Bravo', 'Charlie']))!;
+        expect(src.kind).toBe('state');
+        expect(src.label).toBe('__INITIAL_STATE__');
+        expect(src.fields.map(f => f.name)).toEqual(expect.arrayContaining(['Title', 'Link', 'Stock']));
+    });
+
+    it('reads recorded API responses, newest first', async () => {
+        document.head.innerHTML = '<base href="https://shop.test/">';
+        net.entries = [{ seq: 1, url: 'https://shop.test/api/search?page=1', responseText: JSON.stringify({ data: { items: ['Delta', 'Echo', 'Fox'].map(n => ({ name: n, href: `/item/${n.toLowerCase()}`, sold: 5 })) } }) }];
+        await refreshNetSources();
+        const rows = cards(['Delta', 'Echo', 'Fox']);
+        const src = findStructuredSource(rows)!;
+        expect(src.kind).toBe('api');
+        const cols = structuredColumns(src);
+        expect(readRow(rows[1], cols)[cols.find(c => c.name === 'Name')!.id]).toBe('Echo');
+        net.entries = [];
+        await refreshNetSources();
     });
 });

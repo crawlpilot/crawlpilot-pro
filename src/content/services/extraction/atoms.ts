@@ -5,11 +5,13 @@
  * separate. The same reading is used when the fields are inferred and on every run (`readRow`), so
  * inference and runs can never disagree about what a value is.
  */
-import { detectType } from '../../../shared/transforms/detect';
+import { shapeOf, Shape } from '../../../shared/extraction/shape';
+
+export { shapeOf };
+export type { Shape };
 import { nodeStep } from './nodeName';
 
 export type AtomAttr = 'text' | 'own' | 'cell' | 'href' | 'src' | 'aria-label' | 'title' | 'datetime';
-export type Shape = 'text' | 'price' | 'rating' | 'count' | 'number' | 'date' | 'url' | 'image';
 
 export interface Atom {
     el: Element;
@@ -236,31 +238,6 @@ export function collectAtoms(row: Element): Atom[] {
 
     walk(row, []);
     return atoms;
-}
-
-const SHAPE_CACHE = new Map<string, Shape>();
-
-/** The kind of value an atom holds, used to align repeated nodes and to name and type fields. */
-export function shapeOf(value: string, attr: AtomAttr): Shape {
-    if (attr === 'src') return 'image';
-    if (attr === 'href') return 'url';
-    if (attr === 'datetime') return 'date';
-    if (value.length > 80) return 'text';
-    const cached = SHAPE_CACHE.get(value);
-    if (cached) return cached;
-    let shape: Shape;
-    switch (detectType([value]).type) {
-        case 'money': shape = 'price'; break;
-        case 'rating': shape = 'rating'; break;
-        case 'count': shape = 'count'; break;
-        case 'integer': case 'number': case 'percent': shape = 'number'; break;
-        case 'date': shape = 'date'; break;
-        case 'url': shape = 'url'; break;
-        default: shape = 'text';
-    }
-    if (SHAPE_CACHE.size > 5000) SHAPE_CACHE.clear();
-    SHAPE_CACHE.set(value, shape);
-    return shape;
 }
 
 /**

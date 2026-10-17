@@ -1,3 +1,4 @@
+import { refreshNetSourcesFor } from '../../services/extraction/structuredRows';
 import { hasReaders, inferFields, readRow, similarSiblings, unmappedCount, ReaderColumn } from '../../services/extraction/fieldSchema';
 import { NextButtonSelector } from '../../services/dom/selectors/NextButtonSelector';
 import { SelectorMetadata } from '../../../shared/types/extraction';
@@ -310,6 +311,7 @@ export class PaginationAction extends BaseAction {
                 if (!element || processedInPage.has(scrolledToIndex)) return;
 
                 const columns = this.fieldsFor(element, container, resolvedItemSelector);
+                await refreshNetSourcesFor(columns);
                 const normalizedItem = readRow(element, columns);
                 if (Object.keys(normalizedItem).length > 0) {
                     processedInPage.add(scrolledToIndex);

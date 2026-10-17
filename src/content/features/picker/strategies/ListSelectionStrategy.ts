@@ -2,6 +2,7 @@ import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { ContainerDetector } from '../ContainerDetector';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
+import { refreshNetSources } from '../../../services/extraction/structuredRows';
 import { ItemSelectorRefiner } from '../ItemSelectorRefiner';
 import { generateCssSelector, generateXPath, generateRobustSelectors } from '../../../services/dom/domUtils';
 import { CommonSelectorGenerator } from '../../../services/dom/selectors/CommonSelectorGenerator';
@@ -61,6 +62,12 @@ export class ListSelectionStrategy implements ISelectionStrategy {
     }
 
     handleClick(element: HTMLElement, picker: VisualElementPicker, sendResponse: (msg: any) => void): void {
+        // Recorded API responses (when the API Finder is recording) can back the list's fields:
+        // fetch them first, briefly, so the pick can offer them.
+        void refreshNetSources(300).catch(() => undefined).then(() => this.select(element, picker, sendResponse));
+    }
+
+    private select(element: HTMLElement, picker: VisualElementPicker, sendResponse: (msg: any) => void): void {
         const containerInfo = this.lastContainerInfo || this.detector.findContainer(element);
         const targetItem = this.lastItemUnit || element;
 

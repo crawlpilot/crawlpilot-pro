@@ -4,6 +4,7 @@
  * itself reads one column per field and nothing has to be merged in the data table. The preview
  * rows are updated the same way so what the user sees matches what the run will produce.
  */
+import { shapeOf, Shape } from './shape';
 
 export interface EditableColumn {
     id: string;
@@ -70,4 +71,49 @@ export function joinFields<T extends FieldData>(data: T, intoId: string, fromId:
 export function fieldFill(data: FieldData, id: string): number {
     if (data.items.length === 0) return 0;
     return data.items.filter(i => filled(i[id])).length / data.items.length;
+}
+
+const SHAPE_LABELS: Record<Shape, string> = {
+    text: 'text', price: 'price', rating: 'rating', count: 'count', number: 'number', date: 'date', url: 'link', image: 'image',
+};
+const SHAPE_TYPES: Record<Shape, string> = {
+    text: 'text', price: 'price', rating: 'number', count: 'number', number: 'number', date: 'date', url: 'url', image: 'image',
+};
+
+/** The kinds of value a field's preview rows hold, most common first. */
+export function fieldShapes(data: FieldData, id: string): Shape[] {
+    const counts = new Map<Shape, number>();
+    for (const item of data.items) {
+        const v = item[id];
+        if (!filled(v)) continue;
+        const s = shapeOf(String(v));
+        counts.set(s, (counts.get(s) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([s]) => s);
+}
+
+/**
+ * Splits a field that mixes kinds of value (a price in some rows, a label in others) into one field
+ * per kind: each reads the same nodes but keeps only values of its kind.
+ */
+export function splitField<T extends FieldData>(data: T, id: string): T {
+    const col = data.columns.find(c => c.id === id);
+    const shapes = fieldShapes(data, id);
+    if (!col || shapes.length < 2) return data;
+    const parts = shapes.map(shape => ({
+        ...col,
+        id: `${id}_${shape}`,
+        originalId: `${id}_${shape}`,
+        name: `${col.name} (${SHAPE_LABELS[shape]})`,
+        type: SHAPE_TYPES[shape],
+        ...(col.reader ? { reader: { ...col.reader, onlyShape: shape } } : {}),
+    }));
+    const at = data.columns.indexOf(col);
+    const columns = [...data.columns.slice(0, at), ...parts, ...data.columns.slice(at + 1)];
+    const items = data.items.map(item => {
+        if (!filled(item[id])) return item;
+        const { [id]: value, ...rest } = item;
+        return { ...rest, [`${id}_${shapeOf(String(value))}`]: value };
+    });
+    return { ...data, columns, items };
 }

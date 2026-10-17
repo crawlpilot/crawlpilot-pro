@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, Box, Button, Chip, IconButton, LinearProgress, Menu, MenuItem, TextField, Tooltip, Typography } from '@mui/material';
-import { Combine, X } from 'lucide-react';
-import { dropField, fieldFill, FieldData, joinFields, renameField, retypeField } from '../../../shared/extraction/fieldEdits';
+import { Combine, Split, X } from 'lucide-react';
+import { dropField, fieldFill, fieldShapes, FieldData, joinFields, renameField, retypeField, splitField } from '../../../shared/extraction/fieldEdits';
 
 interface PageData {
     label: string;
@@ -119,6 +119,13 @@ export function FieldEditor({ data, onChange }: Props) {
                                     <LinearProgress variant="determinate" value={fill * 100} color={low ? 'warning' : 'success'} sx={{ height: 4, borderRadius: 2 }} />
                                 </Box>
                             </Tooltip>
+                            {fieldShapes(data, col.id).length > 1 && (
+                                <Tooltip title={`Split by kind of value (${fieldShapes(data, col.id).join(', ')})`}>
+                                    <IconButton size="small" onClick={() => onChange(splitField(data, col.id))}>
+                                        <Split size={13} />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
                             <Tooltip title="Join into another field (same thing in a different card layout)">
                                 <span>
                                     <IconButton size="small" disabled={columns.length < 2} onClick={e => setJoinMenu({ anchor: e.currentTarget, id: col.id })}>

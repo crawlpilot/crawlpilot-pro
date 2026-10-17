@@ -27,6 +27,8 @@ export interface FieldReader {
     /** Every match is a value: images → JSON array, links → JSON array, text → joined. */
     many?: boolean;
     shape: Shape;
+    /** Keep only values of this shape (a field the user split by kind of value). */
+    onlyShape?: Shape;
     /** Read from the page's JSON item behind the row instead of the DOM (structured data first). */
     json?: JsonSpec;
     /** Readers tried in order when this one finds nothing (fields the user joined into this one). */
@@ -61,31 +63,37 @@ function query(row: Element, selector: string): Element[] {
 }
 
 function readField(row: Element, r: FieldReader): string | undefined {
-    const main = readOne(row, r);
+    const main = readOne(row, r, r.onlyShape);
     if (main !== undefined || !r.alternates) return main;
     for (const alt of r.alternates) {
-        const v = readOne(row, alt);
+        const v = readOne(row, alt, r.onlyShape);
         if (v !== undefined) return v;
     }
     return undefined;
 }
 
-function readOne(row: Element, r: Omit<FieldReader, 'alternates'>): string | undefined {
-    if (r.json) return readJsonField(row, r.json);
+function readOne(row: Element, r: Omit<FieldReader, 'alternates'>, onlyShape?: Shape): string | undefined {
+    const ofShape = (v: string) => !onlyShape || shapeOf(v, r.attr) === onlyShape;
+    if (r.json) {
+        const v = readJsonField(row, r.json);
+        return v !== undefined && ofShape(v) ? v : undefined;
+    }
     for (const sel of r.chain) {
         const values = query(row, sel).filter(el => isAtomRoot(el, row, r.attr)).map(el => readValue(el, r.attr)).filter(Boolean);
         if (values.length === 0) continue;
         if (r.many) {
-            const uniq = [...new Set(values)];
+            const uniq = [...new Set(values.filter(ofShape))];
+            if (uniq.length === 0) continue;
             return r.attr === 'src' || r.attr === 'href' ? JSON.stringify(uniq) : uniq.join('; ');
         }
         if (r.slot !== undefined && r.template) {
             const slots = alignToTemplate(values.map(v => shapeOf(v, r.attr)), r.template);
             const i = slots.indexOf(r.slot);
-            if (i >= 0) return values[i];
+            if (i >= 0 && ofShape(values[i])) return values[i];
             continue;
         }
-        return values[0];
+        const v = values.find(ofShape);
+        if (v !== undefined) return v;
     }
     return undefined;
 }
