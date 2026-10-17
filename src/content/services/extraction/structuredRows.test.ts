@@ -54,7 +54,7 @@ describe('structured data first', () => {
 
     it('is offered next to the layout fields when a list is picked', () => {
         const rows = page();
-        const data: any = new DataExtractor().extract(rows[0] as HTMLElement, { isContainer: true, siblings: rows });
+        const data: any = new DataExtractor().extract(rows[0] as HTMLElement, { isContainer: true, siblings: rows as HTMLElement[], container: null, childCount: rows.length });
         expect(data.structured.items).toHaveLength(3);
         expect(data.columns.every((c: any) => !c.reader.json)).toBe(true);
     });

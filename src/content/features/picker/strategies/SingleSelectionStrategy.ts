@@ -27,7 +27,7 @@ export class SingleSelectionStrategy implements ISelectionStrategy {
     handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {
         console.log('Single Strategy Selected:', element);
 
-        const data = this.extractor.extract(element, { isContainer: false, siblings: [], container: null });
+        const data = this.extractor.extract(element, { isContainer: false, siblings: [], container: null, childCount: 0 });
         const selector = generateCssSelector(element, false);
         const xpath = generateXPath(element);
 

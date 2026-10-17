@@ -1,42 +1,33 @@
 import type { ElementSelected } from '../../../../shared/messages';
 import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
-import { ContainerDetector } from '../ContainerDetector';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { refreshNetSources } from '../../../services/extraction/structuredRows';
-import { ItemSelectorRefiner } from '../ItemSelectorRefiner';
+import { findList, itemOf, ListMatch } from '../../../services/extraction/items';
 import { generateCssSelector, generateXPath, generateRobustSelectors } from '../../../services/selectors/generate';
 import { CommonSelectorGenerator } from '../../../services/selectors/common';
 
 export class ListSelectionStrategy implements ISelectionStrategy {
-    private detector: ContainerDetector;
     private extractor: DataExtractor;
-    private refiner: ItemSelectorRefiner;
-    private lastContainerInfo: any = null;
+    private lastContainerInfo: ListMatch | null = null;
     private lastItemUnit: HTMLElement | null = null;
     public preferredAction?: 'extract' | 'click' = 'extract';
 
     constructor() {
-        this.detector = new ContainerDetector();
         this.extractor = new DataExtractor();
-        this.refiner = new ItemSelectorRefiner();
     }
 
     handleHover(element: HTMLElement, picker: VisualElementPicker): void {
-        const containerInfo = this.detector.findContainer(element);
+        const containerInfo = findList(element);
         this.applySelection(containerInfo, element, picker);
     }
 
-    private applySelection(containerInfo: any, element: HTMLElement, picker: VisualElementPicker) {
+    private applySelection(containerInfo: ListMatch, element: HTMLElement, picker: VisualElementPicker) {
         this.lastContainerInfo = containerInfo;
 
         if (containerInfo.isContainer && containerInfo.container) {
             // Find the repeating item unit (the card/row)
-            const itemUnit = this.refiner.findTargetItem(
-                element,
-                containerInfo.container,
-                containerInfo.siblings
-            );
+            const itemUnit = itemOf(element, containerInfo.container);
             this.lastItemUnit = itemUnit;
 
             const typeLabel = containerInfo.containerType === 'table' ? 'Table' : 'List';
@@ -69,7 +60,7 @@ export class ListSelectionStrategy implements ISelectionStrategy {
     }
 
     private select(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {
-        const containerInfo = this.lastContainerInfo || this.detector.findContainer(element);
+        const containerInfo = this.lastContainerInfo || findList(element);
         const targetItem = this.lastItemUnit || element;
 
         let data: any;
@@ -108,7 +99,6 @@ export class ListSelectionStrategy implements ISelectionStrategy {
 
             // [FIX] Re-query container for ALL items using derived selector
             // This ensures preview extraction processes the SAME items as final extraction
-            // (final uses querySelectorAll, preview was using filtered siblings from ContainerDetector)
             if (selector && containerInfo.container) {
                 try {
                     const allMatches = containerInfo.container.querySelectorAll(selector);

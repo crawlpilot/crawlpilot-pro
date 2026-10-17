@@ -1,3 +1,4 @@
+import type { ListMatch } from './items';
 import { hashString } from '../../../shared/utils/hash';
 import { inferFields, readRow, hasReaders, structuredColumns, ReaderColumn } from './fields';
 import { findStructuredSource } from './structuredRows';
@@ -15,7 +16,7 @@ export interface RowsResult {
  * its rows (`fields/`) and every row is read with them, so every row has the same columns.
  */
 export class DataExtractor {
-    public extract(element: HTMLElement, containerInfo: any) {
+    public extract(element: HTMLElement, containerInfo: ListMatch) {
         if (containerInfo.isContainer) {
             return this.extractList(containerInfo);
         } else {
@@ -23,8 +24,7 @@ export class DataExtractor {
         }
     }
 
-    private extractList(containerInfo: any) {
-        const { siblings, confidence } = containerInfo;
+    private extractList({ siblings }: ListMatch) {
         const { columns, items, duplicates, problems } = this.extractRows(siblings);
         const structured = this.structuredAlternative(siblings);
 
@@ -36,7 +36,6 @@ export class DataExtractor {
             count: items.length,
             timestamp: new Date().toISOString(),
             metadata: {
-                containerConfidence: confidence || 0,
                 duplicatesRemoved: duplicates,
                 uniqueItems: items.length,
                 fieldProblems: problems

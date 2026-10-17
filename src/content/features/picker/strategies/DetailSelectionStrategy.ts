@@ -2,7 +2,7 @@ import type { ElementSelected } from '../../../../shared/messages';
 import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
-import { ContainerDetector, ContainerResult } from '../ContainerDetector';
+import { findListInside, ListMatch } from '../../../services/extraction/items';
 import { generateCssSelector, generateXPath, generateRobustSelectors } from '../../../services/selectors/generate';
 import { clickElementRobust } from '../../../utils/click';
 import type { SelectorResult } from '../../../services/selectors/generate';
@@ -30,13 +30,11 @@ interface ClassificationResult {
 
 export class DetailSelectionStrategy implements ISelectionStrategy {
     private extractor: DataExtractor;
-    private detector: ContainerDetector;
 
     public preferredAction?: 'extract' | 'click' = 'extract';
 
     constructor() {
         this.extractor = new DataExtractor();
-        this.detector = new ContainerDetector();
     }
 
     handleHover(element: HTMLElement, picker: VisualElementPicker): void {
@@ -55,7 +53,7 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
         const target = element;
 
         // Detect internal container (list/table)
-        const containerInfo = this.detector.findInternalContainer(target);
+        const containerInfo = findListInside(target);
         const isList = !!(containerInfo.isContainer && containerInfo.container);
 
         // Build selectors and extract data
@@ -81,7 +79,7 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
             containerXPath = bestXPath(tSelectors, () => generateXPath(target));
             itemSelector = containerSelector;
             itemXPath = containerXPath;
-            data = this.extractor.extract(target, { isContainer: false, siblings: [], container: null });
+            data = this.extractor.extract(target, { isContainer: false, siblings: [], container: null, childCount: 0 });
         }
 
         // Classify the element type using ordered detector chain
@@ -129,7 +127,7 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
         element: HTMLElement,
         target: HTMLElement,
         isList: boolean,
-        containerInfo: ContainerResult,
+        containerInfo: ListMatch,
         data: any
     ): ClassificationResult {
         return (
@@ -142,8 +140,8 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
         );
     }
 
-    /** Detected as list/table container by ContainerDetector */
-    private classifyAsContainer(isList: boolean, containerInfo: ContainerResult, data: any): ClassificationResult | null {
+    /** Detected as a list / table container (`findListInside`) */
+    private classifyAsContainer(isList: boolean, containerInfo: ListMatch, data: any): ClassificationResult | null {
         if (!isList) return null;
         const itemCount = containerInfo.childCount || data?.items?.length || 0;
         const extractionType: ExtractionType = containerInfo.containerType === 'table' ? 'table' : 'list';

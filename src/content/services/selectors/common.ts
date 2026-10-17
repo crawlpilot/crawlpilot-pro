@@ -1,4 +1,5 @@
 import { generateRobustSelectors } from './generate';
+import { keepItems } from '../extraction/items';
 import { isUnstableClass, isStableAttributeValue, isHashClass, isVolatileSelector } from '../../../shared/selectors/stability';
 
 export interface DerivedSelector {
@@ -11,24 +12,13 @@ export class CommonSelectorGenerator {
     /**
      * Derives a list of optimal CSS and XPath selectors that target all the provided elements.
      * Uses generateRobustSelectors internally and filters them based on the exact visual count.
-     * 
-     * [IMPROVED] Uses similarity scoring to filter out spacers/dividers from the target set
-     * before generating common selectors.
+     * Spacers, headers and ad blocks among them are left out first (`keepItems`).
      */
     public deriveCommonSelector(elements: HTMLElement[], root: HTMLElement, targetElement?: HTMLElement): DerivedSelector[] {
         if (!elements || elements.length === 0) return [];
 
-        // --- PHASE 0: Filter by Similarity (LinkedIn Spacer Fix) ---
-        // If a targetElement is provided (the specific item the user clicked), 
-        // we filter the siblings to only include those that are "similar" to it.
-        let targetSet = elements;
-        if (targetElement) {
-            targetSet = elements.filter(el => this.calculateSimilarityScore(el, targetElement) >= 30);
-
-            // If filtering killed everything except the target, fallback to original set 
-            // (safety for cases where every item is unique)
-            if (targetSet.length < 2) targetSet = elements;
-        }
+        // Only the real items: spacers, headers and ad blocks between them would skew the counts.
+        const targetSet = keepItems(elements);
 
         const targetCount = targetSet.length;
         const validResults: DerivedSelector[] = [];
@@ -154,58 +144,6 @@ export class CommonSelectorGenerator {
         });
     }
 
-    /**
-     * Calculates a similarity score (0-60+) between two elements.
-     * Based on the robust comparison logic in background-readable.js (Module 588).
-     */
-    private calculateSimilarityScore(el: HTMLElement, reference: HTMLElement): number {
-        let score = 0;
-
-        // 1. Tag match (Higher weight)
-        if (el.tagName === reference.tagName) score += 10;
-
-        // 2. ClassList overlap
-        const elClasses = new Set(el.className.split(/\s+/).filter(Boolean));
-        const refClasses = reference.className.split(/\s+/).filter(Boolean);
-        const overlap = refClasses.filter(c => elClasses.has(c)).length;
-        if (overlap > 0 && refClasses.length > 0) {
-            score += Math.floor((overlap / refClasses.length) * 15);
-        }
-
-        // 3. Dimensions (indicates if it's a "card" or a "spacer")
-        let elRect = el.getBoundingClientRect();
-        let refRect = reference.getBoundingClientRect();
-
-        // If offsetHeight is 0 (display: contents), try to find a child with dimensions
-        if (elRect.width === 0 && elRect.height === 0 && el.children.length > 0) {
-            const firstWithDim = Array.from(el.querySelectorAll('*')).find(child => child.getBoundingClientRect().width > 0) as HTMLElement;
-            if (firstWithDim) elRect = firstWithDim.getBoundingClientRect();
-        }
-        if (refRect.width === 0 && refRect.height === 0 && reference.children.length > 0) {
-            const firstWithDim = Array.from(reference.querySelectorAll('*')).find(child => child.getBoundingClientRect().width > 0) as HTMLElement;
-            if (firstWithDim) refRect = firstWithDim.getBoundingClientRect();
-        }
-
-        const sameWidth = Math.abs(elRect.width - refRect.width) < 5;
-        const sameHeight = Math.abs(elRect.height - refRect.height) < 5;
-        if (sameWidth && sameHeight && elRect.width > 0) score += 10;
-
-        // 4. Child count (indicates structural complexity)
-        const sameChildCount = Math.abs(el.children.length - reference.children.length) < 2;
-        if (sameChildCount) score += 5;
-
-        // 5. Content characteristics
-        const elText = (el.innerText || "").trim();
-        const refText = (reference.innerText || "").trim();
-        if (Math.abs(elText.length - refText.length) < 20) score += 5;
-
-        // Text prefix match (often contains fixed labels like "Sort by:")
-        if (elText.length > 5 && refText.length > 5 && elText.substring(0, 10) === refText.substring(0, 10)) {
-            score += 10;
-        }
-
-        return score;
-    }
 
     private isXPath(selector: string): boolean {
         return selector.startsWith('/') || selector.startsWith('(') || selector.startsWith('.//');
