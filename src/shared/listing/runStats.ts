@@ -75,3 +75,15 @@ export class ListingRunTracker {
         return Array.from(this.pages.values()).sort((a, b) => a.page - b.page);
     }
 }
+
+/** Share of rows each column filled, most-filled first (thenos `ListingResult.coverage`). */
+export function columnCoverage(columns: { id: string; name: string }[], items: Record<string, unknown>[]): { name: string; fill: number }[] {
+    if (items.length === 0) return [];
+    return columns
+        .filter(c => c.id !== 'recordId')
+        .map(c => ({
+            name: c.name,
+            fill: items.filter(i => i[c.id] !== undefined && i[c.id] !== null && i[c.id] !== '').length / items.length,
+        }))
+        .sort((a, b) => b.fill - a.fill);
+}

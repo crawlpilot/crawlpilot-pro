@@ -23,6 +23,7 @@ import {
 import EmptyState from '../components/ui/EmptyState';
 import {
     Box,
+    LinearProgress,
     Typography,
     IconButton,
     InputAdornment,
@@ -710,6 +711,22 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                                 <Chip key={v} size="small" label={`${VERDICT_LABELS[v as PageVerdict] ?? v} · ${n}`}
                                                     color={v === 'ok' ? 'success' : v === 'challenge' || v === 'rate_limited' ? 'warning' : 'error'}
                                                     variant="outlined" />
+                                            ))}
+                                        </Box>
+                                    </Box>
+                                )}
+                                {detailsJob.stats?.coverage && detailsJob.stats.coverage.length > 0 && (
+                                    <Box sx={{ mt: 2 }}>
+                                        <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>
+                                            {t('fieldCoverage', 'Rows filled per field')}
+                                        </Typography>
+                                        <Box sx={{ maxHeight: 160, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 2, px: 1.5, py: 0.5 }}>
+                                            {detailsJob.stats.coverage.map((c: { name: string; fill: number }) => (
+                                                <Box key={c.name} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.25, fontSize: 12 }}>
+                                                    <Box component="span" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</Box>
+                                                    <LinearProgress variant="determinate" value={c.fill * 100} color={c.fill < 0.5 ? 'warning' : 'success'} sx={{ width: 60, height: 4, borderRadius: 2 }} />
+                                                    <Box component="span" sx={{ width: 36, textAlign: 'right', fontFamily: 'monospace' }}>{Math.round(c.fill * 100)}%</Box>
+                                                </Box>
                                             ))}
                                         </Box>
                                     </Box>

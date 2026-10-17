@@ -237,3 +237,16 @@ S7–S8 come after.
 - Data saved under v1 keeps its columns. There is no migration of saved rows; old tables only get the
   safer unifier (S6).
 - No change to the exports' file formats. Exports simply get fewer, better columns.
+
+## 8. Progress
+
+| Phase | Status | Notes |
+|---|---|---|
+| S1 Atoms + one reader | Done | `atoms.ts`, `readRow` in `fieldSchema.ts`. aria-hidden visual copies and button labels are skipped. |
+| S2 Inference | Done | `inferFields`: signatures, row-validated selectors (variant cards share a field), shape-aligned slots, galleries as one list, evidence names (incl. "Was Price" from "Was $X" text), exact-duplicate and composite removal. Table rows use one column per cell position. On a saved Walmart results page: 32 → 17 columns. |
+| S3 Frozen schema in runs | Done | Preview, auto-scroll, pagination (incl. resume) and Page Extractor lists read with the same readers. `SchemaGenerator` is deleted. Unmapped-content counts are not done yet. |
+| S4 Review checks + field editor | Done | `FieldEditor.tsx`: rename, drop, join (reader fallbacks), fill bars, list problems. Split-by-shape and retype are not in the UI yet. |
+| S5 Page Extractor lists | Done | List Output: one JSON column / row per item / numbered (capped at 10). Columns are stable across pages because IDs are field slugs. A saved schema per list element is not done yet. |
+| S6 Table side | Done | `TableUnifier` is removed (no legacy path), and sparse-column hiding is off by default. |
+| S7 Structured data first | Not started | |
+| S8 Coverage + presets | Partial | Per-field fill is saved for listing runs and shown in History. Preset floors are waiting on #12. |

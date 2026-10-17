@@ -4,7 +4,7 @@ import { SelectorState, PaginationConfig, ExtractionStatus, SelectorMetadata } f
 import { PAGINATION_PROFILES, PaginationSpeed } from '../../shared/constants/paginationConfig';
 import { consolidateSelectors } from '../../shared/utils/extractionLogic';
 import { filterPersistableChain } from '../../shared/selectors/stability';
-import { ListingRunTracker } from '../../shared/listing/runStats';
+import { columnCoverage, ListingRunTracker } from '../../shared/listing/runStats';
 
 export function useExtractionProcess(onComplete?: (tableId: number) => void, onStart?: (jobId: number) => void) {
     const [status, setStatus] = useState<ExtractionStatus>({
@@ -417,7 +417,8 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                     stoppedByUser: stopExtractionRef.current,
                     stopReason: stopExtractionRef.current ? 'cancelled' : stopReason,
                     pageStats: tracker.pageStats.length > 0 ? tracker.pageStats : undefined,
-                    duplicatesRemoved: tracker.duplicates || undefined
+                    duplicatesRemoved: tracker.duplicates || undefined,
+                    coverage: columnCoverage(finalExtraction.columns as any[], finalExtraction.items)
                 }
             });
 

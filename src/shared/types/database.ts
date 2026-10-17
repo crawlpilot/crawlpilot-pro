@@ -150,6 +150,8 @@ export interface Job {
         stopReason?: string;
         pageStats?: { page: number; rows: number; duplicates: number }[];
         duplicatesRemoved?: number;
+        /** Share of rows each field filled (listing runs), most-filled first. */
+        coverage?: { name: string; fill: number }[];
     };
 
     result?: {
