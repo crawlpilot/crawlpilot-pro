@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CheckCircle2, Edit, Eye, Trash2, Database } from 'lucide-react';
 import { SelectorState } from '../../../shared/types/extraction';
 import { SelectorEditDialog } from '../shared/SelectorEditDialog';
+import { FieldEditor } from './FieldEditor';
 import { Box, Card, Typography, IconButton, Button, Stack, Chip } from '@mui/material';
 
 function getSelectorQuality(selector: string): { label: string; color: 'success' | 'warning' | 'error' } {
@@ -183,6 +184,11 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
                         </Typography>
                     </Box>
                 </Box>
+
+                {/* 3. Fields: what the run will extract, one column each */}
+                {selector.data?.columns?.length > 0 && (
+                    <FieldEditor data={selector.data} onChange={data => onUpdate(selector.id, { data })} />
+                )}
             </Stack>
 
             {/* Editor Modal for Container */}

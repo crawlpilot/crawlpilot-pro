@@ -26,6 +26,8 @@ export interface FieldReader {
     /** Every match is a value: images → JSON array, links → JSON array, text → joined. */
     many?: boolean;
     shape: Shape;
+    /** Readers tried in order when this one finds nothing (fields the user joined into this one). */
+    alternates?: Omit<FieldReader, 'alternates'>[];
 }
 
 export type ReaderColumn = Column & { reader?: FieldReader };
@@ -56,6 +58,16 @@ function query(row: Element, selector: string): Element[] {
 }
 
 function readField(row: Element, r: FieldReader): string | undefined {
+    const main = readOne(row, r);
+    if (main !== undefined || !r.alternates) return main;
+    for (const alt of r.alternates) {
+        const v = readOne(row, alt);
+        if (v !== undefined) return v;
+    }
+    return undefined;
+}
+
+function readOne(row: Element, r: Omit<FieldReader, 'alternates'>): string | undefined {
     for (const sel of r.chain) {
         const values = query(row, sel).filter(el => isAtomRoot(el, row, r.attr)).map(el => readValue(el, r.attr)).filter(Boolean);
         if (values.length === 0) continue;
