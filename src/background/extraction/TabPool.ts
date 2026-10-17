@@ -1,3 +1,4 @@
+import { MessageType, Payload, Reply, sendToTab } from '../../shared/messages';
 /**
  * TabPool — manages a pool of browser tabs for background extraction.
  *
@@ -217,16 +218,7 @@ export class TabPool {
             if (this.shouldStop) return false;
 
             try {
-                const response = await new Promise<any>((resolve) => {
-                    chrome.tabs.sendMessage(tabId, { type: 'PING' }, (res) => {
-                        if (chrome.runtime.lastError) {
-                            lastError = chrome.runtime.lastError.message;
-                            resolve(null);
-                        } else {
-                            resolve(res);
-                        }
-                    });
-                });
+                const response = await sendToTab(tabId, 'PING').catch((e: Error) => { lastError = e.message; return null; });
 
                 if (response?.success) {
                     console.log(`[TabPool] Content script ready on tab ${tabId} (attempt ${i + 1})`);
@@ -266,28 +258,19 @@ export class TabPool {
         return false;
     }
 
-    /**
-     * Sends a message to a tab's content script with retry logic.
-     */
-    async sendMessage(tabId: number, message: any, maxRetries = 10, interval = 500): Promise<any> {
+    /** Sends to a tab's content script, retrying while the script isn't connected yet. */
+    async sendMessage<T extends MessageType>(tabId: number, type: T, payload: Payload<T>, maxRetries = 10, interval = 500): Promise<Reply<T>> {
+        let error = 'Max retries reached.';
         for (let attempt = 0; attempt < maxRetries; attempt++) {
-            const response = await new Promise<any>((resolve) => {
-                chrome.tabs.sendMessage(tabId, message, (res) => {
-                    if (chrome.runtime.lastError) {
-                        resolve({ success: false, error: chrome.runtime.lastError.message, isConnectionError: true });
-                    } else {
-                        resolve(res);
-                    }
-                });
-            });
-
-            if (response?.isConnectionError) {
+            try {
+                return await sendToTab(tabId, type, ...([payload] as any));
+            } catch (e: any) {
+                error = e?.message || error;
                 await new Promise(r => setTimeout(r, interval));
-            } else {
-                return response;
             }
         }
-        return { success: false, error: 'Max retries reached.' };
+        // Every content-script reply carries `success` / `error`.
+        return { success: false, error } as Reply<T>;
     }
 
     /**

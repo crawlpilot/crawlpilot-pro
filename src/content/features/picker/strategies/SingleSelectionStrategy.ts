@@ -1,3 +1,4 @@
+import type { ElementSelected } from '../../../../shared/messages';
 import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
@@ -23,7 +24,7 @@ export class SingleSelectionStrategy implements ISelectionStrategy {
         );
     }
 
-    handleClick(element: HTMLElement, picker: VisualElementPicker, sendResponse: (msg: any) => void): void {
+    handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {
         console.log('Single Strategy Selected:', element);
 
         const data = this.extractor.extract(element, { isContainer: false, siblings: [], container: null });
@@ -43,22 +44,19 @@ export class SingleSelectionStrategy implements ISelectionStrategy {
         const primarySelector = bestSelector;
         const primaryXPath = bestSelectorType === 'xpath' ? bestSelector : xpath;
 
-        sendResponse({
-            type: 'ELEMENT_SELECTED',
-            payload: {
-                success: true,
-                id: `sel-${Date.now()}`,
-                data: data,
-                containerSelector: primarySelector,
-                containerSelectors: paginationSelectors,
-                containerXPath: primaryXPath,
-                itemSelector: primarySelector,
-                itemSelectors: paginationSelectors,
-                itemXPath: primaryXPath,
-                patternFound: false,
-                count: 1,
-                selectionMode: 'single'
-            }
+        report({
+            success: true,
+            id: `sel-${Date.now()}`,
+            data: data,
+            containerSelector: primarySelector,
+            containerSelectors: paginationSelectors,
+            containerXPath: primaryXPath,
+            itemSelector: primarySelector,
+            itemSelectors: paginationSelectors,
+            itemXPath: primaryXPath,
+            patternFound: false,
+            count: 1,
+            selectionMode: 'single'
         });
 
         picker.deactivate();

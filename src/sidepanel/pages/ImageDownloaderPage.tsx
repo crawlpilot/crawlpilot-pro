@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { on, send, sendToTab } from '../../shared/messages';
 import { useTranslation } from 'react-i18next';
 import {
     Box, Typography, Paper, Button, IconButton, Chip, Stack, LinearProgress,
@@ -134,17 +135,15 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
     }, []);
 
     useEffect(() => {
-        const handleMessage = (message: any) => {
-            if (message.type === 'SCAN_IMAGES_BATCH' && message.payload) {
-                mergeImages(message.payload);
-            }
-            if (message.type === 'SCAN_IMAGES_PROGRESS' && message.payload) {
-                setScanPhase(message.payload.phase || '');
-                setScanProgress(message.payload.scrollPercent || 0);
-            }
-        };
-        chrome.runtime.onMessage.addListener(handleMessage);
-        return () => chrome.runtime.onMessage.removeListener(handleMessage);
+        const offs = [
+            on('SCAN_IMAGES_BATCH', batch => { if (batch) mergeImages(batch); }),
+            on('SCAN_IMAGES_PROGRESS', progress => {
+                if (!progress) return;
+                setScanPhase(progress.phase || '');
+                setScanProgress(progress.scrollPercent || 0);
+            }),
+        ];
+        return () => offs.forEach(off => off());
     }, [mergeImages]);
 
     useEffect(() => {
@@ -168,11 +167,8 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
         try {
             const tabId = await getActiveTab();
             if (tabId) {
-                const response = await chrome.tabs.sendMessage(tabId, {
-                    type: 'SCAN_IMAGES_DEEP',
-                    payload: { scrollStep: 800, scrollDelay: 120, maxScrollHeight: 50000, watchDuration: 3000 }
-                });
-                if (response?.data) {
+                const response = await sendToTab(tabId, 'SCAN_IMAGES_DEEP', { scrollStep: 800, scrollDelay: 120, maxScrollHeight: 50000, watchDuration: 3000 });
+                if (response.success && response.data) {
                     mergeImages(response.data);
                 }
             }
@@ -189,7 +185,7 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
         try {
             const tabId = await getActiveTab();
             if (tabId) {
-                await chrome.tabs.sendMessage(tabId, { type: 'SCAN_IMAGES_DEEP_CANCEL' });
+                await sendToTab(tabId, 'SCAN_IMAGES_DEEP_CANCEL');
             }
         } catch (e) { /* ignore */ }
     };
@@ -198,11 +194,11 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
         const tabId = await getActiveTab();
         if (!tabId) return;
         if (liveWatching) {
-            await chrome.tabs.sendMessage(tabId, { type: 'SCAN_IMAGES_LIVE_STOP' });
+            await sendToTab(tabId, 'SCAN_IMAGES_LIVE_STOP');
             setLiveWatching(false);
         } else {
             setLiveWatching(true);
-            await chrome.tabs.sendMessage(tabId, { type: 'SCAN_IMAGES_LIVE_START' });
+            await sendToTab(tabId, 'SCAN_IMAGES_LIVE_START');
         }
     };
 
@@ -250,20 +246,15 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
     };
 
     const fetchViaProxy = async (url: string): Promise<{ data: number[]; contentType: string } | null> => {
-        try {
-            const response = await chrome.runtime.sendMessage({ type: 'DOWNLOAD_IMAGE_PROXY', payload: { url } });
-            if (response?.success) return response;
-            return null;
-        } catch { return null; }
+        const response = await send('DOWNLOAD_IMAGE_PROXY', { url });
+        return response?.success && response.data ? { data: response.data, contentType: response.contentType || 'image/jpeg' } : null;
     };
 
     const downloadSingle = async (url: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
-        try {
-            await chrome.runtime.sendMessage({ type: 'DOWNLOAD_VIA_CHROME', payload: { url, filename: `image-${Date.now()}.${getExtension(url)}` } });
-        } catch {
-            saveAs(url, `image-${Date.now()}.${getExtension(url)}`);
-        }
+        const filename = `image-${Date.now()}.${getExtension(url)}`;
+        const response = await send('DOWNLOAD_VIA_CHROME', { url, filename });
+        if (!response?.success) saveAs(url, filename);
     };
 
     const downloadAsZip = async (imagesToDownload: ImageMeta[], zipName: string) => {

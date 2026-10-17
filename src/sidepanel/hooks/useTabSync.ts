@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { sendToTab } from '../../shared/messages';
 
 import contentScriptPath from '../../content/element-selector?script';
 import { hasAllUrlsPermission, requestAllUrlsPermission, openSiteAccessSettings } from '../../shared/utils/hostPermissions';
@@ -69,7 +70,7 @@ export function useTabSync() {
                     setIsTabConnected(true);
                     return true;
                 }
-                await chrome.tabs.sendMessage(tabId, { type: 'PING' });
+                await sendToTab(tabId, 'PING');
                 cancelDisconnect();          // Success — clear any pending disconnect timer
                 setIsTabConnected(true);
                 return true;

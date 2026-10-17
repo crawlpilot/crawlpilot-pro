@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { highlightOnActiveTab, on } from '../../shared/messages';
 import { useTranslation } from 'react-i18next';
 import DataSourceSelector from '../components/DataSourceSelector';
 import { useSelectionMode } from '../hooks/useSelectionMode';
@@ -164,20 +165,12 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
     }, [elementAction]);
 
     // --- Highlight Sync Utility ---
-    const sendHighlightMessage = useCallback(async (type: string, payload: any = {}) => {
-        try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tab?.id) {
-                chrome.tabs.sendMessage(tab.id, { type, payload });
-            }
-        } catch (e) {
-            console.warn('[PageExtractor] Failed to send highlight message:', e);
-        }
-    }, []);
+    const sendHighlightMessage = highlightOnActiveTab;
 
     useEffect(() => {
-        const handleMessage = (message: any) => {
-            if (message.type === 'ELEMENT_SELECTED' && message.payload.selectionMode === 'detail') {
+        const offSelected = on('ELEMENT_SELECTED', selected => {
+            const message = { payload: selected };
+            if (selected.selectionMode === 'detail') {
                 const newElement = {
                     id: Date.now().toString(),
                     name: message.payload.tagName || 'New Element',
@@ -198,11 +191,9 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
 
                 // Show persistent highlight for the newly selected element
                 sendHighlightMessage('ADD_SELECTION_HIGHLIGHT', { element: newElement });
-            } else if (message.type === 'PICKER_CANCELLED') {
-                setSelectionStatus('idle');
             }
-        };
-        chrome.runtime.onMessage.addListener(handleMessage);
+        });
+        const offCancelled = on('PICKER_CANCELLED', () => setSelectionStatus('idle'));
 
         // Handle ESC key cancellation from the side panel
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -213,7 +204,8 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         document.addEventListener('keydown', handleKeyDown);
 
         return () => {
-            chrome.runtime.onMessage.removeListener(handleMessage);
+            offSelected();
+            offCancelled();
             document.removeEventListener('keydown', handleKeyDown);
         };
     }, [setSelectionStatus, setElements, stopSelection]);

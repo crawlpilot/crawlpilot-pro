@@ -3,7 +3,8 @@ import { Box, Button, Chip, Stack, TextField, Typography, Alert, ToggleButton, T
 import { Crosshair, Play, Copy, Check } from 'lucide-react';
 import type { LabEval, LabCandidate, LabPick } from '../../../content/features/lab/SelectorLab';
 import { SNIPPET_LABELS, SnippetTarget, toSnippet } from '../../../shared/selectors/snippets';
-import { sendToActiveTab, copyText } from './tabMessaging';
+import { on, sendToActiveTab } from '../../../shared/messages';
+import { copyText } from '../../services/clipboard';
 
 const GRADE_COLOR = { strong: 'success', fragile: 'warning', broken: 'error' } as const;
 const GRADE_LABEL = { strong: 'Strong', fragile: 'Fragile', broken: 'Broken' } as const;
@@ -25,7 +26,7 @@ export default function SelectorLabPanel() {
         if (!sel.trim()) return;
         setError(null);
         try {
-            const res = await sendToActiveTab<{ result: LabEval }>({ type: 'LAB_EVAL', payload: { selector: sel.trim() } });
+            const res = await sendToActiveTab('LAB_EVAL', { selector: sel.trim() });
             setResult(res.result);
         } catch (e: any) {
             setError(e.message);
@@ -33,15 +34,13 @@ export default function SelectorLabPanel() {
     }, []);
 
     useEffect(() => {
-        const listener = (message: any) => {
-            if (message?.type !== 'LAB_PICKED') return;
+        const off = on('LAB_PICKED', picked => {
             setPicking(false);
-            if (message.payload) setPick(message.payload);
-        };
-        chrome.runtime.onMessage.addListener(listener);
+            if (picked) setPick(picked);
+        });
         return () => {
-            chrome.runtime.onMessage.removeListener(listener);
-            sendToActiveTab({ type: 'LAB_CLEAR' }).catch(() => { /* tab gone */ });
+            off();
+            sendToActiveTab('LAB_CLEAR').catch(() => { /* tab gone */ });
         };
     }, []);
 
@@ -49,7 +48,7 @@ export default function SelectorLabPanel() {
         setError(null);
         setPick(null);
         try {
-            await sendToActiveTab({ type: 'LAB_PICK_START' });
+            await sendToActiveTab('LAB_PICK_START');
             setPicking(true);
         } catch (e: any) {
             setError(e.message);

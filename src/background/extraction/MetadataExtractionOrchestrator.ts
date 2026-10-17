@@ -1,3 +1,4 @@
+import { MetadataStart, send } from '../../shared/messages';
 import { TabPool } from './TabPool';
 import { db } from '../../shared/db/db-manager';
 import type { MetadataExtractOptions, MetadataExtractResult, HtmlMetadata } from '../../shared/types/metadata';
@@ -6,15 +7,6 @@ import { classifyPage, collectPageSignals, PageVerdict, VERDICT_LABELS } from '.
 
 const STORAGE_KEY = 'metadata_extraction_state';
 const KEEPALIVE_ALARM = 'metadata_extraction_keepalive';
-
-export interface MetadataExtractionConfig {
-    urls: string[];
-    options: MetadataExtractOptions;
-    maxConcurrent?: number;
-    requestDelay?: number;
-    loadTimeout?: number;
-    customName?: string;
-}
 
 interface UrlStatus {
     url: string;
@@ -99,7 +91,7 @@ export class MetadataExtractionOrchestrator {
     // tables and race on previewSavedCount.
     private previewChain: Promise<void> = Promise.resolve();
 
-    async start(config: MetadataExtractionConfig): Promise<{ jobId: number; uniqueCount: number }> {
+    async start(config: MetadataStart): Promise<{ jobId: number; uniqueCount: number }> {
         if (this.isActive) throw new Error('A metadata extraction is already in progress');
 
         const { urls, options, maxConcurrent, requestDelay = 1000, loadTimeout = 30000, customName } = config;
@@ -237,10 +229,7 @@ export class MetadataExtractionOrchestrator {
                 /* page could not be checked: extract anyway */
             }
 
-            const response = await this.tabPool.sendMessage(tabId, {
-                type: 'CMD_EXTRACT_METADATA',
-                payload: { url, options: { ...this.options, url } }
-            });
+            const response = await this.tabPool.sendMessage(tabId, 'CMD_EXTRACT_METADATA', { url, options: { ...this.options, url } });
 
             if (!response?.success || !response.result) {
                 throw new Error(response?.error || 'No result from content script');
@@ -368,17 +357,10 @@ export class MetadataExtractionOrchestrator {
                 stats: { startTime, endTime: Date.now(), itemsExtracted: results.length, pagesVisited: completedCount, stoppedByUser },
             });
 
-            chrome.runtime.sendMessage({
-                type: 'METADATA_EXTRACTION_COMPLETE',
-                payload: { jobId, tableDataId, totalItems: results.length, success: !error && !stoppedByUser, error, stoppedByUser },
-                timestamp: Date.now(),
-            }).catch(() => {});
+            void send('METADATA_EXTRACTION_COMPLETE', { jobId, tableDataId, totalItems: results.length, success: !error && !stoppedByUser, error, stoppedByUser });
         } catch (e) {
             console.error('[MetadataOrchestrator] finishExtraction error:', e);
-            chrome.runtime.sendMessage({
-                type: 'METADATA_EXTRACTION_COMPLETE',
-                payload: { jobId, totalItems: results.length, success: false, error: String(e), stoppedByUser },
-            }).catch(() => {});
+            void send('METADATA_EXTRACTION_COMPLETE', { jobId, totalItems: results.length, success: false, error: String(e), stoppedByUser });
         } finally {
             this.stopKeepAlive();
             if (this.tabPool) {
@@ -396,18 +378,14 @@ export class MetadataExtractionOrchestrator {
     private broadcastProgress() {
         if (!this.state) return;
         const { urlStatuses, jobId } = this.state;
-        chrome.runtime.sendMessage({
-            type: 'METADATA_EXTRACTION_PROGRESS',
-            payload: {
-                jobId,
-                completedUrls: urlStatuses.filter(u => u.status === 'done').length,
-                totalUrls: urlStatuses.length,
-                activeTabs: this.tabPool?.activeCount || 0,
-                urlStatuses: urlStatuses.map(u => ({ url: u.url, status: u.status, error: u.error, verdict: u.verdict })),
-                previewTableId: this.previewTableId,
-            },
-            timestamp: Date.now(),
-        }).catch(() => {});
+        void send('METADATA_EXTRACTION_PROGRESS', {
+            jobId,
+            completedUrls: urlStatuses.filter(u => u.status === 'done').length,
+            totalUrls: urlStatuses.length,
+            activeTabs: this.tabPool?.activeCount || 0,
+            urlStatuses: urlStatuses.map(u => ({ url: u.url, status: u.status, error: u.error, verdict: u.verdict })),
+            previewTableId: this.previewTableId,
+        });
     }
 
     private async persistState() {

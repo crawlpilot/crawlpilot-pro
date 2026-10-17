@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { sendToTab } from '../../shared/messages';
 import { useTranslation } from 'react-i18next';
 import { useJobHistory } from '../hooks/useDatabase';
 import { useExtractionProcess } from '../hooks/useExtractionProcess';
@@ -202,7 +203,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
                 // Try pinging first — if it responds, script is already there
-                await chrome.tabs.sendMessage(tab.id, { type: 'PING' });
+                await sendToTab(tab.id, 'PING');
                 return; // Connected!
             } catch {
                 // Not injected yet — inject it
@@ -220,7 +221,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
         // Final check
         try {
             const [finalTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (finalTab?.id) await chrome.tabs.sendMessage(finalTab.id, { type: 'PING' });
+            if (finalTab?.id) await sendToTab(finalTab.id, 'PING');
         } catch {
             throw new Error('Failed to establish connection with content script after navigation.');
         }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { on, RunComplete, RunProgress } from '../../shared/messages';
 import { useTranslation } from 'react-i18next';
 import { useTableData, useAllTableData, useExportData } from '../hooks/useDatabase';
 import { db } from '@/shared/db/db-manager';
@@ -29,26 +30,20 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
     // When the currently-viewed table is a live preview, reload its rows as new
     // data is appended. Also refresh the table list when a new extraction completes.
     useEffect(() => {
-        const handleMessage = (message: any) => {
-            if (message.type === 'BULK_EXTRACTION_PROGRESS' || message.type === 'METADATA_EXTRACTION_PROGRESS') {
-                const { previewTableId } = message.payload;
-                if (previewTableId != null && previewTableId === selectedId) {
-                    refreshTable();
-                }
-            } else if (
-                message.type === 'BULK_EXTRACTION_COMPLETE' ||
-                message.type === 'METADATA_EXTRACTION_COMPLETE' ||
-                message.type === 'DATA_SAVED'
-            ) {
-                refreshAll();
-                const tableId = message.payload?.tableDataId ?? message.payload?.tableId;
-                if (tableId != null && tableId === selectedId) {
-                    refreshTable();
-                }
-            }
+        const onProgress = ({ previewTableId }: RunProgress) => {
+            if (previewTableId != null && previewTableId === selectedId) refreshTable();
         };
-        chrome.runtime.onMessage.addListener(handleMessage);
-        return () => chrome.runtime.onMessage.removeListener(handleMessage);
+        const onComplete = ({ tableDataId }: RunComplete) => {
+            refreshAll();
+            if (tableDataId != null && tableDataId === selectedId) refreshTable();
+        };
+        const offs = [
+            on('BULK_EXTRACTION_PROGRESS', onProgress),
+            on('METADATA_EXTRACTION_PROGRESS', onProgress),
+            on('BULK_EXTRACTION_COMPLETE', onComplete),
+            on('METADATA_EXTRACTION_COMPLETE', onComplete),
+        ];
+        return () => offs.forEach(off => off());
     }, [selectedId, refreshTable, refreshAll]);
 
     // Close export dropdown on outside click

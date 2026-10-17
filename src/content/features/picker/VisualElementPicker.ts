@@ -3,6 +3,9 @@
  */
 import { ISelectionStrategy } from './strategies/ISelectionStrategy';
 import { hasRenderedBox, getVisualRect } from '../../utils/rendering';
+import { ElementSelected, send } from '../../../shared/messages';
+
+const reportSelection = (selected: ElementSelected) => { void send('ELEMENT_SELECTED', selected); };
 export class VisualElementPicker {
     private overlay: HTMLElement | null = null;
     private tooltip: HTMLElement | null = null;
@@ -73,9 +76,7 @@ export class VisualElementPicker {
 
         if (action === 'Enter') {
             if (this.strategy) {
-                this.strategy.handleClick(this.currentElement, this, (msg) => {
-                    if (chrome && chrome.runtime) chrome.runtime.sendMessage(msg);
-                });
+                this.strategy.handleClick(this.currentElement, this, reportSelection);
             }
         }
     }
@@ -382,12 +383,7 @@ export class VisualElementPicker {
         // Use the currentElement identified by handleMouseMove
         // because the overlay captures the actual click event target.
         if (this.currentElement) {
-            this.strategy.handleClick(this.currentElement, this, (msg) => {
-                // Use runtime.sendMessage directly if available, otherwise fallback
-                if (chrome && chrome.runtime) {
-                    chrome.runtime.sendMessage(msg);
-                }
-            });
+            this.strategy.handleClick(this.currentElement, this, reportSelection);
         }
     }
 
@@ -432,9 +428,7 @@ export class VisualElementPicker {
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
-            this.strategy.handleClick(this.currentElement, this, (msg) => {
-                if (chrome && chrome.runtime) chrome.runtime.sendMessage(msg);
-            });
+            this.strategy.handleClick(this.currentElement, this, reportSelection);
         }
     }
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { sendToTab } from '../../shared/messages';
 import {
     Box, Typography, Paper, IconButton, Stack, Chip, Switch,
      Card, CardContent, Fade
@@ -21,11 +22,8 @@ export default function UtilitiesPage({ onBack }: UtilitiesPageProps) {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (tab?.id) {
                 const newState = !rightClickEnabled;
-                const response = await chrome.tabs.sendMessage(tab.id, {
-                    type: 'toggle_right_click',
-                    payload: { enable: newState }
-                });
-                if (response && response.success) {
+                const response = await sendToTab(tab.id, 'TOGGLE_RIGHT_CLICK', { enable: newState });
+                if (response.success) {
                     setRightClickEnabled(response.enabled);
                 }
             }

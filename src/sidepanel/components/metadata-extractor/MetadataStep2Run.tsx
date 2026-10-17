@@ -2,11 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Database, Loader2, CheckCircle2, ExternalLink, RotateCcw, Link, FileText } from 'lucide-react';
 import type { MetadataExtractOptions } from '../../../shared/types/metadata';
 
-interface UrlStatus {
-    url: string;
-    status: 'queued' | 'extracting' | 'done' | 'error';
-    error?: string;
-}
+import type { UrlStatus } from '../../../shared/messages';
 
 interface MetadataStep2RunProps {
     selectedUrls: string[];

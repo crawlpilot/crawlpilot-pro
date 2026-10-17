@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Database, Loader2, Settings2, ExternalLink, RotateCcw, CheckCircle2, ChevronDown, ShieldAlert } from 'lucide-react';
-import type { UrlStatus } from '../../../hooks/useBulkExtraction';
+import type { UrlStatus } from '../../../../shared/messages';
 import { VERDICT_LABELS } from '../../../../shared/verdict/classifyPage';
 
 interface Step3ReviewProps {

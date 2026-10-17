@@ -1,12 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { on, send, UrlStatus } from '../../shared/messages';
 import type { MetadataExtractOptions } from '../../shared/types/metadata';
 import { hasAllUrlsPermission, requestAllUrlsPermission, openSiteAccessSettings } from '../../shared/utils/hostPermissions';
-
-interface UrlStatus {
-    url: string;
-    status: 'queued' | 'extracting' | 'done' | 'error';
-    error?: string;
-}
 
 export function useMetadataExtraction() {
     const [isExtracting, setIsExtracting] = useState(false);
@@ -20,7 +15,6 @@ export function useMetadataExtraction() {
     const [activeTabs, setActiveTabs] = useState(0);
     const [urlStatuses, setUrlStatuses] = useState<UrlStatus[]>([]);
     const [previewTableId, setPreviewTableId] = useState<number | null>(null);
-    const [currentJobId, setCurrentJobId] = useState<number | null>(null);
 
     const pendingProgressRef = useRef<{
         completedUrls: number; totalUrls: number; activeTabs: number;
@@ -41,9 +35,9 @@ export function useMetadataExtraction() {
             if (p.previewTableId != null) setPreviewTableId(p.previewTableId);
         };
 
-        const handleMessage = (message: any) => {
-            if (message.type === 'METADATA_EXTRACTION_PROGRESS') {
-                const { completedUrls, totalUrls, activeTabs: tabs, urlStatuses: statuses, previewTableId: preview } = message.payload;
+        const offs = [
+            on('METADATA_EXTRACTION_PROGRESS', payload => {
+                const { completedUrls, totalUrls, activeTabs: tabs, urlStatuses: statuses, previewTableId: preview } = payload;
                 pendingProgressRef.current = {
                     completedUrls, totalUrls, activeTabs: tabs,
                     urlStatuses: statuses || [], previewTableId: preview ?? null
@@ -51,8 +45,9 @@ export function useMetadataExtraction() {
                 if (!flushTimerRef.current) {
                     flushTimerRef.current = setTimeout(flushProgress, 300);
                 }
-            } else if (message.type === 'METADATA_EXTRACTION_COMPLETE') {
-                const { tableDataId, stoppedByUser } = message.payload;
+            }),
+            on('METADATA_EXTRACTION_COMPLETE', payload => {
+                const { tableDataId, stoppedByUser } = payload;
                 setIsExtracting(false);
                 setIsStopping(false);
                 setActiveTabs(0);
@@ -63,12 +58,11 @@ export function useMetadataExtraction() {
                     setHasCompleted(true);
                     setCompletedTableId(tableDataId ?? null);
                 }
-            }
-        };
+            }),
+        ];
 
-        chrome.runtime.onMessage.addListener(handleMessage);
         return () => {
-            chrome.runtime.onMessage.removeListener(handleMessage);
+            offs.forEach(off => off());
             if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
         };
     }, []);
@@ -97,43 +91,26 @@ export function useMetadataExtraction() {
         setTotalCount(urls.length);
         setUrlStatuses(urls.map(url => ({ url, status: 'queued' as const })));
 
-        const response = await new Promise<any>((resolve) => {
-            chrome.runtime.sendMessage({
-                type: 'METADATA_EXTRACTION_START',
-                payload: {
-                    urls,
-                    options,
-                    maxConcurrent: Math.min(config.maxConcurrent ?? 3, 5),
-                    requestDelay: config.requestDelay ?? 1000,
-                    loadTimeout: config.loadTimeout ?? 30000,
-                    customName: config.customName,
-                },
-                timestamp: Date.now(),
-            }, (res) => {
-                if (chrome.runtime.lastError) {
-                    resolve({ success: false, error: chrome.runtime.lastError.message });
-                } else {
-                    resolve(res);
-                }
-            });
+        const response = await send('METADATA_EXTRACTION_START', {
+            urls,
+            options,
+            maxConcurrent: Math.min(config.maxConcurrent ?? 3, 5),
+            requestDelay: config.requestDelay ?? 1000,
+            loadTimeout: config.loadTimeout ?? 30000,
+            customName: config.customName,
         });
 
-        if (response?.success && response.jobId) {
-            setCurrentJobId(response.jobId);
+        if (response?.success) {
         } else {
-            console.error('[useMetadataExtraction] Failed to start:', response?.error);
+            console.error('[useMetadataExtraction] Failed to start:', response?.error ?? 'background not reachable');
             setIsExtracting(false);
         }
     }, []);
 
     const stopMetadataExtraction = useCallback(() => {
-        chrome.runtime.sendMessage({
-            type: 'METADATA_EXTRACTION_STOP',
-            payload: { jobId: currentJobId },
-            timestamp: Date.now(),
-        });
+        void send('METADATA_EXTRACTION_STOP');
         setIsStopping(true);
-    }, [currentJobId]);
+    }, []);
 
     const resetState = useCallback(() => {
         setHasStopped(false);
@@ -145,7 +122,6 @@ export function useMetadataExtraction() {
         setTotalCount(0);
         setUrlStatuses([]);
         setPreviewTableId(null);
-        setCurrentJobId(null);
     }, []);
 
     return {

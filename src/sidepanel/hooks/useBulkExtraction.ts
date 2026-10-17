@@ -1,14 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { on, send, UrlStatus } from '../../shared/messages';
 import { hasAllUrlsPermission, requestAllUrlsPermission, openSiteAccessSettings } from '../../shared/utils/hostPermissions';
 
-import type { PageVerdict } from '../../shared/verdict/classifyPage';
-
-export interface UrlStatus {
-    url: string;
-    status: 'queued' | 'extracting' | 'waiting' | 'done' | 'error';
-    error?: string;
-    verdict?: PageVerdict;
-}
 
 interface BulkExtractionOptions {
     maxConcurrent?: number;
@@ -45,7 +38,6 @@ export function useBulkExtraction() {
     const [totalPages, setTotalPages] = useState(0);
     const [activeTabs, setActiveTabs] = useState(0);
     const [urlStatuses, setUrlStatuses] = useState<UrlStatus[]>([]);
-    const [currentJobId, setCurrentJobId] = useState<number | null>(null);
     const [previewTableId, setPreviewTableId] = useState<number | null>(null);
     const [duplicatesRemoved, setDuplicatesRemoved] = useState(0);
 
@@ -73,9 +65,9 @@ export function useBulkExtraction() {
             if (p.previewTableId != null) setPreviewTableId(p.previewTableId);
         };
 
-        const handleMessage = (message: any) => {
-            if (message.type === 'BULK_EXTRACTION_PROGRESS') {
-                const { completedUrls, totalUrls, activeTabs: tabs, urlStatuses: statuses, previewTableId: preview } = message.payload;
+        const offs = [
+            on('BULK_EXTRACTION_PROGRESS', payload => {
+                const { completedUrls, totalUrls, activeTabs: tabs, urlStatuses: statuses, previewTableId: preview } = payload;
                 pendingProgressRef.current = {
                     completedUrls, totalUrls, activeTabs: tabs,
                     urlStatuses: statuses || [], previewTableId: preview ?? null
@@ -86,8 +78,9 @@ export function useBulkExtraction() {
                 if (callbacksRef.current.onProgress) {
                     callbacksRef.current.onProgress(completedUrls);
                 }
-            } else if (message.type === 'BULK_EXTRACTION_COMPLETE') {
-                const { tableDataId, stoppedByUser } = message.payload;
+            }),
+            on('BULK_EXTRACTION_COMPLETE', payload => {
+                const { tableDataId, stoppedByUser } = payload;
                 setIsExtracting(false);
                 setIsStopping(false);
                 setActiveTabs(0);
@@ -98,24 +91,19 @@ export function useBulkExtraction() {
                     setHasCompleted(true);
                     setCompletedTableId(tableDataId ?? null);
                 }
-            }
-        };
+            }),
+        ];
 
-        chrome.runtime.onMessage.addListener(handleMessage);
         return () => {
-            chrome.runtime.onMessage.removeListener(handleMessage);
+            offs.forEach(off => off());
             if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
         };
     }, []);
 
     const stopBulkExtraction = useCallback(() => {
-        chrome.runtime.sendMessage({
-            type: 'BULK_EXTRACTION_STOP',
-            payload: { jobId: currentJobId },
-            timestamp: Date.now()
-        });
+        void send('BULK_EXTRACTION_STOP');
         setIsStopping(true);
-    }, [currentJobId]);
+    }, []);
 
     const startBulkExtraction = useCallback(async (
         urls: string[],
@@ -180,30 +168,17 @@ export function useBulkExtraction() {
         if (pauseOnChallenge != null) config.pauseOnChallenge = pauseOnChallenge;
         if (listOutput) config.listOutput = listOutput;
 
-        const response = await new Promise<any>((resolve) => {
-            chrome.runtime.sendMessage({
-                type: 'BULK_EXTRACTION_START',
-                payload: {
-                    urls,
-                    elements,
-                    config,
-                    jobId: existingJobId,
-                    recipeId: passedRecipeId,
-                    customName,
-                    maxConcurrent: Math.min(maxConcurrent, 5)
-                },
-                timestamp: Date.now()
-            }, (res) => {
-                if (chrome.runtime.lastError) {
-                    resolve({ success: false, error: chrome.runtime.lastError.message });
-                } else {
-                    resolve(res);
-                }
-            });
+        const response = await send('BULK_EXTRACTION_START', {
+            urls,
+            elements,
+            config,
+            jobId: existingJobId,
+            recipeId: passedRecipeId,
+            customName,
+            maxConcurrent: Math.min(maxConcurrent, 5)
         });
 
-        if (response?.success && response.jobId) {
-            setCurrentJobId(response.jobId);
+        if (response?.success) {
             if (onStart) onStart(response.jobId);
             const dupes = (response.originalCount ?? urls.length) - (response.uniqueCount ?? urls.length);
             if (dupes > 0) {
@@ -212,7 +187,7 @@ export function useBulkExtraction() {
                 setUrlStatuses(Array.from(new Set(urls)).map(url => ({ url, status: 'queued' as const })));
             }
         } else {
-            console.error('[useBulkExtraction] Failed to start:', response?.error);
+            console.error('[useBulkExtraction] Failed to start:', response?.error ?? 'background not reachable');
             setIsExtracting(false);
         }
     }, []);

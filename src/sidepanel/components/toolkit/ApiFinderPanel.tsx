@@ -6,7 +6,8 @@ import { findValuePaths, formatPath, generalisePath, resolvePath, arrayPathOf, V
 import { tableFromArray } from '../../../shared/network/arrayTable';
 import { REQUEST_TARGET_LABELS, RequestTarget, toRequestSnippet, detectPagingParams, hasSensitiveHeaders } from '../../../shared/network/requestSnippets';
 import { db } from '../../../shared/db/db-manager';
-import { sendToActiveTab, copyText } from './tabMessaging';
+import { on, sendToActiveTab } from '../../../shared/messages';
+import { copyText } from '../../services/clipboard';
 import { startRecording, stopRecording, isRecordingRegistered } from './apiRecording';
 
 const POLL_MS = 2000;
@@ -52,7 +53,7 @@ export default function ApiFinderPanel() {
 
     const refresh = useCallback(async () => {
         try {
-            const res = await sendToActiveTab<{ installed: boolean; entries: NetEntry[] }>({ type: 'NET_LIST' });
+            const res = await sendToActiveTab('NET_LIST');
             setHookPresent(res.installed);
             if (res.installed) setEntries(res.entries);
         } catch (e: any) {
@@ -63,13 +64,10 @@ export default function ApiFinderPanel() {
     useEffect(() => {
         isRecordingRegistered().then(setRecording);
         refresh();
-        const listener = (message: any) => {
-            if (message?.type !== 'LAB_PICKED') return;
+        return on('LAB_PICKED', picked => {
             setPicking(false);
-            if (message.payload?.text) setQuery(message.payload.text.split(/\s{2,}|\n/)[0].slice(0, 120));
-        };
-        chrome.runtime.onMessage.addListener(listener);
-        return () => chrome.runtime.onMessage.removeListener(listener);
+            if (picked?.text) setQuery(picked.text.split(/\s{2,}|\n/)[0].slice(0, 120));
+        });
     }, [refresh]);
 
     useEffect(() => {
@@ -97,7 +95,7 @@ export default function ApiFinderPanel() {
     };
 
     const clear = async () => {
-        await sendToActiveTab({ type: 'NET_CLEAR' }).catch(() => undefined);
+        await sendToActiveTab('NET_CLEAR').catch(() => undefined);
         parsedCache.current.clear();
         setEntries([]);
         setSelected(null);
@@ -106,7 +104,7 @@ export default function ApiFinderPanel() {
     const pickFromPage = async () => {
         setError(null);
         try {
-            await sendToActiveTab({ type: 'LAB_PICK_START' });
+            await sendToActiveTab('LAB_PICK_START');
             setPicking(true);
         } catch (e: any) {
             setError(e.message);
@@ -140,7 +138,7 @@ export default function ApiFinderPanel() {
     const loadCookie = async (on: boolean) => {
         if (!on) { setCookie(null); return; }
         try {
-            const res = await sendToActiveTab<{ cookie: string }>({ type: 'PAGE_COOKIE' });
+            const res = await sendToActiveTab('PAGE_COOKIE');
             setCookie(res.cookie || '');
         } catch (e: any) {
             setError(e.message);

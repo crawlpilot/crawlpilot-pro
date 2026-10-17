@@ -1,3 +1,4 @@
+import type { ElementSelected } from '../../../../shared/messages';
 import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
@@ -47,7 +48,7 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
         );
     }
 
-    handleClick(element: HTMLElement, picker: VisualElementPicker, sendResponse: (msg: any) => void): void {
+    handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {
         console.log('Detail Strategy Clicked:', element);
 
         const target = element;
@@ -91,28 +92,25 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
         if (classification.itemSelector) itemSelector = classification.itemSelector;
         if (classification.itemXPath) itemXPath = classification.itemXPath;
 
-        sendResponse({
-            type: 'ELEMENT_SELECTED',
-            payload: {
-                success: true,
-                id: `sel-${Date.now()}`,
-                data,
-                containerSelector,
-                containerXPath,
-                itemSelector,
-                itemXPath,
-                value: classification.finalValue,
-                previewValue: classification.previewValue,
-                tagName: element.tagName.toLowerCase(),
-                selectionMode: 'detail',
-                action: this.preferredAction || 'extract',
-                extractionType: classification.extractionType,
-                waitTime: 0,
-                patternFound: isList,
-                count: classification.count ?? (isList ? (containerInfo.childCount || data?.items?.length || 1) : 1),
-                viewportWidth: window.outerWidth,
-                viewportHeight: window.outerHeight
-            }
+        report({
+            success: true,
+            id: `sel-${Date.now()}`,
+            data,
+            containerSelector,
+            containerXPath,
+            itemSelector,
+            itemXPath,
+            value: classification.finalValue,
+            previewValue: classification.previewValue,
+            tagName: element.tagName.toLowerCase(),
+            selectionMode: 'detail',
+            action: this.preferredAction || 'extract',
+            extractionType: classification.extractionType,
+            waitTime: 0,
+            patternFound: isList,
+            count: classification.count ?? (isList ? (containerInfo.childCount || data?.items?.length || 1) : 1),
+            viewportWidth: window.outerWidth,
+            viewportHeight: window.outerHeight
         });
 
         picker.deactivate();

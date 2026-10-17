@@ -1,3 +1,4 @@
+import { BulkStart, send } from '../../shared/messages';
 /**
  * BulkExtractionOrchestrator — runs in the background service worker.
  * 
@@ -115,16 +116,6 @@ function _mainWorldForceExpand() {
 const STORAGE_KEY = 'bulk_extraction_state';
 const KEEPALIVE_ALARM = 'bulk_extraction_keepalive';
 
-export interface BulkExtractionConfig {
-    urls: string[];
-    elements: any[];
-    config: any;
-    jobId?: number;
-    recipeId?: number;
-    customName?: string;
-    maxConcurrent?: number;
-}
-
 interface UrlStatus {
     url: string;
     status: 'queued' | 'extracting' | 'waiting' | 'done' | 'error';
@@ -160,7 +151,7 @@ export class BulkExtractionOrchestrator {
     /** Earliest time the next page of a host may start (per-site gap and backoff). */
     private domainNextAllowed = new Map<string, number>();
 
-    async start(extractionConfig: BulkExtractionConfig): Promise<{ jobId: number; originalCount: number; uniqueCount: number }> {
+    async start(extractionConfig: BulkStart): Promise<{ jobId: number; originalCount: number; uniqueCount: number }> {
         if (this.isActive) {
             throw new Error('An extraction is already in progress');
         }
@@ -664,18 +655,14 @@ export class BulkExtractionOrchestrator {
             elementTimeout: Math.max(this.config.elementTimeout || 0, 8000),
         } : { ...this.config, actionSpeed };
 
-        const response = await this.tabPool.sendMessage(tabId, {
-            type: 'CMD_EXTRACT_PAGE_BACKGROUND',
-            payload: {
-                actionType: 'EXTRACT_PAGES',
-                url,
-                elements: extractElements,
-                config: postClickConfig
-            }
+        const response = await this.tabPool.sendMessage(tabId, 'CMD_EXTRACT_PAGE_BACKGROUND', {
+            url,
+            elements: extractElements,
+            config: postClickConfig
         });
 
-        if (!response || !response.success || !response.result) {
-            console.warn(`[Orchestrator] extractFromTab bad response for ${url}:`, JSON.stringify({ hasResponse: !!response, success: response?.success, hasResult: !!response?.result, error: response?.error }));
+        if (!response?.success) {
+            console.warn(`[Orchestrator] extractFromTab failed for ${url}:`, response?.error);
             return null;
         }
 
@@ -805,25 +792,18 @@ export class BulkExtractionOrchestrator {
             });
 
             // Broadcast completion
-            chrome.runtime.sendMessage({
-                type: 'BULK_EXTRACTION_COMPLETE',
-                payload: {
-                    jobId,
-                    tableDataId,
-                    totalItems: allItems.length,
-                    success: !error && !stoppedByUser,
-                    error,
-                    stoppedByUser
-                },
-                timestamp: Date.now()
-            }).catch(() => { /* sidepanel may not be open */ });
+            void send('BULK_EXTRACTION_COMPLETE', {
+                jobId,
+                tableDataId,
+                totalItems: allItems.length,
+                success: !error && !stoppedByUser,
+                error,
+                stoppedByUser
+            });
         } catch (e) {
             console.error('[Orchestrator] Error in finishExtraction (data/broadcast):', e);
             // Broadcast a best-effort completion signal so the sidepanel doesn't hang
-            chrome.runtime.sendMessage({
-                type: 'BULK_EXTRACTION_COMPLETE',
-                payload: { jobId, tableDataId, totalItems: allItems.length, success: false, error: String(e), stoppedByUser }
-            }).catch(() => {});
+            void send('BULK_EXTRACTION_COMPLETE', { jobId, tableDataId, totalItems: allItems.length, success: false, error: String(e), stoppedByUser });
         } finally {
             // Always clean up tabs and state — regardless of DB/broadcast errors
             this.stopKeepAlive();
@@ -854,20 +834,16 @@ export class BulkExtractionOrchestrator {
         const completedUrls = urlStatuses.filter(u => u.status === 'done').length;
         const currentExtracting = urlStatuses.find(u => u.status === 'extracting');
 
-        chrome.runtime.sendMessage({
-            type: 'BULK_EXTRACTION_PROGRESS',
-            payload: {
-                jobId: this.state.jobId,
-                completedUrls,
-                totalUrls: urlStatuses.length,
-                currentUrl: currentExtracting?.url,
-                activeTabs: this.tabPool?.activeCount || 0,
-                urlStatuses: urlStatuses.map(u => ({ url: u.url, status: u.status, error: u.error, verdict: u.verdict })),
-                verdicts: this.verdictCounts(),
-                previewTableId: this.previewTableId
-            },
-            timestamp: Date.now()
-        }).catch(() => { /* sidepanel may not be open */ });
+        void send('BULK_EXTRACTION_PROGRESS', {
+            jobId: this.state.jobId,
+            completedUrls,
+            totalUrls: urlStatuses.length,
+            currentUrl: currentExtracting?.url,
+            activeTabs: this.tabPool?.activeCount || 0,
+            urlStatuses: urlStatuses.map(u => ({ url: u.url, status: u.status, error: u.error, verdict: u.verdict })),
+            verdicts: this.verdictCounts(),
+            previewTableId: this.previewTableId
+        });
     }
 
     private async persistState() {

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { on, sendToActiveTab, sendToTab } from '../../shared/messages';
 import { db } from '../../shared/db/db-manager';
 import { SelectorState, PaginationConfig, ExtractionStatus, SelectorMetadata } from '../../shared/types/extraction';
 import { PAGINATION_PROFILES, PaginationSpeed } from '../../shared/constants/paginationConfig';
@@ -20,26 +21,22 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
     const pagesVisitedRef = useRef(1);
     const extractionTabIdRef = useRef<number | null>(null); // [NEW] Track the extraction tab ID
 
-    // Tracks chrome.runtime.onMessage listeners registered by startExtraction's auto-scroll/
-    // pagination promises so they can be force-removed on unmount. Without this, navigating
-    // away from the sidepanel mid-extraction leaks the listener (and the promise it belongs
-    // to never resolves, since only *_COMPLETE removes it normally).
-    const activeListenersRef = useRef<Array<(message: any) => void>>([]);
+    // Message handlers registered by startExtraction's auto-scroll / pagination promises, removed
+    // on unmount too: navigating away mid-extraction would otherwise leak them.
+    const activeOffsRef = useRef<Array<() => void>>([]);
 
-    const registerListener = useCallback((listener: (message: any) => void) => {
-        activeListenersRef.current.push(listener);
-        chrome.runtime.onMessage.addListener(listener);
-    }, []);
-
-    const unregisterListener = useCallback((listener: (message: any) => void) => {
-        chrome.runtime.onMessage.removeListener(listener);
-        activeListenersRef.current = activeListenersRef.current.filter(l => l !== listener);
+    const track = useCallback((...offs: Array<() => void>) => {
+        activeOffsRef.current.push(...offs);
+        return () => {
+            offs.forEach(off => off());
+            activeOffsRef.current = activeOffsRef.current.filter(o => !offs.includes(o));
+        };
     }, []);
 
     useEffect(() => {
         return () => {
-            activeListenersRef.current.forEach(l => chrome.runtime.onMessage.removeListener(l));
-            activeListenersRef.current = [];
+            activeOffsRef.current.forEach(off => off());
+            activeOffsRef.current = [];
         };
     }, []);
 
@@ -59,40 +56,20 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
 
         const targetTabId = extractionTabIdRef.current;
 
-        if (targetTabId) {
-            const message = activeModeRef.current === 'pagination'
-                ? { type: 'STOP_PAGINATION' }
-                : { type: 'STOP_AUTO_SCROLL' };
-
-            chrome.tabs.sendMessage(targetTabId, message, () => {
-                const lastError = chrome.runtime.lastError;
-                if (lastError) {
-                    console.warn("[Stop] Target tab unreachable:", lastError);
-                    // Force stop anyway
-                    setStatus(prev => ({
-                        ...prev,
-                        isExtracting: false,
-                        status: 'stopped',
-                        error: 'Extraction stopped (connection lost to page).'
-                    }));
-                }
-            });
-        } else {
-            // Fallback for safety (should not ideally happen)
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                if (tabs[0]?.id) {
-                    const message = activeModeRef.current === 'pagination'
-                        ? { type: 'STOP_PAGINATION' }
-                        : { type: 'STOP_AUTO_SCROLL' };
-                    chrome.tabs.sendMessage(tabs[0].id, message);
-                }
-                setStatus(prev => ({
-                    ...prev,
-                    isExtracting: false,
-                    status: 'stopped'
-                }));
-            });
-        }
+        const stopType = activeModeRef.current === 'pagination' ? 'STOP_PAGINATION' : 'STOP_AUTO_SCROLL';
+        const tabId = targetTabId ?? null;
+        const stop = tabId
+            ? sendToTab(tabId, stopType)
+            : sendToActiveTab(stopType);
+        stop.catch(e => {
+            console.warn('[Stop] Target tab unreachable:', e);
+            setStatus(prev => ({
+                ...prev,
+                isExtracting: false,
+                status: 'stopped',
+                error: 'Extraction stopped (connection lost to page).'
+            }));
+        });
     }, []);
 
     const startExtraction = useCallback(async (selectors: SelectorState[], pagination: PaginationConfig, options?: { tableDataId?: number; recipeId?: number; customName?: string; maxPages?: number }) => {
@@ -273,16 +250,16 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                         try {
                             const extractionResult = await new Promise<{ items: any[], columns: any[] }>((resolve) => {
                                 let previousCount = 0;
-                                const listener = async (message: any) => {
-                                    if (message.type === 'AUTO_SCROLL_COMPLETE') {
-                                        unregisterListener(listener);
-                                        const payload = message.payload;
+                                const untrack = track(
+                                    on('AUTO_SCROLL_COMPLETE', payload => {
+                                        untrack();
                                         resolve(payload.success
                                             ? { items: payload.items || [], columns: payload.columns || [] }
                                             : { items: [], columns: [] }
                                         );
-                                    } else if (message.type === 'AUTO_SCROLL_UPDATE') {
-                                        const currentCount = message.payload.count;
+                                    }),
+                                    on('AUTO_SCROLL_UPDATE', payload => {
+                                        const currentCount = payload.count;
                                         const delta = currentCount - previousCount;
                                         previousCount = currentCount;
 
@@ -292,13 +269,10 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                             currentPage: 1, // [NEW] Always 1 for auto-scroll
                                             totalProcessed: prev.totalProcessed + delta
                                         }));
-                                    }
-                                };
-                                registerListener(listener);
+                                    })
+                                );
 
-                                chrome.tabs.sendMessage(activeTabId!, {
-                                    type: 'EXECUTE_AUTO_SCROLL',
-                                    payload: {
+                                void sendToTab(activeTabId!, 'EXECUTE_AUTO_SCROLL', {
                                         selector: sel.itemSelector,
                                         selectors: sel.itemSelectors,
                                         containerSelector: sel.containerSelector,
@@ -313,7 +287,6 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                         itemSelector: sel.itemSelector,
                                         // The preview's fields: every scrolled row is read with them.
                                         columns: sel.data?.columns
-                                    }
                                 });
                             });
 
@@ -335,15 +308,14 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
 
                 if (sel) {
                     await new Promise<void>((resolve) => {
-                        const listener = (message: any) => {
-                            if (message.type === 'PAGINATION_COMPLETE') {
-                                unregisterListener(listener);
-                                const p = message.payload || {};
+                        const untrack = track(
+                            on('PAGINATION_COMPLETE', p => {
+                                untrack();
                                 stopReason = p.reason || (p.success === false ? 'error' : undefined);
                                 setStatus(prev => ({ ...prev, stopReason }));
                                 resolve();
-                            } else if (message.type === 'PAGINATION_UPDATE') {
-                                const { items, page, columns, unmapped } = message.payload;
+                            }),
+                            on('PAGINATION_UPDATE', ({ items, page, columns, unmapped }) => {
                                 if (page) pagesVisitedRef.current = page;
                                 // The fields the run reads every page with (frozen): save them as the columns.
                                 if (Array.isArray(columns) && columns.length > 0) sel.data.columns = columns;
@@ -356,17 +328,14 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 setStatus(prev => ({
                                     ...prev,
                                     progress: { id: sel.id, count: (sel.data.items?.length || 0) },
-                                    currentPage: pagesVisitedRef.current, // [NEW] Track pages
+                                    currentPage: pagesVisitedRef.current,
                                     totalProcessed: sel.data.items?.length || 0,
                                     duplicates: tracker.duplicates
                                 }));
-                            }
-                        };
-                        registerListener(listener);
+                            })
+                        );
 
-                        chrome.tabs.sendMessage(activeTabId!, {
-                            type: 'EXECUTE_PAGINATION',
-                            payload: {
+                        void sendToTab(activeTabId!, 'EXECUTE_PAGINATION', {
                                 startSelector: sel.containerSelector,
                                 startSelectors: sel.containerSelectors?.map((m: SelectorMetadata) => m.selector) || [],
                                 nextButtonSelector: pagination.nextButtonSelector,
@@ -379,7 +348,6 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 itemSelector: sel.itemSelector,
                                 itemSelectors: sel.itemSelectors,
                                 columns: sel.data?.columns
-                            }
                         });
                     });
                 }
@@ -443,7 +411,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                 error: (err as Error).message || 'Failed to save extracted data.'
             }));
         }
-    }, [onComplete, registerListener, unregisterListener]);
+    }, [onComplete, track]);
 
     const reset = useCallback(() => {
         setStatus({

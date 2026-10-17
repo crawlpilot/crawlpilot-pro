@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { sendToTab } from '../../shared/messages';
 
 export function useSelectionMode() {
     const [status, setStatus] = useState<'idle' | 'selecting' | 'ready'>('idle');
@@ -15,12 +16,9 @@ export function useSelectionMode() {
             if (!tab.id) throw new Error('No active tab found');
 
             try {
-                await chrome.tabs.sendMessage(tab.id, {
-                    type: 'START_PICKER',
-                    payload: {
-                        mode: mode === 'nextButton' ? 'single' : mode,
-                        action: mode === 'nextButton' ? 'click' : action
-                    }
+                await sendToTab(tab.id, 'START_PICKER', {
+                    mode: mode === 'nextButton' ? 'single' : mode,
+                    action: mode === 'nextButton' ? 'click' : action
                 });
             } catch (e) {
                 // Content script is not active. This usually happens on restricted pages (like chrome://) 
@@ -37,7 +35,7 @@ export function useSelectionMode() {
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (tab?.id) {
-                await chrome.tabs.sendMessage(tab.id, { type: 'STOP_PICKER' });
+                await sendToTab(tab.id, 'STOP_PICKER');
             }
         } catch (e) {
             console.warn('Failed to stop picker:', e);

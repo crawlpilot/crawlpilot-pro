@@ -7,7 +7,7 @@ import { getLanguageModel, docCharBudget, progressFraction } from './promptSessi
 import { buildExtractPrompt, buildResponseSchema, EXTRACT_SYSTEM_PROMPT, parseModelOutput } from '../../../shared/ai/extractPrompt';
 import type { SchemaField } from '../../../shared/ai/schemaIntake';
 import type { VerifiedField } from '../../../content/services/ai-view/ReferencedView';
-import { sendToActiveTab } from '../../components/toolkit/tabMessaging';
+import { sendToActiveTab } from '../../../shared/messages';
 
 export interface SchemaExtractionResult {
     fields: VerifiedField[];
@@ -43,7 +43,7 @@ export async function runSchemaExtraction(
         opts.onStatus?.('Reading the page…');
         // Leave room for the field list and the answer.
         const budget = Math.max(3000, docCharBudget(session) - 1500);
-        const view = await sendToActiveTab<{ view: string; refs: number; truncated: boolean }>({ type: 'AI_BUILD_VIEW', payload: { maxChars: budget } });
+        const view = await sendToActiveTab('AI_BUILD_VIEW', { maxChars: budget });
         if (!view.view) throw new Error('No readable text found on this page.');
 
         opts.onStatus?.(`Asking the model for ${fields.length} field${fields.length !== 1 ? 's' : ''}…`);
@@ -59,9 +59,8 @@ export async function runSchemaExtraction(
         const answers = parseModelOutput(raw, fields);
 
         opts.onStatus?.('Checking every value against the page…');
-        const res = await sendToActiveTab<{ fields: VerifiedField[] }>({
-            type: 'AI_VERIFY',
-            payload: { answers: fields.map(f => ({ name: f.name, value: answers[f.name].value, ref: answers[f.name].ref, wantType: f.type })) },
+        const res = await sendToActiveTab('AI_VERIFY', {
+            answers: fields.map(f => ({ name: f.name, value: answers[f.name].value, ref: answers[f.name].ref, wantType: f.type })),
         });
         return { fields: res.fields, truncated: view.truncated, refs: view.refs };
     } finally {

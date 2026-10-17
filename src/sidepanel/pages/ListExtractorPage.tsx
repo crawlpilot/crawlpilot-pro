@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { on, sendToTab } from '../../shared/messages';
 import { useTranslation } from 'react-i18next';
 import { useSelectorManager } from '../hooks/useSelectorManager';
 import { useSelectionMode } from '../hooks/useSelectionMode';
@@ -65,98 +66,96 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
 
     // 3. Message Listener (The Bridge)
     useEffect(() => {
-        const messageListener = async (message: any, sender: chrome.runtime.MessageSender) => {
-            if (message.type === 'ELEMENT_SELECTED') {
-                const payload = message.payload as SelectorState;
-                const tabId = sender.tab?.id; // Capture sender tab ID
+        const offSelected = on('ELEMENT_SELECTED', (selected, sender) => {
+            const payload = selected as SelectorState;
+            const tabId = sender.tab?.id;
 
-                if (payload.success) {
-                    const isNextButton = selectingFor === 'nextButton';
+            if (payload.success) {
+                const isNextButton = selectingFor === 'nextButton';
 
-                    if (isNextButton) {
-                        setNextButton(
-                            payload.itemSelector || payload.containerSelector,
-                            payload.containerSelectors || payload.itemSelectors
-                        );
-                        setSelectionStatus('ready');
-                    } else {
-                        addSelector({
-                            id: Date.now().toString(),
-                            containerSelector: payload.containerSelector,
-                            containerSelectors: payload.containerSelectors,
-                            containerXPath: payload.containerXPath,
-                            itemSelector: payload.itemSelector,
-                            itemSelectors: payload.itemSelectors,
-                            itemXPath: payload.itemXPath,
-                            count: payload.count || 1,
-                            data: payload.data,
-                            patternFound: payload.patternFound || false,
-                            selectionMode: 'list',
-                            sourceTabId: tabId // [NEW] Store tab ID
-                        });
-                        setSelectionStatus('ready');
-
-                        // Save preview data
-                        if (payload.data && payload.data.items && payload.data.items.length > 0) {
-                            (async () => {
-                                try {
-                                    // Use sender.tab — this is the actual page the user picked from,
-                                    // not whatever tab happens to be active in the window right now.
-                                    const sourceTabInfo = sender.tab;
-                                    const pageTitle = sourceTabInfo?.title
-                                        || (sourceTabInfo?.url ? new URL(sourceTabInfo.url).hostname : null)
-                                        || new URL(payload.data.source_url || window.location.href).hostname;
-
-                                    // Create a temporary list of all selectors including the new one to generate a complete preview
-                                    const newSelector: SelectorState = {
-                                        id: Date.now().toString(),
-                                        containerSelector: payload.containerSelector,
-                                        containerSelectors: payload.containerSelectors,
-                                        containerXPath: payload.containerXPath,
-                                        itemSelector: payload.itemSelector,
-                                        itemSelectors: payload.itemSelectors,
-                                        itemXPath: payload.itemXPath,
-                                        count: payload.count || 1,
-                                        data: payload.data,
-                                        patternFound: payload.patternFound || false,
-                                        selectionMode: 'list'
-                                    };
-
-                                    const previewData = consolidateSelectors([...selectors, newSelector], sourceTabInfo?.url);
-
-                                    // Pass the existing previewTableId so we UPDATE the same record
-                                    // instead of creating a new one each time the user picks elements.
-                                    const tableId = await db.saveExtraction(previewData, {
-                                        name: pageTitle,
-                                        isPreview: true,
-                                        tableDataId: previewTableId || undefined,
-                                        clearExisting: !!previewTableId
-                                    });
-                                    setPreviewTableId(tableId);
-
-                                    // Auto-open preview
-                                    const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`);
-                                    chrome.windows.create({
-                                        url: url,
-                                        type: 'popup',
-                                        width: 1000,
-                                        height: 800
-                                    });
-                                } catch (e) {
-                                    console.error('Failed to save preview', e);
-                                }
-                            })();
-                        }
-                    }
+                if (isNextButton) {
+                    setNextButton(
+                        payload.itemSelector || payload.containerSelector,
+                        payload.containerSelectors || payload.itemSelectors
+                    );
+                    setSelectionStatus('ready');
                 } else {
-                    setSelectionStatus('idle');
+                    addSelector({
+                        id: Date.now().toString(),
+                        containerSelector: payload.containerSelector,
+                        containerSelectors: payload.containerSelectors,
+                        containerXPath: payload.containerXPath,
+                        itemSelector: payload.itemSelector,
+                        itemSelectors: payload.itemSelectors,
+                        itemXPath: payload.itemXPath,
+                        count: payload.count || 1,
+                        data: payload.data,
+                        patternFound: payload.patternFound || false,
+                        selectionMode: 'list',
+                        sourceTabId: tabId // [NEW] Store tab ID
+                    });
+                    setSelectionStatus('ready');
+
+                    // Save preview data
+                    if (payload.data && payload.data.items && payload.data.items.length > 0) {
+                        (async () => {
+                            try {
+                                // Use sender.tab — this is the actual page the user picked from,
+                                // not whatever tab happens to be active in the window right now.
+                                const sourceTabInfo = sender.tab;
+                                const pageTitle = sourceTabInfo?.title
+                                    || (sourceTabInfo?.url ? new URL(sourceTabInfo.url).hostname : null)
+                                    || new URL(payload.data.source_url || window.location.href).hostname;
+
+                                // Create a temporary list of all selectors including the new one to generate a complete preview
+                                const newSelector: SelectorState = {
+                                    id: Date.now().toString(),
+                                    containerSelector: payload.containerSelector,
+                                    containerSelectors: payload.containerSelectors,
+                                    containerXPath: payload.containerXPath,
+                                    itemSelector: payload.itemSelector,
+                                    itemSelectors: payload.itemSelectors,
+                                    itemXPath: payload.itemXPath,
+                                    count: payload.count || 1,
+                                    data: payload.data,
+                                    patternFound: payload.patternFound || false,
+                                    selectionMode: 'list'
+                                };
+
+                                const previewData = consolidateSelectors([...selectors, newSelector], sourceTabInfo?.url);
+
+                                // Pass the existing previewTableId so we UPDATE the same record
+                                // instead of creating a new one each time the user picks elements.
+                                const tableId = await db.saveExtraction(previewData, {
+                                    name: pageTitle,
+                                    isPreview: true,
+                                    tableDataId: previewTableId || undefined,
+                                    clearExisting: !!previewTableId
+                                });
+                                setPreviewTableId(tableId);
+
+                                // Auto-open preview
+                                const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`);
+                                chrome.windows.create({
+                                    url: url,
+                                    type: 'popup',
+                                    width: 1000,
+                                    height: 800
+                                });
+                            } catch (e) {
+                                console.error('Failed to save preview', e);
+                            }
+                        })();
+                    }
                 }
-            } else if (message.type === 'PICKER_CANCELLED') {
-                if (selectors.length === 0 && selectingFor === 'list') setSelectionStatus('idle');
-                else setSelectionStatus('ready');
+            } else {
+                setSelectionStatus('idle');
             }
-        };
-        chrome.runtime.onMessage.addListener(messageListener);
+        });
+        const offCancelled = on('PICKER_CANCELLED', () => {
+            if (selectors.length === 0 && selectingFor === 'list') setSelectionStatus('idle');
+            else setSelectionStatus('ready');
+        });
 
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
@@ -166,7 +165,8 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
         document.addEventListener('keydown', handleKeyDown);
 
         return () => {
-            chrome.runtime.onMessage.removeListener(messageListener);
+            offSelected();
+            offCancelled();
             document.removeEventListener('keydown', handleKeyDown);
         };
     }, [selectingFor, selectors, addSelector, setNextButton, setSelectionStatus, stopSelection]);
@@ -174,12 +174,7 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
     // Handlers
     const handleVerifySelector = async (selector: string) => {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tab?.id) {
-            chrome.tabs.sendMessage(tab.id, {
-                type: 'TEST_SELECTOR',
-                payload: { selector }
-            });
-        }
+        if (tab?.id) void sendToTab(tab.id, 'TEST_SELECTOR', { selector }).catch(() => { /* not connected */ });
     };
 
     const handleStart = () => {

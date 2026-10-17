@@ -4,7 +4,8 @@ import { Radar, Copy, ChevronDown, Code2, Globe, Shield, FileJson, ListOrdered, 
 import type { ReconReport, Recommendation } from '../../../shared/recon/types';
 import { recommend } from '../../../shared/recon/recommend';
 import { VERDICT_LABELS } from '../../../shared/verdict/classifyPage';
-import { sendToActiveTab, copyText } from './tabMessaging';
+import { sendToActiveTab } from '../../../shared/messages';
+import { copyText } from '../../services/clipboard';
 
 const APPROACH_LABEL: Record<Recommendation['approach'], { label: string; color: 'success' | 'info' | 'warning' | 'error' }> = {
     'http-json': { label: 'HTTP + JSON', color: 'success' },
@@ -54,7 +55,7 @@ export default function ReconPanel() {
         setLoading(true);
         setError(null);
         try {
-            const res = await sendToActiveTab<{ report: ReconReport }>({ type: 'CMD_RECON' });
+            const res = await sendToActiveTab('CMD_RECON');
             setReport(res.report);
             setOpen(null);
         } catch (e: any) {

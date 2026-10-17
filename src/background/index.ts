@@ -1,6 +1,5 @@
 import { db } from '../shared/db/db-manager';
-import { onMessage } from '../shared/utils/messaging';
-import type { Message, DataSavedMessage, ExtractionCompleteMessage, BulkExtractionStartMessage, MetadataExtractionStartMessage, DownloadImageProxyMessage, DownloadViaChromeMessage } from '../shared/types/messages';
+import { fail, ok, on } from '../shared/messages';
 import { BulkExtractionOrchestrator } from './extraction/BulkExtractionOrchestrator';
 import { MetadataExtractionOrchestrator } from './extraction/MetadataExtractionOrchestrator';
 import { injectContentScriptIntoOpenTabs } from '../shared/utils/hostPermissions';
@@ -12,7 +11,7 @@ const metadataOrchestrator = new MetadataExtractionOrchestrator();
 // Keep-alive alarm listener for background extraction and service-worker health.
 // MV3 service workers idle out after ~30 s. A periodic alarm every 25 s prevents
 // the SW from sleeping while the sidepanel is open, which would drop pending
-// chrome.tabs.sendMessage calls and cause "Extension not connected" errors.
+// tab messages and cause "Extension not connected" errors.
 chrome.alarms.create('sw_keepalive', { periodInMinutes: 25 / 60 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -67,148 +66,51 @@ chrome.sidePanel
     .catch((error) => console.error('Side panel setup error:', error));
 
 
-// Message types that are pure broadcasts/passthroughs handled elsewhere (content script /
-// sidepanel) — the background script has nothing to do with them. Checked synchronously,
-// before any async work starts, so onMessage's `result instanceof Promise` check sees a
-// plain `undefined` and does NOT keep the message channel open for these (previously the
-// whole handler was `async`, so every message — including these — held the channel open
-// until its microtask settled, for no benefit).
-const PASSTHROUGH_MESSAGE_TYPES = new Set<Message['type']>([
-    'METADATA_EXTRACTION_PROGRESS', 'METADATA_EXTRACTION_COMPLETE',
-    'BULK_EXTRACTION_PROGRESS', 'BULK_EXTRACTION_COMPLETE',
-    'AUTO_SCROLL_UPDATE', 'AUTO_SCROLL_STATUS', 'AUTO_SCROLL_COMPLETE',
-    'EXECUTE_AUTO_SCROLL', 'STOP_AUTO_SCROLL', 'ELEMENT_SELECTED',
-    'START_PICKER', 'STOP_PICKER', 'PAGINATION_UPDATE', 'PAGINATION_STATUS',
-    'PAGINATION_COMPLETE', 'SCAN_IMAGES_PROGRESS', 'SCAN_IMAGES_BATCH',
-]);
-
-// Message handling
-onMessage((message: Message, sender) => {
-    if (PASSTHROUGH_MESSAGE_TYPES.has(message.type)) return undefined;
-    return handleMessage(message, sender);
+on('BULK_EXTRACTION_START', async (payload) => {
+    if (bulkOrchestrator.running) return fail('An extraction is already in progress');
+    try {
+        return ok(await bulkOrchestrator.start(payload));
+    } catch (error) {
+        return fail(error);
+    }
 });
 
-async function handleMessage(message: Message, _sender: chrome.runtime.MessageSender): Promise<any> {
-    switch (message.type) {
-        case 'EXTRACTION_COMPLETE': {
-            const msg = message as ExtractionCompleteMessage;
-            try {
-                const tableDataId = await db.saveExtraction(msg.payload.data);
+on('BULK_EXTRACTION_STOP', async () => {
+    await bulkOrchestrator.stop();
+    return ok();
+});
 
-                // Notify sidepanel
-                const dataSaved: DataSavedMessage = {
-                    type: 'DATA_SAVED',
-                    payload: { tableDataId },
-                    timestamp: Date.now(),
-                };
-
-                // Broadcast to all extension contexts
-                chrome.runtime.sendMessage(dataSaved);
-
-                return { success: true, tableDataId };
-            } catch (error) {
-                console.error('❌ Failed to save data:', error);
-                return {
-                    success: false,
-                    error: error instanceof Error ? error.message : 'Unknown error',
-                };
-            }
-        }
-
-        case 'PING':
-            return { pong: true };
-
-        case 'DOWNLOAD_IMAGE_PROXY': {
-            // Fetch image via background to bypass CORS restrictions
-            const { url } = (message as DownloadImageProxyMessage).payload;
-            try {
-                const response = await fetch(url, {
-                    mode: 'cors',
-                    credentials: 'omit',
-                    signal: AbortSignal.timeout(15_000),
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const buffer = await response.arrayBuffer();
-                const contentType = response.headers.get('content-type') || 'image/jpeg';
-                return { success: true, data: Array.from(new Uint8Array(buffer)), contentType };
-            } catch (error) {
-                return { success: false, error: error instanceof Error ? error.message : 'Fetch failed' };
-            }
-        }
-
-        case 'DOWNLOAD_VIA_CHROME': {
-            // Use chrome.downloads API to save a file directly
-            const { url: dlUrl, filename } = (message as DownloadViaChromeMessage).payload;
-            try {
-                const downloadId = await chrome.downloads.download({
-                    url: dlUrl,
-                    filename: filename || undefined,
-                    saveAs: false
-                });
-                return { success: true, downloadId };
-            } catch (error) {
-                return { success: false, error: error instanceof Error ? error.message : 'Download failed' };
-            }
-        }
-
-        case 'BULK_EXTRACTION_START': {
-            const startMsg = message as BulkExtractionStartMessage;
-            try {
-                if (bulkOrchestrator.running) {
-                    return { success: false, error: 'An extraction is already in progress' };
-                }
-                const { jobId, originalCount, uniqueCount } = await bulkOrchestrator.start({
-                    urls: startMsg.payload.urls,
-                    elements: startMsg.payload.elements,
-                    config: startMsg.payload.config,
-                    jobId: startMsg.payload.jobId,
-                    recipeId: startMsg.payload.recipeId,
-                    customName: startMsg.payload.customName,
-                    maxConcurrent: startMsg.payload.maxConcurrent
-                });
-                return { success: true, jobId, originalCount, uniqueCount };
-            } catch (error) {
-                return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-            }
-        }
-
-        case 'BULK_EXTRACTION_STOP': {
-            await bulkOrchestrator.stop();
-            return { success: true };
-        }
-
-        case 'METADATA_EXTRACTION_START': {
-            const startMsg = message as MetadataExtractionStartMessage;
-            try {
-                if (metadataOrchestrator.running) {
-                    return { success: false, error: 'A metadata extraction is already in progress' };
-                }
-                const { jobId, uniqueCount } = await metadataOrchestrator.start({
-                    urls: startMsg.payload.urls,
-                    options: startMsg.payload.options ?? {},
-                    maxConcurrent: startMsg.payload.maxConcurrent,
-                    requestDelay: startMsg.payload.requestDelay,
-                    loadTimeout: startMsg.payload.loadTimeout,
-                    customName: startMsg.payload.customName,
-                });
-                return { success: true, jobId, uniqueCount };
-            } catch (error) {
-                return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-            }
-        }
-
-        case 'METADATA_EXTRACTION_STOP': {
-            await metadataOrchestrator.stop();
-            return { success: true };
-        }
-
-        // Passthrough/broadcast types are filtered out before handleMessage is ever
-        // called — see PASSTHROUGH_MESSAGE_TYPES above.
-
-        default:
-            return { error: 'Unknown message type' };
+on('METADATA_EXTRACTION_START', async (payload) => {
+    if (metadataOrchestrator.running) return fail('A metadata extraction is already in progress');
+    try {
+        return ok(await metadataOrchestrator.start({ ...payload, options: payload.options ?? {} }));
+    } catch (error) {
+        return fail(error);
     }
-}
+});
 
-// Export for use in other parts
-export { db };
+on('METADATA_EXTRACTION_STOP', async () => {
+    await metadataOrchestrator.stop();
+    return ok();
+});
+
+// Fetches an image for the side panel, bypassing the page's CORS restrictions.
+on('DOWNLOAD_IMAGE_PROXY', async ({ url }) => {
+    try {
+        const response = await fetch(url, { mode: 'cors', credentials: 'omit', signal: AbortSignal.timeout(15_000) });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const buffer = await response.arrayBuffer();
+        return ok({ data: Array.from(new Uint8Array(buffer)), contentType: response.headers.get('content-type') || 'image/jpeg' });
+    } catch (error) {
+        return fail(error, 'Fetch failed');
+    }
+});
+
+on('DOWNLOAD_VIA_CHROME', async ({ url, filename }) => {
+    try {
+        const downloadId = await chrome.downloads.download({ url, filename: filename || undefined, saveAs: false });
+        return ok({ downloadId });
+    } catch (error) {
+        return fail(error, 'Download failed');
+    }
+});

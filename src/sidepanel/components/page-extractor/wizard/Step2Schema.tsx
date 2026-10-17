@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { HighlightSender, sendToActiveTab } from '../../../../shared/messages';
 import { MousePointerClick, X, Loader2, Sparkles } from 'lucide-react';
 import AiSchemaDialog from '../AiSchemaDialog';
 import Badge from '../../ui/Badge';
@@ -24,7 +25,7 @@ interface Step2SchemaProps {
     onBack: () => void;
     onNext: () => void;
     onCancel: () => void;
-    sendHighlightMessage: (type: string, payload?: any) => Promise<void>;
+    sendHighlightMessage: HighlightSender;
     /** Adds fields built by the AI schema flow. */
     onAddElements?: (elements: any[]) => void;
 }
@@ -64,12 +65,7 @@ export function Step2Schema({
                 const action = actionKeys[e.key];
                 if (action) {
                     e.preventDefault();
-                    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                        const tabId = tabs[0]?.id;
-                        if (tabId) {
-                            chrome.tabs.sendMessage(tabId, { type: 'PICKER_ACTION', payload: { action } });
-                        }
-                    });
+                    sendToActiveTab('PICKER_ACTION', { action }).catch(() => { /* picker not on this page */ });
                 }
             }
         };

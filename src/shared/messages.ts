@@ -1,0 +1,277 @@
+/**
+ * Every message between the side panel, the background service worker and the content script,
+ * with its payload and reply, in one map. Send with `send` (to the extension: background and side
+ * panel), `sendToTab` / `sendToActiveTab` (to a page's content script); handle with `on`.
+ *
+ * A context answers only the types it registered, so a broadcast (progress, picker results) never
+ * gets a stray reply from another context.
+ */
+import type { MetadataExtractOptions, MetadataExtractResult } from './types/metadata';
+import type { ExtractedContent } from './types/summarizer';
+import type { PageVerdict } from './verdict/classifyPage';
+import type { ReconReport } from './recon/types';
+import type { NetEntry } from './network/types';
+import type { LabEval, LabPick } from '../content/features/lab/SelectorLab';
+import type { VerifiedField } from '../content/services/ai-view/ReferencedView';
+
+type Fail = { success: false; error: string };
+/** A content-script / background reply: its data on success, or an error. */
+type Res<T = {}> = ({ success: true; error?: undefined } & T) | Fail;
+/** One URL of a bulk or metadata run, as the side panel shows it. */
+export interface UrlStatus {
+    url: string;
+    status: 'queued' | 'extracting' | 'waiting' | 'done' | 'error';
+    error?: string;
+    verdict?: PageVerdict;
+}
+
+export interface RunProgress {
+    jobId: number;
+    completedUrls: number;
+    totalUrls: number;
+    currentUrl?: string;
+    activeTabs: number;
+    urlStatuses: UrlStatus[];
+    verdicts?: Record<string, number>;
+    previewTableId?: number | null;
+}
+
+export interface RunComplete {
+    jobId: number;
+    tableDataId?: number;
+    totalItems: number;
+    success: boolean;
+    error?: string;
+    stoppedByUser?: boolean;
+}
+
+export interface BulkStart {
+    urls: string[];
+    elements: any[];
+    config: any;
+    jobId?: number;
+    recipeId?: number;
+    customName?: string;
+    maxConcurrent?: number;
+}
+
+export interface MetadataStart {
+    urls: string[];
+    options: MetadataExtractOptions;
+    maxConcurrent?: number;
+    requestDelay?: number;
+    loadTimeout?: number;
+    customName?: string;
+}
+
+/** A picked element (list, single or detail), as the picker strategies report it. */
+export interface ElementSelected {
+    success: boolean;
+    id: string;
+    data?: any;
+    [key: string]: any;
+}
+
+export interface AutoScrollRequest {
+    selector?: string;
+    selectors?: any[];
+    selectorType?: string;
+    selectionMode?: string;
+    containerSelector?: string;
+    containerSelectors?: any[];
+    enableInfiniteScroll?: boolean;
+    loadMoreSelector?: string | null;
+    loadMoreSelectorType?: string;
+    scrollDelay?: number;
+    contentLoadDelay?: number;
+    itemSelector?: string;
+    /** The list's frozen fields; every scrolled row is read with them. */
+    columns?: unknown;
+}
+
+export interface PaginationRequest {
+    startSelector?: string;
+    startSelectors?: string[];
+    nextButtonSelector?: string | null;
+    nextButtonSelectors?: any[];
+    itemSelector?: string;
+    itemSelectors?: any[];
+    maxPages?: number;
+    mode?: string;
+    resumeState?: { pageCount: number; totalItems: number; visitedUrls: string[] };
+    columns?: unknown;
+    [key: string]: any;
+}
+
+export interface Messages {
+    // ---- side panel / background → content script
+    PING: { reply: Res<{ status: string }> };
+    START_PICKER: { payload: { mode?: 'list' | 'single' | 'detail'; action?: 'extract' | 'click' }; reply: Res };
+    STOP_PICKER: { reply: Res };
+    PICKER_ACTION: { payload: { action: string }; reply: Res };
+    SHOW_SELECTION_HIGHLIGHTS: { payload: { elements: any[] }; reply: Res };
+    CLEAR_SELECTION_HIGHLIGHTS: { reply: Res };
+    ADD_SELECTION_HIGHLIGHT: { payload: { element: any }; reply: Res };
+    TEST_SELECTOR: { payload: { selector: string }; reply: Res };
+    EXECUTE_AUTO_SCROLL: { payload: AutoScrollRequest; reply: Res };
+    STOP_AUTO_SCROLL: { reply: Res };
+    EXECUTE_PAGINATION: { payload: PaginationRequest; reply: Res };
+    STOP_PAGINATION: { reply: Res };
+    SCAN_IMAGES_DEEP: { payload: { scrollStep?: number; scrollDelay?: number; maxScrollHeight?: number; watchDuration?: number }; reply: Res<{ data?: any[] }> };
+    SCAN_IMAGES_DEEP_CANCEL: { reply: Res };
+    SCAN_IMAGES_LIVE_START: { reply: Res };
+    SCAN_IMAGES_LIVE_STOP: { reply: Res };
+    TOGGLE_RIGHT_CLICK: { payload: { enable: boolean }; reply: Res<{ enabled: boolean }> };
+    CMD_EXTRACT_PAGE_BACKGROUND: { payload: { url: string; elements: any[]; config: any }; reply: Res<{ result: { columns: any[]; item: any; items?: any[]; url: string } }> };
+    CMD_EXTRACT_METADATA: { payload: { url: string; options: MetadataExtractOptions }; reply: Res<{ result: MetadataExtractResult }> };
+    CMD_RECON: { reply: Res<{ report: ReconReport }> };
+    LAB_EVAL: { payload: { selector: string; expected?: number; highlight?: boolean }; reply: Res<{ result: LabEval }> };
+    LAB_CLEAR: { reply: Res };
+    LAB_PICK_START: { reply: Res };
+    NET_LIST: { reply: Res<{ installed: boolean; entries: NetEntry[] }> };
+    NET_CLEAR: { reply: Res };
+    PAGE_COOKIE: { reply: Res<{ cookie: string }> };
+    AI_BUILD_VIEW: { payload: { maxChars?: number }; reply: Res<{ view: string; refs: number; truncated: boolean }> };
+    AI_VERIFY: { payload: { answers: any[] }; reply: Res<{ fields: VerifiedField[] }> };
+
+    // ---- content script → side panel (broadcasts)
+    ELEMENT_SELECTED: { payload: ElementSelected };
+    PICKER_CANCELLED: {};
+    LAB_PICKED: { payload: LabPick | null };
+    AUTO_SCROLL_UPDATE: { payload: { count: number } };
+    AUTO_SCROLL_COMPLETE: { payload: { success: boolean; items?: any[]; columns?: any[]; error?: string } };
+    PAGINATION_UPDATE: { payload: { items: any[]; page: number; total?: number; columns?: any[]; unmapped?: number } };
+    PAGINATION_COMPLETE: { payload: { success: boolean; reason?: string; error?: string } };
+    SCAN_IMAGES_PROGRESS: { payload: any };
+    SCAN_IMAGES_BATCH: { payload: any[] };
+    SUMMARIZER_EXTRACTION_RESULT: { payload: ExtractedContent };
+
+    // ---- side panel → background
+    BULK_EXTRACTION_START: { payload: BulkStart; reply: Res<{ jobId: number; originalCount: number; uniqueCount: number }> };
+    BULK_EXTRACTION_STOP: { reply: Res };
+    METADATA_EXTRACTION_START: { payload: MetadataStart; reply: Res<{ jobId: number; uniqueCount: number }> };
+    METADATA_EXTRACTION_STOP: { reply: Res };
+    DOWNLOAD_IMAGE_PROXY: { payload: { url: string }; reply: Res<{ data?: number[]; contentType?: string }> };
+    DOWNLOAD_VIA_CHROME: { payload: { url: string; filename?: string }; reply: Res<{ downloadId?: number }> };
+
+    // ---- background → side panel (broadcasts)
+    BULK_EXTRACTION_PROGRESS: { payload: RunProgress };
+    BULK_EXTRACTION_COMPLETE: { payload: RunComplete };
+    METADATA_EXTRACTION_PROGRESS: { payload: RunProgress };
+    METADATA_EXTRACTION_COMPLETE: { payload: RunComplete };
+}
+
+/** A successful reply carrying `data`. */
+export function ok<T extends object = {}>(data?: T): { success: true } & T {
+    return { success: true, ...(data as T) };
+}
+
+/** A failed reply; `error` may be an Error, a string or anything thrown. */
+export function fail(error: unknown, fallback = 'Something went wrong'): Fail {
+    return { success: false, error: error instanceof Error ? error.message : typeof error === 'string' && error ? error : fallback };
+}
+
+export type MessageType = keyof Messages;
+
+/** The Page Extractor's selection highlights on the page. */
+export type HighlightSender = {
+    (type: 'SHOW_SELECTION_HIGHLIGHTS', payload: Payload<'SHOW_SELECTION_HIGHLIGHTS'>): Promise<void>;
+    (type: 'ADD_SELECTION_HIGHLIGHT', payload: Payload<'ADD_SELECTION_HIGHLIGHT'>): Promise<void>;
+    (type: 'CLEAR_SELECTION_HIGHLIGHTS', payload?: undefined): Promise<void>;
+};
+export type Payload<T extends MessageType> = Messages[T] extends { payload: infer P } ? P : undefined;
+export type Reply<T extends MessageType> = Messages[T] extends { reply: infer R } ? R : void;
+
+type PayloadArg<T extends MessageType> = Payload<T> extends undefined ? [payload?: undefined] : [payload: Payload<T>];
+type Handler<T extends MessageType> =
+    (payload: Payload<T>, sender: chrome.runtime.MessageSender) => Reply<T> | Promise<Reply<T>>;
+
+const handlers = new Map<string, Set<Handler<any>>>();
+let installed = false;
+
+/**
+ * One chrome listener per context. Every handler of the type runs (broadcasts can have several
+ * listeners); the first one that returns something answers.
+ */
+function install() {
+    if (installed) return;
+    installed = true;
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+        const set = msg && typeof msg.type === 'string' ? handlers.get(msg.type) : undefined;
+        if (!set || set.size === 0) return false;
+        let reply: unknown;
+        for (const handler of [...set]) {
+            let r: unknown;
+            try {
+                r = handler(msg.payload, sender);
+            } catch (e) {
+                console.error(`[messages] ${msg.type} handler failed:`, e);
+                r = fail(e);
+            }
+            if (reply === undefined && r !== undefined) reply = r;
+        }
+        if (reply instanceof Promise) {
+            reply.then(sendResponse, e => {
+                console.error(`[messages] ${msg.type} handler failed:`, e);
+                sendResponse(fail(e));
+            });
+            return true;
+        }
+        if (reply !== undefined) sendResponse(reply);
+        return false;
+    });
+}
+
+/** Handles a message type in this context. Returns a function that removes the handler. */
+export function on<T extends MessageType>(type: T, handler: Handler<T>): () => void {
+    install();
+    let set = handlers.get(type);
+    if (!set) { set = new Set(); handlers.set(type, set); }
+    set.add(handler);
+    return () => { set!.delete(handler); };
+}
+
+/**
+ * Sends to the extension (background and side panel). Never throws: resolves `undefined` when
+ * nothing is listening (side panel closed) or the extension context is gone.
+ */
+export function send<T extends MessageType>(type: T, ...[payload]: PayloadArg<T>): Promise<Reply<T> | undefined> {
+    return new Promise(resolve => {
+        if (!chrome.runtime?.id) { resolve(undefined); return; }
+        try {
+            chrome.runtime.sendMessage({ type, payload }, res => {
+                void chrome.runtime.lastError; // nobody listening: expected
+                resolve(res);
+            });
+        } catch {
+            resolve(undefined);
+        }
+    });
+}
+
+/** Sends to a tab's content script. Rejects when the tab has no content script. */
+export function sendToTab<T extends MessageType>(tabId: number, type: T, ...[payload]: PayloadArg<T>): Promise<Reply<T>> {
+    return chrome.tabs.sendMessage(tabId, { type, payload });
+}
+
+/** Sends to the active tab's content script; rejects with a readable message, including on `success: false`. */
+export async function sendToActiveTab<T extends MessageType>(type: T, ...[payload]: PayloadArg<T>): Promise<Exclude<Reply<T>, Fail>> {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) throw new Error('No active tab.');
+    if (!tab.url || !/^https?:/.test(tab.url)) throw new Error('Open a web page (http or https) to use this tool.');
+    try {
+        const res: any = await sendToTab(tab.id, type, ...([payload] as PayloadArg<T>));
+        if (res && res.success === false) throw new Error(res.error || 'The page could not complete the request.');
+        return res;
+    } catch (e: any) {
+        if (/Receiving end does not exist|Could not establish connection/i.test(e?.message || '')) {
+            throw new Error('CrawlPilot is not connected to this page yet. Reload the page and try again.');
+        }
+        throw e;
+    }
+}
+
+/** Updates the Page Extractor's selection highlights on the active tab (best effort). */
+export const highlightOnActiveTab: HighlightSender = async (type: MessageType, payload?: unknown) => {
+    await (sendToActiveTab as (t: MessageType, p?: unknown) => Promise<unknown>)(type, payload).catch(() => { /* page not connected */ });
+};

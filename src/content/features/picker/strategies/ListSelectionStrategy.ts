@@ -1,3 +1,4 @@
+import type { ElementSelected } from '../../../../shared/messages';
 import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { ContainerDetector } from '../ContainerDetector';
@@ -61,13 +62,13 @@ export class ListSelectionStrategy implements ISelectionStrategy {
         }
     }
 
-    handleClick(element: HTMLElement, picker: VisualElementPicker, sendResponse: (msg: any) => void): void {
+    handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {
         // Recorded API responses (when the API Finder is recording) can back the list's fields:
         // fetch them first, briefly, so the pick can offer them.
-        void refreshNetSources(300).catch(() => undefined).then(() => this.select(element, picker, sendResponse));
+        void refreshNetSources(300).catch(() => undefined).then(() => this.select(element, picker, report));
     }
 
-    private select(element: HTMLElement, picker: VisualElementPicker, sendResponse: (msg: any) => void): void {
+    private select(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {
         const containerInfo = this.lastContainerInfo || this.detector.findContainer(element);
         const targetItem = this.lastItemUnit || element;
 
@@ -130,22 +131,19 @@ export class ListSelectionStrategy implements ISelectionStrategy {
             // This ensures the suggested "attribute extraction selector" matches the visual one
             itemMetadata = candidates;
 
-            sendResponse({
-                type: 'ELEMENT_SELECTED',
-                payload: {
-                    success: true,
-                    id: `sel-${Date.now()}`,
-                    data: data,
-                    containerSelector: containerSelector,
-                    containerSelectors: containerMetadata,
-                    containerXPath: containerXPath,
-                    itemSelector: selector,
-                    itemSelectors: itemMetadata,
-                    itemXPath: xpath,
-                    patternFound: true,
-                    count: containerInfo.childCount,
-                    selectionMode: 'list'
-                }
+            report({
+                success: true,
+                id: `sel-${Date.now()}`,
+                data: data,
+                containerSelector: containerSelector,
+                containerSelectors: containerMetadata,
+                containerXPath: containerXPath,
+                itemSelector: selector,
+                itemSelectors: itemMetadata,
+                itemXPath: xpath,
+                patternFound: true,
+                count: containerInfo.childCount,
+                selectionMode: 'list'
             });
         } else {
             data = this.extractor.extract(targetItem, containerInfo);
@@ -157,22 +155,19 @@ export class ListSelectionStrategy implements ISelectionStrategy {
             containerMetadata = elementResults;
             itemMetadata = elementResults;
 
-            sendResponse({
-                type: 'ELEMENT_SELECTED',
-                payload: {
-                    success: true,
-                    id: `sel-${Date.now()}`,
-                    data: data,
-                    containerSelector: containerSelector,
-                    containerSelectors: containerMetadata,
-                    containerXPath: containerXPath,
-                    itemSelector: selector,
-                    itemSelectors: itemMetadata,
-                    itemXPath: xpath,
-                    patternFound: false,
-                    count: 1,
-                    selectionMode: 'list'
-                }
+            report({
+                success: true,
+                id: `sel-${Date.now()}`,
+                data: data,
+                containerSelector: containerSelector,
+                containerSelectors: containerMetadata,
+                containerXPath: containerXPath,
+                itemSelector: selector,
+                itemSelectors: itemMetadata,
+                itemXPath: xpath,
+                patternFound: false,
+                count: 1,
+                selectionMode: 'list'
             });
         }
 

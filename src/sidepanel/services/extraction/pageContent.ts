@@ -1,9 +1,6 @@
 import readableExtractScript from '@/content/readable-extract?script';
-import {
-    SUMMARIZER_EXTRACTION_RESULT,
-    type ExtractedContent,
-    type ExtractionResultMessage
-} from '@/shared/types/summarizer';
+import type { ExtractedContent } from '@/shared/types/summarizer';
+import { on } from '@/shared/messages';
 
 const EXTRACTION_TIMEOUT_MS = 10_000;
 
@@ -18,23 +15,22 @@ async function getActiveTabId(): Promise<number | null> {
 // Waits for the injected script's result message. Registered BEFORE injection
 // so a fast script can't send the message into the void.
 function waitForExtractionResult(tabId: number): { promise: Promise<ExtractedContent>; cleanup: () => void } {
-    let listener: ((msg: any, sender: chrome.runtime.MessageSender) => void) | null = null;
+    let off: (() => void) | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const cleanup = () => {
-        if (listener) chrome.runtime.onMessage.removeListener(listener);
+        off?.();
         if (timer) clearTimeout(timer);
-        listener = null;
+        off = null;
         timer = null;
     };
 
     const promise = new Promise<ExtractedContent>((resolve, reject) => {
-        listener = (msg: ExtractionResultMessage, sender) => {
-            if (msg?.type !== SUMMARIZER_EXTRACTION_RESULT || sender.tab?.id !== tabId) return;
+        off = on('SUMMARIZER_EXTRACTION_RESULT', (content, sender) => {
+            if (sender.tab?.id !== tabId) return;
             cleanup();
-            resolve(msg.payload);
-        };
-        chrome.runtime.onMessage.addListener(listener);
+            resolve(content);
+        });
         timer = setTimeout(() => {
             cleanup();
             reject(new Error('Extraction timed out.'));

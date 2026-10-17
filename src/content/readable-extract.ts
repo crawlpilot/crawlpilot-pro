@@ -2,15 +2,12 @@
 // chrome.scripting.executeScript({files}) only when the summarizer opens —
 // deliberately NOT part of the always-on content script bundle.
 //
-// Result is reported via chrome.runtime.sendMessage rather than the script's
+// Result is reported as a SUMMARIZER_EXTRACTION_RESULT message rather than the script's
 // completion value: the crxjs `?script` build emits a dynamic-import loader,
 // so InjectionResult.result is not reliable.
 import { Readability, isProbablyReaderable } from '@mozilla/readability';
-import {
-    SUMMARIZER_EXTRACTION_RESULT,
-    type ExtractedContent,
-    type ExtractionResultMessage
-} from '../shared/types/summarizer';
+import type { ExtractedContent } from '../shared/types/summarizer';
+import { send } from '../shared/messages';
 
 const MAX_EXTRACT_CHARS = 80_000;
 
@@ -76,5 +73,4 @@ function extract(): ExtractedContent {
     return { title, byline, excerpt, siteName, text: capped.text, source, truncated: capped.truncated };
 }
 
-const message: ExtractionResultMessage = { type: SUMMARIZER_EXTRACTION_RESULT, payload: extract() };
-chrome.runtime.sendMessage(message);
+void send('SUMMARIZER_EXTRACTION_RESULT', extract());
