@@ -105,11 +105,6 @@ export function classifyPage(s: PageSignals, requestedUrl: string = s.url): Page
     return result('ok', '');
 }
 
-/** Verdicts that make a page not worth extracting. */
-export function isDeadVerdict(v: PageVerdict): boolean {
-    return v !== 'ok';
-}
-
 export const VERDICT_LABELS: Record<PageVerdict, string> = {
     ok: 'OK',
     challenge: 'Bot check',

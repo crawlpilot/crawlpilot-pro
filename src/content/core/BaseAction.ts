@@ -1,13 +1,3 @@
-export interface ActionProgress {
-    type: 'progress' | 'data' | 'status' | 'complete' | 'error' | 'initialize' | 'navigate' | 'extract' | 'wait' | 'click';
-    status?: string;
-    message?: string;
-    page?: number;
-    items?: any[];
-    cumulativeTotal?: number;
-    [key: string]: any;
-}
-
 export interface ActionContext {
     signal: AbortSignal;
     logger: {

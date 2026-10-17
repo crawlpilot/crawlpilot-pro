@@ -13,11 +13,6 @@ export interface PageStat {
     unmapped?: number;
 }
 
-export type StopReason =
-    | 'no_more_pagination_buttons' | 'no_navigation' | 'url_loop_detected' | 'content_unchanged'
-    | 'no_new_content' | 'max_pages_reached' | 'cancelled' | 'unable_to_click' | 'container_lost'
-    | 'page_blocked' | 'error' | string;
-
 export const STOP_REASON_LABELS: Record<string, string> = {
     no_more_pagination_buttons: 'No more "Next" button',
     no_navigation: 'Clicking "Next" did not change the page',

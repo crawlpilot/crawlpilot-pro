@@ -21,36 +21,3 @@ export interface Column {
         maxArea?: number;
     };
 }
-
-export interface ExtractionResult {
-    type: 'list' | 'single';
-    columns: Column[];
-    items: any[];
-    source_url: string;
-    count: number;
-    timestamp: string;
-    metadata?: any;
-}
-
-export interface ProgressUpdate {
-    type: 'progress' | 'data' | 'complete' | 'error';
-    status?: string;
-    message?: string;
-    page?: number;
-    count?: number;
-    data?: any;
-    error?: string;
-}
-
-export interface SelectorConfig {
-    selector: string;
-    type: string;
-}
-
-export interface ExtractionConfig {
-    selector?: string;
-    container?: HTMLElement;
-    elements?: HTMLElement[];
-    selectionMode: 'single' | 'list';
-    columns?: Column[]; // Preview schema for enforcement
-}
