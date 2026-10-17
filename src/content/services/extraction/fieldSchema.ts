@@ -97,6 +97,24 @@ export function readRow(row: Element, columns: ReaderColumn[]): Record<string, s
     return out;
 }
 
+/**
+ * Text values in a row that none of the fields reads (outside buttons). Non-zero on a later page
+ * means the layout changed or the row has something the picked fields miss.
+ */
+export function unmappedCount(row: Element, columns: ReaderColumn[]): number {
+    const covered: Element[] = [];
+    for (const col of columns) {
+        const r = col.reader;
+        if (!r) continue;
+        for (const reader of [r, ...(r.alternates ?? [])]) {
+            reader.chain.forEach(sel => covered.push(...query(row, sel)));
+        }
+    }
+    const isCovered = (el: Element) => covered.some(c => c === el || c.contains(el));
+    return collectAtoms(row).filter(a =>
+        (a.attr === 'text' || a.attr === 'own') && !a.el.closest('button, [role="button"]') && !isCovered(a.el)).length;
+}
+
 // -------------------------------------------------------------------------------- inference
 
 interface Group {

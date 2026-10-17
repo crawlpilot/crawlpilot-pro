@@ -634,7 +634,7 @@ export class ContentScriptController {
             // The fields go to the side panel once (they are frozen for the run), so it saves them as the columns.
             const columns = progress.columns && progress.columns !== this.sentPaginationColumns ? progress.columns : undefined;
             if (columns) this.sentPaginationColumns = columns;
-            this.messageClient.send({ type: 'PAGINATION_UPDATE', payload: { items: progress.items, page: progress.page, total: progress.cumulativeTotal, columns } });
+            this.messageClient.send({ type: 'PAGINATION_UPDATE', payload: { items: progress.items, page: progress.page, total: progress.cumulativeTotal, columns, unmapped: progress.unmapped } });
         } else if (progress.type === 'complete') {
             this.messageClient.send({ type: 'PAGINATION_COMPLETE', payload: { success: true, reason: progress.reason } });
             this.pagination = null;

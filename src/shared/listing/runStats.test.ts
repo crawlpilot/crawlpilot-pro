@@ -20,6 +20,20 @@ describe('ListingRunTracker', () => {
         expect(t.add(2, [{ url: '/p/1', price: '9' }])).toHaveLength(0);
     });
 
+    it('keeps equal rows a page really lists twice, but not a later page repeating them', () => {
+        const t = new ListingRunTracker();
+        expect(t.add(1, [{ a: 'x' }, { a: 'x' }])).toHaveLength(2);
+        expect(t.add(2, [{ a: 'x' }, { a: 'x' }, { a: 'y' }])).toEqual([{ a: 'y' }]);
+        expect(t.add(3, [{ a: 'x' }, { a: 'x' }, { a: 'x' }])).toEqual([{ a: 'x' }]);
+    });
+
+    it('counts unmapped rows per page', () => {
+        const t = new ListingRunTracker();
+        t.add(1, [{ a: 1 }]);
+        t.addUnmapped(1, 2);
+        expect(t.pageStats).toEqual([{ page: 1, rows: 1, duplicates: 0, unmapped: 2 }]);
+    });
+
     it('accumulates batches for the same page', () => {
         const t = new ListingRunTracker();
         t.add(1, [{ a: 1 }]);

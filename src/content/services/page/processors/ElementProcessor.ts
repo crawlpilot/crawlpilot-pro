@@ -243,7 +243,7 @@ export class ElementProcessor {
             case 'smart':
             case 'list': {
                 // List Extraction: extract all rows from the container directly.
-                const listData = this.extractContainerRows(element, 'list');
+                const listData = this.extractContainerRows(element, 'list', elementDef.fields);
                 if (listData.items && listData.items.length > 0) {
                     return {
                         success: true,
@@ -257,7 +257,7 @@ export class ElementProcessor {
             }
 
             case 'table': {
-                const tableData = this.extractContainerRows(element, 'table');
+                const tableData = this.extractContainerRows(element, 'table', elementDef.fields);
                 if (tableData.items && tableData.items.length > 0) {
                     const json = collapseTableToJson(tableData.items, tableData.columns);
                     const tableResult: any = {
@@ -338,7 +338,8 @@ export class ElementProcessor {
      * This bypasses unreliable re-detection (findInternalContainer) which only ever
      * returns the first match from querySelector.
      */
-    private extractContainerRows(element: HTMLElement, type: 'table' | 'list'): any {
+    /** `fields`: the list's fields saved when it was picked, so every page is read with the same columns. */
+    private extractContainerRows(element: HTMLElement, type: 'table' | 'list', fields?: unknown): any {
         // For <table> elements, dive into <tbody> to get <tr> children
         let rowsContainer: HTMLElement = element;
         if (element.tagName === 'TABLE' || element.tagName === 'THEAD' || element.tagName === 'TFOOT') {
@@ -373,15 +374,15 @@ export class ElementProcessor {
                 return { type, items: [], columns: [] };
             }
 
-            return this.buildRowsResult(fallbackRows, type);
+            return this.buildRowsResult(fallbackRows, type, fields);
         }
 
-        return this.buildRowsResult(rowElements, type);
+        return this.buildRowsResult(rowElements, type, fields);
     }
 
-    private buildRowsResult(rowElements: HTMLElement[], type: 'table' | 'list'): any {
+    private buildRowsResult(rowElements: HTMLElement[], type: 'table' | 'list', fields?: unknown): any {
         // Field-first: the fields are inferred once from all rows, then every row is read with them.
-        const { columns, items } = this.extractor.extractRows(rowElements);
+        const { columns, items } = this.extractor.extractRows(rowElements, fields);
         if (items.length === 0) return { type, items: [], columns: [] };
         return { type, items, columns, count: items.length };
     }

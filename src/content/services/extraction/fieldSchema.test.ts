@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { inferFields, readRow, hasReaders } from './fieldSchema';
+import { inferFields, readRow, hasReaders, unmappedCount } from './fieldSchema';
 import { alignToTemplate, atomText, collectAtoms } from './atoms';
 
 function rowsOf(html: string, selector = '.card'): Element[] {
@@ -129,6 +129,14 @@ describe('inferFields', () => {
         expect(inferFields(rows).columns.map(c => c.name)).toEqual(['Name', 'Sku']);
         const defs = rowsOf(`<dl>${[1, 2, 3].map(i => `<div class="card"><dt>Key ${i}</dt><dd>Val ${i}</dd></div>`).join('')}</dl>`);
         expect(inferFields(defs).columns.map(c => c.name)).toEqual(['Label', 'Value']);
+    });
+
+    it('counts content no field reads on a later page', () => {
+        const { columns } = inferFields(rowsOf(listing));
+        const [row] = rowsOf(`<ul>${card({ title: 'Pendant', price: '80.00' }).replace('</li>', '<p class="eco">Eco certified</p></li>')}</ul>`);
+        expect(unmappedCount(row, columns)).toBe(1);
+        const [plain] = rowsOf(`<ul>${card({ title: 'Spot', price: '9.99' })}</ul>`);
+        expect(unmappedCount(plain, columns)).toBe(0);
     });
 
     it('reports identical rows', () => {

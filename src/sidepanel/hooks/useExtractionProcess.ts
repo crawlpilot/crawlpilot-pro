@@ -343,7 +343,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 setStatus(prev => ({ ...prev, stopReason }));
                                 resolve();
                             } else if (message.type === 'PAGINATION_UPDATE') {
-                                const { items, page, columns } = message.payload;
+                                const { items, page, columns, unmapped } = message.payload;
                                 if (page) pagesVisitedRef.current = page;
                                 // The fields the run reads every page with (frozen): save them as the columns.
                                 if (Array.isArray(columns) && columns.length > 0) sel.data.columns = columns;
@@ -352,6 +352,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                     const fresh = tracker.add(page || pagesVisitedRef.current, items);
                                     sel.data.items = [...(sel.data.items || []), ...fresh];
                                 }
+                                if (unmapped) tracker.addUnmapped(page || pagesVisitedRef.current, unmapped);
                                 setStatus(prev => ({
                                     ...prev,
                                     progress: { id: sel.id, count: (sel.data.items?.length || 0) },

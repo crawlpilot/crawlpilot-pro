@@ -9,6 +9,8 @@ export interface PageStat {
     page: number;
     rows: number;
     duplicates: number;
+    /** Rows with content none of the list's fields reads (the layout changed, or a field is missing). */
+    unmapped?: number;
 }
 
 export type StopReason =
@@ -46,29 +48,50 @@ export function rowKey(row: Record<string, any>, keyColumn?: string): string {
 }
 
 export class ListingRunTracker {
-    private seen = new Set<string>();
+    /** Copies of each row collected so far. */
+    private seen = new Map<string, number>();
+    /** Copies of each row met on each page so far. */
+    private onPage = new Map<number, Map<string, number>>();
     private pages = new Map<number, PageStat>();
     duplicates = 0;
 
     constructor(private keyColumn?: string) {}
 
-    /** Records a batch of rows for a page and returns only the ones not seen before. */
+    /**
+     * Records a batch of rows for a page and returns only the ones not collected before. Count-aware
+     * (thenos `rows.unseen`): a row counts again only when this page holds more copies of it than were
+     * already collected, so load-more pages that repeat earlier rows add nothing, while a page that
+     * really lists two equal rows keeps both.
+     */
     add(page: number, rows: Record<string, any>[]): Record<string, any>[] {
         const stat = this.pages.get(page) ?? { page, rows: 0, duplicates: 0 };
+        const counts = this.onPage.get(page) ?? new Map<string, number>();
         const kept: Record<string, any>[] = [];
         for (const row of rows) {
             const key = rowKey(row, this.keyColumn);
-            if (this.seen.has(key)) {
+            const here = (counts.get(key) ?? 0) + 1;
+            counts.set(key, here);
+            const collected = this.seen.get(key) ?? 0;
+            if (here <= collected) {
                 stat.duplicates++;
                 this.duplicates++;
                 continue;
             }
-            this.seen.add(key);
+            this.seen.set(key, collected + 1);
             stat.rows++;
             kept.push(row);
         }
+        this.onPage.set(page, counts);
         this.pages.set(page, stat);
         return kept;
+    }
+
+    /** Counts rows of a page that hold content no field reads. */
+    addUnmapped(page: number, rows: number): void {
+        if (rows <= 0) return;
+        const stat = this.pages.get(page) ?? { page, rows: 0, duplicates: 0 };
+        stat.unmapped = (stat.unmapped ?? 0) + rows;
+        this.pages.set(page, stat);
     }
 
     get pageStats(): PageStat[] {

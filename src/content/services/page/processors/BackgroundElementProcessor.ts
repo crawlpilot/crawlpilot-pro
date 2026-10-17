@@ -219,7 +219,7 @@ export class BackgroundElementProcessor {
             }
             case 'smart':
             case 'list': {
-                const listData = this.extractContainerRows(element, 'list');
+                const listData = this.extractContainerRows(element, 'list', elementDef.fields);
                 if (listData.items && listData.items.length > 0) {
                     return { success: true, data: listData, columns: listData.columns };
                 }
@@ -227,7 +227,7 @@ export class BackgroundElementProcessor {
                 break;
             }
             case 'table': {
-                const tableData = this.extractContainerRows(element, 'table');
+                const tableData = this.extractContainerRows(element, 'table', elementDef.fields);
                 if (tableData.items && tableData.items.length > 0) {
                     const json = collapseTableToJson(tableData.items, tableData.columns);
                     const tableResult: any = {
@@ -292,7 +292,8 @@ export class BackgroundElementProcessor {
         document.dispatchEvent(new Event('scroll'));
     }
 
-    private extractContainerRows(element: HTMLElement, _type: 'table' | 'list'): any {
+    /** `fields`: the list's fields saved when it was picked, so every page is read with the same columns. */
+    private extractContainerRows(element: HTMLElement, _type: 'table' | 'list', fields?: unknown): any {
         let rowsContainer: HTMLElement = element;
         if (element.tagName === 'TABLE' || element.tagName === 'THEAD' || element.tagName === 'TFOOT') {
             const tbody = element.querySelector('tbody');
@@ -313,7 +314,7 @@ export class BackgroundElementProcessor {
         }
 
         // Field-first: the fields are inferred once from all rows, then every row is read with them.
-        const { columns, items } = this.extractor.extractRows(rowElements);
+        const { columns, items } = this.extractor.extractRows(rowElements, fields);
         if (items.length === 0) {
             return { items: [], columns: [] };
         }

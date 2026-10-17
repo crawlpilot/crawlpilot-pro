@@ -1,4 +1,4 @@
-import { hasReaders, inferFields, readRow, similarSiblings, ReaderColumn } from '../../services/extraction/fieldSchema';
+import { hasReaders, inferFields, readRow, similarSiblings, unmappedCount, ReaderColumn } from '../../services/extraction/fieldSchema';
 import { NextButtonSelector } from '../../services/dom/selectors/NextButtonSelector';
 import { SelectorMetadata } from '../../../shared/types/extraction';
 import { BaseAction, ActionContext } from '../../core/BaseAction';
@@ -326,6 +326,7 @@ export class PaginationAction extends BaseAction {
                         type: 'data',
                         items: [normalizedItem],
                         columns,
+                        unmapped: unmappedCount(element, columns) > 0 ? 1 : 0,
                         page: pageCount,
                         cumulativeTotal: mode !== 'loadMore' ? newTotal : pageItems.length
                     });

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, Box, Chip, IconButton, LinearProgress, Menu, MenuItem, TextField, Tooltip, Typography } from '@mui/material';
 import { Combine, X } from 'lucide-react';
-import { dropField, fieldFill, FieldData, joinFields, renameField } from '../../../shared/extraction/fieldEdits';
+import { dropField, fieldFill, FieldData, joinFields, renameField, retypeField } from '../../../shared/extraction/fieldEdits';
 
 interface Props {
     data: FieldData & { metadata?: { fieldProblems?: string[] } };
@@ -10,6 +10,7 @@ interface Props {
 
 const LOW_FILL = 0.5;
 const HIDDEN = new Set(['recordId']);
+const TYPES = ['text', 'number', 'price', 'date', 'url', 'image', 'image_array', 'link_array'];
 
 function sample(data: FieldData, id: string): string {
     const v = data.items.find(i => i[id] !== undefined && i[id] !== null && i[id] !== '')?.[id];
@@ -24,6 +25,7 @@ export function FieldEditor({ data, onChange }: Props) {
     const [editing, setEditing] = useState<string | null>(null);
     const [draft, setDraft] = useState('');
     const [joinMenu, setJoinMenu] = useState<{ anchor: HTMLElement; id: string } | null>(null);
+    const [typeMenu, setTypeMenu] = useState<{ anchor: HTMLElement; id: string } | null>(null);
 
     const columns = (data.columns || []).filter(c => !HIDDEN.has(c.id));
     if (columns.length === 0) return null;
@@ -70,7 +72,10 @@ export function FieldEditor({ data, onChange }: Props) {
                                             </Typography>
                                         </Tooltip>
                                     )}
-                                    <Chip size="small" label={col.type} variant="outlined" sx={{ height: 16, fontSize: 9 }} />
+                                    <Tooltip title="Change type">
+                                        <Chip size="small" label={col.type} variant="outlined" sx={{ height: 16, fontSize: 9, cursor: 'pointer' }}
+                                            onClick={e => setTypeMenu({ anchor: e.currentTarget, id: col.id })} />
+                                    </Tooltip>
                                 </Box>
                                 <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', fontSize: 10 }}>
                                     {sample(data, col.id).slice(0, 120) || '—'}
@@ -99,6 +104,15 @@ export function FieldEditor({ data, onChange }: Props) {
                     );
                 })}
             </Box>
+            <Menu anchorEl={typeMenu?.anchor} open={!!typeMenu} onClose={() => setTypeMenu(null)}>
+                {TYPES.map(type => (
+                    <MenuItem key={type} sx={{ fontSize: 12 }}
+                        selected={columns.find(c => c.id === typeMenu?.id)?.type === type}
+                        onClick={() => { if (typeMenu) onChange(retypeField(data, typeMenu.id, type)); setTypeMenu(null); }}>
+                        {type}
+                    </MenuItem>
+                ))}
+            </Menu>
             <Menu anchorEl={joinMenu?.anchor} open={!!joinMenu} onClose={() => setJoinMenu(null)}>
                 <MenuItem disabled sx={{ fontSize: 11 }}>Join into…</MenuItem>
                 {columns.filter(c => c.id !== joinMenu?.id).map(c => (

@@ -13,6 +13,13 @@ interface PageExtractorPageProps {
     onBack: () => void;
 }
 
+/** The picked list's fields (columns that carry readers), if the pick was a list. */
+function listFields(payload: any): any[] | undefined {
+    const cols = payload?.data?.columns;
+    const isList = payload?.extractionType === 'list' || payload?.extractionType === 'smart' || payload?.extractionType === 'table';
+    return isList && Array.isArray(cols) && cols.some((c: any) => c?.reader) ? cols : undefined;
+}
+
 export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
     const { t } = useTranslation('pageExtractor');
     const [step, setStep] = useState(1);
@@ -177,7 +184,9 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                     selectors: [{ type: 'css', value: message.payload.containerSelector }, { type: 'xpath', value: message.payload.containerXPath }],
                     action: elementActionRef.current,
                     type: message.payload.extractionType || 'text',
-                    value: message.payload.previewValue
+                    value: message.payload.previewValue,
+                    // A list's fields as inferred on this page: every bulk page is read with them.
+                    ...(listFields(message.payload) ? { fields: listFields(message.payload) } : {})
                 };
 
                 if (message.payload.viewportWidth && message.payload.viewportHeight) {
@@ -214,7 +223,8 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             containerSelector: el.selectors.find((s: any) => s.type === 'css')?.value,
             containerXPath: el.selectors.find((s: any) => s.type === 'xpath')?.value,
             value: el.value,
-            type: el.type || 'text'
+            type: el.type || 'text',
+            fields: el.fields
         });
         setElementName(el.name);
         setElementAction(el.action);
@@ -231,7 +241,8 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             selectors: [{ type: 'css', value: pendingElement.containerSelector }, { type: 'xpath', value: pendingElement.containerXPath }],
             action: elementAction,
             type: pendingElement.type || 'text',
-            value: pendingElement.value // preview
+            value: pendingElement.value, // preview
+            ...(pendingElement.fields ? { fields: pendingElement.fields } : {})
         };
 
         if (editingElementId) {
