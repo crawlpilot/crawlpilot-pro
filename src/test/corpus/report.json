@@ -15,10 +15,10 @@
     },
     "products": {
       "targets": 30,
-      "firstNamesTarget": 30,
-      "firstStrong": 28,
-      "firstPositional": 2,
-      "anyPositionalStored": 2,
+      "firstNamesTarget": 28,
+      "firstStrong": 27,
+      "firstPositional": 1,
+      "anyPositionalStored": 1,
       "specRowsWithLabelFamily": "4 of 4"
     }
   },
@@ -129,21 +129,20 @@
         }
       },
       "next": {
-        "chainLength": 30,
+        "chainLength": 3,
         "invalid": 0,
         "first": [
           {
-            "selector": "//a[normalize-space(string())=\"Next\"]",
+            "selector": "a.s-pagination-next",
             "namesTarget": true
           },
           {
-            "selector": "(//a[contains(string(), \"Next\")])[last()]",
+            "selector": "[aria-label=\"pagination\"] a.s-pagination-next",
             "namesTarget": true
           },
           {
-            "selector": "(//a[contains(string(), \"Next\")])[1]",
-            "namesTarget": false,
-            "positional": true
+            "selector": "//a[normalize-space()=\"Next\"]",
+            "namesTarget": true
           }
         ]
       }
@@ -727,18 +726,10 @@
         "kind": "control",
         "chain": [
           {
-            "selector": "#productDetails_expanderTables_depthLeftSections > div:nth-of-type(2) > span",
-            "family": "structure",
-            "namesTarget": true,
-            "grade": "fragile",
-            "positional": true
-          },
-          {
-            "selector": "//*[@id=\"productDetails_expanderTables_depthLeftSections\"]/div[2]/span",
-            "family": "xpath",
-            "namesTarget": true,
-            "grade": "strong",
-            "positional": true
+            "selector": "//span[normalize-space()=\"Display\"]",
+            "family": "text",
+            "namesTarget": false,
+            "grade": "fragile"
           }
         ]
       }
@@ -840,22 +831,22 @@
         "kind": "control",
         "chain": [
           {
-            "selector": "[data-testid=\"add-to-cart-section\"] button[data-automation-id=\"atc\"]",
+            "selector": "[data-automation-id=\"atc\"]",
             "family": "test id",
-            "namesTarget": true,
-            "grade": "strong"
+            "namesTarget": false,
+            "grade": "fragile"
           },
           {
-            "selector": "//div[@data-testid=\"add-to-cart-section\"]//button[@data-automation-id=\"atc\"]",
+            "selector": "//button[@data-automation-id=\"atc\"]",
             "family": "test id",
-            "namesTarget": true,
-            "grade": "strong"
+            "namesTarget": false,
+            "grade": "fragile"
           },
           {
-            "selector": "button.ld_n",
-            "family": "class",
-            "namesTarget": true,
-            "grade": "strong"
+            "selector": "[data-dca-verb=\"addToCart\"]",
+            "family": "attribute",
+            "namesTarget": false,
+            "grade": "fragile"
           }
         ]
       },
@@ -975,13 +966,13 @@
         "kind": "control",
         "chain": [
           {
-            "selector": "[data-testid=\"ITOGutterContainer\"] button.ito-white",
-            "family": "test id",
+            "selector": "//button[normalize-space()=\"Add to cart\"]",
+            "family": "text",
             "namesTarget": true,
             "grade": "strong"
           },
           {
-            "selector": "//div[@data-testid=\"ITOGutterContainer\"]//button[contains(concat(' ', normalize-space(@class), ' '), ' ito-white ')]",
+            "selector": "[data-testid=\"ITOGutterContainer\"] button.ito-white",
             "family": "test id",
             "namesTarget": true,
             "grade": "strong"

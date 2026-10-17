@@ -149,18 +149,30 @@ function anchoredPath(el: Element): { css: string; xpath: string } {
     return { css: `body > ${css()}`, xpath: `/html/body/${xpath()}` };
 }
 
-function namesAlone(el: Element, selector: string): boolean {
+/** Most copies of one control a page shows (a pager above and below the results). */
+const MAX_CONTROL_COPIES = 3;
+
+/**
+ * Whether the selector finds the element alone. A control may also be found with its copies (the
+ * same text, at most three): the run clicks the visible, enabled one.
+ */
+function namesAlone(el: Element, selector: string, control = false): boolean {
     const doc = el.ownerDocument;
+    let found: Element[];
     try {
         if (looksLikeXPath(selector)) {
             const r = doc.evaluate(selector, doc, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-            return r.snapshotLength === 1 && r.snapshotItem(0) === el;
+            found = Array.from({ length: r.snapshotLength }, (_, i) => r.snapshotItem(i) as Element);
+        } else {
+            found = Array.from(doc.querySelectorAll(selector));
         }
-        const found = doc.querySelectorAll(selector);
-        return found.length === 1 && found[0] === el;
     } catch {
         return false;
     }
+    if (found.length === 1) return found[0] === el;
+    if (!control || found.length > MAX_CONTROL_COPIES || !found.includes(el)) return false;
+    const text = normalizeSpace(el.textContent);
+    return found.every(f => normalizeSpace(f.textContent) === text);
 }
 
 function familyOf(selector: string, labelled: Set<string>): string {
@@ -201,7 +213,7 @@ function* uniqueCandidates(el: Element, options: ElementOptions): Generator<Chai
     // Cheapest first, and only the cheapest MAX_CHECKS: past them, candidates are scoped variants of the same names.
     const sorted = [...new Set(raw)].sort((a, b) => cost(a, labelled) - cost(b, labelled) || a.length - b.length).slice(0, MAX_CHECKS);
     for (const s of sorted) {
-        if (namesAlone(el, s)) yield { selector: s, strategy: familyOf(s, labelled) };
+        if (namesAlone(el, s, options.control)) yield { selector: s, strategy: familyOf(s, labelled) };
     }
 }
 
@@ -215,9 +227,11 @@ export function elementCandidates(el: Element, options: ElementOptions = {}, lim
     return out;
 }
 
-/** Label XPaths cost a label (100, +50 a scope step), whatever their syntax. */
+/** Label XPaths cost a label (100, +50 a scope step), a control's text 300 + a tenth of its length. */
 function cost(selector: string, labelled: Set<string>): number {
     if (labelled.has(selector)) return 100 + (selector.startsWith('//*[') || /^\/\/\w+\[[^\]]*\]\/\/\w+\[normalize/.test(selector) ? 50 : 0);
+    const text = /^\/\/\w+\[normalize-space\(\)=(.+)\]$/.exec(selector);
+    if (text) return 300 + text[1].length / 10;
     return selectorCost(selector);
 }
 

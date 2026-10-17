@@ -72,8 +72,9 @@ export function resolveFirst(
     const chain = normalizeChain(entries);
     for (const entry of chain) {
         const matches = queryAll(entry, root);
+        // Several matches (a control and its sticky copy): the first one that is rendered.
         if (matches.length > 0) {
-            return { element: matches[0], used: entry };
+            return { element: matches.find(m => m.getClientRects().length > 0) ?? matches[0], used: entry };
         }
     }
     return { element: null, used: null };
