@@ -3,8 +3,9 @@ import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { ContainerDetector, ContainerResult } from '../ContainerDetector';
-import { generateCssSelector, generateXPath, generateRobustSelectors, clickElementRobust } from '../../../services/dom/domUtils';
-import type { SelectorResult } from '../../../services/dom/selectors/SelectorGenerator';
+import { generateCssSelector, generateXPath, generateRobustSelectors } from '../../../services/selectors/generate';
+import { clickElementRobust } from '../../../utils/click';
+import type { SelectorResult } from '../../../services/selectors/generate';
 import { hasRenderedBox } from '../../../utils/rendering';
 
 function bestCss(results: SelectorResult[], fallback: () => string): string {

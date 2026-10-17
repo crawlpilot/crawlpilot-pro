@@ -6,7 +6,7 @@
  * a clear visual reference of what has been selected so far.
  */
 
-import { sanitizeCssSelector } from '../dom/domUtils';
+import { sanitizeCssSelector } from '../../../shared/selectors/sanitize';
 
 interface HighlightEntry {
     elementDef: HighlightableElement;

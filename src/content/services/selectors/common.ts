@@ -1,6 +1,5 @@
-import { generateRobustSelectors } from '../domUtils';
-import { isUnstableClass, isStableAttributeValue, isHashClass } from '../domBase';
-import { isVolatileSelector } from '../../../../shared/selectors/stability';
+import { generateRobustSelectors } from './generate';
+import { isUnstableClass, isStableAttributeValue, isHashClass, isVolatileSelector } from '../../../shared/selectors/stability';
 
 export interface DerivedSelector {
     selector: string;

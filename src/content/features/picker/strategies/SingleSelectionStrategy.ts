@@ -2,8 +2,8 @@ import type { ElementSelected } from '../../../../shared/messages';
 import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
-import { generateCssSelector, generateXPath } from '../../../services/dom/domUtils';
-import { PaginationSelectorGenerator } from '../../../services/dom/selectors/PaginationSelectorGenerator';
+import { generateCssSelector, generateXPath } from '../../../services/selectors/generate';
+import { nextButtonSelectors } from '../../../services/selectors/nextButton';
 
 export class SingleSelectionStrategy implements ISelectionStrategy {
     private extractor: DataExtractor;
@@ -31,9 +31,7 @@ export class SingleSelectionStrategy implements ISelectionStrategy {
         const selector = generateCssSelector(element, false);
         const xpath = generateXPath(element);
 
-        // [NEW] Use the specialized PaginationSelectorGenerator
-        const generator = new PaginationSelectorGenerator();
-        const paginationSelectors = generator.generateForPagination(element);
+        const paginationSelectors = nextButtonSelectors(element);
 
         // Pick the best selector for immediate display (priority 0 is highest)
         const bestSelector = paginationSelectors.length > 0 ? paginationSelectors[0].selector : selector;

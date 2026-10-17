@@ -3,8 +3,7 @@
  * element, prefixed with [eN]. Each ref maps back to the live element, so a model answer can be
  * checked against the page (grounding) and turned into selectors for runs that need no model.
  */
-import { SelectorGenerator } from '../dom/selectors/SelectorGenerator';
-import { generateXPath } from '../dom/domBase';
+import { generateRobustSelectors, generateXPath } from '../selectors/generate';
 import { isGrounded } from '../../../shared/ai/extractPrompt';
 import { gradeSelector, GradedSelector } from '../../../shared/selectors/grade';
 import { looksLikeXPath } from '../../../shared/selectors/resolve';
@@ -118,7 +117,6 @@ function count(selector: string): number {
 
 /** Checks each model answer against its referenced element and compiles a selector for it. */
 export function verifyAndCompile(answers: { name: string; value: string; ref: string; wantType: string }[]): VerifiedField[] {
-    const gen = new SelectorGenerator();
     return answers.map(a => {
         const base: VerifiedField = { name: a.name, value: a.value, ref: a.ref, status: 'empty', type: 'text', selectors: [], matchCount: 0 };
         if (!a.value && !a.ref) return base;
@@ -148,7 +146,7 @@ export function verifyAndCompile(answers: { name: string; value: string; ref: st
             if (link) { target = link as HTMLElement; type = 'link'; }
         }
 
-        const candidates = gen.generateAll(target);
+        const candidates = generateRobustSelectors(target);
         const css = candidates.find(c => !looksLikeXPath(c.selector))?.selector;
         const xpath = generateXPath(target);
         const selectors: VerifiedField['selectors'] = [];

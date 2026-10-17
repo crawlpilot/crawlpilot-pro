@@ -1,12 +1,115 @@
+/**
+ * Selectors for one element: a CSS path, a positional XPath, and graded candidates from several
+ * strategies (stable id, semantic attributes, classes, css-selector-generator, paths).
+ */
 import { cssSelectorGenerator } from 'css-selector-generator';
-import { generateCssSelector, generateXPath, isUnstableClass, isStableAttributeValue } from '../domBase';
+import { isUnstableClass, isStableAttributeValue } from '../../../shared/selectors/stability';
+
+/** Ids without digits or framework markers, and not too long: likely to survive a reload. */
+function isStableId(id: string): boolean {
+    return !!id && !/\d/.test(id) && !/(Instance|ember|react|guid|uid|_)/i.test(id) && id.length < 40;
+}
+
+export function generateCssSelector(el: HTMLElement, generalized: boolean = false): string {
+    if (!el || !el.tagName) return '';
+
+    // 1. ID (Strongest) - Only use if NOT generalized
+    if (!generalized && isStableId(el.id)) {
+        try {
+            const escapedId = CSS.escape(el.id);
+            if (document.querySelectorAll(`#${escapedId}`).length === 1) {
+                return `#${escapedId}`;
+            }
+        } catch (e) {
+            // Ignore invalid IDs if CSS.escape fails or selector is still bad
+        }
+    }
+
+    // 2. Path-based generation
+    const path: string[] = [];
+    let current: HTMLElement | null = el;
+    let depth = 0;
+
+    while (current && current !== document.body && depth < 10) {
+        let selector = current.tagName.toLowerCase();
+
+        // Add classes if available
+        if (current.className && typeof current.className === 'string') {
+            const classes = current.className.split(/\s+/).filter(c => c && !isUnstableClass(c));
+
+            if (classes.length > 0) {
+                selector += `.${classes[0]}`;
+            }
+        }
+
+        if (current.parentElement && !generalized) {
+            const siblings = Array.from(current.parentElement.children);
+            const sameTagSiblings = siblings.filter(s => s.tagName === current!.tagName);
+
+            if (sameTagSiblings.length > 1) {
+                const index = sameTagSiblings.indexOf(current);
+                selector += `:nth-of-type(${index + 1})`;
+            }
+        }
+
+        path.unshift(selector);
+        current = current.parentElement;
+        depth++;
+    }
+
+    return path.join(' > ');
+}
+
+export function generateXPath(element: HTMLElement): string {
+    if (!element || element.nodeType !== 1) return '';
+
+    // 1. If element has ID, use it for shortest path (IF STABLE)
+    if (isStableId(element.id)) {
+        // Simple quote escaping - though usually IDs don't contain quotes
+        return `//*[@id="${element.id}"]`;
+    }
+
+    // 2. Iterative path generation
+    const paths: string[] = [];
+    let current: HTMLElement | null = element;
+
+    while (current && current.nodeType === 1) {
+        // If we hit an element with ID during ascent, use it as anchor (IF STABLE)
+        if (isStableId(current.id)) {
+            paths.unshift(`*[@id="${current.id}"]`);
+            return '//' + paths.join('/');
+        }
+
+        if (current === document.body) {
+            paths.unshift('html', 'body');
+            return '/' + paths.join('/');
+        }
+
+        let index = 0;
+        const tagName = current.tagName.toLowerCase();
+
+        // Count previous siblings with same tag
+        let sibling = current.previousElementSibling;
+        while (sibling) {
+            if (sibling.tagName.toLowerCase() === tagName) {
+                index++;
+            }
+            sibling = sibling.previousElementSibling;
+        }
+
+        paths.unshift(`${tagName}[${index + 1}]`);
+        current = current.parentElement;
+    }
+
+    return paths.length ? '/' + paths.join('/') : '';
+}
 
 export interface SelectorResult {
     selector: string;
     strategy: string;
 }
 
-export interface SelectorStrategy {
+interface SelectorStrategy {
     name: string;
     generate(element: HTMLElement, options?: SelectorOptions): string[];
     priority: number; // Higher is better
@@ -17,23 +120,14 @@ export interface SelectorOptions {
     isList?: boolean;
 }
 
-export class IdSelectorStrategy implements SelectorStrategy {
+class IdSelectorStrategy implements SelectorStrategy {
     name = 'ID';
     priority = 110;
     generate(element: HTMLElement, options?: SelectorOptions): string[] {
         if (options?.isList) return []; // IDs are usually unique, don't use for list items
 
         const id = element.id;
-        if (!id) return [];
-
-        // [CHANGED] Stricter Stability Checks
-        // Reject if:
-        // 1. Contains digits (often auto-gen)
-        // 2. Contains "Instance", "ember", "react", "guid", "uid" (framework gen)
-        // 3. Very long (> 40 chars)
-        if (/\d/.test(id)) return [];
-        if (/(Instance|ember|react|guid|uid|_)/i.test(id)) return [];
-        if (id.length > 40) return [];
+        if (!isStableId(id)) return [];
 
         if (document.querySelectorAll(`#${id}`).length === 1) {
             return [`#${id}`];
@@ -47,7 +141,7 @@ export class IdSelectorStrategy implements SelectorStrategy {
  * Tries the element's own tag + semantic class/attribute without any ancestor chain.
  * If the resulting selector is unique within root, it's the shortest stable selector possible.
  */
-export class MinimalSelectorStrategy implements SelectorStrategy {
+class MinimalSelectorStrategy implements SelectorStrategy {
     name = 'Minimal';
     priority = 115;
 
@@ -118,7 +212,7 @@ export class MinimalSelectorStrategy implements SelectorStrategy {
 }
 
 
-export class GeneratorLibraryStrategy implements SelectorStrategy {
+class GeneratorLibraryStrategy implements SelectorStrategy {
     name = 'CSS Gen';
     priority = 70;
 
@@ -197,7 +291,7 @@ export class GeneratorLibraryStrategy implements SelectorStrategy {
     }
 }
 
-export class SemanticXPathStrategy implements SelectorStrategy {
+class SemanticXPathStrategy implements SelectorStrategy {
     name = 'Semantic XPath';
     priority = 106;
 
@@ -258,7 +352,7 @@ export class SemanticXPathStrategy implements SelectorStrategy {
     }
 }
 
-export class XPathStrategy implements SelectorStrategy {
+class XPathStrategy implements SelectorStrategy {
     name = 'XPath';
     priority = 50;
     generate(element: HTMLElement): string[] {
@@ -267,7 +361,7 @@ export class XPathStrategy implements SelectorStrategy {
     }
 }
 
-export class AttributeStrategy implements SelectorStrategy {
+class AttributeStrategy implements SelectorStrategy {
     name = 'Attribute';
     priority = 108;
     generate(element: HTMLElement): string[] {
@@ -289,7 +383,7 @@ export class AttributeStrategy implements SelectorStrategy {
     }
 }
 
-export class PathSelectorStrategy implements SelectorStrategy {
+class PathSelectorStrategy implements SelectorStrategy {
     name = 'Path';
     priority = 65;
     generate(element: HTMLElement): string[] {
@@ -302,7 +396,7 @@ export class PathSelectorStrategy implements SelectorStrategy {
     }
 }
 
-export class SelectorGenerator {
+class SelectorGenerator {
     private strategies: SelectorStrategy[] = [
         new MinimalSelectorStrategy(),    // 115 — shortest unique tag+class, no ancestors
         new IdSelectorStrategy(),          // 110 — stable IDs
@@ -368,9 +462,11 @@ export class SelectorGenerator {
         }
         return selector;
     }
+}
 
-    public generateBest(element: HTMLElement, options?: SelectorOptions): string {
-        const results = this.generateAll(element, options);
-        return results.length > 0 ? results[0].selector : element.tagName.toLowerCase();
-    }
+const generator = new SelectorGenerator();
+
+/** Selector candidates for an element, best first. `isList`: candidates that match every item of a list. */
+export function generateRobustSelectors(element: HTMLElement, options?: SelectorOptions): SelectorResult[] {
+    return generator.generateAll(element, options);
 }

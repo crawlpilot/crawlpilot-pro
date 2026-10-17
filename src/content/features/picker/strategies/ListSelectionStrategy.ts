@@ -5,8 +5,8 @@ import { ContainerDetector } from '../ContainerDetector';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { refreshNetSources } from '../../../services/extraction/structuredRows';
 import { ItemSelectorRefiner } from '../ItemSelectorRefiner';
-import { generateCssSelector, generateXPath, generateRobustSelectors } from '../../../services/dom/domUtils';
-import { CommonSelectorGenerator } from '../../../services/dom/selectors/CommonSelectorGenerator';
+import { generateCssSelector, generateXPath, generateRobustSelectors } from '../../../services/selectors/generate';
+import { CommonSelectorGenerator } from '../../../services/selectors/common';
 
 export class ListSelectionStrategy implements ISelectionStrategy {
     private detector: ContainerDetector;

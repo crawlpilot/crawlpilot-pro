@@ -1,16 +1,3 @@
-import { SelectorGenerator, SelectorResult, SelectorOptions } from './selectors/SelectorGenerator';
-import { generateCssSelector, generateXPath } from './domBase';
-import { sanitizeCssSelector } from '../../../shared/selectors/sanitize';
-
-const generator = new SelectorGenerator();
-
-export { generateCssSelector, generateXPath, sanitizeCssSelector };
-export type { SelectorResult, SelectorOptions };
-
-export function generateRobustSelectors(element: HTMLElement, options?: SelectorOptions): SelectorResult[] {
-    return generator.generateAll(element, options);
-}
-
 /**
  * Robustly simulates a click by dispatching the full pointer/mouse event sequence.
  *
@@ -66,7 +53,7 @@ export async function clickElementRobust(element: HTMLElement): Promise<boolean>
 
         return true;
     } catch (e) {
-        console.error('[domUtils] clickElementRobust failed:', e);
+        console.error('[click] clickElementRobust failed:', e);
         return false;
     }
 }

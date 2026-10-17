@@ -6,7 +6,7 @@
  */
 import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult, SelectorDefinition } from '../types';
 import { DataExtractor } from '../../extraction/DataExtractor';
-import { clickElementRobust } from '../../dom/domUtils';
+import { clickElementRobust } from '../../../utils/click';
 import { resolveFirst } from '../../../../shared/selectors/resolve';
 import { extractColumns, collapseTableToJson } from './columnHelpers';
 

@@ -3,7 +3,7 @@
  * get graded alternatives from each evidence family. Independent of the extraction picker so it can be
  * used on any page without starting a run.
  */
-import { SelectorGenerator } from '../../services/dom/selectors/SelectorGenerator';
+import { generateRobustSelectors } from '../../services/selectors/generate';
 import { looksLikeXPath } from '../../../shared/selectors/resolve';
 import { gradeSelector, GradedSelector } from '../../../shared/selectors/grade';
 import { sanitizeCssSelector } from '../../../shared/selectors/sanitize';
@@ -96,7 +96,6 @@ export function highlightSelector(selector: string): number {
 }
 
 export function candidatesFor(el: HTMLElement): LabCandidate[] {
-    const gen = new SelectorGenerator();
     const out: LabCandidate[] = [];
     const seen = new Set<string>();
     const add = (selector: string, strategy: string, list: boolean) => {
@@ -107,8 +106,8 @@ export function candidatesFor(el: HTMLElement): LabCandidate[] {
         if (list && ev.count < 2) return;
         out.push({ ...ev, strategy, list });
     };
-    for (const r of gen.generateAll(el)) add(r.selector, r.strategy, false);
-    for (const r of gen.generateAll(el, { isList: true })) add(r.selector, r.strategy, true);
+    for (const r of generateRobustSelectors(el)) add(r.selector, r.strategy, false);
+    for (const r of generateRobustSelectors(el, { isList: true })) add(r.selector, r.strategy, true);
     const order = { strong: 0, fragile: 1, broken: 2 };
     return out.sort((a, b) => Number(a.list) - Number(b.list) || order[a.grade.grade] - order[b.grade.grade]);
 }

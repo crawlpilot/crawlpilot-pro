@@ -1,12 +1,12 @@
 import { refreshNetSourcesFor } from '../../services/extraction/structuredRows';
 import { hasReaders, inferFields, readRow, similarSiblings, unmappedCount, ReaderColumn } from '../../services/extraction/fields';
-import { NextButtonSelector } from '../../services/dom/selectors/NextButtonSelector';
+import { NextButtonSelector } from '../../services/selectors/nextButton';
 import { SelectorMetadata } from '../../../shared/types/extraction';
 import { BaseAction, ActionContext } from '../../core/BaseAction';
 import { AutoScrollAction } from '../autoscroll/AutoScrollAction';
 import { HL_COLOR, HL_BG, HL_GLOW_STRONG } from '../../utils/highlight-tokens';
 import { resolveAll } from '../../../shared/selectors/resolve';
-import { CommonSelectorGenerator } from '../../services/dom/selectors/CommonSelectorGenerator';
+import { CommonSelectorGenerator } from '../../services/selectors/common';
 import { hashString } from '../../../shared/utils/hash';
 import { classifyPage, collectPageSignals, PageVerdict, VERDICT_LABELS } from '../../../shared/verdict/classifyPage';
 
