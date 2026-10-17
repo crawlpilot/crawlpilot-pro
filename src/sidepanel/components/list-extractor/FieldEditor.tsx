@@ -1,10 +1,24 @@
 import { useState } from 'react';
-import { Alert, Box, Chip, IconButton, LinearProgress, Menu, MenuItem, TextField, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, IconButton, LinearProgress, Menu, MenuItem, TextField, Tooltip, Typography } from '@mui/material';
 import { Combine, X } from 'lucide-react';
 import { dropField, fieldFill, FieldData, joinFields, renameField, retypeField } from '../../../shared/extraction/fieldEdits';
 
+interface PageData {
+    label: string;
+    matched: number;
+    sampled: number;
+    columns: FieldData['columns'];
+    items: FieldData['items'];
+}
+
 interface Props {
-    data: FieldData & { metadata?: { fieldProblems?: string[] } };
+    data: FieldData & {
+        metadata?: { fieldProblems?: string[] };
+        /** The same rows in the page's own JSON, when found. */
+        structured?: PageData;
+        /** The layout-based fields, kept while the page's data is used. */
+        layoutFields?: { columns: FieldData['columns']; items: FieldData['items'] };
+    };
     onChange: (data: FieldData) => void;
 }
 
@@ -43,6 +57,23 @@ export function FieldEditor({ data, onChange }: Props) {
             <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase" sx={{ display: 'block', mb: 0.5 }}>
                 Fields ({columns.length}) · from {rows} row{rows !== 1 ? 's' : ''}
             </Typography>
+            {data.structured && !data.layoutFields && (
+                <Alert severity="info" variant="outlined" sx={{ py: 0, mb: 0.75, fontSize: 11 }}
+                    action={<Button size="small" sx={{ fontSize: 10 }} onClick={() => onChange({
+                        ...data, columns: data.structured!.columns, items: data.structured!.items,
+                        layoutFields: { columns: data.columns, items: data.items },
+                    })}>Use it</Button>}>
+                    The page's own data ({data.structured.label}) has these rows with {data.structured.columns.length} named fields.
+                </Alert>
+            )}
+            {data.layoutFields && (
+                <Alert severity="success" variant="outlined" sx={{ py: 0, mb: 0.75, fontSize: 11 }}
+                    action={<Button size="small" sx={{ fontSize: 10 }} onClick={() => onChange({
+                        ...data, columns: data.layoutFields!.columns, items: data.layoutFields!.items, layoutFields: undefined,
+                    })}>Use layout</Button>}>
+                    Reading from the page's data ({data.structured?.label ?? 'JSON'}), matched to each row on the page.
+                </Alert>
+            )}
             {listProblems.map(p => (
                 <Alert key={p} severity="warning" variant="outlined" sx={{ py: 0, mb: 0.75, fontSize: 11 }}>{p}</Alert>
             ))}

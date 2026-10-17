@@ -10,6 +10,7 @@
  */
 import { alignToTemplate, Atom, AtomAttr, atomText, collectAtoms, isAtomRoot, readValue, Shape, shapeOf, withAtomCache } from './atoms';
 import { nodeStep } from './nodeName';
+import { JsonSpec, readJsonField, StructuredSource } from './structuredRows';
 import type { Column, ColumnType } from './ExtractionTypes';
 
 export const FIELD_SCHEMA_VERSION = 2;
@@ -26,6 +27,8 @@ export interface FieldReader {
     /** Every match is a value: images → JSON array, links → JSON array, text → joined. */
     many?: boolean;
     shape: Shape;
+    /** Read from the page's JSON item behind the row instead of the DOM (structured data first). */
+    json?: JsonSpec;
     /** Readers tried in order when this one finds nothing (fields the user joined into this one). */
     alternates?: Omit<FieldReader, 'alternates'>[];
 }
@@ -68,6 +71,7 @@ function readField(row: Element, r: FieldReader): string | undefined {
 }
 
 function readOne(row: Element, r: Omit<FieldReader, 'alternates'>): string | undefined {
+    if (r.json) return readJsonField(row, r.json);
     for (const sel of r.chain) {
         const values = query(row, sel).filter(el => isAtomRoot(el, row, r.attr)).map(el => readValue(el, r.attr)).filter(Boolean);
         if (values.length === 0) continue;
@@ -102,6 +106,8 @@ export function readRow(row: Element, columns: ReaderColumn[]): Record<string, s
  * means the layout changed or the row has something the picked fields miss.
  */
 export function unmappedCount(row: Element, columns: ReaderColumn[]): number {
+    // Fields read from the page's JSON cover the row's content without matching its nodes.
+    if (columns.some(c => c.reader?.json)) return 0;
     const covered: Element[] = [];
     for (const col of columns) {
         const r = col.reader;
@@ -587,4 +593,26 @@ export function similarSiblings(el: Element): Element[] {
     if (!parent) return [el];
     const same = Array.from(parent.children).filter(c => c.tagName === el.tagName);
     return same.length > 0 ? same : [el];
+}
+
+/** Columns that read a structured source's fields from the JSON item behind each row. */
+export function structuredColumns(source: StructuredSource): ReaderColumn[] {
+    return source.fields.map((f, order) => {
+        const id = slug(f.name);
+        return {
+            id,
+            originalId: id,
+            name: f.name,
+            type: f.type as ColumnType,
+            order,
+            selector: f.key,
+            reader: {
+                v: FIELD_SCHEMA_VERSION,
+                chain: [],
+                attr: 'text',
+                shape: 'text',
+                json: { kind: source.kind, path: source.path, anchor: source.anchor, anchorIsUrl: source.anchorIsUrl, key: f.key },
+            },
+        };
+    });
 }

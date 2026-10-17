@@ -1,5 +1,6 @@
 import { hashString } from '../../../shared/utils/hash';
-import { inferFields, readRow, hasReaders, ReaderColumn } from './fieldSchema';
+import { inferFields, readRow, hasReaders, structuredColumns, ReaderColumn } from './fieldSchema';
+import { findStructuredSource } from './structuredRows';
 
 export interface RowsResult {
     columns: ReaderColumn[];
@@ -25,6 +26,7 @@ export class DataExtractor {
     private extractList(containerInfo: any) {
         const { siblings, confidence } = containerInfo;
         const { columns, items, duplicates, problems } = this.extractRows(siblings);
+        const structured = this.structuredAlternative(siblings);
 
         return {
             type: 'list',
@@ -38,8 +40,26 @@ export class DataExtractor {
                 duplicatesRemoved: duplicates,
                 uniqueItems: items.length,
                 fieldProblems: problems
-            }
+            },
+            ...(structured ? { structured } : {})
         };
+    }
+
+    /**
+     * The same rows read from the page's own JSON (JSON-LD, embedded state) when an array there lines
+     * up with them: named fields, no guessing. Offered next to the DOM fields; the user picks one.
+     */
+    private structuredAlternative(rows: Element[]) {
+        try {
+            const source = findStructuredSource(rows);
+            if (!source) return undefined;
+            const columns = structuredColumns(source);
+            const { items } = this.extractRows(rows, columns);
+            if (items.length < Math.max(2, rows.length * 0.5)) return undefined;
+            return { label: source.label, matched: source.matched, sampled: source.sampled, columns, items };
+        } catch {
+            return undefined;
+        }
     }
 
     private extractSingle(element: HTMLElement) {

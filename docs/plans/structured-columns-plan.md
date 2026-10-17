@@ -244,9 +244,9 @@ S7–S8 come after.
 |---|---|---|
 | S1 Atoms + one reader | Done | `atoms.ts`, `readRow` in `fieldSchema.ts`. aria-hidden visual copies and button labels are skipped. |
 | S2 Inference | Done | `inferFields`: signatures, row-validated selectors (variant cards share a field), shape-aligned slots, galleries as one list, evidence names (incl. "Was Price" from "Was $X" text), exact-duplicate and composite removal. Table rows use one column per cell position. On a saved Walmart results page: 32 → 17 columns. |
-| S3 Frozen schema in runs | Done | Preview, auto-scroll, pagination (incl. resume) and Page Extractor lists read with the same readers. `SchemaGenerator` is deleted. Unmapped-content counts are not done yet. |
-| S4 Review checks + field editor | Done | `FieldEditor.tsx`: rename, drop, join (reader fallbacks), fill bars, list problems. Split-by-shape and retype are not in the UI yet. |
-| S5 Page Extractor lists | Done | List Output: one JSON column / row per item / numbered (capped at 10). Columns are stable across pages because IDs are field slugs. A saved schema per list element is not done yet. |
+| S3 Frozen schema in runs | Done | Preview, auto-scroll, pagination (incl. resume) and Page Extractor lists read with the same readers. `SchemaGenerator` is deleted. Each page counts rows with content no field reads ("unmapped", shown in History), and dedup is count-aware. |
+| S4 Review checks + field editor | Done | `FieldEditor.tsx`: rename, drop, join (reader fallbacks), retype, fill bars, list problems. Split-by-shape is not in the UI yet. |
+| S5 Page Extractor lists | Done | List Output: one JSON column / row per item / numbered (capped at 10). A list element keeps the fields inferred when it was picked (`fields`), and every bulk page is read with them. |
 | S6 Table side | Done | `TableUnifier` is removed (no legacy path), and sparse-column hiding is off by default. |
-| S7 Structured data first | Not started | |
+| S7 Structured data first | Done | `structuredRows.ts`: finds a JSON-LD or embedded-JSON array whose items line up with the picked rows. Each row is matched to its item by URL or name, so the order doesn't matter. The field editor offers "Use it" or "Use layout". Runs stay row-driven: each field reads the JSON item behind the row. Inline `window.__STATE__ = …` scripts and API responses are not used as sources yet. |
 | S8 Coverage + presets | Partial | Per-field fill is saved for listing runs and shown in History. Preset floors are waiting on #12. |
