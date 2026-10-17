@@ -135,6 +135,10 @@ export interface Job {
         stoppedByUser?: boolean;
         /** Page verdict counts for the run (see shared/verdict/classifyPage). */
         verdicts?: Record<string, number>;
+        /** Listing runs: why the run ended, rows/duplicates per page, total duplicates skipped. */
+        stopReason?: string;
+        pageStats?: { page: number; rows: number; duplicates: number }[];
+        duplicatesRemoved?: number;
     };
 
     result?: {

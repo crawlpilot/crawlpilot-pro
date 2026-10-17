@@ -41,6 +41,10 @@ export interface ExtractionStatus {
     currentPage?: number; // [NEW] Add page tracking
     totalProcessed: number;
     error: string | null;
+    /** Rows skipped because an earlier page already had them. */
+    duplicates?: number;
+    /** Why a listing run ended (see shared/listing/runStats STOP_REASON_LABELS). */
+    stopReason?: string;
 }
 
 

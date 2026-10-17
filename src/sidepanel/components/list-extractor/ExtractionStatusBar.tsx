@@ -123,6 +123,11 @@ export function ExtractionStatusBar({ status, hasSelectors, selectorCount, onSta
                                     </Typography>
                                 </StatBox>
                             </Box>
+                            {!!status.duplicates && (
+                                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)', mt: -1 }}>
+                                    {status.duplicates} duplicate row{status.duplicates !== 1 ? 's' : ''} from earlier pages skipped
+                                </Typography>
+                            )}
 
                             {/* Progress Bar */}
                             <Box sx={{ position: 'relative', pt: 0.5 }}>

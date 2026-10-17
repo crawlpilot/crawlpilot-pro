@@ -48,6 +48,8 @@ import {
     FormHelperText
 } from '@mui/material';
 import { Job, AutomationRecipe } from '@/shared/types/database';
+import { stopReasonLabel } from '@/shared/listing/runStats';
+import { VERDICT_LABELS, PageVerdict } from '@/shared/verdict/classifyPage';
 import contentScriptPath from '../../content/element-selector?script';
 
 type JobWithRecipe = Job & { recipe?: AutomationRecipe };
@@ -685,6 +687,12 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                         ? `${Math.round((detailsJob.stats.endTime - detailsJob.stats.startTime) / 1000)}s`
                                         : tc('na')}
                                     />
+                                    {detailsJob.stats?.stopReason && (
+                                        <DetailItem label={t('stopReason', 'Stopped because')} value={stopReasonLabel(detailsJob.stats.stopReason)} />
+                                    )}
+                                    {!!detailsJob.stats?.duplicatesRemoved && (
+                                        <DetailItem label={t('duplicatesSkipped', 'Duplicates skipped')} value={detailsJob.stats.duplicatesRemoved} />
+                                    )}
                                     {detailsJob.configSnapshot?.type === 'bulk-extraction' && (
                                         <>
                                             <DetailItem label={t('parallel')} value={detailsJob.configSnapshot.options?.useParallel ? tc('yes') : tc('no')} />
@@ -692,6 +700,35 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                                         </>
                                     )}
                                 </Box>
+                                {detailsJob.stats?.verdicts && Object.keys(detailsJob.stats.verdicts).length > 0 && (
+                                    <Box sx={{ mt: 2 }}>
+                                        <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>
+                                            {t('pageChecks', 'Page checks')}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                                            {Object.entries(detailsJob.stats.verdicts).map(([v, n]) => (
+                                                <Chip key={v} size="small" label={`${VERDICT_LABELS[v as PageVerdict] ?? v} · ${n}`}
+                                                    color={v === 'ok' ? 'success' : v === 'challenge' || v === 'rate_limited' ? 'warning' : 'error'}
+                                                    variant="outlined" />
+                                            ))}
+                                        </Box>
+                                    </Box>
+                                )}
+                                {detailsJob.stats?.pageStats && detailsJob.stats.pageStats.length > 0 && (
+                                    <Box sx={{ mt: 2 }}>
+                                        <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>
+                                            {t('perPage', 'Rows per page')}
+                                        </Typography>
+                                        <Box sx={{ maxHeight: 160, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 2 }}>
+                                            {detailsJob.stats.pageStats.map((p: { page: number; rows: number; duplicates: number }) => (
+                                                <Box key={p.page} sx={{ display: 'flex', justifyContent: 'space-between', px: 1.5, py: 0.5, fontSize: 12, fontFamily: 'monospace' }}>
+                                                    <span>{t('pageN', 'Page {{n}}', { n: p.page })}</span>
+                                                    <span>{p.rows}{p.duplicates > 0 ? ` (+${p.duplicates} dup)` : ''}</span>
+                                                </Box>
+                                            ))}
+                                        </Box>
+                                    </Box>
+                                )}
                             </Box>
 
                             <Divider />

@@ -4,6 +4,7 @@ import { SelectorState, PaginationConfig, ExtractionStatus, SelectorMetadata } f
 import { PAGINATION_PROFILES, PaginationSpeed } from '../../shared/constants/paginationConfig';
 import { consolidateSelectors } from '../../shared/utils/extractionLogic';
 import { filterPersistableChain } from '../../shared/selectors/stability';
+import { ListingRunTracker } from '../../shared/listing/runStats';
 
 export function useExtractionProcess(onComplete?: (tableId: number) => void, onStart?: (jobId: number) => void) {
     const [status, setStatus] = useState<ExtractionStatus>({
@@ -112,6 +113,8 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
         stopExtractionRef.current = false;
         activeModeRef.current = pagination.mode;
         pagesVisitedRef.current = 1;
+        const tracker = new ListingRunTracker();
+        let stopReason: string | undefined;
 
         try {
             // [NEW] 0. Validate Source Context
@@ -333,18 +336,24 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                         const listener = (message: any) => {
                             if (message.type === 'PAGINATION_COMPLETE') {
                                 unregisterListener(listener);
+                                const p = message.payload || {};
+                                stopReason = p.reason || (p.success === false ? 'error' : undefined);
+                                setStatus(prev => ({ ...prev, stopReason }));
                                 resolve();
                             } else if (message.type === 'PAGINATION_UPDATE') {
-                                const { items, total, page } = message.payload;
+                                const { items, page } = message.payload;
                                 if (page) pagesVisitedRef.current = page;
                                 if (items && Array.isArray(items)) {
-                                    sel.data.items = [...(sel.data.items || []), ...items];
+                                    // Drop rows an earlier page already had (sponsored slots, overlapping pages)
+                                    const fresh = tracker.add(page || pagesVisitedRef.current, items);
+                                    sel.data.items = [...(sel.data.items || []), ...fresh];
                                 }
                                 setStatus(prev => ({
                                     ...prev,
                                     progress: { id: sel.id, count: (sel.data.items?.length || 0) },
                                     currentPage: pagesVisitedRef.current, // [NEW] Track pages
-                                    totalProcessed: total
+                                    totalProcessed: sel.data.items?.length || 0,
+                                    duplicates: tracker.duplicates
                                 }));
                             }
                         };
@@ -400,7 +409,10 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                     endTime: Date.now(),
                     itemsExtracted: finalExtraction.items.length,
                     pagesVisited: pagesVisitedRef.current,
-                    stoppedByUser: stopExtractionRef.current
+                    stoppedByUser: stopExtractionRef.current,
+                    stopReason: stopExtractionRef.current ? 'cancelled' : stopReason,
+                    pageStats: tracker.pageStats.length > 0 ? tracker.pageStats : undefined,
+                    duplicatesRemoved: tracker.duplicates || undefined
                 }
             });
 

@@ -8,6 +8,7 @@ import { HL_COLOR, HL_BG, HL_GLOW_STRONG } from '../../utils/highlight-tokens';
 import { resolveAll } from '../../../shared/selectors/resolve';
 import { CommonSelectorGenerator } from '../../services/dom/selectors/CommonSelectorGenerator';
 import { hashString } from '../../../shared/utils/hash';
+import { classifyPage, collectPageSignals, PageVerdict, VERDICT_LABELS } from '../../../shared/verdict/classifyPage';
 
 export interface PaginationConfig {
     startSelector: string;
@@ -92,6 +93,11 @@ export class PaginationAction extends BaseAction {
                 this.context.onProgress?.({ type: 'navigate', page: pageCount, message: `Processing page ${pageCount} (Resumed)` });
                 await this.wait(internalConfig.contentLoadDelay);
 
+                if (!(await this.ensurePageUsable())) {
+                    await this.clearState();
+                    return { success: true, totalItems, pageCount, reason: 'page_blocked' };
+                }
+
                 container = await this.findContainerWithRetry(containerSelectors);
 
                 if (container) {
@@ -135,6 +141,8 @@ export class PaginationAction extends BaseAction {
 
                 // Content Processing Phase
                 this.context?.onProgress?.({ type: 'navigate', page: pageCount, message: `Processing page ${pageCount}` });
+
+                if (!(await this.ensurePageUsable())) break;
 
                 let newContainer = await this.findContainerWithRetry(containerSelectors);
 
@@ -184,6 +192,30 @@ export class PaginationAction extends BaseAction {
     }
 
     // --- Helper Methods ---
+
+    /** Verdicts that end a listing run: the next page is a wall, not more items. */
+    private static readonly STOPPING_VERDICTS: PageVerdict[] = ['blocked', 'rate_limited', 'waiting_room', 'login_wall', 'http_error', 'challenge'];
+
+    /**
+     * Checks the page that pagination just landed on. A bot check waits (up to 3 minutes) for the
+     * user to solve it in this tab; any other wall ends the run with reason 'page_blocked'.
+     */
+    private async ensurePageUsable(): Promise<boolean> {
+        let check = classifyPage(collectPageSignals(), window.location.href);
+        if (check.verdict === 'challenge') {
+            this.context?.onProgress?.({ type: 'status', message: 'This page is asking to verify you are human. Solve it to continue.' });
+            const deadline = Date.now() + 3 * 60_000;
+            while (check.verdict === 'challenge' && Date.now() < deadline) {
+                await this.wait(3000);
+                this.throwIfAborted();
+                check = classifyPage(collectPageSignals(), window.location.href);
+            }
+        }
+        if (!PaginationAction.STOPPING_VERDICTS.includes(check.verdict)) return true;
+        const label = VERDICT_LABELS[check.verdict];
+        this.context?.onProgress?.({ type: 'complete', reason: 'page_blocked', message: `Pagination stopped - ${label}${check.reason ? ` (${check.reason})` : ''}` });
+        return false;
+    }
 
     private getInternalConfig() {
         return {
