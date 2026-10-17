@@ -27,6 +27,8 @@ export interface FieldReader {
     /** Every match is a value: images → JSON array, links → JSON array, text → joined. */
     many?: boolean;
     shape: Shape;
+    /** Which elements are items of the list (the same on every column); others read as empty rows. */
+    rowGate?: RowGate;
     /** Keep only values of this shape (a field the user split by kind of value). */
     onlyShape?: Shape;
     /** Read from the page's JSON item behind the row instead of the DOM (structured data first). */
@@ -101,6 +103,8 @@ function readOne(row: Element, r: Omit<FieldReader, 'alternates'>, onlyShape?: S
 /** Reads a row with frozen columns. Columns without a reader (legacy) are left out. */
 export function readRow(row: Element, columns: ReaderColumn[]): Record<string, string> {
     const out: Record<string, string> = {};
+    const gate = columns.find(c => c.reader?.rowGate)?.reader?.rowGate;
+    if (gate && !rowFitsGate(row, gate)) return out;
     for (const col of columns) {
         if (!col.reader) continue;
         const v = readField(row, col.reader);
@@ -151,6 +155,8 @@ interface Field {
     atoms: Atom[];
     shape: Shape;
     order: number;
+    /** Fields joined into this one (the same thing in another card layout), tried in order. */
+    alts?: Field[];
 }
 
 function mode<T>(items: T[]): T {
@@ -251,24 +257,103 @@ function fieldsOf(group: Group, selector: string, docOrder: Map<Element, number>
     return slots.filter(f => f.atoms.length > 0).map(f => ({ ...f, order: firstOrder(f.atoms) }));
 }
 
+// ------------------------------------------------------------------------------------ rows
+
+/**
+ * Which picked elements are really items of the list. A results container also holds headers
+ * ("Results"), widgets ("Related searches"), ad blocks and footers; each item has most of the list's
+ * common structure and little else, so a row is kept when it has at least half of the core
+ * signatures (those in most rows) and they make up a fair share of its own. Saved with the fields,
+ * so every page of a run skips the same kinds of non-item elements.
+ */
+export interface RowGate {
+    core: string[];
+    /** Share of the core a row must have. */
+    cover: number;
+    /** Share of a row's own signatures that must be core. */
+    own: number;
+}
+
+const GATE_COVER = 0.5;
+const GATE_OWN = 0.3;
+
+function jaccard(a: Set<string>, b: Set<string>): number {
+    let inter = 0;
+    a.forEach(x => { if (b.has(x)) inter++; });
+    return inter / (a.size + b.size - inter || 1);
+}
+
+function passesGate(profile: Set<string>, gate: RowGate, core: Set<string>): boolean {
+    if (profile.size === 0) return false;
+    let inter = 0;
+    profile.forEach(x => { if (core.has(x)) inter++; });
+    return inter / core.size >= gate.cover && inter / profile.size >= gate.own;
+}
+
+function buildGate(profiles: Set<string>[]): RowGate | null {
+    if (profiles.length < 4) return null;
+    // The most typical row: the one most like all the others.
+    let medoid = 0;
+    let best = -1;
+    profiles.forEach((p, i) => {
+        let sum = 0;
+        profiles.forEach((q, j) => { if (i !== j) sum += jaccard(p, q); });
+        if (sum > best) { best = sum; medoid = i; }
+    });
+    const similar = profiles.filter(p => jaccard(p, profiles[medoid]) >= 0.3);
+    const counts = new Map<string, number>();
+    similar.forEach(p => p.forEach(sig => counts.set(sig, (counts.get(sig) ?? 0) + 1)));
+    const core = [...counts.entries()].filter(([, c]) => c >= similar.length * 0.5).map(([sig]) => sig);
+    return core.length >= 2 ? { core, cover: GATE_COVER, own: GATE_OWN } : null;
+}
+
+/**
+ * A row's structure for the gate: the label path of each value, measured from the row's content root
+ * (below any single-child wrappers), so the same card inside an extra wrapper (a sponsored slot)
+ * matches while a block with a different structure (a video ad, a widget) doesn't.
+ */
+function profileOf(row: Element, atoms: Atom[]): Set<string> {
+    let depth = 0;
+    for (let el = row; el.children.length === 1 && depth < 6; el = el.children[0]) depth++;
+    return new Set(atoms.map(a => `${a.path.slice(depth).map(e => nodeStep(e).label).join('>')}@${a.attr}`));
+}
+
+/** Whether a row on any page is an item of the list the fields were picked from. */
+export function rowFitsGate(row: Element, gate: RowGate): boolean {
+    return passesGate(profileOf(row, collectAtoms(row)), gate, new Set(gate.core));
+}
+
 // ------------------------------------------------------------------------------------ naming
 
+/** Words that describe layout, state or a framework, never what a value is. */
 const NOISE_WORDS = new Set(['text', 'label', 'value', 'wrapper', 'wrap', 'container', 'inner', 'outer', 'content', 'item', 'items',
-    'component', 'root', 'box', 'block', 'el', 'elem', 'element', 'span', 'div', 'p', 'col', 'row', 'cell', 'info', 'details', 'detail',
-    'card', 'tile', 'module', 'section', 'main', 'body', 'link', 'a', 'txt', 'lbl', 'field', 'data', 'top', 'bottom', 'left', 'right']);
+    'component', 'root', 'box', 'block', 'el', 'elem', 'element', 'span', 'div', 'col', 'row', 'cell', 'info', 'details', 'detail',
+    'card', 'tile', 'module', 'section', 'main', 'body', 'link', 'txt', 'lbl', 'field', 'data', 'top', 'bottom', 'left', 'right',
+    'recipe', 'instrumentation', 'declarative', 'offscreen', 'outline', 'rush', 'faceout', 'bold', 'weight', 'normal', 'base', 'spacing',
+    'size', 'widget', 'grid', 'list', 'group', 'line', 'clamp', 'truncate', 'color', 'style', 'theme', 'variant', 'primary', 'secondary',
+    'small', 'large', 'medium', 'mini', 'micro', 'default', 'heading', 'title', 'none', 'show', 'visible', 'display', 'layout', 'puis',
+    'puisg', 'csa', 'sg', 'aok', 'js', 'ui', 'mod', 'cmp', 'comp', 'internal', 'external', 'container', 'holder', 'area', 'region']);
+/** Short words that do name a value. */
+const SHORT_WORDS = new Set(['sku', 'age', 'url', 'tag', 'fee', 'tax', 'qty', 'new', 'id', 'isbn', 'upc', 'ean', 'mpn', 'brand', 'size']);
 const STRIKE_CLASS = /strike|line-?through|\bwas\b|was-?price|old|original|list-?price|compare|crossed|regular-?price|before|rrp|msrp/i;
 const UNIT_PRICE = /\/\s*(oz|fl\s?oz|lb|kg|g|ml|l|ct|count|each|unit|item|100\s?g|sq\s?ft)\b|\bper\s+\w+/i;
 const REVIEW_WORDS = /reviews?|ratings?/i;
+const SALES_WORDS = /\b(bought|sold|purchased|orders?)\b/i;
+const BRACKET_COUNT = /^\(?[\d.,]+\s*[kKmM]?\+?\)?$/;
 
 function titleCase(s: string): string {
     return s.split(' ').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-/** "product-card__brand-name" → "Brand Name"; "priceCurrent" → "Price Current"; "div" → "". */
 const TAGS = new Set(['a', 'abbr', 'article', 'aside', 'b', 'button', 'dd', 'div', 'dl', 'dt', 'em', 'figcaption', 'figure', 'footer',
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'i', 'img', 'label', 'li', 'main', 'nav', 'ol', 'p', 'picture', 'section', 'small',
     'span', 'strong', 'sub', 'sup', 'table', 'td', 'th', 'time', 'tr', 'u', 'ul']);
 
+/**
+ * A readable name from a class or test id, or "" when it names layout or a framework:
+ * "product-card__brand-name" → "Brand Name", "title-differentiators" → "Differentiators",
+ * "puis-bold-weight-text" → "".
+ */
 export function tidyLabel(label: string): string {
     if (TAGS.has(label.replace(/\[.*$/, ''))) return '';
     const last = label.split(/__|--/).pop() || label;
@@ -276,7 +361,7 @@ export function tidyLabel(label: string): string {
         .replace(/([a-z])([A-Z])/g, '$1 $2')
         .split(/[-_\s.:]+/)
         .map(w => w.toLowerCase())
-        .filter(w => w && !NOISE_WORDS.has(w) && !/^\d+$/.test(w) && w.length > 1);
+        .filter(w => w && !NOISE_WORDS.has(w) && !/\d/.test(w) && (w.length > 3 || SHORT_WORDS.has(w)) && /[aeiouy]/.test(w));
     return titleCase(words.join(' '));
 }
 
@@ -285,35 +370,41 @@ function anchorName(f: Field): string {
     const el = f.atoms[0].el;
     for (const attr of ['itemprop', 'data-testid', 'data-cy']) {
         const v = el.getAttribute(attr);
-        if (v) { const t = tidyLabel(v) || titleCase(v); if (t) return t; }
+        if (v) { const t = tidyLabel(v); if (t) return t; }
     }
     return '';
 }
 
+/** A name from the element's own class or its parent's; further up, a wrapper's class names a different thing. */
 function className(f: Field): string {
-    for (const el of [...f.atoms[0].path].reverse()) {
+    for (const el of [...f.atoms[0].path].reverse().slice(0, 2)) {
         const t = tidyLabel(nodeStep(el).label);
         if (t) return t;
     }
     return '';
 }
 
+const WAS_LABEL = /^(was|list|list price|reg(ular)?|orig(inal)?|compare at|before|msrp|rrp)\s*(price)?\s*:?$/i;
+
+/** Struck through (tag, class, `data-*strike*`, style) or labelled "List:" / "Was" just before it. */
 function isStruck(f: Field): boolean {
-    return f.atoms.slice(0, 5).some(a => [a.el, ...a.path].some(el =>
+    return f.atoms.slice(0, 5).some(a => WAS_LABEL.test((a.el.previousElementSibling?.textContent || '').trim()) || [a.el, ...a.path].some(el =>
         /^(S|DEL|STRIKE)$/.test(el.tagName) || STRIKE_CLASS.test(el.getAttribute('class') || '') ||
+        Array.from(el.attributes).some(at => /strike/i.test(at.name) && at.value !== 'false') ||
         /line-through/.test((el as HTMLElement).style?.textDecoration || '') ||
         (el === a.el && /line-through/.test(getComputedStyle(el).textDecorationLine || ''))));
 }
 
 const WAS_BEFORE = /(was|list|reg(ular)?|orig(inal)?|compare at|before|msrp|rrp)\s*(price)?\s*:?\s*$/i;
 
-/** Another field of the same row says "Was $29.99" about this field's value (screen-reader prices). */
+/** The value says "List: $X", or another field of the same row says "Was $X" about it. */
 function labelledWas(f: Field, all: Field[]): boolean {
     let rows = 0;
     let was = 0;
     f.values.forEach((value, r) => {
         rows++;
         const v = norm(value);
+        if (WAS_BEFORE.test(v.replace(/[\p{Sc}\d.,\s]+$/u, ''))) { was++; return; }
         if (all.some(o => {
             if (o === f) return false;
             const text = norm(o.values.get(r) || '');
@@ -328,29 +419,38 @@ function inHeading(f: Field): boolean {
     return f.atoms.some(a => /^H[1-6]$/.test(a.el.tagName) || !!a.el.closest('h1,h2,h3,h4,h5,h6'));
 }
 
-/** A name from evidence, in order: schema/test attributes, value shape, headings, the class, the tag. */
+/** A name from evidence, in order: what the value is (image, link, price, rating…), schema or test attributes, headings, the class. */
 function baseName(f: Field, all: Field[]): string {
     const anchor = anchorName(f);
     const sample = [...f.values.values()].slice(0, 20);
     if (f.attr === 'src') return f.many ? 'Images' : 'Image';
-    if (f.attr === 'href') return f.many ? 'Links' : (anchor && !/url|link/i.test(anchor) ? `${anchor} URL` : 'URL');
+    if (f.attr === 'href') return f.many ? 'Links' : 'URL';
     if (f.attr === 'datetime') return 'Date';
-    if (anchor) return anchor;
     switch (f.shape) {
         case 'price':
+            if (sample.some(v => /deliver|shipping/i.test(v))) return 'Delivery Price';
             if (isStruck(f) || labelledWas(f, all)) return 'Was Price';
             if (sample.some(v => UNIT_PRICE.test(v))) return 'Unit Price';
             return 'Price';
-        case 'rating': return sample.some(v => REVIEW_WORDS.test(v)) ? 'Rating Summary' : 'Rating';
-        case 'count': return sample.some(v => REVIEW_WORDS.test(v)) ? 'Reviews' : (className(f) || 'Count');
+        case 'rating': return 'Rating';
+        case 'count':
+            if (sample.some(v => SALES_WORDS.test(v))) return 'Sales Volume';
+            if (sample.some(v => REVIEW_WORDS.test(v)) || sample.every(v => BRACKET_COUNT.test(v.trim()))) return 'Reviews';
+            return anchor || className(f) || 'Count';
         case 'date': return 'Date';
     }
+    if (sample.some(v => SALES_WORDS.test(v)) && sample.every(v => v.length < 60)) return 'Sales Volume';
+    if (anchor) return anchor;
     if ((f.attr === 'text' || f.attr === 'own') && inHeading(f)) return 'Title';
     const tag = f.atoms[0].el.tagName;
     if (tag === 'DT' || tag === 'TH') return 'Label';
     if (tag === 'DD') return 'Value';
-    if (f.attr === 'aria-label' || f.attr === 'title') return className(f) || 'Label';
-    return className(f) || (f.many ? 'Text List' : 'Text');
+    const cls = className(f);
+    if (cls) return cls;
+    // Short labels drawn from a small vocabulary ("Top Brand", "Best Seller", "Deal").
+    const distinct = new Set(sample.map(norm));
+    if (!f.many && sample.length >= 2 && sample.every(v => v.length <= 30) && distinct.size <= Math.max(3, sample.length * 0.4)) return 'Badge';
+    return f.many ? 'Details' : 'Text';
 }
 
 function slug(name: string): string {
@@ -374,18 +474,45 @@ function norm(v: string): string {
     return v.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-/** Two fields that read the same thing in (nearly) every row they share: the later one is noise. */
-function duplicates(a: Field, b: Field): boolean {
+/**
+ * A value as compared between fields: a one-item list is its item; a URL is its host and path
+ * (no query, hash or trailing `ref=` segment), so the title link, the image link and the reviews
+ * link to the same product compare equal.
+ */
+function canon(v: string): string {
+    let s = v.trim();
+    if (s.startsWith('[')) {
+        try { const a = JSON.parse(s); if (Array.isArray(a) && a.length === 1) s = String(a[0]); } catch { /* text */ }
+    }
+    if (/^https?:\/\//i.test(s)) {
+        try {
+            const u = new URL(s);
+            return (u.host + u.pathname.replace(/\/ref=[^/]*$/i, '').replace(/\/+$/, '')).toLowerCase();
+        } catch { /* not a URL after all */ }
+    }
+    return norm(s);
+}
+
+/** The same value in every row where both have one, and they share most of their rows. */
+function sameField(a: Field, b: Field): boolean {
     let shared = 0;
     let same = 0;
     a.values.forEach((v, r) => {
         const w = b.values.get(r);
         if (w === undefined) return;
         shared++;
-        if (norm(v) === norm(w)) same++;
+        if (canon(v) === canon(w)) same++;
     });
-    // Exact agreement only: a sale price equal to the list price in most rows is still its own field.
     return shared > 0 && same === shared && shared >= Math.min(a.values.size, b.values.size) * 0.8;
+}
+
+/** Never in the same row, same kind of value: one field in two card layouts. */
+function variantOf(a: Field, b: Field): boolean {
+    if (a.attr !== b.attr || a.shape !== b.shape || a.many !== b.many) return false;
+    for (const r of b.values.keys()) if (a.values.has(r)) return false;
+    if (a.shape !== 'text') return true;
+    const leaf = (f: Field) => nodeStep(f.atoms[0].el).label;
+    return leaf(a) === leaf(b) && !TAGS.has(leaf(a));
 }
 
 const TEXTUAL = new Set<AtomAttr>(['text', 'own', 'aria-label', 'title']);
@@ -401,7 +528,7 @@ function alnum(s: string): number {
 function dropComposites(fields: Field[]): void {
     const order = [...fields].sort((a, b) => avgLen(b) - avgLen(a));
     for (const a of order) {
-        if (!TEXTUAL.has(a.attr) || a.shape === 'price' || a.many) continue;
+        if (!TEXTUAL.has(a.attr) || a.many) continue;
         const others = fields.filter(f => f !== a && f.attr !== 'src' && f.attr !== 'href');
         let rows = 0;
         let composite = 0;
@@ -415,7 +542,7 @@ function dropComposites(fields: Field[]): void {
             others.map(o => o.values.get(r)).filter((v): v is string => !!v && alnum(v) >= 2)
                 .map(norm).sort((x, y) => y.length - x.length)
                 .forEach(v => { if (rest.includes(v)) { rest = rest.replace(v, ' '); found++; } });
-            if (found > 0 && alnum(rest) <= total * 0.25) composite++;
+            if (found > 0 && alnum(rest) <= Math.max(total * 0.25, 5)) composite++;
         });
         if (rows > 0 && composite / rows >= 0.8) fields.splice(fields.indexOf(a), 1);
     }
@@ -427,21 +554,46 @@ function avgLen(f: Field): number {
     return f.values.size ? t / f.values.size : 0;
 }
 
+function readerOf(f: Field): Omit<FieldReader, 'alternates'> {
+    return {
+        v: FIELD_SCHEMA_VERSION,
+        chain: [f.selector],
+        attr: f.attr,
+        shape: f.shape,
+        ...(f.slot !== undefined ? { slot: f.slot, template: f.template } : {}),
+        ...(f.many ? { many: true } : {}),
+    };
+}
+
 /**
  * Infers the fields of a list from its rows. The result's columns carry their readers; read every
  * row (this page's and later pages') with `readRow(row, columns)`.
+ *
+ * Stages: 1 keep the rows that are items · 2 group their values into fields · 3 merge fields that
+ * are the same thing · 4 drop boilerplate · 5 name · 6 checks.
  */
 export function inferFields(rowEls: Element[]): FieldInference {
     return withAtomCache(() => inferFieldsCached(rowEls));
 }
 
 function inferFieldsCached(rowEls: Element[]): FieldInference {
-    const rows = rowEls.slice(0, MAX_SAMPLE);
+    const sampled = rowEls.slice(0, MAX_SAMPLE);
     const problems: string[] = [];
-    if (rows.length === 0) return { columns: [], problems: ['The rows selector matched nothing.'] };
-    if (rows[0].tagName === 'TR') return { columns: tableFields(rows), problems };
+    if (sampled.length === 0) return { columns: [], problems: ['The rows selector matched nothing.'] };
+    if (sampled[0].tagName === 'TR') return { columns: tableFields(sampled), problems };
 
-    const rowsAtoms = rows.map(collectAtoms);
+    // 1. Items only: headers, widgets and ad blocks between the cards are left out.
+    const sampledAtoms = sampled.map(collectAtoms);
+    const profiles = sampledAtoms.map((atoms, i) => profileOf(sampled[i], atoms));
+    const gate = buildGate(profiles);
+    const coreSet = new Set(gate?.core ?? []);
+    const keep = sampled.map((_, i) => !gate || passesGate(profiles[i], gate, coreSet));
+    const rows = sampled.filter((_, i) => keep[i]);
+    const rowsAtoms = sampledAtoms.filter((_, i) => keep[i]);
+    const skipped = sampled.length - rows.length;
+    if (skipped > 0) problems.push(`${skipped} of ${sampled.length} picked elements don't look like the others (headers, ads, widgets) and are skipped.`);
+    if (rows.length === 0) return { columns: [], problems };
+
     const rowAtoms = rowsAtoms.map(atoms => {
         const m = new Map<Element, Atom[]>();
         atoms.forEach(a => { const l = m.get(a.el) ?? []; l.push(a); m.set(a.el, l); });
@@ -450,14 +602,13 @@ function inferFieldsCached(rowEls: Element[]): FieldInference {
     const docOrder = new Map<Element, number>();
     rowsAtoms.forEach(atoms => atoms.forEach((a, i) => { if (!docOrder.has(a.el)) docOrder.set(a.el, i); }));
 
-    // 1. Group atoms by signature, find each group's row-relative selector, split into fields.
+    // 2. Group values by signature into fields, each with a row-relative selector.
     const byKey = new Map<string, Field>();
     for (const group of groupsOf(rowsAtoms)) {
         const selector = selectorFor(group, rowAtoms, rows);
         for (const f of fieldsOf(group, selector, docOrder)) {
             const existing = byKey.get(f.key);
             if (existing) {
-                // Variant cards whose signatures differ but resolve to the same selector: one field.
                 f.values.forEach((v, r) => { if (!existing.values.has(r)) existing.values.set(r, v); });
                 existing.atoms.push(...f.atoms);
                 existing.order = Math.min(existing.order, f.order);
@@ -466,16 +617,33 @@ function inferFieldsCached(rowEls: Element[]): FieldInference {
             }
         }
     }
-    let fields = [...byKey.values()];
-
-    // 2. Drop noise: one odd card, constant button captions, tiny icons.
     const n = rows.length;
-    fields = fields.filter(f => {
+    // Best first: most rows, then the better attribute, then reading order.
+    let fields = [...byKey.values()].sort((a, b) =>
+        b.values.size - a.values.size || ATTR_RANK[a.attr] - ATTR_RANK[b.attr] || a.order - b.order);
+
+    // 3. One field per thing: the same value under two selectors is one field; the same kind of value
+    //    that never shares a row with another is that field in a different card layout.
+    const merged: Field[] = [];
+    for (const f of fields) {
+        if (merged.some(k => sameField(k, f))) continue;
+        const host = merged.find(k => variantOf(k, f));
+        if (host) {
+            host.alts = [...(host.alts ?? []), f];
+            f.values.forEach((v, r) => host.values.set(r, v));
+            host.atoms.push(...f.atoms);
+            continue;
+        }
+        merged.push(f);
+    }
+
+    // 4. Boilerplate: one odd card, the same label on every card that has it ("See options",
+    //    "Ships to India", "List:"), tiny icons, descriptions made of other fields.
+    fields = merged.filter(f => {
         if (n >= 8 && f.values.size <= 1) return false;
-        // The same caption on every card that has it: a control ("Add", "Options"), not data.
-        const vals = [...f.values.values()];
-        const constant = n >= 3 && f.values.size >= 3 && new Set(vals.map(norm)).size === 1;
-        if (constant && (f.attr === 'title' || f.attr === 'aria-label' || f.atoms.some(a => a.el.closest('button, [role="button"], form')))) return false;
+        if (TEXTUAL.has(f.attr) && f.values.size >= Math.min(3, n) && n >= 3 && new Set([...f.values.values()].map(norm)).size === 1) return false;
+        // Labels for the value next to them ("List:", "Price:").
+        if (TEXTUAL.has(f.attr) && [...f.values.values()].every(v => /:\s*$/.test(v) && v.length < 30)) return false;
         if (f.attr === 'src') {
             const img = f.atoms[0].el as HTMLImageElement;
             const w = img.naturalWidth || Number(img.getAttribute('width')) || 0;
@@ -484,23 +652,11 @@ function inferFieldsCached(rowEls: Element[]): FieldInference {
         }
         return true;
     });
+    dropComposites(fields);
 
-    // 3. Same values as another field (alt = title, two links to the product): keep the better one.
-    fields.sort((a, b) => b.values.size - a.values.size || ATTR_RANK[a.attr] - ATTR_RANK[b.attr] || a.order - b.order);
-    const kept: Field[] = [];
-    for (const f of fields) {
-        const dup = kept.find(k => duplicates(k, f) && (k.attr === f.attr || ATTR_RANK[k.attr] <= ATTR_RANK[f.attr]));
-        if (!dup) kept.push(f);
-    }
-
-    // 3b. Composites: a description made of other fields ("Deal, Desk Lamp $24.99 Was $29.99" next to
-    //     the badge, title and prices; "4.4 out of 5 stars. 97 reviews" next to rating and count).
-    //     Prices stay: "Now $24.99, Was $29.99" is often the only whole current price.
-    dropComposites(kept);
-
-    // 4. Names: evidence-based, unique; the most-filled field gets the plain name.
-    const used = new Map<string, number>();
-    const named = kept.map(f => ({ f, name: baseName(f, kept) }));
+    // 5. Names: evidence-based, unique; the most-filled field gets the plain name.
+    const used = new Set<string>();
+    const named = fields.map(f => ({ f, name: baseName(f, fields) }));
     for (const x of named) {
         let name = x.name;
         if (used.has(name)) {
@@ -510,11 +666,11 @@ function inferFieldsCached(rowEls: Element[]): FieldInference {
         let i = 2;
         const base = name;
         while (used.has(name)) name = `${base} ${i++}`;
-        used.set(name, 1);
+        used.add(name);
         x.name = name;
     }
 
-    // 5. Checks for the review step.
+    // 6. Checks for the review step.
     named.forEach(({ f, name }) => {
         if (n >= 4 && f.values.size / n < 0.5) problems.push(`“${name}” is empty in ${n - f.values.size} of ${n} rows.`);
     });
@@ -523,12 +679,8 @@ function inferFieldsCached(rowEls: Element[]): FieldInference {
         if (new Set(keys).size === 1) problems.push(`All ${n} rows are identical: the rows selector may match one repeated element.`);
     }
 
-    // 5b. Images first, then reading order.
-    named.sort((a, b) => {
-        const ia = a.f.attr === 'src' ? 0 : 1;
-        const ib = b.f.attr === 'src' ? 0 : 1;
-        return ia - ib || a.f.order - b.f.order;
-    });
+    // Images first, then reading order.
+    named.sort((a, b) => (a.f.attr === 'src' ? 0 : 1) - (b.f.attr === 'src' ? 0 : 1) || a.f.order - b.f.order);
 
     const columns: ReaderColumn[] = named.map(({ f, name }, order) => {
         const id = slug(name);
@@ -540,12 +692,9 @@ function inferFieldsCached(rowEls: Element[]): FieldInference {
             order,
             selector: f.selector,
             reader: {
-                v: FIELD_SCHEMA_VERSION,
-                chain: [f.selector],
-                attr: f.attr,
-                shape: f.shape,
-                ...(f.slot !== undefined ? { slot: f.slot, template: f.template } : {}),
-                ...(f.many ? { many: true } : {}),
+                ...readerOf(f),
+                ...(f.alts?.length ? { alternates: f.alts.map(readerOf) } : {}),
+                ...(gate ? { rowGate: gate } : {}),
             },
         };
     });

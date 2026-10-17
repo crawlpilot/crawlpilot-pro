@@ -34,6 +34,12 @@ const MAX_VALUE = 1000;
 export function isHidden(el: Element): boolean {
     const h = el as HTMLElement;
     if (h.hidden || h.style?.display === 'none' || h.style?.visibility === 'hidden') return true;
+    // Chrome's native check is cheap. It also says "no box" for display:contents wrappers, whose
+    // children do render, so those count as visible.
+    if (typeof (h as any).checkVisibility === 'function') {
+        if ((h as any).checkVisibility({ visibilityProperty: true })) return false;
+        return getComputedStyle(h).display !== 'contents';
+    }
     // offsetParent is null for display:none subtrees (and for fixed elements, and always in jsdom),
     // so only then pay for the computed style.
     if (h.offsetParent === null && el.tagName !== 'BODY') {

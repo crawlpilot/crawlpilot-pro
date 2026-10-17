@@ -152,3 +152,51 @@ describe('inferFields', () => {
         expect(inferFields(rows).problems.join(' ')).toMatch(/identical/);
     });
 });
+
+describe('Amazon-style search results', () => {
+    // Markup modelled on amazon.com/s?k=laptop: cards share the results slot with headers, widgets,
+    // a video ad and footers; prices come as a screen-reader copy plus an aria-hidden visual copy.
+    const price = (p: string) => `<span class="a-price"><span class="a-offscreen">${p}</span><span aria-hidden="true"><span class="a-price-symbol">$</span><span class="a-price-whole">${p.slice(1).split('.')[0]}<span class="a-price-decimal">.</span></span><span class="a-price-fraction">${p.split('.')[1]}</span></span></span>`;
+    const card = (i: number, o: { list?: string; badge?: string; bought?: string; sponsored?: boolean }) => `
+        <div data-component-type="s-search-result" data-asin="B0${i}" class="s-result-item s-asin">
+          <div class="puis-card-container s-card-container">
+            <span class="rush-component"><a class="a-link-normal s-no-outline" href="/Laptop-${i}/dp/B0000000${i}/ref=sr_1_${i}?keywords=laptop"><img class="s-image" src="https://m.media-amazon.com/images/I/${i}.jpg" alt="Laptop ${i}"></a></span>
+            ${o.sponsored ? '<span class="puis-sponsored-label-text">Sponsored</span>' : ''}
+            ${o.badge ? `<span class="a-badge-text puis-bold-weight-text">${o.badge}</span>` : ''}
+            <div data-cy="title-recipe"><a class="a-link-normal s-link-style" href="/Laptop-${i}/dp/B0000000${i}/ref=sr_1_${i}?keywords=laptop"><h2 class="a-size-medium"><span>Laptop model ${i} with ${i * 4}GB RAM</span></h2></a></div>
+            <div data-cy="reviews-block"><div class="a-row"><span class="a-declarative"><a href="#" aria-label="4.${i} out of 5 stars"><span class="a-icon-alt">4.${i} out of 5 stars</span></a></span>
+              <span class="s-csa-instrumentation-wrapper"><a href="/Laptop-${i}/dp/B0000000${i}/ref=sr_1_${i}#customerReviews"><span class="s-underline-text">(${i * 37})</span></a></span></div>
+              ${o.bought ? `<div class="a-row"><span class="a-size-base a-color-secondary">${o.bought}</span></div>` : ''}</div>
+            <div data-cy="price-recipe"><div class="a-row"><span class="a-offscreen">Price, product page</span><a href="/Laptop-${i}/dp/B0000000${i}">${price(`$${i}99.99`)}</a>
+              ${o.list ? `<div class="a-section aok-inline-block"><span class="a-size-base a-color-secondary">List:</span><span class="a-price a-text-price" data-a-strike="true"><span class="a-offscreen">${o.list}</span><span aria-hidden="true">${o.list}</span></span></div>` : ''}</div></div>
+            <div data-cy="delivery-recipe"><div class="a-row"><span aria-label="$2${i}.96 delivery Mon, Nov 2"><span class="a-color-base">$2${i}.96 delivery </span><span class="a-text-bold">Mon, Nov 2</span></span></div><div class="a-row"><span class="a-color-base">Ships to India</span></div></div>
+            <div class="a-button"><span class="a-button-inner"><a href="/Laptop-${i}/dp/B0000000${i}/ref=sr_1_${i}_so">See options</a></span></div>
+          </div>
+        </div>`;
+    const page = `<div class="s-main-slot s-result-list">
+        <div class="s-widget"><h2 class="a-size-medium-plus">Results</h2></div>
+        ${card(1, { badge: 'Top Brand', bought: '500+ bought in past month' })}
+        ${card(2, { list: '$325.99', bought: '50+ bought in past month' })}
+        <div class="s-widget"><span class="video-ad"><a href="https://aax.amazon.com/x"><video></video><img src="https://aax.amazon.com/v.jpg"></a><span>Sponsored</span><span>Debug info copied.</span><h2><span>Video laptop</span></h2></span></div>
+        ${card(3, { bought: '1K+ bought in past month' })}
+        ${card(4, { list: '$3,799.99' })}
+        ${card(5, { badge: 'Overall Pick', bought: '100+ bought in past month' })}
+        ${card(6, {})}
+        <div class="s-widget"><h2 class="a-size-medium-plus">Related searches</h2><a href="/s?k=gaming+laptop">gaming laptop</a><a href="/s?k=macbook">macbook</a></div>
+        <div class="s-widget"><h2>Need help?</h2><a href="/help">Visit the help section</a></div>
+    </div>`;
+
+    it('reads only the product cards, with one plain column per field', () => {
+        const rows = rowsOf(page, '.s-main-slot > div');
+        const { columns, problems } = inferFields(rows);
+        expect(columns.map(c => c.name)).toEqual(['Image', 'URL', 'Badge', 'Title', 'Rating', 'Reviews', 'Sales Volume', 'Price', 'Delivery Price', 'Was Price']);
+        expect(problems[0]).toMatch(/4 of 10 picked elements/);
+        const items = rows.map(r => readRow(r, columns));
+        expect(items.filter(i => Object.keys(i).length > 0)).toHaveLength(6);
+        const id = (n: string) => columns.find(c => c.name === n)!.id;
+        expect(items[2]).toMatchObject({ [id('Title')]: 'Laptop model 2 with 8GB RAM', [id('Price')]: '$299.99', [id('Was Price')]: '$325.99', [id('Reviews')]: '(74)', [id('Rating')]: '4.2 out of 5 stars' });
+        expect(items[1][id('Badge')]).toBe('Top Brand');
+        expect(items[3]).toEqual({}); // the video ad
+        expect(items[9]).toEqual({}); // "Need help?"
+    });
+});
