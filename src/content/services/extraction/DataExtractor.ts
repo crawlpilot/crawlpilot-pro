@@ -1,5 +1,5 @@
 import { hashString } from '../../../shared/utils/hash';
-import { inferFields, readRow, hasReaders, structuredColumns, ReaderColumn } from './fieldSchema';
+import { inferFields, readRow, hasReaders, structuredColumns, ReaderColumn } from './fields';
 import { findStructuredSource } from './structuredRows';
 
 export interface RowsResult {
@@ -12,7 +12,7 @@ export interface RowsResult {
 
 /**
  * Extracts structured data from DOM elements, field-first: a list's fields are inferred once from
- * its rows (`fieldSchema.ts`) and every row is read with them, so every row has the same columns.
+ * its rows (`fields/`) and every row is read with them, so every row has the same columns.
  */
 export class DataExtractor {
     public extract(element: HTMLElement, containerInfo: any) {

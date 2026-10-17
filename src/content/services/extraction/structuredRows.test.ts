@@ -5,7 +5,7 @@ const net = vi.hoisted(() => ({ entries: [] as any[] }));
 vi.mock('../../features/network/NetworkRelay', () => ({
     requestNetEntries: async () => ({ installed: true, entries: net.entries }),
 }));
-import { readRow, structuredColumns } from './fieldSchema';
+import { readRow, structuredColumns } from './fields';
 import { DataExtractor } from './DataExtractor';
 
 const products = [

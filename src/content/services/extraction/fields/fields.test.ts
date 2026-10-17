@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { inferFields, readRow, hasReaders, unmappedCount } from './fieldSchema';
-import { alignToTemplate, atomText, collectAtoms } from './atoms';
+import { inferFields, readRow, hasReaders, unmappedCount } from '.';
+import { alignToTemplate, atomText, collectAtoms } from '../atoms';
 
 function rowsOf(html: string, selector = '.card'): Element[] {
     document.body.innerHTML = html;

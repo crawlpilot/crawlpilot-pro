@@ -1,5 +1,5 @@
 import { refreshNetSourcesFor } from '../../services/extraction/structuredRows';
-import { hasReaders, inferFields, readRow, similarSiblings, unmappedCount, ReaderColumn } from '../../services/extraction/fieldSchema';
+import { hasReaders, inferFields, readRow, similarSiblings, unmappedCount, ReaderColumn } from '../../services/extraction/fields';
 import { NextButtonSelector } from '../../services/dom/selectors/NextButtonSelector';
 import { SelectorMetadata } from '../../../shared/types/extraction';
 import { BaseAction, ActionContext } from '../../core/BaseAction';

@@ -5,7 +5,7 @@ import { MessageClient } from './bus/MessageClient';
 import { ListSelectionStrategy } from '../features/picker/strategies/ListSelectionStrategy';
 import { SingleSelectionStrategy } from '../features/picker/strategies/SingleSelectionStrategy';
 import { refreshNetSourcesFor } from '../services/extraction/structuredRows';
-import { hasReaders, inferFields, readRow, similarSiblings, ReaderColumn } from '../services/extraction/fieldSchema';
+import { hasReaders, inferFields, readRow, similarSiblings, ReaderColumn } from '../services/extraction/fields';
 import { PageExtractor } from '../services/page/PageExtractor';
 import { buildPageRecord } from '../services/page/processors/columnHelpers';
 import { DetailSelectionStrategy } from '../features/picker/strategies/DetailSelectionStrategy';
