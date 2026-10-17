@@ -26,6 +26,15 @@ export interface Column {
     isKeyValue?: boolean;
 }
 
+export interface TypedColumnDef {
+    id: string;
+    name: string;
+    source: string;
+    type: import('../transforms/chain').FieldType;
+    ops: import('../transforms/chain').TransformOp[];
+    dayFirst?: boolean;
+}
+
 // TableData - metadata for extracted datasets
 export interface TableData {
     id?: number;
@@ -41,6 +50,8 @@ export interface TableData {
         source?: string;
         isPreview?: boolean;
         columnMerges?: Array<{ id: string; name: string; sources: string[]; separator: string }>;
+        /** Typed columns derived from a source column by a transform chain (shared/transforms). */
+        columnTypes?: TypedColumnDef[];
         // automationId removed from metadata as it is redundant
     };
 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTableData, useAllTableData, useExportData } from '../hooks/useDatabase';
 import { db } from '@/shared/db/db-manager';
+import type { TypedColumnDef } from '@/shared/types/database';
 import DataTable from '../components/ui/DataTable';
 import Select from '../components/ui/Select';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -79,6 +80,11 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
         const existing = tableData.metadata?.columnMerges || [];
         await db.updateTableData(selectedId, { metadata: { columnMerges: [...existing, merge] } });
     }, [selectedId, tableData]);
+
+    const handleTypedColumnsChanged = useCallback(async (defs: TypedColumnDef[]) => {
+        if (!selectedId) return;
+        await db.updateTableData(selectedId, { metadata: { columnTypes: defs } });
+    }, [selectedId]);
 
     const handleExportCSV = () => {
         if (!tableRef.current) return;
@@ -340,6 +346,8 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                             rows={rows}
                             defaultHideMostlyEmptyColumns={tableData?.metadata?.extractionType !== 'bulk-page'}
                             initialMergedCols={tableData.metadata?.columnMerges}
+                            initialTypedCols={tableData.metadata?.columnTypes}
+                            onTypedColumnsChanged={handleTypedColumnsChanged}
                             onColumnRenamed={handleColumnRenamed}
                             onColumnDeleted={handleColumnDeleted}
                             onColumnsMerged={handleColumnsMerged}

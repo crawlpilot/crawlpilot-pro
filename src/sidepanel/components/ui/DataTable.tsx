@@ -17,9 +17,12 @@ import {
     TextEditorModule,
     ICellRendererParams
 } from 'ag-grid-community';
-import type { Column, TableRow } from '@/shared/types/database';
+import type { Column, TableRow, TypedColumnDef } from '@/shared/types/database';
+import { applyChain, FieldType } from '@/shared/transforms/chain';
+import { detectType } from '@/shared/transforms/detect';
+import ColumnCleanDialog from './ColumnCleanDialog';
 import { hashString } from '@/shared/utils/hash';
-import { Edit, Trash2, GitMerge, X, Check, ArrowRight, Filter, Table2, FileText } from 'lucide-react';
+import { Edit, Trash2, GitMerge, X, Check, ArrowRight, Filter, Table2, FileText, Wand2, Sparkles } from 'lucide-react';
 import { IconButton, Tooltip } from '@mui/material';
 import Button from './Button';
 
@@ -46,6 +49,8 @@ interface DataTableProps {
     rows: TableRow[];
     defaultHideMostlyEmptyColumns?: boolean;
     initialMergedCols?: MergeDefinition[];
+    initialTypedCols?: TypedColumnDef[];
+    onTypedColumnsChanged?: (defs: TypedColumnDef[]) => void;
     onColumnRenamed?: (colId: string, newName: string) => void;
     onColumnDeleted?: (colId: string) => void;
     onColumnsMerged?: (merge: MergeDefinition) => void;
@@ -119,6 +124,16 @@ const CustomHeader = (props: any) => {
                 <div className="flex items-center justify-between w-full">
                     <span className="truncate font-semibold text-gray-700 dark:text-gray-300" title={props.displayName}>{props.displayName}</span>
                     <div className="flex items-center opacity-30 group-hover:opacity-100 transition-opacity ml-1">
+                        <Tooltip title="Clean / set type">
+                            <IconButton
+                                size="small"
+                                aria-label={`Clean ${props.displayName}`}
+                                onClick={(e) => { e.stopPropagation(); props.context.onCleanColumn?.(props.column.colId); }}
+                                sx={{ p: 0.5, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                            >
+                                <Wand2 size={14} />
+                            </IconButton>
+                        </Tooltip>
                         <Tooltip title={t('header.rename')}>
                             <IconButton
                                 size="small"
@@ -156,7 +171,33 @@ function parseJsonForExplosion(val: any): any[][] {
     } catch { return []; }
 }
 
-const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, defaultHideMostlyEmptyColumns = true, initialMergedCols, onColumnRenamed, onColumnDeleted, onColumnsMerged }, ref) => {
+/** Grid column type for a typed column's output. */
+function gridTypeOf(t: FieldType): Column['type'] {
+    if (t === 'date') return 'date';
+    if (t === 'url') return 'url';
+    if (t === 'text' || t === 'boolean') return 'text';
+    return 'number';
+}
+
+/** Adds typed-column values (and a currency column for money) to a flat row. */
+function applyTypedCols(row: Record<string, any>, defs: TypedColumnDef[]) {
+    for (const d of defs) {
+        const r = applyChain(row[d.source], d.type, d.ops, { baseUrl: typeof row.source_url === 'string' ? row.source_url : undefined, dayFirst: d.dayFirst });
+        row[d.id] = r.value;
+        if (d.type === 'money') row[`${d.id}__currency`] = r.currency ?? '';
+    }
+}
+
+function typedColumnsOf(defs: TypedColumnDef[]): Column[] {
+    const out: Column[] = [];
+    for (const d of defs) {
+        out.push({ id: d.id, name: d.name, type: gridTypeOf(d.type) } as Column);
+        if (d.type === 'money') out.push({ id: `${d.id}__currency`, name: `${d.name} currency`, type: 'text' } as Column);
+    }
+    return out;
+}
+
+const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, defaultHideMostlyEmptyColumns = true, initialMergedCols, initialTypedCols, onTypedColumnsChanged, onColumnRenamed, onColumnDeleted, onColumnsMerged }, ref) => {
     const { t } = useTranslation('dataTable');
 
     // Filter states
@@ -175,6 +216,8 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
     const [renames, setRenames] = useState<Record<string, string>>({});
     const [deletedCols, setDeletedCols] = useState<Set<string>>(new Set());
     const [mergedCols, setMergedCols] = useState<MergeDefinition[]>(initialMergedCols || []);
+    const [typedCols, setTypedCols] = useState<TypedColumnDef[]>(initialTypedCols || []);
+    const [cleanTarget, setCleanTarget] = useState<string | null>(null);
 
     // Merge UI States
     const [mergeCol1, setMergeCol1] = useState('');
@@ -199,6 +242,13 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
         });
         onColumnDeleted?.(colId);
     }, [onColumnDeleted]);
+
+    const onCleanColumn = useCallback((colId: string) => setCleanTarget(colId), []);
+
+    const updateTypedCols = useCallback((next: TypedColumnDef[]) => {
+        setTypedCols(next);
+        onTypedColumnsChanged?.(next);
+    }, [onTypedColumnsChanged]);
 
     const executeMerge = () => {
         if (!mergeCol1 || !mergeCol2 || !mergeName) return;
@@ -306,6 +356,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
                 const parts = m.sources.map(s => row[s]).filter(v => v !== undefined && v !== null && v !== '');
                 row[m.id] = parts.join(m.separator);
             });
+            applyTypedCols(row, typedCols);
             return row;
         });
 
@@ -313,13 +364,14 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
         mergedCols.forEach(m => {
             activeCols.push({ id: m.id, name: m.name, type: 'text' } as any);
         });
+        activeCols.push(...typedColumnsOf(typedCols));
 
         const hiddenIds = new Set(deletedCols);
         mergedCols.forEach(m => m.sources.forEach(s => hiddenIds.add(s)));
         activeCols = activeCols.filter(c => !hiddenIds.has(c.id));
 
         return { baseRows: activeRows, baseColumns: activeCols };
-    }, [displayRows, displayColumns, mergedCols, deletedCols]);
+    }, [displayRows, displayColumns, mergedCols, typedCols, deletedCols]);
 
     // Stage 2: Row filtering (depends on baseRows + row filter toggles)
     const filteredRows = useMemo(() => {
@@ -430,13 +482,14 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
                 displayName: renames[col.id] || col.name,
                 column: { colId: col.id }
             },
-            filter: true,
+            filter: col.type === 'number' ? 'agNumberColumnFilter' : true,
             sortable: true,
             resizable: true,
             editable: true,
             cellRenderer: (params: ICellRendererParams) => {
                 const value = params.value;
-                if (!value) return <span className="text-text-muted">-</span>;
+                if (value === null || value === undefined || value === '') return <span className="text-text-muted">-</span>;
+                if (typeof value === 'boolean') return <span>{value ? 'Yes' : 'No'}</span>;
 
                 const strValue = String(value);
 
@@ -542,11 +595,15 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
             // Export uses original compact rows (non-exploded), no tabledata columns
             const exportCols = columns.filter(c => !(c as any).hidden && (c as any).type !== 'tabledata');
             return {
-                columns: exportCols.map(col => ({
-                    id: col.id,
-                    name: renames[col.id] || col.name,
-                    type: col.type,
-                })),
+                columns: [
+                    ...exportCols.map(col => ({
+                        id: col.id,
+                        name: renames[col.id] || col.name,
+                        type: col.type as string,
+                    })),
+                    ...mergedCols.map(m => ({ id: m.id, name: m.name, type: 'text' })),
+                    ...typedColumnsOf(typedCols).map(c => ({ id: c.id, name: c.name, type: c.type as string })),
+                ],
                 rows: rows.map(r => {
                     const out: Record<string, any> = {};
                     exportCols.forEach(col => {
@@ -557,6 +614,12 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
                         }
                         out[col.id] = val;
                     });
+                    mergedCols.forEach(m => {
+                        out[m.id] = m.sources.map(src => r.data[src]).filter(v => v !== undefined && v !== null && v !== '').join(m.separator);
+                    });
+                    const typedRow: Record<string, any> = { ...r.data };
+                    applyTypedCols(typedRow, typedCols);
+                    typedColumnsOf(typedCols).forEach(c => { out[c.id] = typedRow[c.id]; });
                     return out;
                 })
             };
@@ -572,6 +635,27 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
         suppressHeaderMenuButton: true,
         headerClass: 'font-semibold',
     }), []);
+
+    const autoTypeColumns = () => {
+        const typedSources = new Set(typedCols.map(d => d.source));
+        const derivedIds = new Set([...typedColumnsOf(typedCols).map(c => c.id), ...mergedCols.map(m => m.id)]);
+        const added: TypedColumnDef[] = [];
+        for (const col of activeColumns) {
+            if (typedSources.has(col.id) || derivedIds.has(col.id)) continue;
+            if (['image', 'image_array', 'markdown', 'json', 'tabledata'].includes((col as any).type)) continue;
+            if (col.id === 'recordId' || col.id === 'source_url') continue;
+            const values = baseRows.slice(0, 300).map(r => r[col.id]);
+            const d = detectType(values, renames[col.id] || col.name);
+            if (d.type === 'text' || d.type === 'url') continue;
+            if (values.every(v => typeof v === 'number')) continue; // already numeric
+            added.push({ id: `typed_${col.id}_${Date.now()}`, name: `${renames[col.id] || col.name} (${d.label})`, source: col.id, type: d.type, ops: [] });
+        }
+        if (added.length === 0) {
+            alert('No new price, number, date or rating columns found.');
+            return;
+        }
+        updateTypedCols([...typedCols, ...added]);
+    };
 
     const resetFilters = () => {
         setRemoveEmptyRows(true);
@@ -629,6 +713,13 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
                                 aria-controls="merge-panel"
                             >
                                 {t('toolbar.mergeColumns')}
+                            </Button>
+                        </span>
+                    </Tooltip>
+                    <Tooltip title="Detect prices, numbers, dates, ratings and URLs, and add a clean typed column next to each (the raw column stays)">
+                        <span>
+                            <Button variant="ghost" onClick={autoTypeColumns} icon={<Sparkles size={16} />} sx={{ fontSize: '0.75rem' }}>
+                                Auto-type
                             </Button>
                         </span>
                     </Tooltip>
@@ -754,9 +845,30 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
                     suppressScrollOnNewData={true}
                     enableCellTextSelection={true}
                     domLayout='normal'
-                    context={{ onRenameColumn, onDeleteColumn }}
+                    context={{ onRenameColumn, onDeleteColumn, onCleanColumn }}
                 />
             </div>
+            {cleanTarget && (() => {
+                const existing = typedCols.find(d => d.id === cleanTarget || `${d.id}__currency` === cleanTarget);
+                const sourceId = existing ? existing.source : cleanTarget;
+                const sourceCol = baseColumns.find(c => c.id === sourceId) || displayColumns.find(c => c.id === sourceId);
+                return (
+                    <ColumnCleanDialog
+                        open
+                        sourceId={sourceId}
+                        sourceName={renames[sourceId] || sourceCol?.name || sourceId}
+                        values={baseRows.slice(0, 500).map(r => r[sourceId])}
+                        baseUrl={typeof baseRows[0]?.source_url === 'string' ? baseRows[0].source_url : undefined}
+                        existing={existing}
+                        onClose={() => setCleanTarget(null)}
+                        onRemove={(id) => { updateTypedCols(typedCols.filter(d => d.id !== id)); setCleanTarget(null); }}
+                        onApply={(def) => {
+                            updateTypedCols(existing ? typedCols.map(d => (d.id === def.id ? def : d)) : [...typedCols, def]);
+                            setCleanTarget(null);
+                        }}
+                    />
+                );
+            })()}
             <style>{/* ... style omitted ... */}</style>
             {/* Markdown Preview Modal */}
             {mdPreview && (
