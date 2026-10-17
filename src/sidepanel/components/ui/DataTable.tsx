@@ -1,8 +1,6 @@
-import { useMemo, useState, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useMemo, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AgGridReact } from 'ag-grid-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import {
     ColDef,
     ModuleRegistry,
@@ -18,13 +16,17 @@ import {
     ICellRendererParams
 } from 'ag-grid-community';
 import type { Column, TableRow, TypedColumnDef } from '@/shared/types/database';
-import { applyChain, FieldType } from '@/shared/transforms/chain';
 import { detectType } from '@/shared/transforms/detect';
 import ColumnCleanDialog from './ColumnCleanDialog';
-import { hashString } from '@/shared/utils/hash';
-import { Edit, Trash2, GitMerge, X, Check, ArrowRight, Filter, Table2, FileText, Wand2, Sparkles } from 'lucide-react';
-import { IconButton, Tooltip } from '@mui/material';
+import { GitMerge, ArrowRight, Filter, Table2, Sparkles } from 'lucide-react';
+import { Tooltip } from '@mui/material';
 import Button from './Button';
+import { ColumnHeader } from './data-table/ColumnHeader';
+import { FilterOption } from './data-table/FilterOption';
+import { MarkdownPreview } from './data-table/MarkdownPreview';
+import { renderCell } from './data-table/renderCell';
+import { GRID_CSS } from './data-table/gridTheme';
+import { dropEmptyRows, explodeJsonColumns, exportData, MergeDefinition, typedColumnsOf, visibleColumns, withDerivedColumns } from './data-table/pipeline';
 
 ModuleRegistry.registerModules([
     ClientSideRowModelModule,
@@ -42,8 +44,6 @@ export interface DataTableRef {
     getProcessedData: () => { columns: { id: string, name: string, type?: string }[], rows: any[] };
 }
 
-type MergeDefinition = { id: string; name: string; sources: string[]; separator: string };
-
 interface DataTableProps {
     columns: Column[];
     rows: TableRow[];
@@ -54,147 +54,6 @@ interface DataTableProps {
     onColumnRenamed?: (colId: string, newName: string) => void;
     onColumnDeleted?: (colId: string) => void;
     onColumnsMerged?: (merge: MergeDefinition) => void;
-}
-
-// Custom Header Component
-const CustomHeader = (props: any) => {
-    const { t } = useTranslation('dataTable');
-    const [isEditing, setIsEditing] = useState(false);
-    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-    const [tempName, setTempName] = useState(props.displayName);
-
-    useEffect(() => {
-        setTempName(props.displayName);
-    }, [props.displayName]);
-
-    const onSave = () => {
-        if (tempName.trim()) {
-            props.context.onRenameColumn(props.column.colId, tempName);
-            setIsEditing(false);
-        }
-    };
-
-    const onDelete = () => {
-        props.context.onDeleteColumn(props.column.colId);
-        setIsConfirmingDelete(false);
-    };
-
-    return (
-        <div className="flex items-center justify-between w-full group" role="columnheader">
-            {isEditing ? (
-                <div className="flex items-center gap-1 w-full" onClick={(e) => e.stopPropagation()}>
-                    <input
-                        type="text"
-                        value={tempName}
-                        onChange={(e) => setTempName(e.target.value)}
-                        className="w-full text-xs px-2 py-1 border rounded bg-white text-gray-900"
-                        autoFocus
-                        aria-label={`${t('header.rename')} ${props.displayName}`}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') onSave();
-                            if (e.key === 'Escape') setIsEditing(false);
-                        }}
-                    />
-                    <Tooltip title={t('header.saveName')}>
-                        <IconButton size="small" onClick={onSave} aria-label={t('header.saveName')} sx={{ color: 'success.main', p: 0.5 }}>
-                            <Check size={14} />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title={t('header.cancel')}>
-                        <IconButton size="small" onClick={() => setIsEditing(false)} aria-label={t('header.cancel')} sx={{ color: 'error.main', p: 0.5 }}>
-                            <X size={14} />
-                        </IconButton>
-                    </Tooltip>
-                </div>
-            ) : isConfirmingDelete ? (
-                <div className="flex items-center gap-1 w-full" onClick={(e) => e.stopPropagation()}>
-                    <span className="text-xs text-accent-red font-semibold truncate">{t('header.deletePrompt')}</span>
-                    <Tooltip title={t('header.confirmDelete')}>
-                        <IconButton size="small" onClick={onDelete} aria-label={`${t('header.confirmDelete')} ${props.displayName}`} sx={{ color: 'error.main', p: 0.5 }}>
-                            <Check size={14} />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title={t('header.cancel')}>
-                        <IconButton size="small" onClick={() => setIsConfirmingDelete(false)} aria-label={t('header.cancel')} sx={{ color: 'text.secondary', p: 0.5 }}>
-                            <X size={14} />
-                        </IconButton>
-                    </Tooltip>
-                </div>
-            ) : (
-                <div className="flex items-center justify-between w-full">
-                    <span className="truncate font-semibold text-gray-700 dark:text-gray-300" title={props.displayName}>{props.displayName}</span>
-                    <div className="flex items-center opacity-30 group-hover:opacity-100 transition-opacity ml-1">
-                        <Tooltip title="Clean / set type">
-                            <IconButton
-                                size="small"
-                                aria-label={`Clean ${props.displayName}`}
-                                onClick={(e) => { e.stopPropagation(); props.context.onCleanColumn?.(props.column.colId); }}
-                                sx={{ p: 0.5, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                            >
-                                <Wand2 size={14} />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('header.rename')}>
-                            <IconButton
-                                size="small"
-                                aria-label={`${t('header.rename')} ${props.displayName}`}
-                                onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-                                sx={{ p: 0.5, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                            >
-                                <Edit size={14} />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('header.delete')}>
-                            <IconButton
-                                size="small"
-                                aria-label={`${t('header.delete')} ${props.displayName}`}
-                                onClick={(e) => { e.stopPropagation(); setIsConfirmingDelete(true); }}
-                                sx={{ p: 0.5, color: 'text.secondary', '&:hover': { color: 'error.main' } }}
-                            >
-                                <Trash2 size={14} />
-                            </IconButton>
-                        </Tooltip>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-function parseJsonForExplosion(val: any): any[][] {
-    if (typeof val !== 'string') return [];
-    try {
-        const parsed = JSON.parse(val);
-        if (!Array.isArray(parsed) || parsed.length === 0) return [];
-        if (Array.isArray(parsed[0])) return parsed as any[][];
-        return parsed.map((v: any) => [v]);
-    } catch { return []; }
-}
-
-/** Grid column type for a typed column's output. */
-function gridTypeOf(t: FieldType): Column['type'] {
-    if (t === 'date') return 'date';
-    if (t === 'url') return 'url';
-    if (t === 'text' || t === 'boolean') return 'text';
-    return 'number';
-}
-
-/** Adds typed-column values (and a currency column for money) to a flat row. */
-function applyTypedCols(row: Record<string, any>, defs: TypedColumnDef[]) {
-    for (const d of defs) {
-        const r = applyChain(row[d.source], d.type, d.ops, { baseUrl: typeof row.source_url === 'string' ? row.source_url : undefined, dayFirst: d.dayFirst });
-        row[d.id] = r.value;
-        if (d.type === 'money') row[`${d.id}__currency`] = r.currency ?? '';
-    }
-}
-
-function typedColumnsOf(defs: TypedColumnDef[]): Column[] {
-    const out: Column[] = [];
-    for (const d of defs) {
-        out.push({ id: d.id, name: d.name, type: gridTypeOf(d.type) } as Column);
-        if (d.type === 'money') out.push({ id: `${d.id}__currency`, name: `${d.name} currency`, type: 'text' } as Column);
-    }
-    return out;
 }
 
 const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, defaultHideMostlyEmptyColumns = true, initialMergedCols, initialTypedCols, onTypedColumnsChanged, onColumnRenamed, onColumnDeleted, onColumnsMerged }, ref) => {
@@ -262,221 +121,24 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
         setShowMerge(false);
     };
 
-    // === STAGE 0: Explode JSON-consolidated table columns into individual rows ===
-    const { displayRows, displayColumns } = useMemo(() => {
-        const jsonCols = columns.filter(c => c.type === 'json' && !c.hidden);
-        if (jsonCols.length === 0) {
-            return {
-                displayRows: rows,
-                displayColumns: columns.filter(c => c.type !== 'tabledata')
-            };
-        }
-
-        // Max sub-array length per JSON column (determines how many position columns to create)
-        const colMaxLen = new Map<string, number>();
-        jsonCols.forEach(col => {
-            let max = 0;
-            rows.forEach(row => {
-                const subs = parseJsonForExplosion(row.data[col.id]);
-                subs.forEach((sub: any[]) => { max = Math.max(max, sub.length); });
-                if (subs.length > 0) max = Math.max(max, 1);
-            });
-            colMaxLen.set(col.id, max || 1);
-        });
-
-        // Build position columns to replace JSON + tabledata columns
-        const posCols: Column[] = [];
-        jsonCols.forEach(col => {
-            const count = colMaxLen.get(col.id) ?? 1;
-            for (let p = 0; p < count; p++) {
-                posCols.push({
-                    id: `${col.id}__pos${p}`,
-                    name: count === 1 ? col.name : `${col.name} ${p + 1}`,
-                    type: 'text' as any,
-                    elementId: col.elementId,
-                    elementName: col.elementName,
-                    group: col.group
-                } as Column);
-            }
-        });
-
-        const displayColumns: Column[] = [
-            ...columns.filter(c => c.type !== 'json' && c.type !== 'tabledata'),
-            ...posCols
-        ];
-
-        const jsonColIds = new Set(jsonCols.map(c => c.id));
-        const tabledataColIds = new Set(columns.filter(c => c.type === 'tabledata').map(c => c.id));
-        const displayRows: TableRow[] = [];
-
-        rows.forEach(row => {
-            const subArrayMap = new Map<string, any[][]>();
-            jsonCols.forEach(col => {
-                subArrayMap.set(col.id, parseJsonForExplosion(row.data[col.id]));
-            });
-
-            const maxSubRows = Math.max(1, ...Array.from(subArrayMap.values()).map(a => a.length));
-
-            for (let i = 0; i < maxSubRows; i++) {
-                const data: Record<string, any> = {};
-
-                Object.keys(row.data).forEach(key => {
-                    if (!jsonColIds.has(key) && !tabledataColIds.has(key)) {
-                        data[key] = i === 0 ? row.data[key] : null;
-                    }
-                });
-
-                jsonCols.forEach(col => {
-                    const subs = subArrayMap.get(col.id) ?? [];
-                    const subRow = subs[i] ?? [];
-                    const count = colMaxLen.get(col.id) ?? 1;
-                    for (let p = 0; p < count; p++) {
-                        data[`${col.id}__pos${p}`] = subRow[p] ?? null;
-                    }
-                });
-
-                displayRows.push({
-                    ...row,
-                    id: row.id !== undefined ? row.id * 100000 + i : undefined,
-                    data
-                });
-            }
-        });
-
-        return { displayRows, displayColumns };
-    }, [rows, columns]);
-
-    // === SPLIT MEMO PIPELINE (Step 3.1) ===
-    // Stage 1: Base data + merges (only re-runs on rows/mergedCols/deletedCols change)
-    const { baseRows, baseColumns } = useMemo(() => {
-        const activeRows = displayRows.map(r => {
-            const row: any = { ...r.data, id: r.id };
-            mergedCols.forEach(m => {
-                const parts = m.sources.map(s => row[s]).filter(v => v !== undefined && v !== null && v !== '');
-                row[m.id] = parts.join(m.separator);
-            });
-            applyTypedCols(row, typedCols);
-            return row;
-        });
-
-        let activeCols = [...displayColumns];
-        mergedCols.forEach(m => {
-            activeCols.push({ id: m.id, name: m.name, type: 'text' } as any);
-        });
-        activeCols.push(...typedColumnsOf(typedCols));
-
-        const hiddenIds = new Set(deletedCols);
-        mergedCols.forEach(m => m.sources.forEach(s => hiddenIds.add(s)));
-        activeCols = activeCols.filter(c => !hiddenIds.has(c.id));
-
-        return { baseRows: activeRows, baseColumns: activeCols };
-    }, [displayRows, displayColumns, mergedCols, typedCols, deletedCols]);
-
-    // Stage 2: Row filtering (depends on baseRows + row filter toggles)
-    const filteredRows = useMemo(() => {
-        let result = baseRows;
-        if (removeEmptyRows && baseColumns.length > 0) {
-            result = result.filter(row => {
-                return baseColumns.some(col => {
-                    const val = row[col.id];
-                    return val !== undefined && val !== null && String(val).trim() !== '';
-                });
-            });
-        }
-        return result;
-    }, [baseRows, baseColumns, removeEmptyRows]);
-
-    // Stage 3: Column filtering + sorting (depends on filteredRows + column filter toggles)
-    const activeColumns = useMemo(() => {
-        let activeCols = [...baseColumns];
-
-        if (hideRepeatingData) {
-            const nonRepeating = activeCols.filter(col => {
-                const firstVal = filteredRows[0]?.[col.id];
-                if (!firstVal) return true;
-                return !filteredRows.every(r => r[col.id] === firstVal);
-            });
-            // Don't hide ALL columns — if filter would remove everything, keep them
-            if (nonRepeating.length > 0) {
-                activeCols = nonRepeating;
-            }
-        }
-
-        if (removeEmptyColumns) {
-            activeCols = activeCols.filter(col => {
-                return filteredRows.some(r => {
-                    const val = r[col.id];
-                    return val !== undefined && val !== null && String(val).trim() !== '';
-                });
-            });
-        }
-
-        if (hideMostlyEmptyColumns) {
-            const threshold = filteredRows.length * 0.2;
-            const denseEnough = activeCols.filter(col => {
-                const filledCount = filteredRows.filter(r => r[col.id]).length;
-                return filledCount >= threshold;
-            });
-            // Don't hide ALL columns — if filter would remove everything, keep them
-            if (denseEnough.length > 0) {
-                activeCols = denseEnough;
-            }
-        }
-
-        if (removeDuplicateColumns) {
-            // Sample the first 50 rows instead of hashing every row — with large datasets
-            // (thousands of rows) building a full '||'-joined string per column was the
-            // single hottest allocation in this pipeline. Two columns that match on their
-            // first 50 rows but diverge later would (rarely) be mis-flagged as duplicates,
-            // but this only affects a view-time hide toggle, not the underlying data.
-            const SAMPLE_SIZE = 50;
-            const sampleRows = filteredRows.length > SAMPLE_SIZE ? filteredRows.slice(0, SAMPLE_SIZE) : filteredRows;
-            const seenHashes = new Map<number, string>();
-            const colsKeep = new Set<string>();
-            activeCols.forEach(col => {
-                const contentStr = sampleRows.map(r => r[col.id]).join('||');
-                const hash = hashString(contentStr);
-                if (!seenHashes.has(hash)) {
-                    seenHashes.set(hash, col.id);
-                    colsKeep.add(col.id);
-                }
-            });
-            activeCols = activeCols.filter(c => colsKeep.has(c.id));
-        }
-
-        // Sort: pinned columns first, then by density. Density (non-empty count) is
-        // precomputed once per column here — the comparator used to recompute it with a
-        // fresh O(rows) filter() on every comparison the sort made (O(cols log cols) calls).
-        const colPriority = (col: Column): number => {
-            if (col.id === 'recordId') return 0;
-            if (col.id === 'url' || col.id === 'source_url') return 1;
-            if (col.type === 'image_array') return 2;
-            return 3;
-        };
-        const densityById = new Map<string, number>();
-        activeCols.forEach(col => {
-            let count = 0;
-            for (const r of filteredRows) {
-                const val = r[col.id];
-                if (val !== undefined && val !== null && String(val).trim() !== '') count++;
-            }
-            densityById.set(col.id, count);
-        });
-        activeCols.sort((a, b) => {
-            const pa = colPriority(a), pb = colPriority(b);
-            if (pa !== pb) return pa - pb;
-            return (densityById.get(b.id) ?? 0) - (densityById.get(a.id) ?? 0);
-        });
-
-        return activeCols;
-    }, [baseColumns, filteredRows, hideRepeatingData, removeEmptyColumns, hideMostlyEmptyColumns, removeDuplicateColumns]);
+    // The view, step by step (pipeline.ts); each step re-runs only when its inputs change.
+    const { displayRows, displayColumns } = useMemo(() => explodeJsonColumns(rows, columns), [rows, columns]);
+    const { baseRows, baseColumns } = useMemo(
+        () => withDerivedColumns(displayRows, displayColumns, mergedCols, typedCols, deletedCols),
+        [displayRows, displayColumns, mergedCols, typedCols, deletedCols]);
+    const filteredRows = useMemo(
+        () => (removeEmptyRows ? dropEmptyRows(baseRows, baseColumns) : baseRows),
+        [baseRows, baseColumns, removeEmptyRows]);
+    const activeColumns = useMemo(
+        () => visibleColumns(baseColumns, filteredRows, { hideRepeatingData, removeEmptyColumns, hideMostlyEmptyColumns, removeDuplicateColumns }),
+        [baseColumns, filteredRows, hideRepeatingData, removeEmptyColumns, hideMostlyEmptyColumns, removeDuplicateColumns]);
 
     // Stage 4: Column defs (depends on activeColumns + renames + showImages)
     const processedColumnDefs = useMemo(() => {
         const defs: ColDef[] = activeColumns.map(col => ({
             field: col.id,
             valueGetter: (params) => params.data?.[col.id],
-            headerComponent: CustomHeader,
+            headerComponent: ColumnHeader,
             headerComponentParams: {
                 displayName: renames[col.id] || col.name,
                 column: { colId: col.id }
@@ -485,102 +147,8 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
             sortable: true,
             resizable: true,
             editable: true,
-            cellRenderer: (params: ICellRendererParams) => {
-                const value = params.value;
-                if (value === null || value === undefined || value === '') return <span className="text-text-muted">-</span>;
-                if (typeof value === 'boolean') return <span>{value ? 'Yes' : 'No'}</span>;
-
-                const strValue = String(value);
-
-                const isImageUrl = (v: string) =>
-                    /\.(jpg|jpeg|png|gif|webp|svg|avif|bmp|ico|tiff?)(\?[^"]*)?$/i.test(v) ||
-                    /^data:image\//i.test(v);
-
-                const looksLikeImage = col.type === 'image' || (strValue.length < 500 && isImageUrl(strValue));
-
-                if (col.type === 'image_array') {
-                    let urls: string[] = [];
-                    if (Array.isArray(value)) {
-                        urls = value as string[];
-                    } else {
-                        try { urls = JSON.parse(strValue); } catch { urls = [strValue]; }
-                    }
-                    if (!showImages) return <span className="text-xs text-text-muted truncate block w-full" title={urls.join(', ')}>{urls.length} images</span>;
-                    return (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '100%', height: '100%', overflow: 'hidden' }}>
-                            {urls.slice(0, 5).map((url, i) => (
-                                <img
-                                    key={i}
-                                    src={url}
-                                    alt={`img-${i}`}
-                                    style={{ height: '24px', width: 'auto', maxWidth: '40px', objectFit: 'contain', borderRadius: '4px' }}
-                                    loading="lazy"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                />
-                            ))}
-                            {urls.length > 5 && <span className="text-xs text-text-muted">+{urls.length - 5}</span>}
-                        </div>
-                    );
-                }
-
-                if (looksLikeImage) {
-                    if (!showImages) return <span className="text-xs text-text-muted truncate block w-full" title={strValue}>{strValue}</span>;
-                    return (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: 'hidden' }}>
-                            <img
-                                src={strValue}
-                                alt="cell"
-                                style={{ height: '24px', width: 'auto', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px' }}
-                                loading="lazy"
-                                onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).insertAdjacentHTML('afterend',
-                                        `<span style="font-size:11px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${strValue}</span>`
-                                    );
-                                }}
-                            />
-                        </div>
-                    );
-                }
-
-                if (col.type === 'markdown') {
-                    const preview = strValue.replace(/[#*`>\-_~\[\]]/g, '').slice(0, 60).trim();
-                    return (
-                        <div className="flex items-center gap-1.5 w-full overflow-hidden">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); setMdPreview({ content: strValue, title: renames[col.id] || col.name }); }}
-                                className="shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] hover:bg-primary/20 transition-colors"
-                            >
-                                <FileText size={9} />
-                                MD
-                            </button>
-                            <span className="text-xs text-text-muted truncate flex-1">{preview || '…'}</span>
-                        </div>
-                    );
-                }
-
-                if (col.type === 'url') {
-                    return (
-                        <a
-                            href={strValue}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-accent-ai hover:text-white underline decoration-dotted underline-offset-2 block w-full truncate text-xs"
-                            title={strValue}
-                        >
-                            {strValue}
-                        </a>
-                    );
-                }
-
-                return (
-                    <div className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" title={String(value || '')}>
-                        <span className="text-sm text-text-primary/90 font-medium">
-                            {String(value ?? '')}
-                        </span>
-                    </div>
-                );
-            }
+            cellRenderer: (params: ICellRendererParams) =>
+                renderCell(params.value, col, showImages, content => setMdPreview({ content, title: renames[col.id] || col.name }))
         }));
         return defs;
     }, [activeColumns, renames, showImages]);
@@ -590,39 +158,8 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
     const availableColumns = activeColumns;
 
     useImperativeHandle(ref, () => ({
-        getProcessedData: () => {
-            // Export uses original compact rows (non-exploded), no tabledata columns
-            const exportCols = columns.filter(c => !c.hidden && c.type !== 'tabledata');
-            return {
-                columns: [
-                    ...exportCols.map(col => ({
-                        id: col.id,
-                        name: renames[col.id] || col.name,
-                        type: col.type as string,
-                    })),
-                    ...mergedCols.map(m => ({ id: m.id, name: m.name, type: 'text' })),
-                    ...typedColumnsOf(typedCols).map(c => ({ id: c.id, name: c.name, type: c.type as string })),
-                ],
-                rows: rows.map(r => {
-                    const out: Record<string, any> = {};
-                    exportCols.forEach(col => {
-                        let val = r.data[col.id];
-                        const t = col.type;
-                        if (typeof val === 'string' && (t === 'json' || t === 'image_array' || t === 'link_array' || t === 'text_array')) {
-                            try { val = JSON.parse(val); } catch {}
-                        }
-                        out[col.id] = val;
-                    });
-                    mergedCols.forEach(m => {
-                        out[m.id] = m.sources.map(src => r.data[src]).filter(v => v !== undefined && v !== null && v !== '').join(m.separator);
-                    });
-                    const typedRow: Record<string, any> = { ...r.data };
-                    applyTypedCols(typedRow, typedCols);
-                    typedColumnsOf(typedCols).forEach(c => { out[c.id] = typedRow[c.id]; });
-                    return out;
-                })
-            };
-        }
+        // Export uses the stored (unexploded) rows, without the hidden raw-table columns.
+        getProcessedData: () => exportData(columns, rows, renames, mergedCols, typedCols),
     }));
 
     const defaultColDef = useMemo<ColDef>(() => ({
@@ -868,223 +405,11 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
                     />
                 );
             })()}
-            <style>{/* ... style omitted ... */}</style>
-            {/* Markdown Preview Modal */}
-            {mdPreview && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-                    onClick={() => setMdPreview(null)}
-                    onKeyDown={(e) => { if (e.key === 'Escape') setMdPreview(null); }}
-                >
-                    <div
-                        className="relative bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl w-full max-w-2xl max-h-[78vh] flex flex-col"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {/* Header */}
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0 bg-white/[0.03] rounded-t-xl">
-                            <div className="flex items-center gap-2">
-                                <FileText size={13} className="text-primary shrink-0" />
-                                <span className="text-sm font-semibold text-text-primary truncate">{mdPreview.title}</span>
-                            </div>
-                            <button
-                                onClick={() => setMdPreview(null)}
-                                className="p-2 rounded-md text-text-muted hover:text-text-primary hover:bg-white/10 transition-colors"
-                                aria-label={t('preview.close')}
-                            >
-                                <X size={15} />
-                            </button>
-                        </div>
+            {mdPreview && <MarkdownPreview preview={mdPreview} onClose={() => setMdPreview(null)} />}
 
-                        {/* Body */}
-                        <div className="overflow-y-auto px-6 py-5 text-sm text-[#cbd5e1] leading-relaxed space-y-3">
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                    h1: ({ children }) => <h1 className="text-xl font-bold text-white mt-5 mb-2 border-b border-white/10 pb-1">{children}</h1>,
-                                    h2: ({ children }) => <h2 className="text-base font-semibold text-white mt-4 mb-1.5">{children}</h2>,
-                                    h3: ({ children }) => <h3 className="text-sm font-semibold text-slate-200 mt-3 mb-1">{children}</h3>,
-                                    h4: ({ children }) => <h4 className="text-sm font-medium text-slate-300 mt-2 mb-0.5">{children}</h4>,
-                                    p: ({ children }) => <p className="text-slate-300 leading-relaxed mb-3">{children}</p>,
-                                    a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 decoration-cyan-400/40 transition-colors">{children}</a>,
-                                    strong: ({ children }) => <strong className="font-semibold text-slate-100">{children}</strong>,
-                                    em: ({ children }) => <em className="italic text-slate-300">{children}</em>,
-                                    code: ({ children, className }) => {
-                                        const isBlock = className?.includes('language-');
-                                        return isBlock
-                                            ? <code className="block bg-slate-800/80 border border-white/10 rounded-md px-4 py-3 text-[12px] font-mono text-emerald-300 overflow-x-auto whitespace-pre my-2">{children}</code>
-                                            : <code className="bg-slate-800 rounded px-1.5 py-0.5 text-[11px] font-mono text-emerald-300 border border-white/10">{children}</code>;
-                                    },
-                                    pre: ({ children }) => <pre className="my-2">{children}</pre>,
-                                    blockquote: ({ children }) => <blockquote className="border-l-2 border-primary pl-4 my-3 text-slate-400 italic">{children}</blockquote>,
-                                    ul: ({ children }) => <ul className="list-disc list-outside pl-5 space-y-0.5 mb-3 text-slate-300">{children}</ul>,
-                                    ol: ({ children }) => <ol className="list-decimal list-outside pl-5 space-y-0.5 mb-3 text-slate-300">{children}</ol>,
-                                    li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-                                    hr: () => <hr className="border-white/10 my-4" />,
-                                    table: ({ children }) => <div className="overflow-x-auto my-3"><table className="w-full text-xs border-collapse border border-white/10">{children}</table></div>,
-                                    thead: ({ children }) => <thead className="bg-white/5">{children}</thead>,
-                                    th: ({ children }) => <th className="border border-white/10 px-3 py-1.5 text-left font-semibold text-slate-200">{children}</th>,
-                                    td: ({ children }) => <td className="border border-white/10 px-3 py-1.5 text-slate-300">{children}</td>,
-                                    img: ({ src, alt }) => <img src={src} alt={alt} className="max-w-full rounded-lg my-2 border border-white/10" loading="lazy" />,
-                                }}
-                            >
-                                {mdPreview.content}
-                            </ReactMarkdown>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <style>{`
-                .ag-theme-alpine {
-                    --ag-background-color: #020617;
-                    --ag-foreground-color: #E5E7EB;
-                    --ag-header-background-color: #0d1321;
-                    --ag-header-foreground-color: #CBD5E1;
-                    --ag-border-color: rgba(148, 163, 184, 0.18);
-                    --ag-row-hover-color: rgba(255, 255, 255, 0.06);
-                    --ag-row-border-color: rgba(148, 163, 184, 0.10);
-                    --ag-odd-row-background-color: #020617;
-                    --ag-even-row-background-color: rgba(255, 255, 255, 0.025);
-                    --ag-input-focus-border-color: #22D3EE;
-                    --ag-font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-                    --ag-font-size: 13px;
-                    --ag-header-height: 44px;
-                    --ag-row-height: 40px;
-                    --ag-selected-row-background-color: rgba(244, 208, 63, 0.10);
-                    --ag-cell-horizontal-padding: 12px;
-
-                    --custom-grid-border: 1px solid rgba(148, 163, 184, 0.18);
-                }
-
-                /* Grid Container */
-                .ag-root-wrapper {
-                    border: var(--custom-grid-border);
-                    border-radius: 8px;
-                    background-color: var(--ag-background-color);
-                }
-
-                /* Header Styling */
-                .ag-header {
-                    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-                    font-size: 12.5px;
-                    font-weight: 600;
-                    letter-spacing: 0.01em;
-                    text-transform: none;
-                }
-
-                .ag-header-cell:hover {
-                    background-color: rgba(255, 255, 255, 0.04);
-                }
-
-                .ag-header-icon {
-                    color: #64748B;
-                }
-
-                /* Row Styling */
-                .ag-row {
-                    border-bottom-color: var(--ag-row-border-color);
-                    transition: background-color 0.1s ease;
-                }
-
-                .ag-row-selected {
-                    border-left: 2px solid #F4D03F !important;
-                }
-
-                /* Cell Styling */
-                .ag-cell {
-                    line-height: 1.5;
-                    display: flex;
-                    align-items: center;
-                    overflow: hidden !important;
-                }
-
-                .ag-cell-focus {
-                    border: none !important;
-                    outline: 1px solid rgba(34, 211, 238, 0.4) !important;
-                    outline-offset: -1px;
-                    z-index: 10;
-                }
-
-                /* Scrollbars */
-                .ag-body-viewport::-webkit-scrollbar {
-                    width: 8px;
-                    height: 8px;
-                }
-
-                .ag-body-viewport::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-
-                .ag-body-viewport::-webkit-scrollbar-thumb {
-                    background-color: #334155;
-                    border-radius: 4px;
-                    border: 2px solid #020617;
-                }
-
-                .ag-body-viewport::-webkit-scrollbar-thumb:hover {
-                    background-color: #475569;
-                }
-
-                /* Pagination */
-                .ag-paging-panel {
-                    border-top: 1px solid rgba(148, 163, 184, 0.18);
-                    font-size: 12.5px;
-                    color: #94A3B8;
-                    padding: 8px 16px;
-                }
-            `}</style>
+            <style>{GRID_CSS}</style>
         </div>
     );
 });
 
 export default DataTable;
-
-function FilterOption({ label, active, onClick, icon, description }: { label: string; active: boolean; onClick: () => void; icon: string; description?: string }) {
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onClick();
-        }
-    };
-
-    const button = (
-        <button
-            onClick={onClick}
-            onKeyDown={handleKeyDown}
-            role="switch"
-            aria-checked={active}
-            aria-label={`${label}: ${active ? 'enabled' : 'disabled'}${description ? `. ${description}` : ''}`}
-            className={`
-                flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-semibold transition-all duration-300 select-none group relative overflow-hidden
-                focus-visible:ring-2 focus-visible:ring-accent-ai/50 focus-visible:outline-none
-                ${active
-                    ? 'bg-accent-ai/20 text-accent-ai border border-accent-ai/40 shadow-[0_0_15px_-3px_rgba(34,211,238,0.25)]'
-                    : 'bg-white/5 text-text-muted hover:bg-white/[0.08] border border-white/5 hover:border-white/10'}
-            `}
-        >
-            <div className="flex items-center gap-2.5 z-10">
-                <span className={`text-[13px] transition-all duration-300 ${active ? 'scale-110 drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}>
-                    {icon}
-                </span>
-                <span className={`truncate ${active ? 'text-white' : ''}`}>{label}</span>
-            </div>
-
-            <div className="flex-shrink-0 z-10">
-                {active ? (
-                    <div className="flex h-4 w-4 items-center justify-center rounded-full bg-accent-ai text-black shadow-[0_0_8px_rgba(34,211,238,0.5)] scale-100 animate-in zoom-in-50 duration-300">
-                        <Check size={12} />
-                    </div>
-                ) : (
-                    <div className="h-4 w-4 rounded-full border-2 border-white/10 group-hover:border-white/20 transition-all duration-300" />
-                )}
-            </div>
-
-            {/* Animated hover background effect */}
-            {!active && (
-                <div className="absolute inset-0 bg-gradient-to-r from-accent-ai/0 via-accent-ai/5 to-accent-ai/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-            )}
-        </button>
-    );
-
-    return description ? <Tooltip title={description} placement="top"><span>{button}</span></Tooltip> : button;
-}
