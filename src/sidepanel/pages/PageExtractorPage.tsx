@@ -89,6 +89,8 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
     const [enableRandomization, setEnableRandomization] = useState(false);
     const [waitForElements, setWaitForElements] = useState(false);
     const [elementTimeout, setElementTimeout] = useState(0);
+    const [domainMinGapMs, setDomainMinGapMs] = useState(0);
+    const [pauseOnChallenge, setPauseOnChallenge] = useState(true);
     const [extractionViewport, setExtractionViewport] = useState<{ width: number; height: number } | null>(null);
 
     const handleReset = useCallback(() => {
@@ -104,6 +106,8 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         setEnableRandomization(false);
         setWaitForElements(false);
         setElementTimeout(0);
+        setDomainMinGapMs(0);
+        setPauseOnChallenge(true);
         resetStoppedState();
     }, [resetStoppedState]);
 
@@ -136,6 +140,8 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             enableRandomization,
             waitForElements,
             elementTimeout,
+            domainMinGapMs,
+            pauseOnChallenge,
             viewportWidth: viewport?.width,
             viewportHeight: viewport?.height
         });
@@ -352,6 +358,10 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                         setWaitForElements={setWaitForElements}
                         elementTimeout={elementTimeout}
                         setElementTimeout={setElementTimeout}
+                        domainMinGapMs={domainMinGapMs}
+                        setDomainMinGapMs={setDomainMinGapMs}
+                        pauseOnChallenge={pauseOnChallenge}
+                        setPauseOnChallenge={setPauseOnChallenge}
                         activeTabs={activeTabs}
                         urlStatuses={urlStatuses}
                         previewTableId={previewTableId}

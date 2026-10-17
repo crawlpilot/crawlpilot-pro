@@ -2,6 +2,7 @@ import { TabPool } from './TabPool';
 import { db } from '../../shared/db/db-manager';
 import type { MetadataExtractOptions, MetadataExtractResult, HtmlMetadata } from '../../shared/types/metadata';
 import { buildInitialName, buildFinalName, buildPreviewName } from '../../shared/utils/run-naming';
+import { classifyPage, collectPageSignals, PageVerdict, VERDICT_LABELS } from '../../shared/verdict/classifyPage';
 
 const STORAGE_KEY = 'metadata_extraction_state';
 const KEEPALIVE_ALARM = 'metadata_extraction_keepalive';
@@ -20,6 +21,7 @@ interface UrlStatus {
     status: 'queued' | 'extracting' | 'done' | 'error';
     error?: string;
     tabId?: number;
+    verdict?: PageVerdict;
 }
 
 interface ExtractionState {
@@ -219,6 +221,22 @@ export class MetadataExtractionOrchestrator {
             urlStatus.tabId = tabId;
             this.tabPool.markExtracting(tabId);
 
+            // Skip walls and dead pages: their titles and descriptions would be saved as junk rows.
+            try {
+                const [res] = await chrome.scripting.executeScript({ target: { tabId }, func: collectPageSignals });
+                if (res?.result) {
+                    const check = classifyPage(res.result as any, url);
+                    urlStatus.verdict = check.verdict;
+                    if (check.verdict !== 'ok') {
+                        const label = VERDICT_LABELS[check.verdict];
+                        throw new Error(check.reason ? `${label}: ${check.reason}` : label);
+                    }
+                }
+            } catch (e: any) {
+                if (urlStatus.verdict && urlStatus.verdict !== 'ok') throw e;
+                /* page could not be checked: extract anyway */
+            }
+
             const response = await this.tabPool.sendMessage(tabId, {
                 type: 'CMD_EXTRACT_METADATA',
                 payload: { url, options: { ...this.options, url } }
@@ -385,7 +403,7 @@ export class MetadataExtractionOrchestrator {
                 completedUrls: urlStatuses.filter(u => u.status === 'done').length,
                 totalUrls: urlStatuses.length,
                 activeTabs: this.tabPool?.activeCount || 0,
-                urlStatuses: urlStatuses.map(u => ({ url: u.url, status: u.status, error: u.error })),
+                urlStatuses: urlStatuses.map(u => ({ url: u.url, status: u.status, error: u.error, verdict: u.verdict })),
                 previewTableId: this.previewTableId,
             },
             timestamp: Date.now(),

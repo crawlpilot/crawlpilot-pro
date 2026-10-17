@@ -133,6 +133,8 @@ export interface Job {
         pagesVisited?: number;
         errors?: number;
         stoppedByUser?: boolean;
+        /** Page verdict counts for the run (see shared/verdict/classifyPage). */
+        verdicts?: Record<string, number>;
     };
 
     result?: {

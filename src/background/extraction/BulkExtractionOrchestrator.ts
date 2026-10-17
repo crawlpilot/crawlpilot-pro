@@ -12,6 +12,21 @@
 import { TabPool } from './TabPool';
 import { db } from '../../shared/db/db-manager';
 import { buildInitialName, buildFinalName, buildPreviewName } from '../../shared/utils/run-naming';
+import { classifyPage, collectPageSignals, PageClassification, PageVerdict, VERDICT_LABELS } from '../../shared/verdict/classifyPage';
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+function hostOf(url: string): string {
+    try { return new URL(url).host; } catch { return url; }
+}
+
+/** How long to leave a domain alone after it rate-limits us or queues us (doubles per attempt). */
+const BACKOFF_BASE_MS = 30_000;
+const BACKOFF_MAX_MS = 5 * 60_000;
+/** Retries per URL for verdicts that clear up with time (rate_limited, waiting_room). */
+const MAX_RETRY_ATTEMPTS = 2;
+const CHALLENGE_POLL_MS = 3000;
+const CHALLENGE_TIMEOUT_MS = 3 * 60_000;
 
 /**
  * Ported from docs/legacy-reference/background-readable.js — clickElement (line 355–445).
@@ -112,9 +127,12 @@ export interface BulkExtractionConfig {
 
 interface UrlStatus {
     url: string;
-    status: 'queued' | 'extracting' | 'done' | 'error';
+    status: 'queued' | 'extracting' | 'waiting' | 'done' | 'error';
     error?: string;
     tabId?: number;
+    /** Page verdict from classifyPage, when the page was checked. */
+    verdict?: PageVerdict;
+    attempts?: number;
 }
 
 interface ExtractionState {
@@ -139,6 +157,8 @@ export class BulkExtractionOrchestrator {
     // concurrently. Without this, two workers can both observe previewTableId === null
     // and each create a separate preview table, and previewSavedCount updates can race.
     private previewChain: Promise<void> = Promise.resolve();
+    /** Earliest time the next page of a host may start (per-site gap and backoff). */
+    private domainNextAllowed = new Map<string, number>();
 
     async start(extractionConfig: BulkExtractionConfig): Promise<{ jobId: number; originalCount: number; uniqueCount: number }> {
         if (this.isActive) {
@@ -233,6 +253,7 @@ export class BulkExtractionOrchestrator {
         this.previewTableId = null;
         this.previewSavedCount = 0;
         this.previewChain = Promise.resolve();
+        this.domainNextAllowed.clear();
         this.state = {
             jobId,
             urlStatuses: uniqueUrls.map(url => ({ url, status: 'queued' })),
@@ -320,7 +341,10 @@ export class BulkExtractionOrchestrator {
                 if (!url) break;
                 processed++;
                 console.log(`[Orchestrator] Worker ${workerId} processing URL ${processed}: ${url}`);
-                await this.processUrl(url);
+                await this.waitForDomain(url);
+                if (this.shouldStop) break;
+                const outcome = await this.processUrl(url);
+                if (outcome === 'retry') queue.push(url);
             }
         } catch (err: any) {
             console.error(`[Orchestrator] Worker ${workerId} crashed after ${processed} URLs:`, err);
@@ -329,7 +353,93 @@ export class BulkExtractionOrchestrator {
         console.log(`[Orchestrator] Worker ${workerId} finished. Processed ${processed} URLs. Remaining queue: ${queue.length}`);
     }
 
-    private async processUrl(url: string) {
+    /** Waits until the host's backoff / minimum gap has passed, then reserves the next slot. */
+    private async waitForDomain(url: string) {
+        const host = hostOf(url);
+        while (!this.shouldStop) {
+            const wait = (this.domainNextAllowed.get(host) ?? 0) - Date.now();
+            if (wait <= 0) break;
+            await sleep(Math.min(wait, 1000));
+        }
+        const gap = Number(this.config.domainMinGapMs) || 0;
+        if (gap > 0) {
+            this.domainNextAllowed.set(host, Math.max(this.domainNextAllowed.get(host) ?? 0, Date.now() + gap));
+        }
+    }
+
+    private backOff(url: string, attempt: number) {
+        const host = hostOf(url);
+        const ms = Math.min(BACKOFF_BASE_MS * 2 ** (attempt - 1), BACKOFF_MAX_MS);
+        this.domainNextAllowed.set(host, Math.max(this.domainNextAllowed.get(host) ?? 0, Date.now() + ms));
+        console.warn(`[Orchestrator] Backing off ${host} for ${ms / 1000}s`);
+    }
+
+    private async classifyTab(tabId: number, url: string): Promise<PageClassification | null> {
+        try {
+            const [res] = await chrome.scripting.executeScript({ target: { tabId }, func: collectPageSignals });
+            return res?.result ? classifyPage(res.result as any, url) : null;
+        } catch (e: any) {
+            console.warn(`[Orchestrator] Could not check page for ${url}: ${e?.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Shows the challenge tab to the user and waits until it clears (or times out / the run stops).
+     * Returns the classification after waiting.
+     */
+    private async waitForUserToClearChallenge(tabId: number, url: string, urlStatus: UrlStatus): Promise<PageClassification | null> {
+        urlStatus.status = 'waiting';
+        this.broadcastProgress();
+        try {
+            const tab = await chrome.tabs.get(tabId);
+            await chrome.windows.update(tab.windowId, { focused: true });
+            await chrome.tabs.update(tabId, { active: true });
+        } catch { /* tab gone: the poll below will fail and give up */ }
+
+        const timeout = Number(this.config.challengeTimeoutMs) || CHALLENGE_TIMEOUT_MS;
+        const deadline = Date.now() + timeout;
+        let last: PageClassification | null = null;
+        while (!this.shouldStop && Date.now() < deadline) {
+            await sleep(CHALLENGE_POLL_MS);
+            last = await this.classifyTab(tabId, url);
+            if (!last || last.verdict !== 'challenge') break;
+        }
+        urlStatus.status = 'extracting';
+        this.broadcastProgress();
+        return last;
+    }
+
+    /**
+     * Checks the loaded page and applies the verdict policy.
+     * Returns 'extract' to go on, 'retry' to requeue the URL, or 'skip' when the page is dead.
+     */
+    private async applyVerdict(tabId: number, url: string, urlStatus: UrlStatus): Promise<'extract' | 'retry' | 'skip'> {
+        let check = await this.classifyTab(tabId, url);
+        if (!check) return 'extract';
+
+        if (check.verdict === 'challenge' && this.config.pauseOnChallenge !== false) {
+            console.warn(`[Orchestrator] Challenge on ${url} — waiting for the user to solve it`);
+            check = await this.waitForUserToClearChallenge(tabId, url, urlStatus);
+            if (!check) return 'extract';
+        }
+
+        urlStatus.verdict = check.verdict;
+        if (check.verdict === 'ok') return 'extract';
+
+        const label = VERDICT_LABELS[check.verdict];
+        urlStatus.error = check.reason ? `${label}: ${check.reason}` : label;
+
+        if (check.verdict === 'rate_limited' || check.verdict === 'waiting_room') {
+            const attempt = (urlStatus.attempts ?? 0) + 1;
+            urlStatus.attempts = attempt;
+            this.backOff(url, attempt);
+            if (attempt <= MAX_RETRY_ATTEMPTS && !this.shouldStop) return 'retry';
+        }
+        return 'skip';
+    }
+
+    private async processUrl(url: string): Promise<'retry' | void> {
         if (!this.state || !this.tabPool) return;
 
         const urlStatus = this.state.urlStatuses.find(u => u.url === url);
@@ -361,6 +471,18 @@ export class BulkExtractionOrchestrator {
 
             urlStatus.tabId = tabId;
             this.tabPool.markExtracting(tabId);
+
+            // Check what the page is before extracting: walls and dead pages would
+            // otherwise be saved as empty or junk rows.
+            const decision = await this.applyVerdict(tabId, url, urlStatus);
+            if (decision === 'retry') {
+                urlStatus.status = 'queued';
+                return 'retry';
+            }
+            if (decision === 'skip') {
+                urlStatus.status = 'error';
+                return;
+            }
 
             // Extract data from tab using background-safe message
             console.log(`[Orchestrator] Extracting from tab ${tabId}: ${url}`);
@@ -676,7 +798,9 @@ export class BulkExtractionOrchestrator {
                     endTime: Date.now(),
                     itemsExtracted: allItems.length,
                     pagesVisited: completedCount,
-                    stoppedByUser
+                    errors: errorStatuses.length,
+                    stoppedByUser,
+                    verdicts: this.verdictCounts()
                 }
             });
 
@@ -715,6 +839,14 @@ export class BulkExtractionOrchestrator {
         }
     }
 
+    private verdictCounts(): Record<string, number> {
+        const counts: Record<string, number> = {};
+        for (const u of this.state?.urlStatuses ?? []) {
+            if (u.verdict) counts[u.verdict] = (counts[u.verdict] ?? 0) + 1;
+        }
+        return counts;
+    }
+
     private broadcastProgress() {
         if (!this.state) return;
 
@@ -730,7 +862,8 @@ export class BulkExtractionOrchestrator {
                 totalUrls: urlStatuses.length,
                 currentUrl: currentExtracting?.url,
                 activeTabs: this.tabPool?.activeCount || 0,
-                urlStatuses: urlStatuses.map(u => ({ url: u.url, status: u.status, error: u.error })),
+                urlStatuses: urlStatuses.map(u => ({ url: u.url, status: u.status, error: u.error, verdict: u.verdict })),
+                verdicts: this.verdictCounts(),
                 previewTableId: this.previewTableId
             },
             timestamp: Date.now()
@@ -744,7 +877,7 @@ export class BulkExtractionOrchestrator {
                 jobId: this.state.jobId,
                 // tabId included so a post-SW-restart recovery pass can close any tabs
                 // that were still open mid-extraction (otherwise they leak permanently).
-                urlStatuses: this.state.urlStatuses.map(u => ({ url: u.url, status: u.status, error: u.error, tabId: u.tabId })),
+                urlStatuses: this.state.urlStatuses.map(u => ({ url: u.url, status: u.status, error: u.error, tabId: u.tabId, verdict: u.verdict })),
                 resultCount: this.state.results.length,
                 isRunning: this.state.isRunning,
                 startTime: this.state.startTime

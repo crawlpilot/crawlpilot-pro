@@ -86,3 +86,49 @@ describe('filterPersistableChain', () => {
         expect(filterPersistableChain([])).toEqual([]);
     });
 });
+
+// Shared cases pinned against real pages (ported from thenos stability-cases.json).
+// Bootstrap col-md-* is intentionally kept usable for grid items (short col-6 was already unstable).
+describe('stability rules: real-page cases', () => {
+    const unstable = [
+        'flex', 'grid', 'hidden', 'absolute', 'w-4', 'h-8', 'px-2', 'mt-1', 'text-sm', 'font-bold', 'bg-white',
+        'border-gray', 'rounded-lg', 'transition-all', 'duration-300', 'cursor-pointer', 'sr-only', 'sc-a1b2c3',
+        'css-dy3i81', 'items-center', 'justify-between', 'gap-3', 'shadow-md', 'opacity-50', 'active', 'selected',
+        'open', 'layout-main', 'zds-layout-desktop', 'card-desktop', 'w-[100px]', 'hover:bg-red', 'product-ss26',
+        '[--border-width:1px]', 'a', 'is-active', 'expanded', 'show', 'fade',
+        'a-expander-content-expanded', 'is-open', 'has-error', 'panel--collapsed', 'menu-open', 'tab_selected',
+        'a-size-medium', 'a-spacing-none', 'a-color-secondary', 'a-text-bold', 'aok-hidden', 'd-none', 'd-flex',
+        'fr-ec-mb-spacing-02', 'ito-padding-vertical-16',
+    ];
+    const stable = [
+        'product-detail-description', 'expandable-text__inner-content', 'care-list', 'price', 'product-title',
+        'composition-panel', 'breadcrumb', 'review-count', 'swatch-name', 'ss26', 'facade', 'product-card',
+        'article-title', 'nav-item', 'product-title-word-break', 'prodDetAttrValue', 'price-current', 'a-price-whole',
+        'money-amount__main', 'openings', 'col-md-4',
+    ];
+    it.each(unstable)('flags %s as unstable', (c) => expect(isUnstableClass(c)).toBe(true));
+    it.each(stable)('keeps %s as stable', (c) => expect(isUnstableClass(c)).toBe(false));
+
+    it.each([
+        ['css-dy3i81', true], ['sc-1mbp38s', true], ['sc-AxjAm', true], ['sc-abc12', true], ['sc-bdvaja', true],
+        ['_75228706', true], ['e6d1c6b3', true], ['_3Ab4F', true], ['Button__root___1a2b3', true],
+        ['price_x7f2a', true], ['jsx-2847193', true], ['x7Gh2KpQ', true],
+        ['facade', false], ['decade', false], ['price', false], ['product-title', false], ['css', false],
+        ['product_title', false], ['card_image', false], ['prodDetAttrValue', false],
+    ] as const)('isHashClass(%s) is %s', (c, expected) => expect(isHashClass(c)).toBe(expected));
+
+    it.each([
+        ['role', 'button', true],
+        ['data-testid', 'details-and-description-heading', true],
+        ['aria-label', 'Add to cart', true],
+        ['aria-label', 'Nike Air Max', false],
+        ['data-testid', '{"a":1}', false],
+        ['data-config', '{open}', false],
+        ['data-label', 'two  spaces', false],
+        ['aria-expanded', 'true', false],
+        ['aria-selected', 'false', false],
+        ['data-state', 'open', false],
+        ['style', 'color: red', false],
+    ] as const)('isStableAttributeValue(%s, %s) is %s', (a, v, expected) =>
+        expect(isStableAttributeValue(a, v)).toBe(expected));
+});

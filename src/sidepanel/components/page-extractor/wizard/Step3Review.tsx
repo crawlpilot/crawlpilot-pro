@@ -1,11 +1,7 @@
 import { useState } from 'react';
-import { Database, Loader2, Settings2, ExternalLink, RotateCcw, CheckCircle2, ChevronDown } from 'lucide-react';
-
-interface UrlStatus {
-    url: string;
-    status: 'queued' | 'extracting' | 'done' | 'error';
-    error?: string;
-}
+import { Database, Loader2, Settings2, ExternalLink, RotateCcw, CheckCircle2, ChevronDown, ShieldAlert } from 'lucide-react';
+import type { UrlStatus } from '../../../hooks/useBulkExtraction';
+import { VERDICT_LABELS } from '../../../../shared/verdict/classifyPage';
 
 interface Step3ReviewProps {
     elements: any[];
@@ -35,6 +31,10 @@ interface Step3ReviewProps {
     setWaitForElements: (val: boolean) => void;
     elementTimeout: number;
     setElementTimeout: (val: number) => void;
+    domainMinGapMs: number;
+    setDomainMinGapMs: (val: number) => void;
+    pauseOnChallenge: boolean;
+    setPauseOnChallenge: (val: boolean) => void;
     activeTabs: number;
     urlStatuses: UrlStatus[];
     previewTableId: number | null;
@@ -119,6 +119,10 @@ export function Step3Review({
     setWaitForElements,
     elementTimeout,
     setElementTimeout,
+    domainMinGapMs,
+    setDomainMinGapMs,
+    pauseOnChallenge,
+    setPauseOnChallenge,
     activeTabs,
     urlStatuses,
     previewTableId,
@@ -134,6 +138,12 @@ export function Step3Review({
     const isActive = isExtracting || isStopping;
     const extractingUrls = urlStatuses.filter(u => u.status === 'extracting');
     const errorUrls = urlStatuses.filter(u => u.status === 'error');
+    const waitingUrls = urlStatuses.filter(u => u.status === 'waiting');
+    const verdictCounts = errorUrls.reduce<Record<string, number>>((acc, u) => {
+        const key = u.verdict && u.verdict !== 'ok' ? VERDICT_LABELS[u.verdict] : 'Failed';
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+    }, {});
     const extractFieldCount = elements.filter(el => el.action !== 'click').length;
     const clickActionCount = elements.filter(el => el.action === 'click').length;
 
@@ -224,6 +234,12 @@ export function Step3Review({
                                     <SettingRow label="Enable Randomization" hint="Add random delay jitter to avoid detection">
                                         <Toggle checked={enableRandomization} onChange={setEnableRandomization} />
                                     </SettingRow>
+                                    <SettingRow label="Per-site Gap" hint="Minimum time between two pages of the same site, across all tabs (ms)">
+                                        <NumInput value={domainMinGapMs} onChange={setDomainMinGapMs} min={0} max={60000} step={500} />
+                                    </SettingRow>
+                                    <SettingRow label="Pause on Bot Check" hint="Show the tab and wait for you to solve a CAPTCHA, then continue">
+                                        <Toggle checked={pauseOnChallenge} onChange={setPauseOnChallenge} />
+                                    </SettingRow>
                                 </div>
 
                                 {/* Element Waiting */}
@@ -287,13 +303,32 @@ export function Step3Review({
                             </div>
                         )}
 
-                        {/* Error URLs */}
+                        {/* Waiting for the user to solve a bot check */}
+                        {waitingUrls.length > 0 && (
+                            <div className="border-t border-accent-warning/30 bg-accent-warning/10 px-5 py-3 flex items-start gap-2">
+                                <ShieldAlert className="w-4 h-4 text-accent-warning flex-shrink-0 mt-0.5" />
+                                <p className="text-[11px] text-text-primary leading-snug">
+                                    {waitingUrls.length === 1 ? 'A page is' : `${waitingUrls.length} pages are`} asking to verify you are human.
+                                    Solve it in the tab that was brought to the front; extraction continues automatically.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Error URLs, grouped by why they failed */}
                         {errorUrls.length > 0 && (
                             <div className="border-t border-accent-error/20 px-5 py-2 space-y-1">
+                                <div className="flex flex-wrap gap-1 pb-1">
+                                    {Object.entries(verdictCounts).map(([label, n]) => (
+                                        <span key={label} className="text-[10px] px-1.5 py-0.5 rounded bg-accent-error/10 text-accent-error font-medium">
+                                            {label} · {n}
+                                        </span>
+                                    ))}
+                                </div>
                                 {errorUrls.slice(0, 3).map((u, i) => (
-                                    <div key={i} className="flex items-center gap-1 text-[10px] text-accent-error">
+                                    <div key={i} className="flex items-center gap-1 text-[10px] text-accent-error" title={u.error}>
                                         <span className="w-1.5 h-1.5 rounded-full bg-accent-error flex-shrink-0" />
                                         <span className="truncate font-mono">{shortUrl(u.url)}</span>
+                                        {u.error && <span className="truncate text-text-muted">— {u.error}</span>}
                                     </div>
                                 ))}
                             </div>

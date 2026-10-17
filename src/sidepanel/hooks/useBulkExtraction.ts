@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { hasAllUrlsPermission, requestAllUrlsPermission, openSiteAccessSettings } from '../../shared/utils/hostPermissions';
 
-interface UrlStatus {
+import type { PageVerdict } from '../../shared/verdict/classifyPage';
+
+export interface UrlStatus {
     url: string;
-    status: 'queued' | 'extracting' | 'done' | 'error';
+    status: 'queued' | 'extracting' | 'waiting' | 'done' | 'error';
     error?: string;
+    verdict?: PageVerdict;
 }
 
 interface BulkExtractionOptions {
@@ -18,6 +21,10 @@ interface BulkExtractionOptions {
     enableRandomization?: boolean;
     waitForElements?: boolean;
     elementTimeout?: number;
+    /** Minimum gap between two pages of the same site (ms). */
+    domainMinGapMs?: number;
+    /** Pause and show the tab when a page asks to verify you are human. */
+    pauseOnChallenge?: boolean;
     onProgress?: (completed: number) => void;
     onStart?: (jobId: number) => void;
     jobId?: number;
@@ -124,6 +131,8 @@ export function useBulkExtraction() {
             enableRandomization,
             waitForElements,
             elementTimeout,
+            domainMinGapMs,
+            pauseOnChallenge,
             onProgress,
             onStart,
             jobId: existingJobId,
@@ -164,6 +173,8 @@ export function useBulkExtraction() {
         if (enableRandomization != null) config.enableRandomization = enableRandomization;
         if (waitForElements != null) config.waitForElements = waitForElements;
         if (elementTimeout != null) config.elementTimeout = elementTimeout;
+        if (domainMinGapMs != null) config.domainMinGapMs = domainMinGapMs;
+        if (pauseOnChallenge != null) config.pauseOnChallenge = pauseOnChallenge;
 
         const response = await new Promise<any>((resolve) => {
             chrome.runtime.sendMessage({
