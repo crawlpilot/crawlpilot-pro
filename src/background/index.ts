@@ -1,39 +1,23 @@
 import { db } from '../shared/db/db-manager';
 import { fail, ok, on } from '../shared/messages';
-import { BulkExtractionOrchestrator } from './extraction/BulkExtractionOrchestrator';
-import { MetadataExtractionOrchestrator } from './extraction/MetadataExtractionOrchestrator';
 import { injectContentScriptIntoOpenTabs } from '../shared/utils/hostPermissions';
+import { JobRunner } from './runs/JobRunner';
+import { bulkJob } from './runs/bulkJob';
+import { metadataJob } from './runs/metadataJob';
 
-// Bulk extraction orchestrator (singleton)
-const bulkOrchestrator = new BulkExtractionOrchestrator();
-const metadataOrchestrator = new MetadataExtractionOrchestrator();
+const bulkRuns = new JobRunner('bulk');
+const metadataRuns = new JobRunner('metadata');
 
-// Keep-alive alarm listener for background extraction and service-worker health.
-// MV3 service workers idle out after ~30 s. A periodic alarm every 25 s prevents
-// the SW from sleeping while the sidepanel is open, which would drop pending
-// tab messages and cause "Extension not connected" errors.
+// MV3 service workers idle out after ~30 s. Periodic alarms (this one, and each run's own while it
+// runs) keep the worker alive: the alarm firing is enough, the listener has nothing to do.
 chrome.alarms.create('sw_keepalive', { periodInMinutes: 25 / 60 });
+chrome.alarms.onAlarm.addListener(() => undefined);
 
-chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === 'sw_keepalive') {
-        // No-op — the alarm firing is enough to keep the service worker alive.
-        return;
-    }
-    if (alarm.name === 'bulk_extraction_keepalive') {
-        bulkOrchestrator.handleKeepAliveAlarm();
-    }
-    if (alarm.name === 'metadata_extraction_keepalive') {
-        metadataOrchestrator.handleKeepAliveAlarm();
-    }
-});
-
-// Recovers from a service-worker restart that happened mid-extraction: closes any tabs
-// the interrupted run left open and marks its job 'failed' instead of leaving it stuck
-// 'running' forever. See BulkExtractionOrchestrator/MetadataExtractionOrchestrator.checkForRecovery.
+// A run cut off by a service-worker restart: close its tabs and fail its job instead of leaving it 'running'.
 async function recoverInterruptedExtractions() {
     await Promise.all([
-        bulkOrchestrator.checkForRecovery().catch(e => console.error('[SW] Bulk recovery check failed:', e)),
-        metadataOrchestrator.checkForRecovery().catch(e => console.error('[SW] Metadata recovery check failed:', e)),
+        bulkRuns.recover().catch(e => console.error('[SW] Bulk recovery check failed:', e)),
+        metadataRuns.recover().catch(e => console.error('[SW] Metadata recovery check failed:', e)),
     ]);
 }
 
@@ -67,30 +51,28 @@ chrome.sidePanel
 
 
 on('BULK_EXTRACTION_START', async (payload) => {
-    if (bulkOrchestrator.running) return fail('An extraction is already in progress');
     try {
-        return ok(await bulkOrchestrator.start(payload));
+        return ok(await bulkRuns.start(bulkJob(payload)));
     } catch (error) {
         return fail(error);
     }
 });
 
 on('BULK_EXTRACTION_STOP', async () => {
-    await bulkOrchestrator.stop();
+    await bulkRuns.stop();
     return ok();
 });
 
 on('METADATA_EXTRACTION_START', async (payload) => {
-    if (metadataOrchestrator.running) return fail('A metadata extraction is already in progress');
     try {
-        return ok(await metadataOrchestrator.start({ ...payload, options: payload.options ?? {} }));
+        return ok(await metadataRuns.start(metadataJob(payload)));
     } catch (error) {
         return fail(error);
     }
 });
 
 on('METADATA_EXTRACTION_STOP', async () => {
-    await metadataOrchestrator.stop();
+    await metadataRuns.stop();
     return ok();
 });
 
