@@ -17,7 +17,7 @@
  */
 import { collectAtoms, withAtomCache } from '../atoms';
 import type { StructuredSource } from '../structuredRows';
-import type { ColumnType } from '../ExtractionTypes';
+import type { ColumnType } from '../../../../shared/types/database';
 import { gateRows } from './gate';
 import { groupFields } from './group';
 import { mergeFields } from './merge';
@@ -86,7 +86,6 @@ function infer(sampled: Element[]): FieldInference {
         const id = fieldId(name);
         return {
             id,
-            originalId: id,
             name,
             type: columnType(f),
             order,
@@ -115,7 +114,6 @@ export function structuredColumns(source: StructuredSource): ReaderColumn[] {
         const id = fieldId(f.name);
         return {
             id,
-            originalId: id,
             name: f.name,
             type: f.type as ColumnType,
             order,

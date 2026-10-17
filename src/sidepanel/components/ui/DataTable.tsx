@@ -264,11 +264,11 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
 
     // === STAGE 0: Explode JSON-consolidated table columns into individual rows ===
     const { displayRows, displayColumns } = useMemo(() => {
-        const jsonCols = columns.filter(c => (c as any).type === 'json' && !(c as any).hidden);
+        const jsonCols = columns.filter(c => c.type === 'json' && !c.hidden);
         if (jsonCols.length === 0) {
             return {
                 displayRows: rows,
-                displayColumns: columns.filter(c => (c as any).type !== 'tabledata')
+                displayColumns: columns.filter(c => c.type !== 'tabledata')
             };
         }
 
@@ -291,23 +291,22 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
             for (let p = 0; p < count; p++) {
                 posCols.push({
                     id: `${col.id}__pos${p}`,
-                    originalId: `${col.id}__pos${p}`,
                     name: count === 1 ? col.name : `${col.name} ${p + 1}`,
                     type: 'text' as any,
-                    elementId: (col as any).elementId,
-                    elementName: (col as any).elementName,
-                    group: (col as any).group
+                    elementId: col.elementId,
+                    elementName: col.elementName,
+                    group: col.group
                 } as Column);
             }
         });
 
         const displayColumns: Column[] = [
-            ...columns.filter(c => (c as any).type !== 'json' && (c as any).type !== 'tabledata'),
+            ...columns.filter(c => c.type !== 'json' && c.type !== 'tabledata'),
             ...posCols
         ];
 
         const jsonColIds = new Set(jsonCols.map(c => c.id));
-        const tabledataColIds = new Set(columns.filter(c => (c as any).type === 'tabledata').map(c => c.id));
+        const tabledataColIds = new Set(columns.filter(c => c.type === 'tabledata').map(c => c.id));
         const displayRows: TableRow[] = [];
 
         rows.forEach(row => {
@@ -450,8 +449,8 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
         // fresh O(rows) filter() on every comparison the sort made (O(cols log cols) calls).
         const colPriority = (col: Column): number => {
             if (col.id === 'recordId') return 0;
-            if (col.id === 'url' || (col as any).type === 'link') return 1;
-            if ((col as any).type === 'image_array') return 2;
+            if (col.id === 'url' || col.id === 'source_url') return 1;
+            if (col.type === 'image_array') return 2;
             return 3;
         };
         const densityById = new Map<string, number>();
@@ -593,7 +592,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
     useImperativeHandle(ref, () => ({
         getProcessedData: () => {
             // Export uses original compact rows (non-exploded), no tabledata columns
-            const exportCols = columns.filter(c => !(c as any).hidden && (c as any).type !== 'tabledata');
+            const exportCols = columns.filter(c => !c.hidden && c.type !== 'tabledata');
             return {
                 columns: [
                     ...exportCols.map(col => ({
@@ -608,7 +607,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
                     const out: Record<string, any> = {};
                     exportCols.forEach(col => {
                         let val = r.data[col.id];
-                        const t = (col as any).type;
+                        const t = col.type;
                         if (typeof val === 'string' && (t === 'json' || t === 'image_array' || t === 'link_array' || t === 'text_array')) {
                             try { val = JSON.parse(val); } catch {}
                         }
@@ -642,7 +641,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
         const added: TypedColumnDef[] = [];
         for (const col of activeColumns) {
             if (typedSources.has(col.id) || derivedIds.has(col.id)) continue;
-            if (['image', 'image_array', 'markdown', 'json', 'tabledata'].includes((col as any).type)) continue;
+            if (['image', 'image_array', 'markdown', 'json', 'tabledata'].includes(col.type)) continue;
             if (col.id === 'recordId' || col.id === 'source_url') continue;
             const values = baseRows.slice(0, 300).map(r => r[col.id]);
             const d = detectType(values, renames[col.id] || col.name);

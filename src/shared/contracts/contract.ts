@@ -1,3 +1,4 @@
+import type { Column } from '../types/database';
 /**
  * Output contracts: the shape a dataset is exported in, whatever site it came from (after thenos
  * `recipes-spi/verticals.py` and `schemas/retail.listing_item.v1.json`, Apache-2.0, reimplemented).
@@ -145,11 +146,8 @@ export function productIdFromUrl(url: unknown): string | undefined {
 /** Contract field name → column id (null: no column). */
 export type FieldMapping = Record<string, string | null>;
 
-export interface MappableColumn {
-    id: string;
-    name: string;
-    type?: string;
-}
+/** A column as the mapping sees it: any column type, or none. */
+export type MappableColumn = Pick<Column, 'id' | 'name'> & { type?: string };
 
 function tokens(s: string): string {
     return s.toLowerCase().replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[^a-z0-9]+/g, ' ').trim();

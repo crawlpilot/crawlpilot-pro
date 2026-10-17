@@ -103,7 +103,6 @@ export function splitField<T extends FieldData>(data: T, id: string): T {
     const parts = shapes.map(shape => ({
         ...col,
         id: `${id}_${shape}`,
-        originalId: `${id}_${shape}`,
         name: `${col.name} (${SHAPE_LABELS[shape]})`,
         type: SHAPE_TYPES[shape],
         ...(col.reader ? { reader: { ...col.reader, onlyShape: shape } } : {}),

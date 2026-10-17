@@ -1,5 +1,5 @@
 /** Stage 5: names from evidence, unique; the most-filled field gets the plain name. */
-import type { ColumnType } from '../ExtractionTypes';
+import type { ColumnType } from '../../../../shared/types/database';
 import { nodeStep } from '../nodeName';
 import { Field, norm } from './types';
 

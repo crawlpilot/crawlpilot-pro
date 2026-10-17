@@ -7,6 +7,8 @@ import {
     autoMap, checkContract, Contract, CONTRACT_PRESETS, contractFromFields, contractJsonSchema, FieldMapping, MappableColumn, REQUIRED_FLOOR, shapeRows,
 } from '../../../shared/contracts/contract';
 import { parseSchemaInput } from '../../../shared/ai/schemaIntake';
+import { slug } from '../../../shared/utils/text';
+import { downloadJson } from '../../services/download';
 
 /** Saved with the table, so the mapping is there next time. */
 export interface OutputMappingState {
@@ -25,18 +27,6 @@ interface Props {
     saved?: OutputMappingState;
     onSave: (state: OutputMappingState) => void;
 }
-
-function download(name: string, data: unknown) {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'export';
 
 /**
  * Map a table's columns onto an output contract (the retail listing preset or a pasted schema), see
@@ -171,10 +161,10 @@ export default function SchemaMapDialog({ open, onClose, columns, rows, tableNam
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose} sx={{ mr: 'auto' }}>Close</Button>
-                <Button disabled={!contract} onClick={() => contract && download(`${slug(contract.id)}.schema.json`, contractJsonSchema(contract))}>
+                <Button disabled={!contract} onClick={() => contract && downloadJson(contractJsonSchema(contract), `${slug(contract.id, '-', 'export')}.schema.json`)}>
                     Schema
                 </Button>
-                <Button variant="contained" disabled={!contract || shaped.length === 0} onClick={() => download(`${slug(tableName)}.json`, shaped)}>
+                <Button variant="contained" disabled={!contract || shaped.length === 0} onClick={() => downloadJson(shaped, `${slug(tableName, '-', 'export')}.json`)}>
                     Export JSON
                 </Button>
             </DialogActions>

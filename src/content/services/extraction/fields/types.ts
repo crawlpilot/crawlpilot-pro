@@ -1,6 +1,7 @@
 import type { Atom, AtomAttr, Shape } from '../atoms';
+import { slug } from '../../../../shared/utils/text';
 import type { JsonSpec } from '../structuredRows';
-import type { Column } from '../ExtractionTypes';
+import type { Column } from '../../../../shared/types/database';
 
 export const FIELD_SCHEMA_VERSION = 2;
 
@@ -79,7 +80,7 @@ export function norm(v: string): string {
 }
 
 export function fieldId(name: string): string {
-    return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'field';
+    return slug(name);
 }
 
 export function query(row: Element, selector: string): Element[] {

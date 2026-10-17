@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { downloadText } from '../services/download';
 import { db } from '@/shared/db/db-manager';
 import { NEW_TABLE_NAMES, TableData, TableRow, Job, AutomationRecipe } from '@/shared/types/database';
 
@@ -94,30 +95,7 @@ export function useAllTableData() {
  * Hook for Data Export
  */
 export function useExportData() {
-    /**
-     * Helper for standard local file downloads
-     */
-    const downloadFile = (content: string, fileName: string, contentType: string) => {
-        const blob = new Blob([content], { type: contentType });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const nameParts = fileName.split('.');
-        let finalFileName = fileName;
-        if (nameParts.length > 1) {
-            const ext = nameParts.pop();
-            finalFileName = `${nameParts.join('.')}_${timestamp}.${ext}`;
-        } else {
-            finalFileName = `${fileName}_${timestamp}`;
-        }
-
-        link.setAttribute('href', url);
-        link.setAttribute('download', finalFileName);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
+    const downloadFile = (content: string, fileName: string, contentType: string) => downloadText(content, fileName, contentType, true);
 
     const exportToCSV = (columns: { id: string, name: string }[], data: any[], fileName: string) => {
         try {

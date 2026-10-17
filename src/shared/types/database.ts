@@ -10,20 +10,33 @@ export type ColumnType =
     | 'number'
     | 'url'
     | 'image'
-    | 'image_array'
     | 'email'
     | 'phone'
     | 'date'
     | 'price'
-    | 'markdown';
+    | 'markdown'
+    | 'image_array'
+    | 'text_array'
+    | 'link_array'
+    /** A list or table element's rows, as JSON (Page Extractor). */
+    | 'json'
+    /** Hidden raw rows behind a `json` table column. */
+    | 'tabledata';
 
+/** One column of extracted data: the single column type, from picking to the data table and export. */
 export interface Column {
     id: string;
     name: string;
     type: ColumnType;
     order?: number;
+    /** The row-relative selector a list field reads (shown in the field editor). */
+    selector?: string;
     group?: { id: string; name: string };
     isKeyValue?: boolean;
+    hidden?: boolean;
+    /** The Page Extractor element the column came from. */
+    elementId?: string;
+    elementName?: string;
 }
 
 export interface TypedColumnDef {

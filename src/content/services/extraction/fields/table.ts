@@ -1,5 +1,5 @@
 import { AtomAttr, atomText, Shape, shapeOf } from '../atoms';
-import type { ColumnType } from '../ExtractionTypes';
+import type { ColumnType } from '../../../../shared/types/database';
 import { FIELD_SCHEMA_VERSION, fieldId, mode, ReaderColumn } from './types';
 
 /**
@@ -22,7 +22,7 @@ export function tableFields(rows: Element[]): ReaderColumn[] {
     };
     const column = (name: string, sel: string, attr: AtomAttr, shape: Shape, type: ColumnType): ReaderColumn => {
         const id = fieldId(name);
-        return { id, originalId: id, name, type, selector: sel, reader: { v: FIELD_SCHEMA_VERSION, chain: [sel], attr, shape } };
+        return { id, name, type, selector: sel, reader: { v: FIELD_SCHEMA_VERSION, chain: [sel], attr, shape } };
     };
 
     const columns: ReaderColumn[] = [];

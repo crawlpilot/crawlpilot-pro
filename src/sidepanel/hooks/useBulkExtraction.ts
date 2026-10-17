@@ -153,8 +153,7 @@ export function useBulkExtraction() {
         setTotalPages(urls.length);
         setUrlStatuses(urls.map(url => ({ url, status: 'queued' })));
 
-        const { extraction_settings: settings } = await chrome.storage.local.get(['extraction_settings']) as { extraction_settings?: any };
-        const config = settings || { requestDelay: 1000 };
+        const config: Record<string, unknown> = { requestDelay: 1000 };
         if (viewportWidth) config.viewportWidth = viewportWidth;
         if (viewportHeight) config.viewportHeight = viewportHeight;
         if (clickWaitMs != null) config.clickWaitMs = clickWaitMs;

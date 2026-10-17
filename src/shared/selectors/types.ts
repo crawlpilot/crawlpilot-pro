@@ -1,5 +1,3 @@
-export type { SelectorMetadata, SelectorConfig, SelectorState } from '../types/extraction';
-
 /** A single generic selector entry, normalized from any of the shapes used across the codebase:
  *  - SelectorMetadata { selector, strategy }   (picker output)
  *  - SelectorDefinition { type: 'css'|'xpath'|'id', value }  (persisted recipes)

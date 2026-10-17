@@ -1,15 +1,15 @@
 import { ElementDefinition, ExtractionResult } from '../types';
+import { slug } from '../../../../shared/utils/text';
 
 /** The column definitions for one element's result, grouping list/smart/table columns under the element's name. */
 export function extractColumns(elementDef: ElementDefinition, actionResult: ExtractionResult): any[] {
     // Table elements are JSON-consolidated: one visible JSON column + one hidden raw-data column
     if (elementDef.type === 'table' && (actionResult as any)._columnCount !== undefined) {
-        const groupId = elementDef.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+        const groupId = slug(elementDef.name, '_', '');
         const columnCount = (actionResult as any)._columnCount;
         return [
             {
                 id: elementDef.id,
-                originalId: elementDef.id,
                 name: elementDef.name,
                 type: 'json',
                 elementId: elementDef.id,
@@ -20,7 +20,6 @@ export function extractColumns(elementDef: ElementDefinition, actionResult: Extr
             },
             {
                 id: elementDef.id + '__tabledata',
-                originalId: elementDef.id + '__tabledata',
                 name: elementDef.name + ' (raw)',
                 type: 'tabledata',
                 hidden: true,
@@ -34,7 +33,7 @@ export function extractColumns(elementDef: ElementDefinition, actionResult: Extr
 
     if (actionResult.columns) {
         const cols = actionResult.columns;
-        const groupId = elementDef.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+        const groupId = slug(elementDef.name, '_', '');
         const isKeyValue = isListOrSmart && cols.length === 2;
 
         return cols.map(col => ({
@@ -51,7 +50,6 @@ export function extractColumns(elementDef: ElementDefinition, actionResult: Extr
 
     return [{
         id: elementDef.id,
-        originalId: elementDef.id,
         name: elementDef.name,
         type: elementDef.type || 'text',
         elementId: elementDef.id,
@@ -107,7 +105,7 @@ function fieldKey(col: any, elementName: string): string {
  */
 export function buildPageRecord(data: Record<string, unknown>, knownColumns: any[], mode: ListOutput = 'nested'): { columns: any[]; item: any; items?: any[] } {
     const recordId = `rec_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const columns: any[] = [{ id: 'recordId', originalId: 'recordId', name: 'RECORD ID', type: 'text', elementId: 'recordId', elementName: 'Record Identifier' }];
+    const columns: any[] = [{ id: 'recordId', name: 'RECORD ID', type: 'text', elementId: 'recordId', elementName: 'Record Identifier' }];
     const row: Record<string, unknown> = { recordId };
     let driver: { key: string; value: ListValue } | null = null;
 
@@ -129,14 +127,14 @@ export function buildPageRecord(data: Record<string, unknown>, knownColumns: any
                 listCols.forEach(col => {
                     const id = `${key}__${col.id}_${idx + 1}`;
                     row[id] = item[col.id] ?? null;
-                    columns.push({ id, originalId: col.id, name: `${col.name} ${idx + 1}`, type: col.type || 'text', elementId: key, elementName });
+                    columns.push({ id, name: `${col.name} ${idx + 1}`, type: col.type || 'text', elementId: key, elementName });
                 });
             });
             continue;
         }
         row[key] = JSON.stringify(value.items.map(item =>
             Object.fromEntries(listCols.filter(c => item[c.id] != null && item[c.id] !== '').map(c => [fieldKey(c, elementName), item[c.id]]))));
-        columns.push({ id: key, originalId: key, name: elementName, type: 'json', elementId: key, elementName, listFields: listCols.map(c => fieldKey(c, elementName)) });
+        columns.push({ id: key, name: elementName, type: 'json', elementId: key, elementName, listFields: listCols.map(c => fieldKey(c, elementName)) });
     }
 
     if (!driver) return { columns, item: row };
