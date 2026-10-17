@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { X, Plus, Check, Play, Trash2, GripVertical, Settings2 } from 'lucide-react';
 import { SelectorMetadata } from '../../../shared/types/extraction';
+import { looksLikeXPath } from '../../../shared/selectors/resolve';
 
 const StyledDialog = styled(Dialog)(() => ({
     '& .MuiDialog-paper': {
@@ -73,7 +74,7 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
         if (isOpen) {
             const items: SelectorItem[] = (initialSelectors && initialSelectors.length > 0 ? initialSelectors : [{ selector: '', strategy: '' }]).map((m, i) => {
                 const s = m.selector;
-                const isXPath = typeof s === 'string' && (s.startsWith('//') || s.startsWith('(') || s.startsWith('.//'));
+                const isXPath = typeof s === 'string' && looksLikeXPath(s);
                 return {
                     id: `sel-${Date.now()}-${i}`,
                     value: s || '',
@@ -96,7 +97,7 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
     const handleChange = (id: string, newValue: string) => {
         setSelectors(selectors.map(s => {
             if (s.id === id) {
-                const isXPath = typeof newValue === 'string' && (newValue.startsWith('//') || newValue.startsWith('(') || newValue.startsWith('.//'));
+                const isXPath = typeof newValue === 'string' && looksLikeXPath(newValue);
                 const newType = isXPath ? 'XPath' : 'CSS';
                 return { ...s, value: newValue, type: newType };
             }

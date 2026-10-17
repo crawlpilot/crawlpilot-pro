@@ -3,7 +3,7 @@ import { sanitizeCssSelector } from './sanitize';
 
 /** True if a selector string looks like an XPath expression rather than CSS. */
 export function looksLikeXPath(value: string): boolean {
-    return value.startsWith('/') || value.startsWith('(') || value.startsWith('./') || value.startsWith('.//');
+    return value.startsWith('/') || value.startsWith('(') || value.startsWith('./') || value.startsWith('id(');
 }
 
 /**

@@ -1,14 +1,14 @@
 {
   "summary": {
     "pages": 6,
-    "itemFirstExact": 5,
-    "itemPersistedFirstExact": 5,
+    "itemFirstExact": 4,
+    "itemPersistedFirstExact": 4,
     "containerFirstNamed": 6,
     "elementSelectors": 16,
     "elementNamesTarget": 16,
-    "elementStrong": 7,
-    "elementPositional": 9,
-    "elementInstanceValue": 5,
+    "elementStrong": 2,
+    "elementPositional": 14,
+    "elementInstanceValue": 0,
     "fields": 18,
     "fieldsRead": 16
   },
@@ -49,7 +49,7 @@
             "exact": true
           }
         ],
-        "itemChainLength": 34,
+        "itemChainLength": 23,
         "firstExactAt": 1,
         "persistedFirst": {
           "selector": "[data-index]",
@@ -60,7 +60,7 @@
           "Image ← img",
           "URL ← [data-cy=\"title-recipe\"] > a",
           "Title ← h2 > span",
-          "Rating ← [data-cy=\"reviews-block\"] > .a-row > .a-declarative > a",
+          "Rating ← [data-cy=\"reviews-block\"] > .a-row > span > a",
           "Differentiators ← .title-differentiators",
           "Reviews ← .s-csa-instrumentation-wrapper > a",
           "Badge ← .puis-bold-weight-text",
@@ -119,19 +119,19 @@
         }
       },
       "next": {
-        "chainLength": 27,
+        "chainLength": 37,
         "invalid": 0,
         "first": [
           {
-            "selector": "//a[normalize-space(string())='Next']",
+            "selector": "//a[normalize-space(string())=\"Next\"]",
             "namesTarget": true
           },
           {
-            "selector": "(//a[contains(string(), 'Next')])[last()]",
+            "selector": "(//a[contains(string(), \"Next\")])[last()]",
             "namesTarget": true
           },
           {
-            "selector": "(//a[contains(string(), 'Next')])[1]",
+            "selector": "(//a[contains(string(), \"Next\")])[1]",
             "namesTarget": false,
             "positional": true
           }
@@ -159,11 +159,6 @@
         ],
         "itemChain": [
           {
-            "selector": ".b--near-white:has([data-test-id=\"gpt-main\"])",
-            "matches": 9,
-            "exact": true
-          },
-          {
             "selector": "div:has([data-test-id=\"gpt-main\"])",
             "matches": 18,
             "exact": false
@@ -172,14 +167,19 @@
             "selector": "div:has(.hide-child-opacity)",
             "matches": 18,
             "exact": false
+          },
+          {
+            "selector": ":scope > div",
+            "matches": 10,
+            "exact": false
           }
         ],
-        "itemChainLength": 10,
-        "firstExactAt": 0,
+        "itemChainLength": 4,
+        "firstExactAt": -1,
         "persistedFirst": {
-          "selector": ".b--near-white:has([data-test-id=\"gpt-main\"])",
-          "matches": 9,
-          "exact": true
+          "selector": "div:has([data-test-id=\"gpt-main\"])",
+          "matches": 18,
+          "exact": false
         },
         "columns": [
           "Image ← [data-testid=\"productTileImage\"]",
@@ -187,11 +187,11 @@
           "Badge Tag ← [data-testid=\"badgeTagComponent\"] > span",
           "Unified Global Product Price ← [data-testid=\"unified-global-product-price-a11y-text\"]",
           "Badge 2 ← div",
-          "Text ← .normal",
+          "Title ← [data-automation-id=\"product-title\"]",
           "Rating ← [data-testid=\"rating-container\"] > span",
-          "Rating 2 ← .sans-serif > div > div > div > span",
+          "Rating 2 ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span",
           "Badge ← [data-testid=\"badgeTagComponent\"] > span > span",
-          "Text 2 ← [data-testid=\"badgeTagComponent\"] > span > span",
+          "Text ← [data-testid=\"badgeTagComponent\"] > span > span",
           "Badge 3 ← [data-testid=\"badgeTagComponent\"] > span > span",
           "Badge 6 ← .ld",
           "Badge 4 ← [data-testid=\"badgeTagComponent\"] > span > span > span",
@@ -202,7 +202,7 @@
           {
             "field": "title",
             "rowsWithValue": 9,
-            "readBy": "Text ← .normal (9/9)"
+            "readBy": "Title ← [data-automation-id=\"product-title\"] (9/9)"
           },
           {
             "field": "url",
@@ -229,13 +229,13 @@
       "elements": {
         "title": {
           "css": {
-            "selector": "[data-item-id='7BZ17VXO2OZL'] .dark-gray",
+            "selector": ":nth-child(1) > :nth-child(1) > :nth-child(2) > :nth-child(1) > :nth-child(2) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(2) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(2) > :nth-child(1) > :nth-child(1) > :nth-child(3) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(2) > :nth-child(3) > :nth-child(4) > :nth-child(1) > :nth-child(1)",
             "namesTarget": true,
-            "grade": "strong",
-            "instanceValue": true
+            "grade": "fragile",
+            "positional": true
           },
           "xpath": {
-            "selector": "//*[@id=\"maincontent\"]/main[1]/div[1]/div[2]/div[1]/div[1]/section[1]/div[1]/div[2]/section[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[3]/span[2]/div[1]/span[1]",
+            "selector": "//*[@id=\"0\"]/div[2]/div[1]/div[1]/div[1]/div[1]/div[3]/span[2]/div[1]/span[1]",
             "namesTarget": true,
             "grade": "fragile",
             "positional": true
@@ -243,13 +243,13 @@
         },
         "price": {
           "css": {
-            "selector": "[data-item-id='7BZ17VXO2OZL'] [aria-hidden][style]",
+            "selector": ":nth-child(1) > :nth-child(1) > :nth-child(2) > :nth-child(1) > :nth-child(2) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(2) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(2) > :nth-child(1) > :nth-child(1) > :nth-child(3) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(2) > :nth-child(3) > :nth-child(3)",
             "namesTarget": true,
-            "grade": "strong",
-            "instanceValue": true
+            "grade": "fragile",
+            "positional": true
           },
           "xpath": {
-            "selector": "//*[@id=\"maincontent\"]/main[1]/div[1]/div[2]/div[1]/div[1]/section[1]/div[1]/div[2]/section[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[3]/div[2]",
+            "selector": "//*[@id=\"0\"]/div[2]/div[1]/div[1]/div[1]/div[1]/div[3]/div[2]",
             "namesTarget": true,
             "grade": "fragile",
             "positional": true
@@ -288,7 +288,7 @@
             "exact": true
           },
           {
-            "selector": "li:has(.sans-serif)",
+            "selector": "li:has(.hide-sibling-opacity)",
             "matches": 6,
             "exact": true
           }
@@ -304,19 +304,19 @@
           "Image ← [data-testid=\"productTileImage\"]",
           "URL ← a",
           "Badge Tag ← [data-testid=\"badgeTagComponent\"] > span",
-          "Text 2 ← [data-testid=\"badgeTagComponent\"] > span > span > span",
-          "Text ← .sans-serif > div > div > div > div > span",
-          "Was Price ← div",
-          "Title ← div > span > h3",
+          "Text ← [data-testid=\"badgeTagComponent\"] > span > span > span",
+          "Price Flex ← [data-test-id=\"gpt-price-flex-container\"] > span",
+          "Was Price ← [data-test-id=\"gpt-was-price-container\"]",
+          "Title ← [data-automation-id=\"product-title\"]",
           "Rating ← [data-testid=\"rating-container\"] > span",
-          "Rating 2 ← .sans-serif > div > div > div > span",
+          "Rating 2 ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span",
           "Badge ← [data-testid=\"badgeTagComponent\"] > span > span"
         ],
         "fields": [
           {
             "field": "title",
             "rowsWithValue": 6,
-            "readBy": "Title ← div > span > h3 (6/6)"
+            "readBy": "Title ← [data-automation-id=\"product-title\"] (6/6)"
           },
           {
             "field": "image",
@@ -328,10 +328,10 @@
       "elements": {
         "title": {
           "css": {
-            "selector": "[data-item-id='16655001628'] .normal",
+            "selector": "[data-slide]:nth-child(1) h3[data-automation-id]",
             "namesTarget": true,
-            "grade": "strong",
-            "instanceValue": true
+            "grade": "fragile",
+            "positional": true
           },
           "xpath": {
             "selector": "/html/body/ul[1]/li[1]/div[1]/div[1]/div[3]/span[1]/h3[1]",
@@ -412,10 +412,10 @@
       "elements": {
         "title": {
           "css": {
-            "selector": "[href='\\/p\\/1']",
+            "selector": ":nth-child(2) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(2) > :nth-child(1) > :nth-child(1)",
             "namesTarget": true,
-            "grade": "strong",
-            "instanceValue": true
+            "grade": "fragile",
+            "positional": true
           },
           "xpath": {
             "selector": "//*[@id=\"results\"]/div[1]/div[1]/div[1]/h5[1]/a[1]",
@@ -490,10 +490,10 @@
       "elements": {
         "title": {
           "css": {
-            "selector": "[href='\\/item\\/aa']",
+            "selector": "[data-product-sku]:nth-child(1) [href]",
             "namesTarget": true,
-            "grade": "strong",
-            "instanceValue": true
+            "grade": "fragile",
+            "positional": true
           },
           "xpath": {
             "selector": "/html/body/main[1]/ul[1]/li[1]/a[1]",
@@ -569,7 +569,7 @@
       "elements": {
         "title": {
           "css": {
-            "selector": "[data-testid='job-card']:nth-child(1) [href]",
+            "selector": "[data-testid='job-card']:nth-child(1) a",
             "namesTarget": true,
             "grade": "fragile",
             "positional": true

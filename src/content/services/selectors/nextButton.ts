@@ -3,6 +3,8 @@
  * clickable match among them on each page of a run.
  */
 import { generateRobustSelectors, SelectorResult } from './generate';
+import { isStableId, xpathLiteral } from '../../../shared/selectors/stability';
+import { looksLikeXPath } from '../../../shared/selectors/resolve';
 
 
 /**
@@ -21,8 +23,8 @@ class XPathGenerator {
 
         // 1. Exact ID
         // [CHANGED] Stricter check for dynamic IDs
-        if (element.id && !/\d/.test(element.id) && !/(Instance|ember|react|guid|uid|_)/i.test(element.id) && element.id.length < 40) {
-            results.push({ value: `//*[@id="${element.id}"]`, quality: 100, type: 'ID' });
+        if (isStableId(element.id)) {
+            results.push({ value: `//*[@id=${xpathLiteral(element.id)}]`, quality: 100, type: 'ID' });
         }
 
         // 2. Semantic Text Content (High Priority for Buttons/Links)
@@ -77,13 +79,12 @@ class XPathGenerator {
         const text = element.textContent?.trim() || ''; // Use textContent to get all text
         // Limit text length to avoid fragile selectors on long paragraphs
         if (text && text.length > 0 && text.length < 50) { // increased limit slightly to cover verbose buttons
-            // Escape single quotes for XPath
-            const cleanText = text.replace(/'/g, "\\'");
+            const literal = xpathLiteral(text);
 
             // 1. Exact match using normalize-space(string())
             // string() converts the context node to string value, matching nested text which text() does not
             results.push({
-                value: `//${tag}[normalize-space(string())='${cleanText}']`,
+                value: `//${tag}[normalize-space(string())=${literal}]`,
                 quality: 95, // High quality, exact match
                 type: 'Text Exact'
             });
@@ -92,7 +93,7 @@ class XPathGenerator {
             // This mirrors the "contains string XPath (most robust)" from reference
             if (text.length > 3) {
                 results.push({
-                    value: `//${tag}[contains(string(), '${cleanText}')]`,
+                    value: `//${tag}[contains(string(), ${literal})]`,
                     quality: 90, // High quality, robust against whitespace/nesting
                     type: 'Text Contains'
                 });
@@ -109,7 +110,7 @@ class XPathGenerator {
                 keywords.forEach(kw => {
                     if (text.includes(kw)) {
                         results.push({
-                            value: `//${tag}[contains(string(), '${kw}')]`,
+                            value: `//${tag}[contains(string(), ${xpathLiteral(kw)})]`,
                             quality: 88,
                             type: 'Keyword Partial'
                         });
@@ -128,13 +129,13 @@ class XPathGenerator {
         // Aria Label
         const ariaLabel = element.getAttribute('aria-label');
         if (ariaLabel) {
-            results.push({ value: `//${tag}[@aria-label='${ariaLabel}']`, quality: 80, type: 'Attribute (aria)' });
+            results.push({ value: `//${tag}[@aria-label=${xpathLiteral(ariaLabel)}]`, quality: 80, type: 'Attribute (aria)' });
         }
 
         // Title
         const title = element.getAttribute('title');
         if (title) {
-            results.push({ value: `//${tag}[@title='${title}']`, quality: 80, type: 'Attribute (title)' });
+            results.push({ value: `//${tag}[@title=${xpathLiteral(title)}]`, quality: 80, type: 'Attribute (title)' });
         }
     }
 
@@ -199,9 +200,9 @@ class XPathGenerator {
 
         while (parent && parent !== document.body && depth < 3) {
             // Parent ID
-            if (parent.id && !/\d/.test(parent.id) && !/(Instance|ember|react|guid|uid|_)/i.test(parent.id)) {
+            if (isStableId(parent.id)) {
                 results.push({
-                    value: `//*[@id="${parent.id}"]//${tag}`,
+                    value: `//*[@id=${xpathLiteral(parent.id)}]//${tag}`,
                     quality: 80, // Better than raw structure, worse than direct ID
                     type: 'Parent ID Descendant'
                 });
@@ -231,9 +232,8 @@ class XPathGenerator {
             if (sibling.tagName === 'LABEL' || sibling.tagName === 'H3' || sibling.tagName === 'H4' || (sibling.textContent && sibling.textContent.length < 20)) {
                 const text = sibling.textContent?.trim();
                 if (text) {
-                    const cleanText = text.replace(/'/g, "\\'");
                     results.push({
-                        value: `//${sibling.tagName.toLowerCase()}[contains(string(), '${cleanText}')]/following-sibling::${tag}`,
+                        value: `//${sibling.tagName.toLowerCase()}[contains(string(), ${xpathLiteral(text)})]/following-sibling::${tag}`,
                         quality: 70,
                         type: 'Sibling Context'
                     });
@@ -287,7 +287,7 @@ class PaginationSelectors {
             }
 
             // Validation: Must match exactly 1 element
-            const isXPath = cand.strategy.includes('XPath') || cand.selector.startsWith('//') || cand.selector.startsWith('(');
+            const isXPath = looksLikeXPath(cand.selector);
             if (this.validateUnique(cand.selector, isXPath)) {
                 // If it passes simple uniqueness, we trust it enough to be in the list
                 // Real-time validation happens via NextButtonSelector.find() later during execution

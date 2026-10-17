@@ -6,7 +6,7 @@ import { SelectorMetadata } from '../../../shared/types/extraction';
 import { BaseAction, ActionContext } from '../../core/BaseAction';
 import { AutoScrollAction } from '../autoscroll/AutoScrollAction';
 import { HL_COLOR, HL_BG, HL_GLOW_STRONG } from '../../utils/highlight-tokens';
-import { resolveAll } from '../../../shared/selectors/resolve';
+import { looksLikeXPath, resolveAll } from '../../../shared/selectors/resolve';
 import { CommonSelectorGenerator } from '../../services/selectors/common';
 import { hashString } from '../../../shared/utils/hash';
 import { classifyPage, collectPageSignals, PageVerdict, VERDICT_LABELS } from '../../../shared/verdict/classifyPage';
@@ -404,12 +404,12 @@ export class PaginationAction extends BaseAction {
         if (nextButtonSelectors && nextButtonSelectors.length > 0) {
             findSelectors = nextButtonSelectors.map(m => ({
                 value: m.selector,
-                type: (m.selector.startsWith('//') || m.selector.startsWith('(')) ? 'xpath' : 'selector'
+                type: looksLikeXPath(m.selector) ? 'xpath' : 'selector'
             }));
         } else if (nextButtonSelector) {
             findSelectors = [{
                 value: nextButtonSelector,
-                type: (nextButtonSelector.startsWith('//') || nextButtonSelector.startsWith('(')) ? 'xpath' : 'selector'
+                type: looksLikeXPath(nextButtonSelector) ? 'xpath' : 'selector'
             }];
         }
 
@@ -486,7 +486,7 @@ export class PaginationAction extends BaseAction {
                 if (!sel) continue;
 
                 // Detect XPath
-                if (sel.startsWith('/') || sel.startsWith('(') || sel.startsWith('id(')) {
+                if (looksLikeXPath(sel)) {
                     const result = document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                     if (result.singleNodeValue) return result.singleNodeValue as HTMLElement;
                 } else {

@@ -4,6 +4,7 @@ import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { generateCssSelector, generateXPath } from '../../../services/selectors/generate';
 import { nextButtonSelectors } from '../../../services/selectors/nextButton';
+import { looksLikeXPath } from '../../../../shared/selectors/resolve';
 
 export class SingleSelectionStrategy implements ISelectionStrategy {
     private extractor: DataExtractor;
@@ -35,7 +36,7 @@ export class SingleSelectionStrategy implements ISelectionStrategy {
 
         // Pick the best selector for immediate display (priority 0 is highest)
         const bestSelector = paginationSelectors.length > 0 ? paginationSelectors[0].selector : selector;
-        const bestSelectorType = paginationSelectors.length > 0 && paginationSelectors[0].selector.startsWith('//') ? 'xpath' : 'selector';
+        const bestSelectorType = paginationSelectors.length > 0 && looksLikeXPath(paginationSelectors[0].selector) ? 'xpath' : 'selector';
 
         // If the best strategy is semantic (likely XPath), use it as the primary 'itemSelector'
         // This ensures the UI input box shows the semantic one by default

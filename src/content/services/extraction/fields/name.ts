@@ -1,6 +1,7 @@
 /** Stage 5: names from evidence, unique; the most-filled field gets the plain name. */
 import type { ColumnType } from '../../../../shared/types/database';
 import { nodeStep } from '../nodeName';
+import { AUTHOR_ATTRIBUTES } from '../../../../shared/selectors/stability';
 import { Field, norm } from './types';
 
 /** Words that describe layout, state or a framework, never what a value is. */
@@ -45,12 +46,18 @@ function tidyLabel(label: string): string {
     return titleCase(words.join(' '));
 }
 
-/** The element's own schema/test attribute (a wrapper's would name every field inside it alike). */
+/**
+ * The element's own author attribute (a wrapper's would name every field inside it alike). A hook
+ * ending in "title" (`product-title`, `itemTitle`) names the title.
+ */
 function anchorName(f: Field): string {
     const el = f.atoms[0].el;
-    for (const attr of ['itemprop', 'data-testid', 'data-cy']) {
+    for (const attr of AUTHOR_ATTRIBUTES) {
         const v = el.getAttribute(attr);
-        if (v) { const t = tidyLabel(v); if (t) return t; }
+        if (!v) continue;
+        if (/(^|[-_\s.]|[a-z])title$/i.test(v)) return 'Title';
+        const t = tidyLabel(v);
+        if (t) return t;
     }
     return '';
 }

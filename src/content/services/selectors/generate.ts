@@ -3,11 +3,42 @@
  * strategies (stable id, semantic attributes, classes, css-selector-generator, paths).
  */
 import { cssSelectorGenerator } from 'css-selector-generator';
-import { isUnstableClass, isStableAttributeValue } from '../../../shared/selectors/stability';
+import { looksLikeXPath } from '../../../shared/selectors/resolve';
+import {
+    AUTHOR_ATTRIBUTES, isStableAttributeValue, isStableId, isUnstableClass, isUtilityByFrequency, STATE_ATTRIBUTES, xpathLiteral,
+} from '../../../shared/selectors/stability';
 
-/** Ids without digits or framework markers, and not too long: likely to survive a reload. */
-function isStableId(id: string): boolean {
-    return !!id && !/\d/.test(id) && !/(Instance|ember|react|guid|uid|_)/i.test(id) && id.length < 40;
+/** The element's classes a selector may name it by: no utilities (by name or by spread), no state. */
+function stableClasses(el: Element): string[] {
+    const raw = typeof el.className === 'string' ? el.className : el.getAttribute('class') || '';
+    return raw.split(/\s+/).filter(c => c && !isUnstableClass(c) && !isUtilityByFrequency(c, el.ownerDocument ?? document));
+}
+
+/** `[attr="value"]` with the value escaped for CSS. */
+function cssAttr(attr: string, value: string): string {
+    return `[${attr}="${value.replace(/["\\]/g, '\\$&')}"]`;
+}
+
+/**
+ * An attribute part `css-selector-generator` may use: no state attribute even as presence, no
+ * instance or unstable value (`[data-item-id='7BZ…']`, `[href='/p/1']`).
+ */
+function blockedAttributePart(part: string): boolean {
+    const m = /^\[([\w-]+)(?:[~|^$*]?=(['"]?)(.*)\2)?\]$/.exec(part);
+    if (!m) return false;
+    const [, attr, , value] = m;
+    if (STATE_ATTRIBUTES.has(attr)) return true;
+    return value !== undefined && !isStableAttributeValue(attr, value.replace(/\\(.)/g, '$1'));
+}
+
+const WHITELISTED_PART = new RegExp(`^\\[(${[...AUTHOR_ATTRIBUTES, 'role', 'aria-label', 'name'].join('|')})[=\\]]`);
+
+/** A class part the page uses as a utility (`.normal`, `.dark-gray`). */
+function blockedClassPart(part: string): boolean {
+    const m = /^\.((?:\\.|[\w-])+)$/.exec(part);
+    if (!m) return false;
+    const cls = m[1].replace(/\\(.)/g, '$1');
+    return isUnstableClass(cls) || isUtilityByFrequency(cls);
 }
 
 export function generateCssSelector(el: HTMLElement, generalized: boolean = false): string {
@@ -34,13 +65,8 @@ export function generateCssSelector(el: HTMLElement, generalized: boolean = fals
         let selector = current.tagName.toLowerCase();
 
         // Add classes if available
-        if (current.className && typeof current.className === 'string') {
-            const classes = current.className.split(/\s+/).filter(c => c && !isUnstableClass(c));
-
-            if (classes.length > 0) {
-                selector += `.${classes[0]}`;
-            }
-        }
+        const classes = stableClasses(current);
+        if (classes.length > 0) selector += `.${CSS.escape(classes[0])}`;
 
         if (current.parentElement && !generalized) {
             const siblings = Array.from(current.parentElement.children);
@@ -65,8 +91,7 @@ export function generateXPath(element: HTMLElement): string {
 
     // 1. If element has ID, use it for shortest path (IF STABLE)
     if (isStableId(element.id)) {
-        // Simple quote escaping - though usually IDs don't contain quotes
-        return `//*[@id="${element.id}"]`;
+        return `//*[@id=${xpathLiteral(element.id)}]`;
     }
 
     // 2. Iterative path generation
@@ -76,7 +101,7 @@ export function generateXPath(element: HTMLElement): string {
     while (current && current.nodeType === 1) {
         // If we hit an element with ID during ascent, use it as anchor (IF STABLE)
         if (isStableId(current.id)) {
-            paths.unshift(`*[@id="${current.id}"]`);
+            paths.unshift(`*[@id=${xpathLiteral(current.id)}]`);
             return '//' + paths.join('/');
         }
 
@@ -129,10 +154,8 @@ class IdSelectorStrategy implements SelectorStrategy {
         const id = element.id;
         if (!isStableId(id)) return [];
 
-        if (document.querySelectorAll(`#${id}`).length === 1) {
-            return [`#${id}`];
-        }
-        return [];
+        const sel = `#${CSS.escape(id)}`;
+        return document.querySelectorAll(sel).length === 1 ? [sel] : [];
     }
 }
 
@@ -151,22 +174,18 @@ class MinimalSelectorStrategy implements SelectorStrategy {
         const results: string[] = [];
 
         // 1. Semantic attributes directly on the element (stable values only)
-        const semanticAttrs = ['data-testid', 'data-cy', 'data-component', 'data-id', 'role', 'aria-label', 'itemprop', 'name'];
-        for (const attr of semanticAttrs) {
+        for (const attr of [...AUTHOR_ATTRIBUTES, 'role', 'aria-label', 'name']) {
             const val = element.getAttribute(attr);
             if (val && isStableAttributeValue(attr, val)) {
-                const safe = val.replace(/"/g, '\\"');
-                const sel = `${tag}[${attr}="${safe}"]`;
+                const sel = `${tag}${cssAttr(attr, val)}`;
                 if (this.isUnique(sel, root)) { results.push(sel); break; }
-                const noTagSel = `[${attr}="${safe}"]`;
+                const noTagSel = cssAttr(attr, val);
                 if (this.isUnique(noTagSel, root)) { results.push(noTagSel); break; }
             }
         }
 
         // 2. tag + semantic class(es) — no ancestor context
-        const classes = element.className && typeof element.className === 'string'
-            ? element.className.split(/\s+/).filter(c => c && !isUnstableClass(c))
-            : [];
+        const classes = stableClasses(element).map(c => CSS.escape(c));
 
         if (classes.length > 0) {
             const full = `${tag}.${classes.join('.')}`;
@@ -190,15 +209,10 @@ class MinimalSelectorStrategy implements SelectorStrategy {
         const targetClasses = classes.slice(0, 3);
         let ancestor = element.parentElement;
         for (let depth = 0; depth < 3 && ancestor && ancestor !== root; depth++) {
-            if (ancestor.className && typeof ancestor.className === 'string') {
-                const ancestorClasses = ancestor.className.split(/\s+/)
-                    .filter(c => c && !isUnstableClass(c))
-                    .slice(0, 5);
-                for (const ac of ancestorClasses) {
-                    for (const c of targetClasses) {
-                        const sel = `.${ac} ${tag}.${c}`;
-                        try { if (root.querySelectorAll(sel).length === 1) return sel; } catch { }
-                    }
+            for (const ac of stableClasses(ancestor).map(c => CSS.escape(c)).slice(0, 5)) {
+                for (const c of targetClasses) {
+                    const sel = `.${ac} ${tag}.${c}`;
+                    try { if (root.querySelectorAll(sel).length === 1) return sel; } catch { }
                 }
             }
             ancestor = ancestor.parentElement;
@@ -226,17 +240,14 @@ class GeneratorLibraryStrategy implements SelectorStrategy {
                     ? ['attribute', 'class', 'tag']
                     : ['id', 'attribute', 'class', 'tag', 'nthchild'],
 
-                // Boost data-* / aria / role selectors so they rank first
-                whitelist: [
-                    /^\[data-/,
-                    /^\[role/,
-                    /^\[aria-/,
-                    /^\[itemprop/,
-                    /^\[name/,
-                ],
+                // Ranked first, and kept even when a blacklist rule matches (the library lets the
+                // whitelist win), so only author hooks with stable values belong here.
+                whitelist: [(part: string) => WHITELISTED_PART.test(part) && !blockedAttributePart(part)],
 
                 // Block unstable class patterns — function form checks anywhere in selector string
                 blacklist: [
+                    blockedAttributePart,
+                    blockedClassPart,
                     // Tailwind JIT / v4 arbitrary classes appear CSS-escaped as .\[...\] or .\(...\)
                     (sel: string) => /\\\[/.test(sel),  // e.g. .\[--border-width\:1px\]
                     (sel: string) => /\\\(/.test(sel),  // e.g. .\(--border-width\)
@@ -301,44 +312,32 @@ class SemanticXPathStrategy implements SelectorStrategy {
         const results: string[] = [];
 
         // 1. Stable attribute XPath
-        const semanticAttrs = ['data-testid', 'data-cy', 'data-component', 'role', 'itemprop', 'name', 'type'];
-        for (const attr of semanticAttrs) {
+        for (const attr of [...AUTHOR_ATTRIBUTES, 'role', 'name', 'type']) {
             const val = element.getAttribute(attr);
             if (val && isStableAttributeValue(attr, val)) {
-                const safe = val.replace(/"/g, '&quot;');
-                const sel = `//${tag}[@${attr}="${safe}"]`;
+                const sel = `//${tag}[@${attr}=${xpathLiteral(val)}]`;
                 if (this.isUnique(sel)) { results.push(sel); return results; }
             }
         }
 
         // 2. Class-based XPath — contains(concat(...)) prevents partial class name matches
-        if (element.className && typeof element.className === 'string') {
-            const classes = element.className.split(/\s+/).filter(c => c && !isUnstableClass(c)).slice(0, 5);
-            for (const cls of classes) {
-                const sel = `//${tag}[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]`;
-                if (this.isUnique(sel)) { results.push(sel); return results; }
-            }
+        const classes = stableClasses(element).slice(0, 5);
+        for (const cls of classes) {
+            const sel = `//${tag}[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]`;
+            if (this.isUnique(sel)) { results.push(sel); return results; }
+        }
 
-            // 3. Ancestor prefix fallback when no single class is globally unique
-            if (results.length === 0 && classes.length > 0) {
-                const targetCls = classes.slice(0, 3);
-                let ancestor = element.parentElement;
-                for (let depth = 0; depth < 3 && ancestor && ancestor !== document.body; depth++) {
-                    if (ancestor.className && typeof ancestor.className === 'string') {
-                        const acs = ancestor.className.split(/\s+/)
-                            .filter(c => c && !isUnstableClass(c))
-                            .slice(0, 5);
-                        const atag = ancestor.tagName.toLowerCase();
-                        for (const ac of acs) {
-                            for (const cls of targetCls) {
-                                const sel = `//${atag}[contains(concat(' ', normalize-space(@class), ' '), ' ${ac} ')]//${tag}[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]`;
-                                if (this.isUnique(sel)) { results.push(sel); return results; }
-                            }
-                        }
-                    }
-                    ancestor = ancestor.parentElement;
+        // 3. Ancestor prefix fallback when no single class is globally unique
+        let ancestor = element.parentElement;
+        for (let depth = 0; classes.length > 0 && depth < 3 && ancestor && ancestor !== document.body; depth++) {
+            const atag = ancestor.tagName.toLowerCase();
+            for (const ac of stableClasses(ancestor).slice(0, 5)) {
+                for (const cls of classes.slice(0, 3)) {
+                    const sel = `//${atag}[contains(concat(' ', normalize-space(@class), ' '), ' ${ac} ')]//${tag}[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]`;
+                    if (this.isUnique(sel)) { results.push(sel); return results; }
                 }
             }
+            ancestor = ancestor.parentElement;
         }
 
         return results;
@@ -366,16 +365,14 @@ class AttributeStrategy implements SelectorStrategy {
     priority = 108;
     generate(element: HTMLElement): string[] {
         const results: string[] = [];
-        // [CHANGED] Explicit whitelist of useful semantic attributes, excluding style/width/height/etc
-        const attributes = ['data-testid', 'data-cy', 'data-component-type', 'name', 'role', 'aria-label', 'title', 'rel', 'href', 'type'];
+        const attributes = [...AUTHOR_ATTRIBUTES, 'name', 'role', 'aria-label', 'title', 'rel', 'type'];
 
         const tag = element.tagName.toLowerCase();
         for (const attr of attributes) {
             const val = element.getAttribute(attr);
             if (val !== null && isStableAttributeValue(attr, val)) {
-                const safeVal = val.replace(/"/g, '\\"');
-                results.push(`[${attr}="${safeVal}"]`);
-                results.push(`${tag}[${attr}="${safeVal}"]`);
+                results.push(cssAttr(attr, val));
+                results.push(`${tag}${cssAttr(attr, val)}`);
             }
             // Unstable values: skip entirely — [attr] presence selectors match too broadly
         }
@@ -428,7 +425,7 @@ class SelectorGenerator {
                 if (seen.has(trimmed)) { seen.add(selector); continue; }
                 seen.add(trimmed);
                 seen.add(selector);
-                const isXPath = trimmed.startsWith('/') || trimmed.startsWith('(') || trimmed.startsWith('./');
+                const isXPath = looksLikeXPath(trimmed);
 
                 // In non-list mode, reject CSS selectors that aren't unique within root.
                 // This prevents generic selectors like [aria-label] or [role="img"] from

@@ -1,4 +1,4 @@
-import { isUnstableClass, isHashClass, isStableAttributeValue } from '../../../shared/selectors/stability';
+import { AUTHOR_ATTRIBUTES, isNamingClass, isStableAttributeValue } from '../../../shared/selectors/stability';
 
 /** A node's stable label (part of a field's signature) and a CSS step that matches it. */
 export interface NodeStep {
@@ -13,9 +13,9 @@ function attrSelector(attr: string, value: string): string {
 }
 
 /**
- * Label and CSS step for a node. Priority: stable semantic attribute > semantic tag > first
- * non-volatile class > tag+role > bare tag. Hashed (CSS-in-JS, CSS modules) and state classes are
- * skipped so the label survives redeploys.
+ * Label and CSS step for a node. Priority: author attribute (`AUTHOR_ATTRIBUTES`) > semantic tag >
+ * first naming class > tag+role > bare tag. Hashed, state and utility classes (by name or by how
+ * widely the page uses them) are skipped so the label survives redeploys.
  */
 export function nodeStep(t: Element): NodeStep {
     const cached = stepCache?.get(t);
@@ -33,7 +33,7 @@ export function setStepCache(cache: WeakMap<Element, NodeStep> | null) {
 }
 
 function computeStep(t: Element): NodeStep {
-    for (const attr of ['data-testid', 'data-cy', 'itemprop']) {
+    for (const attr of AUTHOR_ATTRIBUTES) {
         const val = t.getAttribute(attr);
         if (val && isStableAttributeValue(attr, val)) return { label: val, css: attrSelector(attr, val) };
     }
@@ -44,8 +44,7 @@ function computeStep(t: Element): NodeStep {
     }
 
     const classes = (t.getAttribute('class') || '').split(/\s+/).filter(c =>
-        c && !isUnstableClass(c) && !isHashClass(c) && !/^\d+$/.test(c) &&
-        !['js-', 'data-'].some(exc => c.startsWith(exc))
+        c && !/^(js|data)-/.test(c) && isNamingClass(c, t.ownerDocument ?? document)
     );
     if (classes.length > 0) {
         const c = classes[0];

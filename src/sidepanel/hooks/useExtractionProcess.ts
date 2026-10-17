@@ -6,6 +6,7 @@ import { PAGINATION_PROFILES, PaginationSpeed } from '../../shared/constants/pag
 import { consolidateSelectors } from '../../shared/utils/extractionLogic';
 import { filterPersistableChain } from '../../shared/selectors/stability';
 import { columnCoverage, ListingRunTracker } from '../../shared/listing/runStats';
+import { looksLikeXPath } from '../../shared/selectors/resolve';
 
 export function useExtractionProcess(onComplete?: (tableId: number) => void, onStart?: (jobId: number) => void) {
     const [status, setStatus] = useState<ExtractionStatus>({
@@ -281,7 +282,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                         selectionMode: 'items',
                                         enableInfiniteScroll: true,
                                         loadMoreSelector: pagination.mode === 'loadMore' ? pagination.nextButtonSelector : undefined,
-                                        loadMoreSelectorType: (pagination.nextButtonSelector?.startsWith('//') || pagination.nextButtonSelector?.startsWith('(')) ? 'xpath' : 'selector',
+                                        loadMoreSelectorType: pagination.nextButtonSelector && looksLikeXPath(pagination.nextButtonSelector) ? 'xpath' : 'selector',
                                         scrollDelay: profile.scrollDelay,
                                         contentLoadDelay: profile.contentLoadDelay,
                                         itemSelector: sel.itemSelector,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isUnstableClass, isHashClass, isStableAttributeValue, isVolatileSelector, filterPersistableChain } from './stability';
+import { isUnstableClass, isHashClass, isStableAttributeValue, isVolatileSelector, filterPersistableChain, isStableId, isUtilityByFrequency, xpathLiteral } from './stability';
 
 describe('isUnstableClass', () => {
     it('flags Tailwind utility classes', () => {
@@ -146,4 +146,53 @@ describe('stability rules: real-page cases', () => {
         ['style', 'color: red', false],
     ] as const)('isStableAttributeValue(%s, %s) is %s', (a, v, expected) =>
         expect(isStableAttributeValue(a, v)).toBe(expected));
+});
+
+describe('shared selector rules', () => {
+    it('flags border-colour, font-weight and grid-span utilities', () => {
+        for (const c of ['b--near-white', 'b--light-gray', 'normal', 'fw6', 'sg-col-20-of-24', 'sg-col-inner', 'col-3-of-12']) {
+            expect(isUnstableClass(c), c).toBe(true);
+        }
+        expect(isUnstableClass('col-md-4')).toBe(false);
+    });
+
+    it('keeps ids with underscores and short numbers, rejects generated ones', () => {
+        for (const id of ['search', 'corePrice_feature_div', 'productDetails_techSpec_section_1', 'section-1', 'mainContent']) {
+            expect(isStableId(id), id).toBe(true);
+        }
+        for (const id of ['ember123', 'react-select-2-input', 'item-12345', ':r1:', 'a7Fq2xK9', 'f3b2c1d4-e5f6', '']) {
+            expect(isStableId(id), id).toBe(false);
+        }
+    });
+
+    it('never embeds an instance value', () => {
+        expect(isStableAttributeValue('data-item-id', 'abc')).toBe(false);
+        expect(isStableAttributeValue('data-asin', 'B0ABC')).toBe(false);
+        expect(isStableAttributeValue('href', '/p/1')).toBe(false);
+        expect(isStableAttributeValue('data-product-sku', 'aa')).toBe(false);
+        expect(isStableAttributeValue('data-offer-id', 'deal')).toBe(false);
+        expect(isStableAttributeValue('data-automation-id', 'product-title')).toBe(true);
+        expect(isStableAttributeValue('data-automation-id', 'item-77812')).toBe(false);
+    });
+
+    it('writes XPath literals that evaluate to the text, whatever its quotes', () => {
+        document.body.innerHTML = `<a>Don't stop</a><b>Say "hi"</b><i>It's "both"</i>`;
+        for (const text of [`Don't stop`, `Say "hi"`, `It's "both"`]) {
+            const r = document.evaluate(`//*[normalize-space()=${xpathLiteral(text)}]`, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+            expect(r.snapshotLength, text).toBe(1);
+        }
+    });
+
+    it('counts a class spread over many elements of several tags as a utility', () => {
+        const root = document.createElement('div');
+        root.innerHTML = '<span class="spread"></span><div class="spread"></div><a class="spread"></a>'.repeat(4) + '<li class="card"></li>'.repeat(20);
+        expect(isUtilityByFrequency('spread', root)).toBe(true);
+        expect(isUtilityByFrequency('card', root)).toBe(false);
+    });
+
+    it('treats more than two XPath positions as volatile, but not the nearest sibling', () => {
+        expect(isVolatileSelector('//*[@id="search"]/div[1]/div[1]/span[2]')).toBe(true);
+        expect(isVolatileSelector('//th[normalize-space()="Weight"]/following-sibling::td[1]')).toBe(false);
+        expect(isVolatileSelector('(//a[@rel="next"])[1]')).toBe(false);
+    });
 });

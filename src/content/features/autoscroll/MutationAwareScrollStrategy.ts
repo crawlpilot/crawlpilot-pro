@@ -1,4 +1,5 @@
 import { IScrollStrategy, ScrollStrategyConfig, ScrollStrategyResult } from './IScrollStrategy';
+import { looksLikeXPath } from '../../../shared/selectors/resolve';
 
 /**
  * MutationAwareScrollStrategy — default for infinite/dynamic feeds.
@@ -330,7 +331,7 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
         try {
             const cleanSelector = selector.trim();
             let actualType = selectorType;
-            if (cleanSelector.startsWith('//') || cleanSelector.startsWith('(')) {
+            if (looksLikeXPath(cleanSelector)) {
                 actualType = 'xpath';
             }
 

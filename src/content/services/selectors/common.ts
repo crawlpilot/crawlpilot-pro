@@ -1,6 +1,7 @@
 import { generateRobustSelectors } from './generate';
 import { keepItems } from '../extraction/items';
-import { isUnstableClass, isStableAttributeValue, isHashClass, isVolatileSelector } from '../../../shared/selectors/stability';
+import { AUTHOR_ATTRIBUTES, isUnstableClass, isStableAttributeValue, isHashClass, isUtilityByFrequency, isVolatileSelector, xpathLiteral } from '../../../shared/selectors/stability';
+import { looksLikeXPath } from '../../../shared/selectors/resolve';
 
 export interface DerivedSelector {
     selector: string;
@@ -34,7 +35,7 @@ export class CommonSelectorGenerator {
             if (this.validateSelectorMajority(cand.selector, root, targetCount)) {
                 validResults.push({
                     selector: cand.selector,
-                    type: this.isXPath(cand.selector) ? 'XPath' : 'CSS'
+                    type: looksLikeXPath(cand.selector) ? 'XPath' : 'CSS'
                 });
             }
         }
@@ -63,7 +64,7 @@ export class CommonSelectorGenerator {
             const tag = targetSet[0].tagName.toLowerCase();
             if (attr.includes('=')) {
                 const parts = attr.match(/\[(.*)="(.*)"\]/);
-                if (parts) xpathAttr = `//${tag}[@${parts[1]}="${parts[2]}"]`;
+                if (parts) xpathAttr = `//${tag}[@${parts[1]}=${xpathLiteral(parts[2].replace(/\\(.)/g, '$1'))}]`;
             } else {
                 const parts = attr.match(/\[(.*)\]/);
                 if (parts) xpathAttr = `//${tag}[@${parts[1]}]`;
@@ -145,10 +146,6 @@ export class CommonSelectorGenerator {
     }
 
 
-    private isXPath(selector: string): boolean {
-        return selector.startsWith('/') || selector.startsWith('(') || selector.startsWith('.//');
-    }
-
     /**
      * Scores a selector by quality — higher score = better selector.
      * Semantic/class-based selectors rank high; structural paths rank low.
@@ -165,7 +162,7 @@ export class CommonSelectorGenerator {
         // :has() child-feature reward (specific but valid)
         if (sel.includes(':has(')) score += 25;
         // XPath slight penalty (valid but less ergonomic)
-        if (this.isXPath(sel)) score -= 5;
+        if (looksLikeXPath(sel)) score -= 5;
         // Brevity bonus — short selectors are easier to reason about
         score -= Math.max(0, sel.length - 30) * 0.3;
         return score;
@@ -177,7 +174,7 @@ export class CommonSelectorGenerator {
         // Scan descendants for significant classes and data-attributes
         const candidateFeatures = new Map<string, number>();
         const threshold = elements.length * 0.8;
-        const childAttrList = ['data-at', 'data-testid', 'data-test-id', 'data-cy', 'itemprop', 'role', 'data-component'];
+        const childAttrList = [...AUTHOR_ATTRIBUTES, 'data-at', 'role'];
 
         elements.forEach(el => {
             const seenInThisItem = new Set<string>();
@@ -231,7 +228,7 @@ export class CommonSelectorGenerator {
     private validateSelectorMajority(selector: string, root: HTMLElement, targetCount: number): boolean {
         try {
             let matches = 0;
-            if (this.isXPath(selector)) {
+            if (looksLikeXPath(selector)) {
                 const result = document.evaluate(
                     selector,
                     root,
@@ -277,13 +274,10 @@ export class CommonSelectorGenerator {
 
     private findAllCommonAttributes(elements: HTMLElement[]): string[] {
         // Expanded list for modern SPAs (LinkedIn, Instagram, Twitter) + site-specific hooks
+        // Author hooks first; then attributes items carry with per-item values, usable by presence only.
         const priorityAttributes = [
-            'data-testid', 'data-test-id', 'data-component', 'itemprop', 'role', 'data-cy', 'aria-label', 'name',
-            'data-urn', 'data-id', 'data-entity-urn', 'data-control-name', 'data-li-id', 'data-index',
-            'data-at',     // Nike/Nykaa automation hook
-            'data-qa',     // common QA attribute pattern
-            'data-type',   // product type/category markers
-            'data-item'    // generic item marker
+            ...AUTHOR_ATTRIBUTES, 'role', 'aria-label', 'name', 'data-at', 'data-type', 'data-item',
+            'data-urn', 'data-id', 'data-entity-urn', 'data-control-name', 'data-li-id', 'data-index', 'data-item-id', 'data-asin',
         ];
         const found: string[] = [];
         const threshold = elements.length * 0.8;
@@ -357,6 +351,6 @@ export class CommonSelectorGenerator {
      * so if they're shared by 80%+ of siblings, they're structurally meaningful.
      */
     private cleanClassesPermissive(classes: string[]): string[] {
-        return classes.filter(c => c && (!isUnstableClass(c) || isHashClass(c)));
+        return classes.filter(c => c && (!isUnstableClass(c) || isHashClass(c)) && !isUtilityByFrequency(c));
     }
 }

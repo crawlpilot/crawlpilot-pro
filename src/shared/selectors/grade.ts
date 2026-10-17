@@ -2,7 +2,7 @@
  * Plain-language selector grades (the two-layer wording from thenos's recipe studio): a selector is
  * Strong, Fragile or Broken, with one sentence of why, and the kind of evidence it leans on.
  */
-import { isHashClass, isUnstableClass } from './stability';
+import { AUTHOR_ATTRIBUTES, isHashClass, isStableId, isUnstableClass } from './stability';
 import { looksLikeXPath } from './resolve';
 
 export type SelectorGrade = 'strong' | 'fragile' | 'broken';
@@ -15,13 +15,13 @@ export interface GradedSelector {
     family: EvidenceFamily;
 }
 
-const TEST_ATTR = /\[(data-testid|data-test-id|data-test|data-qa|data-cy|data-automation-id)\b|@(data-testid|data-test-id|data-test|data-qa|data-cy|data-automation-id)\b/;
+const TEST_IDS = AUTHOR_ATTRIBUTES.filter(a => a !== 'itemprop').join('|');
+const TEST_ATTR = new RegExp(`\\[(${TEST_IDS})\\b|@(${TEST_IDS})\\b`);
 const LABEL_ATTR = /\[(aria-label|title|alt|name|placeholder)\b|@(aria-label|title|alt|name|placeholder)\b|\[role\b|@role\b|\[itemprop\b|@itemprop\b/;
 const OTHER_ATTR = /\[[a-z-]+[\]=~^$*|]|@[a-z-]+/i;
 const TEXT_TEST = /text\(\)|normalize-space\(|contains\(string\(|:has-text\(|:contains\(/;
 const POSITION_CSS = /:nth-(child|of-type|last-child|last-of-type)\(/;
 const XPATH_POSITION = /\[\d+\]/g;
-const GENERATED_ID = /^(ember|react|radix|headlessui|mui|rc-|uid|guid|__)|[-_]?(autoid|uuid|guid)[-_]|\d{4,}|:/i;
 
 function classTokens(selector: string): string[] {
     const css = (selector.match(/\.[A-Za-z0-9_-]+/g) || []).map(t => t.slice(1));
@@ -64,7 +64,7 @@ export function gradeSelector(selector: string, matchCount: number, expected?: n
         return { grade: 'fragile', reason: 'depends on the element\'s position among its siblings', family };
     }
     const ids = idTokens(s);
-    if (ids.some(id => GENERATED_ID.test(id))) {
+    if (ids.some(id => !isStableId(id))) {
         return { grade: 'fragile', reason: 'uses an id that looks generated per page load', family };
     }
     const classes = classTokens(s);
