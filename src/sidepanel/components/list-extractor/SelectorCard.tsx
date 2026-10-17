@@ -73,11 +73,11 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
                         onClick={async () => {
                             if (selector.data) {
                                 try {
-                                    const { db } = await import('../../../shared/db/db-manager');
+                                    const { db } = await import('../../../shared/db');
                                     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
                                     const pageTitle = tab?.title || new URL(selector.data.source_url || window.location.href).hostname;
 
-                                    const tableId = await db.saveExtraction(selector.data, {
+                                    const tableId = await db.tables.save(selector.data, {
                                         name: pageTitle,
                                         isPreview: true
                                     });

@@ -1,4 +1,4 @@
-import { db } from '../shared/db/db-manager';
+import { db } from '../shared/db';
 import { fail, ok, on } from '../shared/messages';
 import { injectContentScriptIntoOpenTabs } from '../shared/utils/hostPermissions';
 import { JobRunner } from './runs/JobRunner';
@@ -23,7 +23,7 @@ async function recoverInterruptedExtractions() {
 
 // Initialize database on install
 chrome.runtime.onInstalled.addListener(async (_) => {
-    await db.init();
+    await db.open();
     await recoverInterruptedExtractions();
 });
 
@@ -40,7 +40,7 @@ chrome.permissions.onAdded.addListener((added) => {
 
 // Initialize database on startup
 (async () => {
-    await db.init();
+    await db.open();
     await recoverInterruptedExtractions();
 })();
 

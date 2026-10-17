@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { on, RunComplete, RunProgress } from '../../shared/messages';
 import { useTranslation } from 'react-i18next';
 import { useTableData, useAllTableData, useExportData } from '../hooks/useDatabase';
-import { db } from '@/shared/db/db-manager';
+import { db } from '@/shared/db';
 import type { TypedColumnDef } from '@/shared/types/database';
 import DataTable from '../components/ui/DataTable';
 import SchemaMapDialog, { OutputMappingState } from '../components/ui/SchemaMapDialog';
@@ -60,26 +60,24 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
 
     const handleColumnRenamed = useCallback(async (colId: string, newName: string) => {
         if (!selectedId || !tableData) return;
-        const updatedCol = tableData.columns.find(c => c.id === colId);
-        if (!updatedCol) return;
-        await db.updateTableColumns(selectedId, [{ ...updatedCol, name: newName }]);
+        await db.tables.renameColumn(selectedId, colId, newName);
     }, [selectedId, tableData]);
 
     const handleColumnDeleted = useCallback(async (colId: string) => {
         if (!selectedId || !tableData) return;
-        await db.updateTableData(selectedId, { columns: tableData.columns.filter(c => c.id !== colId) });
+        await db.tables.update(selectedId, { columns: tableData.columns.filter(c => c.id !== colId) });
         refreshTable();
     }, [selectedId, tableData, refreshTable]);
 
     const handleColumnsMerged = useCallback(async (merge: { id: string; name: string; sources: string[]; separator: string }) => {
         if (!selectedId || !tableData) return;
         const existing = tableData.metadata?.columnMerges || [];
-        await db.updateTableData(selectedId, { metadata: { columnMerges: [...existing, merge] } });
+        await db.tables.update(selectedId, { metadata: { columnMerges: [...existing, merge] } });
     }, [selectedId, tableData]);
 
     const handleTypedColumnsChanged = useCallback(async (defs: TypedColumnDef[]) => {
         if (!selectedId) return;
-        await db.updateTableData(selectedId, { metadata: { columnTypes: defs } });
+        await db.tables.update(selectedId, { metadata: { columnTypes: defs } });
     }, [selectedId]);
 
     const handleExportCSV = () => {
@@ -111,7 +109,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
 
     const handleOutputMapping = useCallback(async (state: OutputMappingState) => {
         if (!selectedId) return;
-        await db.updateTableData(selectedId, { metadata: { outputMapping: state } });
+        await db.tables.update(selectedId, { metadata: { outputMapping: state } });
     }, [selectedId]);
 
     const handleExportMarkdown = () => {

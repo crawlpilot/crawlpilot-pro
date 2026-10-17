@@ -1,9 +1,3 @@
-// Database table names
-export const TABLE_NAMES = {
-    TABLE_DATA: 'tableData',
-    TABLE_ROWS: 'tableRows',
-} as const;
-
 // Column type definitions
 export type ColumnType =
     | 'text'
@@ -179,8 +173,3 @@ export interface Job {
     createdAt: number;
     updatedAt: number;
 }
-
-export const NEW_TABLE_NAMES = {
-    RECIPES: 'recipes',
-    JOBS: 'jobs'
-} as const;

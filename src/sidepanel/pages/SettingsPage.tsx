@@ -41,7 +41,7 @@ import i18n, { SUPPORTED_LANGS, LANG_LABELS, type SupportedLang } from '../../i1
 
 // TO CONFIGURE: replace REPLACE_ME with the same Google Form URL used in background/index.ts
 const FEEDBACK_FORM_URL = 'https://forms.gle/REPLACE_ME';
-import { db } from '../../shared/db/db-manager';
+import { db } from '../../shared/db';
 import { useJobHistory } from '../hooks/useDatabase';
 
 interface SettingsPageProps {
@@ -123,7 +123,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         if (nukeConfirmText !== 'DELETE') return;
         setNuking(true);
         try {
-            await db.clearAllData();
+            await db.clearAll();
             await refresh();
             setConfirmNukeOpen(false);
             setNukeConfirmText('');

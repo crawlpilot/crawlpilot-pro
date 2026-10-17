@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { downloadText } from '../services/download';
-import { db } from '@/shared/db/db-manager';
-import { NEW_TABLE_NAMES, TableData, TableRow, Job, AutomationRecipe } from '@/shared/types/database';
+import { db } from '@/shared/db';
+import { TableData, TableRow } from '@/shared/types/database';
+import type { JobWithRecipe } from '@/shared/db';
 
 const ROW_PAGE_LIMIT = 2000;
 
@@ -25,9 +26,9 @@ export function useTableData(tableDataId?: number | null) {
             setError(null);
 
             const [data, count, pageRows] = await Promise.all([
-                db.getTableData(id),
-                db.getTableRowCount(id),
-                db.getTableRowsPage(id, 0, ROW_PAGE_LIMIT),
+                db.tables.get(id),
+                db.tables.rowCount(id),
+                db.tables.rowsPage(id, 0, ROW_PAGE_LIMIT),
             ]);
 
             // Columns are final when saved (one per field), so rows load as they are.
@@ -73,7 +74,7 @@ export function useAllTableData() {
             console.log('🔄 [useAllTableData] Refreshing table data...');
             setLoading(true);
             setError(null);
-            const data = await db.getAllTableData();
+            const data = await db.tables.list();
             console.log(`✅ [useAllTableData] Received ${data.length} items from DB.`);
             setTableDatas(data);
         } catch (err) {
@@ -255,7 +256,7 @@ export function useExportData() {
  * Hook for managing job history
  */
 export function useJobHistory() {
-    const [jobs, setJobs] = useState<(Job & { recipe?: AutomationRecipe })[]>([]);
+    const [jobs, setJobs] = useState<JobWithRecipe[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -263,7 +264,7 @@ export function useJobHistory() {
         try {
             setLoading(true);
             setError(null);
-            const data = await db.getAllJobs();
+            const data = await db.jobs.list();
             setJobs(data);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load jobs');
@@ -276,22 +277,7 @@ export function useJobHistory() {
     const deleteJob = async (id: number) => {
         try {
             const job = jobs.find(j => j.id === id);
-            if (job?.result?.tableDataId) {
-                await db.deleteTableData(job.result.tableDataId);
-            }
-            await new Promise<void>((resolve, reject) => {
-                const transaction = (db as any).db.transaction([NEW_TABLE_NAMES.JOBS], 'readwrite');
-                const store = transaction.objectStore(NEW_TABLE_NAMES.JOBS);
-                const request = store.delete(id);
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-            });
-            if (job?.recipeId) {
-                try {
-                    const rTrans = (db as any).db.transaction([NEW_TABLE_NAMES.RECIPES], 'readwrite');
-                    rTrans.objectStore(NEW_TABLE_NAMES.RECIPES).delete(job.recipeId);
-                } catch (e) { console.warn("Failed to delete recipe", e); }
-            }
+            if (job) await db.jobs.remove(job);
             setJobs(prev => prev.filter(j => j.id !== id));
         } catch (err) {
             console.error('Failed to delete job:', err);

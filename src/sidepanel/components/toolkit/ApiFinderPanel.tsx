@@ -5,7 +5,7 @@ import type { NetEntry } from '../../../shared/network/types';
 import { findValuePaths, formatPath, generalisePath, resolvePath, arrayPathOf, ValueHit } from '../../../shared/network/jsonSearch';
 import { tableFromArray } from '../../../shared/network/arrayTable';
 import { REQUEST_TARGET_LABELS, RequestTarget, toRequestSnippet, detectPagingParams, hasSensitiveHeaders } from '../../../shared/network/requestSnippets';
-import { db } from '../../../shared/db/db-manager';
+import { db } from '../../../shared/db';
 import { on, sendToActiveTab } from '../../../shared/messages';
 import { copyText } from '../../services/clipboard';
 import { startRecording, stopRecording, isRecordingRegistered } from './apiRecording';
@@ -154,7 +154,7 @@ export default function ApiFinderPanel() {
         const { columns, rows } = tableFromArray(items);
         let host = '';
         try { host = new URL(entry.url).host; } catch { /* keep empty */ }
-        const tableId = await db.saveExtraction({
+        const tableId = await db.tables.save({
             type: 'list',
             items: rows,
             columns: columns.map((c, i) => ({ id: c, name: c, type: 'text' as const, order: i })),

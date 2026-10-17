@@ -8,8 +8,8 @@
  */
 import { send } from '../../shared/messages';
 import type { UrlStatus } from '../../shared/messages';
-import { db } from '../../shared/db/db-manager';
-import type { Column } from '../../shared/types/database';
+import { db } from '../../shared/db';
+import type { AutomationConfig, AutomationType, Column } from '../../shared/types/database';
 import { classifyPage, collectPageSignals, PageClassification, VERDICT_LABELS } from '../../shared/verdict/classifyPage';
 import { TabPool } from './TabPool';
 import { buildFinalName, buildInitialName, buildPreviewName } from './naming';
@@ -49,7 +49,7 @@ export interface RunJob {
     jobId?: number;
     recipeId?: number;
     name?: string;
-    recipe: { type: string; description: string; config: any };
+    recipe: { type: AutomationType; description: string; config: AutomationConfig };
     /** The table's `type` and `metadata.extractionType`. */
     tableType: string;
     /** The table's columns, from the columns the pages reported so far. */
@@ -161,19 +161,19 @@ export class JobRunner {
     private async createJob(job: RunJob, urls: string[]): Promise<number> {
         const stats = { startTime: Date.now(), itemsExtracted: 0, pagesVisited: 0, errors: 0 };
         if (job.jobId) {
-            await db.updateJob(job.jobId, { status: 'running', stats });
+            await db.jobs.update(job.jobId, { status: 'running', stats });
             return job.jobId;
         }
         const name = job.name || buildInitialName(urls);
         const now = Date.now();
-        const recipeId = job.recipeId ?? await db.createRecipe({
-            name, description: job.recipe.description, type: job.recipe.type as any, version: 1,
+        const recipeId = job.recipeId ?? await db.jobs.createRecipe({
+            name, description: job.recipe.description, type: job.recipe.type, version: 1,
             config: job.recipe.config, createdAt: now, updatedAt: now,
         });
-        return db.createJob({
+        return db.jobs.create({
             recipeId, name, status: 'running', sourceUrl: urls[0], configSnapshot: job.recipe.config,
             stats, createdAt: now, updatedAt: now,
-        } as any);
+        });
     }
 
     private async run() {
@@ -355,7 +355,7 @@ export class JobRunner {
 
         const done = state.urls.filter(u => u.status === 'done').length;
         const name = buildPreviewName(state.urls.map(u => u.url), done, state.urls.length);
-        const id = await db.saveExtraction(this.tableData(fresh), {
+        const id = await db.tables.save(this.tableData(fresh), {
             name, jobId: state.jobId, isPreview: true, ...(this.previewTableId !== null ? { tableDataId: this.previewTableId } : {}),
         });
         if (this.previewTableId === null) this.previewTableId = id;
@@ -394,19 +394,19 @@ export class JobRunner {
                 const name = buildFinalName(urls.map(u => u.url), done);
                 if (this.previewTableId !== null) {
                     const unsaved = rows.slice(this.previewSaved);
-                    if (unsaved.length > 0) await db.storeTableRowsBatch(this.previewTableId, unsaved);
-                    await db.updateTableColumns(this.previewTableId, job.columns(state.columns));
-                    await db.updateTableData(this.previewTableId, {
+                    if (unsaved.length > 0) await db.tables.appendRows(this.previewTableId, unsaved);
+                    await db.tables.setColumns(this.previewTableId, job.columns(state.columns));
+                    await db.tables.update(this.previewTableId, {
                         name,
-                        metadata: { extractionType: job.tableType, totalRows: rows.length, isPreview: false },
+                        metadata: { extractionType: job.tableType, isPreview: false },
                     });
                     tableDataId = this.previewTableId;
                 } else {
-                    tableDataId = await db.saveExtraction(this.tableData(rows), { name, jobId });
+                    tableDataId = await db.tables.save(this.tableData(rows), { name, jobId });
                 }
             }
 
-            await db.updateJob(jobId, {
+            await db.jobs.update(jobId, {
                 status: stoppedByUser ? 'paused' : 'completed',
                 result: tableDataId ? { tableDataId } : undefined,
                 stats: { startTime, endTime: Date.now(), itemsExtracted: rows.length, pagesVisited: done, errors, stoppedByUser, verdicts: this.verdictCounts() },
@@ -473,7 +473,7 @@ export class JobRunner {
                 await chrome.tabs.remove(u.tabId).catch(() => undefined);
             }
         }
-        await db.updateJob(saved.jobId, {
+        await db.jobs.update(saved.jobId, {
             status: 'failed',
             error: 'Extraction interrupted — the browser or extension was restarted mid-run.',
             stats: { startTime: Date.now(), endTime: Date.now(), itemsExtracted: 0, stoppedByUser: false },

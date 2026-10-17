@@ -330,3 +330,10 @@ throws, the database stays at v5.
 | **DB1 Module** | `schema.ts`, `req()`, the three repositories over the **current** stores, every caller moved off `db-manager.ts`. Stop writing `originalData`; fix the `rowCount` count; no merge in `updateTableColumns`; preview tables cleaned up | `db-manager.ts` deleted; no `as any` at a db call; storage per row halved |
 | **DB2 Typed recipes (with S6)** | v6 schema, migration v5 → v6 with fixture tests, rule 1 (recipe reuse, `rev`), reruns from the current recipe, History reads `spec.kind` | A v5 database with list, bulk and metadata jobs opens as v6 and every job reruns. One recipe per pick, not per run |
 | **DB3 Settings** | `shared/storage.ts` for the `chrome.storage` keys | Each key defined once with its type |
+
+## 8. Progress
+
+| Phase | State | Notes |
+|---|---|---|
+| S0 | **done** (2026-10-17) | `src/test/corpus`: six pages, `report.json` pinned. Baseline summary: item first entry exact on 5 of 6 pages (Amazon `[data-index]`, 30 for 16); single elements 16 selectors, 9 positional, 5 with an instance value (`[data-item-id=…]`, `[href=…]`), 7 strong; fields 16 of 18 read (Walmart was-price, Amazon price missing). `specs.ts` holds what the picker stores (`listLocators`, `elementLocators`, `controlLocators`) |
+| DB1 | **done** (2026-10-17) | `shared/db/` (`schema`, `idb`, `tables`, `jobs`, `index`) replaces `db-manager.ts`. Rows stored once; `totalRows` counted from stored rows; columns replaced, never merged; one loose preview at a time; deleting a job keeps a recipe a rerun still uses; no `as any` at a db call. Duplicates are checked before `add` (fake-indexeddb neither rejects two adds in one transaction nor drops a rejected one). Store names unchanged (v5); DB2 renames them |

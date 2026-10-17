@@ -5,7 +5,7 @@ import { useSelectorManager } from '../hooks/useSelectorManager';
 import { useSelectionMode } from '../hooks/useSelectionMode';
 import { useExtractionProcess } from '../hooks/useExtractionProcess';
 import { PaginationMode, SelectorState } from '../../shared/types/extraction';
-import { db } from '../../shared/db/db-manager';
+import { db } from '../../shared/db';
 import { WizardLayout } from '../components/wizard/WizardLayout';
 import { Step1Selection } from '../components/list-extractor/wizard/Step1Selection';
 import { Step2Navigation } from '../components/list-extractor/wizard/Step2Navigation';
@@ -126,7 +126,7 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
 
                                 // Pass the existing previewTableId so we UPDATE the same record
                                 // instead of creating a new one each time the user picks elements.
-                                const tableId = await db.saveExtraction(previewData, {
+                                const tableId = await db.tables.save(previewData, {
                                     name: pageTitle,
                                     isPreview: true,
                                     tableDataId: previewTableId || undefined,

@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { on, sendToActiveTab, sendToTab } from '../../shared/messages';
-import { db } from '../../shared/db/db-manager';
+import { db } from '../../shared/db';
 import { SelectorState, PaginationConfig, ExtractionStatus, SelectorMetadata } from '../../shared/types/extraction';
 import { PAGINATION_PROFILES, PaginationSpeed } from '../../shared/constants/paginationConfig';
 import { consolidateSelectors } from '../../shared/utils/extractionLogic';
@@ -139,7 +139,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             let previewTableName: string | null = null;
             if (options?.tableDataId) {
                 try {
-                    const previewRecord = await db.getTableData(options.tableDataId);
+                    const previewRecord = await db.tables.get(options.tableDataId);
                     // Strip the "Preview: " prefix that saveExtraction prepends
                     previewTableName = previewRecord?.name?.replace(/^Preview:\s*/i, '') || null;
                 } catch { /* ignore */ }
@@ -171,7 +171,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             // 0. Use existing or create new Recipe
             let recipeId = options?.recipeId;
             if (!recipeId) {
-                recipeId = await db.createRecipe({
+                recipeId = await db.jobs.createRecipe({
                     name: automationTitle,
                     description: "Auto-generated extraction",
                     type: 'list-extraction',
@@ -198,7 +198,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             }
 
             // Use 'jobId' variable (renamed from automationId) to hold Job ID
-            const jobId = await db.createJob({
+            const jobId = await db.jobs.create({
                 recipeId: recipeId,
                 name: customName || undefined,
                 status: 'running',
@@ -222,7 +222,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                 },
                 createdAt: Date.now(),
                 updatedAt: Date.now()
-            } as any);
+            });
 
             // Notify that job has started
             if (onStart) {
@@ -358,7 +358,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             finalExtraction.timestamp = new Date().toISOString();
 
             // Save as a SINGLE dataset linked to the automation
-            const tableId = await db.saveExtraction(finalExtraction, {
+            const tableId = await db.tables.save(finalExtraction, {
                 name: pageTitle,
                 jobId: jobId,
                 tableDataId: tableDataId,
@@ -367,13 +367,12 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             });
 
             // Update Job status
-            const jobs = await db.getAllJobs();
-            const currentJob = jobs.find(j => j.id === jobId);
+            const currentJob = await db.jobs.get(jobId);
 
             // Determine final status
             const finalStatus = stopExtractionRef.current ? 'stopped' : 'completed';
 
-            await db.updateJob(jobId, {
+            await db.jobs.update(jobId, {
                 status: stopExtractionRef.current ? 'paused' : 'completed',
                 result: {
                     tableDataId: tableId
