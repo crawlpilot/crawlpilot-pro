@@ -4,6 +4,7 @@ import { useTableData, useAllTableData, useExportData } from '../hooks/useDataba
 import { db } from '@/shared/db/db-manager';
 import type { TypedColumnDef } from '@/shared/types/database';
 import DataTable from '../components/ui/DataTable';
+import SchemaMapDialog, { OutputMappingState } from '../components/ui/SchemaMapDialog';
 import Select from '../components/ui/Select';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import EmptyState from '../components/ui/EmptyState';
@@ -105,6 +106,18 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
             alert(`Export failed: ${err.message}`);
         }
     };
+
+    const [schemaMap, setSchemaMap] = useState<{ columns: { id: string; name: string; type?: string }[]; rows: any[] } | null>(null);
+
+    const openSchemaMap = () => {
+        if (!tableRef.current) return;
+        setSchemaMap(tableRef.current.getProcessedData());
+    };
+
+    const handleOutputMapping = useCallback(async (state: OutputMappingState) => {
+        if (!selectedId) return;
+        await db.updateTableData(selectedId, { metadata: { outputMapping: state } });
+    }, [selectedId]);
 
     const handleExportMarkdown = () => {
         if (!tableRef.current) return;
@@ -283,6 +296,13 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                                         >
                                             <FileJson className="w-3 h-3 text-yellow-400" /> {t('page.exportJSON')}
                                         </button>
+                                        <button
+                                            onClick={() => { openSchemaMap(); setExportOpen(false); }}
+                                            role="menuitem"
+                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-white/5 focus-visible:bg-white/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
+                                        >
+                                            <FileJson className="w-3 h-3 text-emerald-400" /> JSON to a schema…
+                                        </button>
                                         {hasMarkdownColumns && (
                                             <button
                                                 onClick={() => { handleExportMarkdown(); setExportOpen(false); }}
@@ -363,6 +383,17 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                     </div>
                 )}
             </div>
+            {schemaMap && (
+                <SchemaMapDialog
+                    open
+                    onClose={() => setSchemaMap(null)}
+                    columns={schemaMap.columns}
+                    rows={schemaMap.rows}
+                    tableName={tableData?.name || 'export'}
+                    saved={tableData?.metadata?.outputMapping}
+                    onSave={handleOutputMapping}
+                />
+            )}
         </div>
     );
 }

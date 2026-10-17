@@ -50,6 +50,8 @@ export interface TableData {
         source?: string;
         isPreview?: boolean;
         columnMerges?: Array<{ id: string; name: string; sources: string[]; separator: string }>;
+        /** Column → output-schema mapping chosen in "JSON to a schema". */
+        outputMapping?: { contractId: string; customText?: string; mapping: Record<string, string | null> };
         /** Typed columns derived from a source column by a transform chain (shared/transforms). */
         columnTypes?: TypedColumnDef[];
         // automationId removed from metadata as it is redundant
