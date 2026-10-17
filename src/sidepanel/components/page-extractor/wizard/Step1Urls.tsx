@@ -1,6 +1,7 @@
-import { useRef } from 'react';
-import { Check, Database, Upload, X } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Check, Compass, Database, Upload, X } from 'lucide-react';
 import Badge from '../../ui/Badge';
+import SiteDiscoveryDialog from '../SiteDiscoveryDialog';
 
 interface Step1UrlsProps {
     selectedUrls: string[];
@@ -18,6 +19,7 @@ export function Step1Urls({
     onNext
 }: Step1UrlsProps) {
     const csvInputRef = useRef<HTMLInputElement>(null);
+    const [discoverOpen, setDiscoverOpen] = useState(false);
 
     const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -148,10 +150,29 @@ export function Step1Urls({
                                     <p className="text-xs text-text-muted mt-0.5">Use links from existing tables</p>
                                 </div>
                             </button>
+
+                            <button
+                                className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border-subtle hover:border-accent-warning/50 hover:bg-surface-lighter transition-all text-left group"
+                                onClick={() => setDiscoverOpen(true)}
+                            >
+                                <div className="w-10 h-10 rounded bg-accent-warning/10 flex items-center justify-center">
+                                    <Compass className="w-5 h-5 text-accent-warning" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-semibold text-text-primary group-hover:text-accent-warning transition-colors">Discover from this site</h3>
+                                    <p className="text-xs text-text-muted mt-0.5">Read sitemaps and group pages by type</p>
+                                </div>
+                            </button>
                         </div>
                     </>
                 )}
             </div>
+
+            <SiteDiscoveryDialog
+                open={discoverOpen}
+                onClose={() => setDiscoverOpen(false)}
+                onUse={(urls) => setSelectedUrls(Array.from(new Set([...selectedUrls, ...urls])))}
+            />
 
             <div className="flex justify-end pt-2">
                 <button
