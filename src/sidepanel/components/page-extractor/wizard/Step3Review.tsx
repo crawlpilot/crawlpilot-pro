@@ -35,6 +35,8 @@ interface Step3ReviewProps {
     setDomainMinGapMs: (val: number) => void;
     pauseOnChallenge: boolean;
     setPauseOnChallenge: (val: boolean) => void;
+    listOutput: 'nested' | 'rows' | 'numbered';
+    setListOutput: (val: 'nested' | 'rows' | 'numbered') => void;
     activeTabs: number;
     urlStatuses: UrlStatus[];
     previewTableId: number | null;
@@ -81,6 +83,13 @@ function SettingRow({ label, hint, children }: { label: string; hint?: string; c
     );
 }
 
+const LIST_OUTPUT_LABELS = { nested: 'One column', rows: 'Row per item', numbered: 'Numbered' } as const;
+const LIST_OUTPUT_HINTS = {
+    nested: 'Each list is one JSON column holding all its items',
+    rows: 'One row per item of the first list; the page’s other fields repeat on each row',
+    numbered: 'Field 1 … Field 10 columns (the first 10 items)',
+} as const;
+
 function NumInput({ value, onChange, min, max, step = 500 }: { value: number; onChange: (v: number) => void; min: number; max: number; step?: number }) {
     return (
         <div className="flex items-center gap-1">
@@ -123,6 +132,8 @@ export function Step3Review({
     setDomainMinGapMs,
     pauseOnChallenge,
     setPauseOnChallenge,
+    listOutput,
+    setListOutput,
     activeTabs,
     urlStatuses,
     previewTableId,
@@ -241,6 +252,26 @@ export function Step3Review({
                                         <Toggle checked={pauseOnChallenge} onChange={setPauseOnChallenge} />
                                     </SettingRow>
                                 </div>
+
+                                {/* List output: same columns on every page, whatever the list lengths */}
+                                {elements.some((e: any) => e.type === 'list' || e.type === 'smart') && (
+                                    <div className="border-t border-border-subtle px-4 py-3 space-y-3">
+                                        <span className="text-[11px] font-semibold text-text-primary uppercase tracking-wider block">Lists</span>
+                                        <SettingRow label="List Output" hint={LIST_OUTPUT_HINTS[listOutput]}>
+                                            <div className="flex rounded-md overflow-hidden border border-border-subtle">
+                                                {(['nested', 'rows', 'numbered'] as const).map(mode => (
+                                                    <button
+                                                        key={mode}
+                                                        onClick={() => setListOutput(mode)}
+                                                        className={`px-2 py-0.5 text-[10px] font-medium ${listOutput === mode ? 'bg-primary text-white' : 'bg-surface-darker text-text-muted hover:text-text-primary'}`}
+                                                    >
+                                                        {LIST_OUTPUT_LABELS[mode]}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </SettingRow>
+                                    </div>
+                                )}
 
                                 {/* Element Waiting */}
                                 <div className="border-t border-border-subtle px-4 py-3 space-y-3">

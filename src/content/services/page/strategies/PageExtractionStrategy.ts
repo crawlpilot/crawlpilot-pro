@@ -1,5 +1,6 @@
 import { ElementProcessor } from '../processors/ElementProcessor';
 import { ExtractionConfig, ElementDefinition, ProcessedElementResult } from '../types';
+import { buildPageRecord, ListOutput } from '../processors/columnHelpers';
 
 class Aggregator {
     columns: any[] = [];
@@ -68,53 +69,15 @@ class Aggregator {
         }
     }
 
-    getResult() {
-        const recordId = `rec_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-        const recordIdColumn = {
-            id: 'recordId',
-            originalId: 'recordId',
-            name: 'RECORD ID',
-            type: 'text',
-            elementId: 'recordId',
-            elementName: 'Record Identifier'
-        };
-
-        // Always produce a single row: scalars, JSON-consolidated tables, and flattened lists
-        const singleRow: any = { recordId };
-        const singleColumns: any[] = [recordIdColumn];
-
-        Object.entries(this.item).forEach(([key, value]: [string, any]) => {
-            if (value && typeof value === 'object' && value.__type === 'list') {
-                // Flatten list items into numbered columns
-                const listCols = value.columns || [];
-                value.items.forEach((item: any, idx: number) => {
-                    listCols.forEach((col: any) => {
-                        const numberedId = `${col.id}_${idx + 1}`;
-                        const numberedName = `${col.name} ${idx + 1}`;
-                        singleRow[numberedId] = item[col.id] ?? null;
-                        singleColumns.push({
-                            id: numberedId,
-                            originalId: col.id,
-                            name: numberedName,
-                            type: col.type || 'text',
-                            elementId: key,
-                            elementName: col.name
-                        });
-                    });
-                });
-            } else {
-                singleRow[key] = value;
-                const col = this.columns.find(c => c.id === key);
-                if (col) singleColumns.push(col);
-            }
-        });
+    getResult(listOutput?: ListOutput) {
+        const record = buildPageRecord(this.item, this.columns, listOutput);
 
         return {
-            columns: singleColumns,
-            item: singleRow,
+            columns: record.columns,
+            item: record.item,
+            items: record.items,
             elementResults: this.elementResults,
-            totalItemCount: 1,
+            totalItemCount: record.items?.length ?? 1,
             successfulElements: this.elementResults.filter(r => r.success).length,
             failedElements: this.elementResults.filter(r => !r.success).length
         };
@@ -154,7 +117,7 @@ export class PageExtractionStrategy {
             }
         }
 
-        const aggregatedResult = this.aggregator.getResult();
+        const aggregatedResult = this.aggregator.getResult(this.config.listOutput);
         return this.createSuccessResult(this.url, aggregatedResult);
     }
 
@@ -189,10 +152,7 @@ export class PageExtractionStrategy {
 
         if (aggregatedResult.items) {
             // Multi-row result (list expansion)
-            const items = aggregatedResult.items.map((item: any, index: number) => ({
-                url: index === 0 ? url : null,
-                ...item
-            }));
+            const items = aggregatedResult.items.map((item: any) => ({ url, ...item }));
 
             return {
                 url,

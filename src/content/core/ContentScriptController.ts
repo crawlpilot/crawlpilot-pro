@@ -6,6 +6,7 @@ import { ListSelectionStrategy } from '../features/picker/strategies/ListSelecti
 import { SingleSelectionStrategy } from '../features/picker/strategies/SingleSelectionStrategy';
 import { hasReaders, inferFields, readRow, similarSiblings, ReaderColumn } from '../services/extraction/fieldSchema';
 import { PageExtractor } from '../services/page/PageExtractor';
+import { buildPageRecord } from '../services/page/processors/columnHelpers';
 import { DetailSelectionStrategy } from '../features/picker/strategies/DetailSelectionStrategy';
 import { ImageScanner } from '../features/universal-images/ImageScanner';
 import { ProgressiveImageScanner } from '../features/universal-images/ProgressiveImageScanner';
@@ -259,36 +260,12 @@ export class ContentScriptController {
                 }
             }
 
-            // Always produce a single row: scalars, JSON-consolidated tables, flattened lists
-            const recordId = `rec_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-            const recordIdCol = { id: 'recordId', originalId: 'recordId', name: 'RECORD ID', type: 'text' };
-
-            const singleRow: any = { recordId };
-            const singleColumns: any[] = [];
-
-            Object.entries(elementData).forEach(([key, value]) => {
-                if (value && typeof value === 'object' && (value as any).__type === 'list') {
-                    const listCols = (value as any).columns || [];
-                    ((value as any).items || []).forEach((item: any, idx: number) => {
-                        listCols.forEach((col: any) => {
-                            const numberedId = `${col.id}_${idx + 1}`;
-                            const numberedName = `${col.name} ${idx + 1}`;
-                            singleRow[numberedId] = item[col.id] ?? null;
-                            singleColumns.push({ id: numberedId, originalId: col.id, name: numberedName, type: col.type || 'text' });
-                        });
-                    });
-                } else {
-                    singleRow[key] = value;
-                    const col = allColumns.find((c: any) => c.id === key);
-                    if (col) singleColumns.push(col);
-                }
-            });
-
-            const finalColumns = [recordIdCol, ...singleColumns];
+            // Same shape as PageExtractionStrategy: scalars, plus each list shaped by the list output setting.
+            const record = buildPageRecord(elementData, allColumns, config?.listOutput);
 
             sendResponse({
                 success: true,
-                result: { item: singleRow, columns: finalColumns, url }
+                result: { item: record.item, items: record.items, columns: record.columns, url }
             });
         });
 

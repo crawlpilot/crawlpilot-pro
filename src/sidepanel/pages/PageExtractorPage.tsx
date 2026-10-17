@@ -91,6 +91,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
     const [elementTimeout, setElementTimeout] = useState(0);
     const [domainMinGapMs, setDomainMinGapMs] = useState(0);
     const [pauseOnChallenge, setPauseOnChallenge] = useState(true);
+    const [listOutput, setListOutput] = useState<'nested' | 'rows' | 'numbered'>('nested');
     const [extractionViewport, setExtractionViewport] = useState<{ width: number; height: number } | null>(null);
 
     const handleReset = useCallback(() => {
@@ -108,6 +109,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         setElementTimeout(0);
         setDomainMinGapMs(0);
         setPauseOnChallenge(true);
+        setListOutput('nested');
         resetStoppedState();
     }, [resetStoppedState]);
 
@@ -142,6 +144,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             elementTimeout,
             domainMinGapMs,
             pauseOnChallenge,
+            listOutput,
             viewportWidth: viewport?.width,
             viewportHeight: viewport?.height
         });
@@ -366,6 +369,8 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                         setDomainMinGapMs={setDomainMinGapMs}
                         pauseOnChallenge={pauseOnChallenge}
                         setPauseOnChallenge={setPauseOnChallenge}
+                        listOutput={listOutput}
+                        setListOutput={setListOutput}
                         activeTabs={activeTabs}
                         urlStatuses={urlStatuses}
                         previewTableId={previewTableId}

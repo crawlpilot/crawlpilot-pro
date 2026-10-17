@@ -25,6 +25,8 @@ interface BulkExtractionOptions {
     domainMinGapMs?: number;
     /** Pause and show the tab when a page asks to verify you are human. */
     pauseOnChallenge?: boolean;
+    /** How list elements land in the output: one JSON column, one row per item, or numbered columns. */
+    listOutput?: 'nested' | 'rows' | 'numbered';
     onProgress?: (completed: number) => void;
     onStart?: (jobId: number) => void;
     jobId?: number;
@@ -133,6 +135,7 @@ export function useBulkExtraction() {
             elementTimeout,
             domainMinGapMs,
             pauseOnChallenge,
+            listOutput,
             onProgress,
             onStart,
             jobId: existingJobId,
@@ -175,6 +178,7 @@ export function useBulkExtraction() {
         if (elementTimeout != null) config.elementTimeout = elementTimeout;
         if (domainMinGapMs != null) config.domainMinGapMs = domainMinGapMs;
         if (pauseOnChallenge != null) config.pauseOnChallenge = pauseOnChallenge;
+        if (listOutput) config.listOutput = listOutput;
 
         const response = await new Promise<any>((resolve) => {
             chrome.runtime.sendMessage({

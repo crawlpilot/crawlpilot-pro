@@ -82,3 +82,78 @@ export function collapseTableToJson(items: any[], columns: any[]): string {
 
     return JSON.stringify(rowValues.filter(vals => vals.length > 0));
 }
+
+/** How a page's list elements land in the output. */
+export type ListOutput = 'nested' | 'rows' | 'numbered';
+export const NUMBERED_LIST_CAP = 10;
+
+interface ListValue {
+    __type: 'list';
+    items: Record<string, unknown>[];
+    columns: any[];
+}
+
+function isList(value: unknown): value is ListValue {
+    return !!value && typeof value === 'object' && (value as any).__type === 'list';
+}
+
+/** A list field's key inside a nested record: its own name, without the "Element - " prefix. */
+function fieldKey(col: any, elementName: string): string {
+    const prefix = `${elementName} - `;
+    return typeof col.name === 'string' && col.name.startsWith(prefix) ? col.name.slice(prefix.length) : col.name;
+}
+
+/**
+ * Builds the output for one page: the element values keyed by element ID, plus each list element
+ * shaped by `mode`. Every page gets the same columns whatever its list lengths:
+ * - nested (default): one JSON column per list, an array of `{field: value}` objects;
+ * - rows: one row per item of the first list, the page's other values repeated on each row;
+ * - numbered: `Field 1 … Field N` columns, capped at NUMBERED_LIST_CAP items.
+ */
+export function buildPageRecord(data: Record<string, unknown>, knownColumns: any[], mode: ListOutput = 'nested'): { columns: any[]; item: any; items?: any[] } {
+    const recordId = `rec_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const columns: any[] = [{ id: 'recordId', originalId: 'recordId', name: 'RECORD ID', type: 'text', elementId: 'recordId', elementName: 'Record Identifier' }];
+    const row: Record<string, unknown> = { recordId };
+    let driver: { key: string; value: ListValue } | null = null;
+
+    for (const [key, value] of Object.entries(data)) {
+        if (!isList(value)) {
+            row[key] = value;
+            const col = knownColumns.find(c => c.id === key);
+            if (col) columns.push(col);
+            continue;
+        }
+        const listCols = value.columns || [];
+        const elementName: string = listCols[0]?.elementName ?? key;
+        if (mode === 'rows' && !driver) {
+            driver = { key, value };
+            continue;
+        }
+        if (mode === 'numbered') {
+            value.items.slice(0, NUMBERED_LIST_CAP).forEach((item, idx) => {
+                listCols.forEach(col => {
+                    const id = `${key}__${col.id}_${idx + 1}`;
+                    row[id] = item[col.id] ?? null;
+                    columns.push({ id, originalId: col.id, name: `${col.name} ${idx + 1}`, type: col.type || 'text', elementId: key, elementName });
+                });
+            });
+            continue;
+        }
+        row[key] = JSON.stringify(value.items.map(item =>
+            Object.fromEntries(listCols.filter(c => item[c.id] != null && item[c.id] !== '').map(c => [fieldKey(c, elementName), item[c.id]]))));
+        columns.push({ id: key, originalId: key, name: elementName, type: 'json', elementId: key, elementName, listFields: listCols.map(c => fieldKey(c, elementName)) });
+    }
+
+    if (!driver) return { columns, item: row };
+
+    const { key, value } = driver;
+    value.columns.forEach(col => columns.push({ ...col, elementId: key }));
+    const items = value.items.length === 0
+        ? [row]
+        : value.items.map((item, i) => ({
+            ...row,
+            recordId: `${row.recordId}_${i + 1}`,
+            ...Object.fromEntries(value.columns.map(c => [c.id, item[c.id] ?? null])),
+        }));
+    return { columns, item: items[0], items };
+}
