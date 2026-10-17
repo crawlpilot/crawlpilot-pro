@@ -153,6 +153,27 @@ describe('inferFields', () => {
     });
 });
 
+describe('variations across a long list', () => {
+    it('learns a card layout that only appears after the first 40 rows', () => {
+        const plain = (i: number) => card({ title: `Lamp ${i}`, price: `${10 + i}.99` });
+        const deal = (i: number) => `<li class="card">
+            <a class="card-link" href="/p/deal-${i}"><img class="thumb" src="/img/d${i}.jpg"></a>
+            <h3 class="card-title"><a href="/p/deal-${i}">Deal lamp ${i}</a></h3>
+            <div class="deal"><span class="deal-tag">Limited deal</span><span class="deal-price">$${i}.49</span></div>
+        </li>`;
+        const rows = rowsOf(`<ul>${Array.from({ length: 60 }, (_, i) => (i < 45 ? plain(i) : deal(i))).join('')}</ul>`);
+        const { columns } = inferFields(rows);
+        const price = columns.find(c => c.name === 'Price')!;
+        expect(price).toBeTruthy();
+        // The deal layout's price is the same column (an alternate reader), not a column of its own.
+        expect(columns.filter(c => c.type === 'price')).toHaveLength(1);
+        expect(readRow(rows[50], columns)[price.id]).toBe('$50.49');
+        expect(readRow(rows[3], columns)[price.id]).toBe('$13.99');
+        expect(columns.some(c => Object.values(readRow(rows[50], columns)).includes('Limited deal') && c)).toBe(true);
+        expect(unmappedCount(rows[50], columns)).toBe(0);
+    });
+});
+
 describe('Amazon-style search results', () => {
     // Markup modelled on amazon.com/s?k=laptop: cards share the results slot with headers, widgets,
     // a video ad and footers; prices come as a screen-reader copy plus an aria-hidden visual copy.

@@ -43,7 +43,9 @@ function dropComposites(fields: Field[]): void {
 
 function isBoilerplate(f: Field, n: number): boolean {
     if (n >= 8 && f.values.size <= 1) return true;
-    if (TEXTUAL.has(f.attr) && f.values.size >= Math.min(3, n) && n >= 3 && new Set([...f.values.values()].map(norm)).size === 1) return true;
+    // The same text on (nearly) every card is a label ("See options"); on only some cards it flags
+    // them ("Limited deal", "Sponsored") and is kept.
+    if (TEXTUAL.has(f.attr) && n >= 3 && f.values.size >= Math.max(3, n * 0.9) && new Set([...f.values.values()].map(norm)).size === 1) return true;
     // Labels for the value next to them ("List:", "Price:").
     if (TEXTUAL.has(f.attr) && [...f.values.values()].every(v => /:\s*$/.test(v) && v.length < 30)) return true;
     if (f.attr === 'src') {

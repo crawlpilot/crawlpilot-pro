@@ -31,6 +31,16 @@ export type { FieldReader, FieldInference, ReaderColumn, RowGate } from './types
 
 const MAX_SAMPLE = 40;
 
+/**
+ * The rows to infer from: all of them up to MAX_SAMPLE, otherwise evenly spread over the whole list
+ * (first and last included), so a card layout that only appears further down still shapes the fields.
+ */
+function sampleRows(rows: Element[]): Element[] {
+    if (rows.length <= MAX_SAMPLE) return rows;
+    const step = (rows.length - 1) / (MAX_SAMPLE - 1);
+    return Array.from({ length: MAX_SAMPLE }, (_, i) => rows[Math.round(i * step)]);
+}
+
 function readerOf(f: Field): Omit<FieldReader, 'alternates'> {
     return {
         v: FIELD_SCHEMA_VERSION,
@@ -47,7 +57,7 @@ function readerOf(f: Field): Omit<FieldReader, 'alternates'> {
  * row (this page's and later pages') with `readRow(row, columns)`.
  */
 export function inferFields(rowEls: Element[]): FieldInference {
-    return withAtomCache(() => infer(rowEls.slice(0, MAX_SAMPLE)));
+    return withAtomCache(() => infer(sampleRows(rowEls)));
 }
 
 function infer(sampled: Element[]): FieldInference {
