@@ -7,6 +7,7 @@ import { findList, itemOf, ListMatch } from '../../../services/extraction/items'
 import { withAtomCache } from '../../../services/extraction/atoms';
 import { generateCssSelector, generateXPath, generateRobustSelectors } from '../../../services/selectors/generate';
 import { listLocators } from '../../../services/selectors/specs';
+import { looksLikeXPath } from '../../../../shared/selectors/resolve';
 
 export class ListSelectionStrategy implements ISelectionStrategy {
     private extractor: DataExtractor;
@@ -74,12 +75,12 @@ export class ListSelectionStrategy implements ISelectionStrategy {
         let itemMetadata: any[] = [];
 
         if (containerInfo.isContainer && containerInfo.container) {
-            containerSelector = generateCssSelector(containerInfo.container);
-            containerXPath = generateXPath(containerInfo.container);
-            const locators = listLocators(containerInfo.container, containerInfo.siblings, targetItem);
+            const locators = listLocators(containerInfo.container, containerInfo.siblings);
             containerMetadata = locators.container;
+            containerSelector = locators.container.find(c => !looksLikeXPath(c.selector))?.selector ?? locators.container[0].selector;
+            containerXPath = locators.container.find(c => looksLikeXPath(c.selector))?.selector ?? '';
             const candidates = locators.items;
-            selector = candidates[0].selector;
+            selector = candidates.find(c => !looksLikeXPath(c.selector))?.selector ?? candidates[0].selector;
 
             // [FIX] Re-query container for ALL items using derived selector
             // This ensures preview extraction processes the SAME items as final extraction
@@ -99,7 +100,7 @@ export class ListSelectionStrategy implements ISelectionStrategy {
 
             // Infer the list's fields from the same rows the run will read.
             data = this.extractor.extract(targetItem, containerInfo);
-            xpath = generateXPath(targetItem);
+            xpath = candidates.find(c => looksLikeXPath(c.selector))?.selector ?? '';
 
             // Prioritize the best selector in the robust list for the UI
             // This ensures the suggested "attribute extraction selector" matches the visual one

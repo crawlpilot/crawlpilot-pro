@@ -7,7 +7,7 @@ import { BaseAction, ActionContext } from '../../core/BaseAction';
 import { AutoScrollAction } from '../autoscroll/AutoScrollAction';
 import { HL_COLOR, HL_BG, HL_GLOW_STRONG } from '../../utils/highlight-tokens';
 import { looksLikeXPath, resolveAll } from '../../../shared/selectors/resolve';
-import { CommonSelectorGenerator } from '../../services/selectors/common';
+import { listLocators } from '../../services/selectors/list';
 import { hashString } from '../../../shared/utils/hash';
 import { classifyPage, collectPageSignals, PageVerdict, VERDICT_LABELS } from '../../../shared/verdict/classifyPage';
 
@@ -365,19 +365,15 @@ export class PaginationAction extends BaseAction {
     }
 
     /**
-     * Re-derives a CSS item selector from this page's container children when the
-     * stored chain no longer matches anything. Uses the same CommonSelectorGenerator
-     * majority-vote logic the picker uses, anchored on the container's own children —
-     * there's no "target element" to anchor on here (the user's original pick is gone),
-     * so this is best-effort and only fires when the chain is fully broken.
+     * Re-derives the item selector from this page's container children when the stored chain no
+     * longer matches anything, the way the picker does (`listLocators`: the children `keepItems`
+     * keeps, matched exactly). Only fires when the chain is fully broken.
      */
     private healItemSelector(container: HTMLElement): string | null {
         try {
             const children = Array.from(container.children) as HTMLElement[];
             if (children.length < 2) return null;
-            const candidates = new CommonSelectorGenerator().deriveCommonSelector(children, container);
-            const cssCandidate = candidates.find(c => c.type === 'CSS');
-            return cssCandidate?.selector ?? null;
+            return listLocators(container, children).items.find(c => !looksLikeXPath(c.selector))?.selector ?? null;
         } catch {
             return null;
         }

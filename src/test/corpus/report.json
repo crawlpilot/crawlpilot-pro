@@ -1,8 +1,8 @@
 {
   "summary": {
     "pages": 6,
-    "itemFirstExact": 4,
-    "itemPersistedFirstExact": 4,
+    "itemFirstExact": 6,
+    "itemPersistedFirstExact": 6,
     "containerFirstNamed": 6,
     "elementSelectors": 16,
     "elementNamesTarget": 16,
@@ -20,10 +20,6 @@
         "keptAsItems": 16,
         "container": [
           {
-            "selector": "div.s-main-slot.s-result-list.s-search-results.sg-row",
-            "unique": true
-          },
-          {
             "selector": "div.s-main-slot",
             "unique": true
           },
@@ -34,27 +30,27 @@
         ],
         "itemChain": [
           {
-            "selector": "[data-index]",
-            "matches": 30,
-            "exact": false
-          },
-          {
-            "selector": "[data-component-type=\"s-search-result\"]",
+            "selector": "div[data-component-type=\"s-search-result\"]",
             "matches": 16,
             "exact": true
           },
           {
-            "selector": "div[data-component-type=\"s-search-result\"]",
+            "selector": "div.s-asin",
+            "matches": 16,
+            "exact": true
+          },
+          {
+            "selector": "./div[@data-component-type=\"s-search-result\"]",
             "matches": 16,
             "exact": true
           }
         ],
-        "itemChainLength": 23,
-        "firstExactAt": 1,
+        "itemChainLength": 3,
+        "firstExactAt": 0,
         "persistedFirst": {
-          "selector": "[data-index]",
-          "matches": 30,
-          "exact": false
+          "selector": "div[data-component-type=\"s-search-result\"]",
+          "matches": 16,
+          "exact": true
         },
         "columns": [
           "Image ← img",
@@ -149,37 +145,28 @@
             "unique": true
           },
           {
-            "selector": "[data-testid=\"item-stack\"]",
-            "unique": true
-          },
-          {
             "selector": "//div[@data-testid=\"item-stack\"]",
             "unique": true
           }
         ],
         "itemChain": [
           {
-            "selector": "div:has([data-test-id=\"gpt-main\"])",
-            "matches": 18,
-            "exact": false
+            "selector": ":scope > div:has([data-test-id=\"gpt-main\"])",
+            "matches": 9,
+            "exact": true
           },
           {
-            "selector": "div:has(.hide-child-opacity)",
-            "matches": 18,
-            "exact": false
-          },
-          {
-            "selector": ":scope > div",
-            "matches": 10,
-            "exact": false
+            "selector": "./div[.//*[@data-test-id=\"gpt-main\"]]",
+            "matches": 9,
+            "exact": true
           }
         ],
-        "itemChainLength": 4,
-        "firstExactAt": -1,
+        "itemChainLength": 2,
+        "firstExactAt": 0,
         "persistedFirst": {
-          "selector": "div:has([data-test-id=\"gpt-main\"])",
-          "matches": 18,
-          "exact": false
+          "selector": ":scope > div:has([data-test-id=\"gpt-main\"])",
+          "matches": 9,
+          "exact": true
         },
         "columns": [
           "Image ← [data-testid=\"productTileImage\"]",
@@ -268,35 +255,35 @@
             "unique": true
           },
           {
-            "selector": "ul.list.hidesb.hidesb-wk.carousel-peek-2.carousel-4-l.carousel-3-m",
+            "selector": "[data-dca-ctx='itemCarousel']",
             "unique": true
           },
           {
-            "selector": "ul.list",
+            "selector": "//ul[@data-testid=\"carousel-container\"]",
             "unique": true
           }
         ],
         "itemChain": [
           {
-            "selector": "li:has([data-test-id=\"gpt-main\"])",
+            "selector": ":scope > li:has(> [data-test-id=\"gpt-main\"])",
             "matches": 6,
             "exact": true
           },
           {
-            "selector": "li:has([role=\"group\"])",
+            "selector": "li[data-slide]",
             "matches": 6,
             "exact": true
           },
           {
-            "selector": "li:has(.hide-sibling-opacity)",
+            "selector": "./li[*[@data-test-id=\"gpt-main\"]]",
             "matches": 6,
             "exact": true
           }
         ],
-        "itemChainLength": 7,
+        "itemChainLength": 3,
         "firstExactAt": 0,
         "persistedFirst": {
-          "selector": "li:has([data-test-id=\"gpt-main\"])",
+          "selector": ":scope > li:has(> [data-test-id=\"gpt-main\"])",
           "matches": 6,
           "exact": true
         },
@@ -349,11 +336,11 @@
         "keptAsItems": 4,
         "container": [
           {
-            "selector": "div.row",
+            "selector": "#results",
             "unique": true
           },
           {
-            "selector": "#results",
+            "selector": "div.row",
             "unique": true
           },
           {
@@ -363,25 +350,25 @@
         ],
         "itemChain": [
           {
-            "selector": "div:has(.card)",
+            "selector": "div.col-md-4",
             "matches": 4,
             "exact": true
           },
           {
-            "selector": ".col-md-4:has(.card)",
+            "selector": ":scope > div",
             "matches": 4,
             "exact": true
           },
           {
-            "selector": "div:has(.product-card)",
+            "selector": "./div[contains(concat(' ', normalize-space(@class), ' '), ' col-md-4 ')]",
             "matches": 4,
             "exact": true
           }
         ],
-        "itemChainLength": 11,
+        "itemChainLength": 3,
         "firstExactAt": 0,
         "persistedFirst": {
-          "selector": "div:has(.card)",
+          "selector": "div.col-md-4",
           "matches": 4,
           "exact": true
         },
@@ -433,39 +420,31 @@
         "keptAsItems": 5,
         "container": [
           {
-            "selector": "[data-role]",
-            "unique": true
-          },
-          {
             "selector": "[data-role='results']",
-            "unique": true
-          },
-          {
-            "selector": "[data-role][data-role='results']",
             "unique": true
           }
         ],
         "itemChain": [
+          {
+            "selector": "li[data-product-sku]",
+            "matches": 5,
+            "exact": true
+          },
           {
             "selector": "li",
             "matches": 5,
             "exact": true
           },
           {
-            "selector": "//li",
-            "matches": 5,
-            "exact": true
-          },
-          {
-            "selector": ":scope > li",
+            "selector": "./li[@data-product-sku]",
             "matches": 5,
             "exact": true
           }
         ],
-        "itemChainLength": 4,
+        "itemChainLength": 3,
         "firstExactAt": 0,
         "persistedFirst": {
-          "selector": "li",
+          "selector": "li[data-product-sku]",
           "matches": 5,
           "exact": true
         },
@@ -513,38 +492,29 @@
           {
             "selector": "section",
             "unique": true
-          },
-          {
-            "selector": "div section",
-            "unique": true
-          },
-          {
-            "selector": "section:nth-child(1)",
-            "unique": true,
-            "positional": true
           }
         ],
         "itemChain": [
-          {
-            "selector": "[data-testid=\"job-card\"]",
-            "matches": 4,
-            "exact": true
-          },
           {
             "selector": "article[data-testid=\"job-card\"]",
             "matches": 4,
             "exact": true
           },
           {
-            "selector": ":scope > article[data-testid=\"job-card\"]",
+            "selector": "article",
+            "matches": 4,
+            "exact": true
+          },
+          {
+            "selector": "./article[@data-testid=\"job-card\"]",
             "matches": 4,
             "exact": true
           }
         ],
-        "itemChainLength": 18,
+        "itemChainLength": 3,
         "firstExactAt": 0,
         "persistedFirst": {
-          "selector": "[data-testid=\"job-card\"]",
+          "selector": "article[data-testid=\"job-card\"]",
           "matches": 4,
           "exact": true
         },

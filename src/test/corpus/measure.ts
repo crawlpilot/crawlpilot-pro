@@ -54,7 +54,7 @@ function measureList(t: PageTargets['list']) {
     const truth = query(t.items, container) as HTMLElement[];
     const children = Array.from(container.children) as HTMLElement[];
     const kept = keepItems(children);
-    const locators = listLocators(container, children, truth[0]);
+    const locators = listLocators(container, children);
     const persisted = filterPersistableChain(locators.items) ?? [];
 
     const itemEntry = (selector: string) => {

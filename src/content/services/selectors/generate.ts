@@ -307,7 +307,7 @@ class SemanticXPathStrategy implements SelectorStrategy {
     priority = 106;
 
     generate(element: HTMLElement, options?: SelectorOptions): string[] {
-        if (options?.isList) return []; // CommonSelectorGenerator handles XPath for list items
+        if (options?.isList) return []; // list items: see list.ts
         const tag = element.tagName.toLowerCase();
         const results: string[] = [];
 
