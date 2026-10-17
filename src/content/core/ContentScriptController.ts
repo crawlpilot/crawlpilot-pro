@@ -19,6 +19,7 @@ import { hashString } from '../../shared/utils/hash';
 import { runRecon } from '../services/recon/ReconService';
 import { LabPicker, evaluateSelector, highlightSelector, clearLabHighlights } from '../features/lab/SelectorLab';
 import { requestNetEntries, clearNetEntries } from '../features/network/NetworkRelay';
+import { buildReferencedView, verifyAndCompile } from '../services/ai-view/ReferencedView';
 
 export class ContentScriptController {
     private picker: VisualElementPicker | null = null;
@@ -324,6 +325,16 @@ export class ContentScriptController {
         this.messageClient.on('PAGE_COOKIE', (_msg, sendResponse) => {
             // Non-HttpOnly cookies only: what the page itself can read.
             sendResponse({ success: true, cookie: document.cookie });
+        });
+
+        this.messageClient.on('AI_BUILD_VIEW', (msg, sendResponse) => {
+            const { maxChars } = msg.payload || {};
+            sendResponse({ success: true, ...buildReferencedView(maxChars) });
+        });
+
+        this.messageClient.on('AI_VERIFY', (msg, sendResponse) => {
+            const { answers } = msg.payload || {};
+            sendResponse({ success: true, fields: verifyAndCompile(answers || []) });
         });
 
         this.messageClient.on('LAB_PICK_START', (_msg, sendResponse) => {

@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
-import { MousePointerClick, X, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { MousePointerClick, X, Loader2, Sparkles } from 'lucide-react';
+import AiSchemaDialog from '../AiSchemaDialog';
 import Badge from '../../ui/Badge';
 import Input from '../../ui/Input';
 
@@ -24,6 +25,8 @@ interface Step2SchemaProps {
     onNext: () => void;
     onCancel: () => void;
     sendHighlightMessage: (type: string, payload?: any) => Promise<void>;
+    /** Adds fields built by the AI schema flow. */
+    onAddElements?: (elements: any[]) => void;
 }
 
 export function Step2Schema({
@@ -46,8 +49,10 @@ export function Step2Schema({
     onBack,
     onNext,
     onCancel,
-    sendHighlightMessage
+    sendHighlightMessage,
+    onAddElements
 }: Step2SchemaProps) {
+    const [aiOpen, setAiOpen] = useState(false);
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (selectionStatus === 'selecting') {
@@ -281,6 +286,19 @@ export function Step2Schema({
                             <span className="font-medium">Add Click Action</span> — fires a click before extracting, useful for revealing hidden content: dropdowns, accordions, tabs, overlays, or cookie banners.
                         </p>
                     </div>
+                )}
+
+                {onAddElements && selectionStatus !== 'selecting' && (
+                    <>
+                        <button
+                            onClick={() => setAiOpen(true)}
+                            className="w-full mt-3 py-2 rounded-md text-xs border border-accent-ai/30 text-accent-ai hover:bg-accent-ai/10 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Fill fields from a schema (on-device AI)
+                        </button>
+                        <AiSchemaDialog open={aiOpen} onClose={() => setAiOpen(false)} onAddElements={onAddElements} />
+                    </>
                 )}
 
             </div>

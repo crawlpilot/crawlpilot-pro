@@ -326,6 +326,10 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                         onNext={() => setStep(3)}
                         onCancel={stopSelection}
                         sendHighlightMessage={sendHighlightMessage}
+                        onAddElements={(els) => {
+                            setElements(prev => [...prev, ...els]);
+                            els.forEach(el => sendHighlightMessage('ADD_SELECTION_HIGHLIGHT', { element: el }));
+                        }}
                     />
                 );
             case 3:
