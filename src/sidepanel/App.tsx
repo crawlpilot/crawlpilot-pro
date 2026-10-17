@@ -15,6 +15,7 @@ import SettingsPage from './pages/SettingsPage';
 import TextSummarizerPage from './pages/TextSummarizerPage';
 import WelcomePage from './pages/WelcomePage';
 import MetadataExtractorPage from './pages/MetadataExtractorPage';
+import ToolkitPage from './pages/ToolkitPage';
 
 import Header from './components/ui/Header';
 import { useTabSync } from './hooks/useTabSync';
@@ -54,6 +55,8 @@ function App() {
                 return <EmailExtractorPage onBack={() => setCurrentView('home')} />;
             case 'utilities':
                 return <UtilitiesPage onBack={() => setCurrentView('home')} />;
+            case 'toolkit':
+                return <ToolkitPage onBack={() => setCurrentView('home')} />;
             case 'history':
                 return <HistoryPage
                     onBack={() => setCurrentView('home')}

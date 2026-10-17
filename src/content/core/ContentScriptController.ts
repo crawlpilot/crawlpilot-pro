@@ -16,6 +16,8 @@ import { extractMetadata } from '../services/metadata/MetadataExtractionService'
 import { HL_COLOR, HL_BG, HL_GLOW, HL_GLOW_STRONG, DUR_VALIDATE, DUR_FADE } from '../utils/highlight-tokens';
 import { resolveFirst, resolveAll } from '../../shared/selectors/resolve';
 import { hashString } from '../../shared/utils/hash';
+import { runRecon } from '../services/recon/ReconService';
+import { LabPicker, evaluateSelector, highlightSelector, clearLabHighlights } from '../features/lab/SelectorLab';
 
 export class ContentScriptController {
     private picker: VisualElementPicker | null = null;
@@ -24,6 +26,8 @@ export class ContentScriptController {
     private autoScrollAbortController: AbortController | null = null;
     private paginationAbortController: AbortController | null = null;
     private progressiveScanner: ProgressiveImageScanner | null = null;
+
+    private labPicker = new LabPicker();
 
     private messageClient: MessageClient;
     private schemaGenerator = new SchemaGenerator();
@@ -284,6 +288,34 @@ export class ContentScriptController {
                 success: true,
                 result: { item: singleRow, columns: finalColumns, url }
             });
+        });
+
+        // --- Scraper toolkit: Page Recon and Selector Lab ---
+        this.messageClient.on('CMD_RECON', async (_msg, sendResponse) => {
+            const report = await runRecon();
+            sendResponse({ success: true, report });
+        });
+
+        this.messageClient.on('LAB_EVAL', (msg, sendResponse) => {
+            const { selector, expected, highlight } = msg.payload || {};
+            if (!selector) { sendResponse({ success: false, error: 'No selector' }); return; }
+            const result = evaluateSelector(selector, expected);
+            if (highlight !== false && !result.error) highlightSelector(selector);
+            sendResponse({ success: true, result });
+        });
+
+        this.messageClient.on('LAB_CLEAR', (_msg, sendResponse) => {
+            clearLabHighlights();
+            this.labPicker.stop();
+            sendResponse({ success: true });
+        });
+
+        this.messageClient.on('LAB_PICK_START', (_msg, sendResponse) => {
+            clearLabHighlights();
+            this.labPicker.start((pick) => {
+                this.messageClient.send({ type: 'LAB_PICKED', payload: pick });
+            });
+            sendResponse({ success: true });
         });
 
         this.messageClient.on('TEST_SELECTOR', (msg, sendResponse) => {

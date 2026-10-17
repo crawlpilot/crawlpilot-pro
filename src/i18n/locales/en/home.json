@@ -31,5 +31,10 @@
     "title": "Browser Utilities",
     "description": "Re-enable right-click & text selection on sites that block them",
     "tooltip": "Unlock copy, paste and right-click menus on sites that restrict them — ideal for copying quotes, URLs and content from protected pages"
+  },
+  "scraperToolkit": {
+    "title": "Scraper Toolkit",
+    "description": "Page recon and selector lab",
+    "tooltip": "Page Recon and Selector Lab: see where the data lives, what protects it, and test selectors"
   }
 }

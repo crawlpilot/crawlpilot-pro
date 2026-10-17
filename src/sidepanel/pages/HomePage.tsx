@@ -1,5 +1,5 @@
 import { Box, Typography, Card, CardActionArea, Button, Stack, Tooltip } from '@mui/material';
-import { Sparkles, List, Clock, Database, ChevronRight, Image as ImageIcon, FileText, FileSearch } from 'lucide-react';
+import { Sparkles, List, Clock, Database, ChevronRight, Image as ImageIcon, FileText, FileSearch, Radar } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface HomePageProps {
@@ -88,6 +88,53 @@ export default function HomePage({ onNavigate, isTabConnected = true }: HomePage
                                         </Typography>
                                         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                                             {t('listExtractor.description')}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                                <ChevronRight size={18} style={{ color: 'rgba(255,255,255,0.3)' }} />
+                            </Box>
+                        </CardActionArea>
+                    </Card>
+                    </Tooltip>
+
+                    {/* Scraper Toolkit */}
+                    <Tooltip title={t('scraperToolkit.tooltip', 'Page Recon and Selector Lab: see where the data lives, what protects it, and test selectors')} placement="left" arrow>
+                    <Card
+                        elevation={0}
+                        sx={{
+                            borderRadius: 3,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            bgcolor: 'background.paper',
+                            transition: 'all 0.2s',
+                            opacity: isTabConnected ? 1 : 0.5,
+                            '&:hover': {
+                                borderColor: 'rgba(245, 158, 11, 0.6)',
+                                transform: 'translateY(-2px)',
+                                boxShadow: '0 8px 25px -8px rgba(245, 158, 11, 0.3)'
+                            }
+                        }}
+                    >
+                        <CardActionArea onClick={() => onNavigate('toolkit')} sx={{ p: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Box sx={{
+                                        p: 1.5,
+                                        borderRadius: 2,
+                                        bgcolor: 'rgba(245, 158, 11, 0.1)',
+                                        color: '#F59E0B',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <Radar size={22} />
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="subtitle2" fontWeight="600" sx={{ lineHeight: 1.2 }}>
+                                            {t('scraperToolkit.title', 'Scraper Toolkit')}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                            {t('scraperToolkit.description', 'Page recon and selector lab')}
                                         </Typography>
                                     </Box>
                                 </Box>
