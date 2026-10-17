@@ -6,7 +6,7 @@ import { refreshNetSources } from '../../../services/extraction/structuredRows';
 import { findList, itemOf, ListMatch } from '../../../services/extraction/items';
 import { withAtomCache } from '../../../services/extraction/atoms';
 import { generateCssSelector, generateXPath, generateRobustSelectors } from '../../../services/selectors/generate';
-import { CommonSelectorGenerator } from '../../../services/selectors/common';
+import { listLocators } from '../../../services/selectors/specs';
 
 export class ListSelectionStrategy implements ISelectionStrategy {
     private extractor: DataExtractor;
@@ -76,27 +76,10 @@ export class ListSelectionStrategy implements ISelectionStrategy {
         if (containerInfo.isContainer && containerInfo.container) {
             containerSelector = generateCssSelector(containerInfo.container);
             containerXPath = generateXPath(containerInfo.container);
-            containerMetadata = generateRobustSelectors(containerInfo.container);
-
-            // DEDUCTIVE APPROACH: Strictly use selectors that match the visual capture
-            // Our CommonSelectorGenerator is now powerful enough to derive these from the siblings.
-            const commonGen = new CommonSelectorGenerator();
-            const validResults = commonGen.deriveCommonSelector(containerInfo.siblings, containerInfo.container, targetItem);
-
-            let candidates: any[] = [];
-            if (validResults.length > 0) {
-                selector = validResults[0].selector;
-                candidates = validResults.map(res => ({
-                    selector: res.selector,
-                    strategy: `Deductive ${res.type}`
-                }));
-            } else {
-                // If even the deductive generator fails, default to a basic tag or structural selector
-                // to avoid empty candidates, but avoid the "guessing" generator here as it's often wrong.
-                selector = generateCssSelector(targetItem, true);
-                candidates = [{ selector: selector, strategy: 'Deductive Fallback' }];
-            }
-
+            const locators = listLocators(containerInfo.container, containerInfo.siblings, targetItem);
+            containerMetadata = locators.container;
+            const candidates = locators.items;
+            selector = candidates[0].selector;
 
             // [FIX] Re-query container for ALL items using derived selector
             // This ensures preview extraction processes the SAME items as final extraction

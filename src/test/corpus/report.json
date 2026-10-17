@@ -1,0 +1,587 @@
+{
+  "summary": {
+    "pages": 6,
+    "itemFirstExact": 5,
+    "itemPersistedFirstExact": 5,
+    "containerFirstNamed": 6,
+    "elementSelectors": 16,
+    "elementNamesTarget": 16,
+    "elementStrong": 7,
+    "elementPositional": 9,
+    "elementInstanceValue": 5,
+    "fields": 18,
+    "fieldsRead": 16
+  },
+  "pages": {
+    "amazon-search": {
+      "list": {
+        "items": 16,
+        "children": 27,
+        "keptAsItems": 16,
+        "container": [
+          {
+            "selector": "div.s-main-slot.s-result-list.s-search-results.sg-row",
+            "unique": true
+          },
+          {
+            "selector": "div.s-main-slot",
+            "unique": true
+          },
+          {
+            "selector": "//div[contains(concat(' ', normalize-space(@class), ' '), ' s-main-slot ')]",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": "[data-index]",
+            "matches": 30,
+            "exact": false
+          },
+          {
+            "selector": "[data-component-type=\"s-search-result\"]",
+            "matches": 16,
+            "exact": true
+          },
+          {
+            "selector": "div[data-component-type=\"s-search-result\"]",
+            "matches": 16,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 34,
+        "firstExactAt": 1,
+        "persistedFirst": {
+          "selector": "[data-index]",
+          "matches": 30,
+          "exact": false
+        },
+        "columns": [
+          "Image ← img",
+          "URL ← [data-cy=\"title-recipe\"] > a",
+          "Title ← h2 > span",
+          "Rating ← [data-cy=\"reviews-block\"] > .a-row > .a-declarative > a",
+          "Differentiators ← .title-differentiators",
+          "Reviews ← .s-csa-instrumentation-wrapper > a",
+          "Badge ← .puis-bold-weight-text",
+          "Sales Volume ← [data-cy=\"reviews-block\"] > .a-row > span",
+          "Details ← .puisg-col-inner > span"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 16,
+            "readBy": "Title ← h2 > span (16/16)"
+          },
+          {
+            "field": "url",
+            "rowsWithValue": 16,
+            "readBy": "URL ← [data-cy=\"title-recipe\"] > a (16/16)"
+          },
+          {
+            "field": "image",
+            "rowsWithValue": 16,
+            "readBy": "Image ← img (16/16)"
+          },
+          {
+            "field": "price",
+            "rowsWithValue": 1,
+            "readBy": null
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": ":nth-child(1) > :nth-child(8) > :nth-child(2) > :nth-child(1) > :nth-child(1) > :nth-child(2) > :nth-child(1) > :nth-child(3) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(2) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(1) > :nth-child(1)",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          "xpath": {
+            "selector": "//*[@id=\"search\"]/div[1]/div[1]/div[1]/span[1]/div[1]/div[3]/div[1]/div[1]/span[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/a[1]/h2[1]/span[1]",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        },
+        "price": {
+          "css": {
+            "selector": ".s-underline-text span.a-price",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          "xpath": {
+            "selector": "//a[contains(concat(' ', normalize-space(@class), ' '), ' s-underline-text ')]//span[contains(concat(' ', normalize-space(@class), ' '), ' a-price ')]",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        }
+      },
+      "next": {
+        "chainLength": 27,
+        "invalid": 0,
+        "first": [
+          {
+            "selector": "//a[normalize-space(string())='Next']",
+            "namesTarget": true
+          },
+          {
+            "selector": "(//a[contains(string(), 'Next')])[last()]",
+            "namesTarget": true
+          },
+          {
+            "selector": "(//a[contains(string(), 'Next')])[1]",
+            "namesTarget": false,
+            "positional": true
+          }
+        ]
+      }
+    },
+    "walmart-search": {
+      "list": {
+        "items": 9,
+        "children": 10,
+        "keptAsItems": 9,
+        "container": [
+          {
+            "selector": "div[data-testid=\"item-stack\"]",
+            "unique": true
+          },
+          {
+            "selector": "[data-testid=\"item-stack\"]",
+            "unique": true
+          },
+          {
+            "selector": "//div[@data-testid=\"item-stack\"]",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": ".b--near-white:has([data-test-id=\"gpt-main\"])",
+            "matches": 9,
+            "exact": true
+          },
+          {
+            "selector": "div:has([data-test-id=\"gpt-main\"])",
+            "matches": 18,
+            "exact": false
+          },
+          {
+            "selector": "div:has(.hide-child-opacity)",
+            "matches": 18,
+            "exact": false
+          }
+        ],
+        "itemChainLength": 10,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": ".b--near-white:has([data-test-id=\"gpt-main\"])",
+          "matches": 9,
+          "exact": true
+        },
+        "columns": [
+          "Image ← [data-testid=\"productTileImage\"]",
+          "URL ← a",
+          "Badge Tag ← [data-testid=\"badgeTagComponent\"] > span",
+          "Unified Global Product Price ← [data-testid=\"unified-global-product-price-a11y-text\"]",
+          "Badge 2 ← div",
+          "Text ← .normal",
+          "Rating ← [data-testid=\"rating-container\"] > span",
+          "Rating 2 ← .sans-serif > div > div > div > span",
+          "Badge ← [data-testid=\"badgeTagComponent\"] > span > span",
+          "Text 2 ← [data-testid=\"badgeTagComponent\"] > span > span",
+          "Badge 3 ← [data-testid=\"badgeTagComponent\"] > span > span",
+          "Badge 6 ← .ld",
+          "Badge 4 ← [data-testid=\"badgeTagComponent\"] > span > span > span",
+          "Badge 5 ← [data-testid=\"badgeTagComponent\"] > span > span > span",
+          "Date ← [data-testid=\"badgeTagComponent\"] > span > span"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 9,
+            "readBy": "Text ← .normal (9/9)"
+          },
+          {
+            "field": "url",
+            "rowsWithValue": 9,
+            "readBy": "URL ← a (9/9)"
+          },
+          {
+            "field": "image",
+            "rowsWithValue": 9,
+            "readBy": "Image ← [data-testid=\"productTileImage\"] (9/9)"
+          },
+          {
+            "field": "price",
+            "rowsWithValue": 9,
+            "readBy": "Unified Global Product Price ← [data-testid=\"unified-global-product-price-a11y-text\"] (9/9)"
+          },
+          {
+            "field": "was price",
+            "rowsWithValue": 6,
+            "readBy": null
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": "[data-item-id='7BZ17VXO2OZL'] .dark-gray",
+            "namesTarget": true,
+            "grade": "strong",
+            "instanceValue": true
+          },
+          "xpath": {
+            "selector": "//*[@id=\"maincontent\"]/main[1]/div[1]/div[2]/div[1]/div[1]/section[1]/div[1]/div[2]/section[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[3]/span[2]/div[1]/span[1]",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        },
+        "price": {
+          "css": {
+            "selector": "[data-item-id='7BZ17VXO2OZL'] [aria-hidden][style]",
+            "namesTarget": true,
+            "grade": "strong",
+            "instanceValue": true
+          },
+          "xpath": {
+            "selector": "//*[@id=\"maincontent\"]/main[1]/div[1]/div[2]/div[1]/div[1]/section[1]/div[1]/div[2]/section[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[3]/div[2]",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        }
+      }
+    },
+    "walmart-carousel": {
+      "list": {
+        "items": 6,
+        "children": 6,
+        "keptAsItems": 6,
+        "container": [
+          {
+            "selector": "ul[data-testid=\"carousel-container\"]",
+            "unique": true
+          },
+          {
+            "selector": "ul.list.hidesb.hidesb-wk.carousel-peek-2.carousel-4-l.carousel-3-m",
+            "unique": true
+          },
+          {
+            "selector": "ul.list",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": "li:has([data-test-id=\"gpt-main\"])",
+            "matches": 6,
+            "exact": true
+          },
+          {
+            "selector": "li:has([role=\"group\"])",
+            "matches": 6,
+            "exact": true
+          },
+          {
+            "selector": "li:has(.sans-serif)",
+            "matches": 6,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 7,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": "li:has([data-test-id=\"gpt-main\"])",
+          "matches": 6,
+          "exact": true
+        },
+        "columns": [
+          "Image ← [data-testid=\"productTileImage\"]",
+          "URL ← a",
+          "Badge Tag ← [data-testid=\"badgeTagComponent\"] > span",
+          "Text 2 ← [data-testid=\"badgeTagComponent\"] > span > span > span",
+          "Text ← .sans-serif > div > div > div > div > span",
+          "Was Price ← div",
+          "Title ← div > span > h3",
+          "Rating ← [data-testid=\"rating-container\"] > span",
+          "Rating 2 ← .sans-serif > div > div > div > span",
+          "Badge ← [data-testid=\"badgeTagComponent\"] > span > span"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 6,
+            "readBy": "Title ← div > span > h3 (6/6)"
+          },
+          {
+            "field": "image",
+            "rowsWithValue": 6,
+            "readBy": "Image ← [data-testid=\"productTileImage\"] (6/6)"
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": "[data-item-id='16655001628'] .normal",
+            "namesTarget": true,
+            "grade": "strong",
+            "instanceValue": true
+          },
+          "xpath": {
+            "selector": "/html/body/ul[1]/li[1]/div[1]/div[1]/div[3]/span[1]/h3[1]",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        }
+      }
+    },
+    "bootstrap-grid": {
+      "list": {
+        "items": 4,
+        "children": 4,
+        "keptAsItems": 4,
+        "container": [
+          {
+            "selector": "div.row",
+            "unique": true
+          },
+          {
+            "selector": "#results",
+            "unique": true
+          },
+          {
+            "selector": "//div[contains(concat(' ', normalize-space(@class), ' '), ' row ')]",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": "div:has(.card)",
+            "matches": 4,
+            "exact": true
+          },
+          {
+            "selector": ".col-md-4:has(.card)",
+            "matches": 4,
+            "exact": true
+          },
+          {
+            "selector": "div:has(.product-card)",
+            "matches": 4,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 11,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": "div:has(.card)",
+          "matches": 4,
+          "exact": true
+        },
+        "columns": [
+          "Image ← img",
+          "Title ← a",
+          "URL ← a",
+          "Price ← .price"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 4,
+            "readBy": "Title ← a (4/4)"
+          },
+          {
+            "field": "url",
+            "rowsWithValue": 4,
+            "readBy": "URL ← a (4/4)"
+          },
+          {
+            "field": "price",
+            "rowsWithValue": 4,
+            "readBy": "Price ← .price (4/4)"
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": "[href='\\/p\\/1']",
+            "namesTarget": true,
+            "grade": "strong",
+            "instanceValue": true
+          },
+          "xpath": {
+            "selector": "//*[@id=\"results\"]/div[1]/div[1]/div[1]/h5[1]/a[1]",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        }
+      }
+    },
+    "tailwind-grid": {
+      "list": {
+        "items": 5,
+        "children": 5,
+        "keptAsItems": 5,
+        "container": [
+          {
+            "selector": "[data-role]",
+            "unique": true
+          },
+          {
+            "selector": "[data-role='results']",
+            "unique": true
+          },
+          {
+            "selector": "[data-role][data-role='results']",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": "li",
+            "matches": 5,
+            "exact": true
+          },
+          {
+            "selector": "//li",
+            "matches": 5,
+            "exact": true
+          },
+          {
+            "selector": ":scope > li",
+            "matches": 5,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 4,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": "li",
+          "matches": 5,
+          "exact": true
+        },
+        "columns": [
+          "Text ← a",
+          "URL ← a",
+          "Was Price ← p"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 5,
+            "readBy": "Text ← a (5/5)"
+          },
+          {
+            "field": "price",
+            "rowsWithValue": 5,
+            "readBy": "Was Price ← p (5/5)"
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": "[href='\\/item\\/aa']",
+            "namesTarget": true,
+            "grade": "strong",
+            "instanceValue": true
+          },
+          "xpath": {
+            "selector": "/html/body/main[1]/ul[1]/li[1]/a[1]",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        }
+      }
+    },
+    "emotion-hashed": {
+      "list": {
+        "items": 4,
+        "children": 4,
+        "keptAsItems": 4,
+        "container": [
+          {
+            "selector": "section",
+            "unique": true
+          },
+          {
+            "selector": "div section",
+            "unique": true
+          },
+          {
+            "selector": "section:nth-child(1)",
+            "unique": true,
+            "positional": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": "[data-testid=\"job-card\"]",
+            "matches": 4,
+            "exact": true
+          },
+          {
+            "selector": "article[data-testid=\"job-card\"]",
+            "matches": 4,
+            "exact": true
+          },
+          {
+            "selector": ":scope > article[data-testid=\"job-card\"]",
+            "matches": 4,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 18,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": "[data-testid=\"job-card\"]",
+          "matches": 4,
+          "exact": true
+        },
+        "columns": [
+          "Title ← a",
+          "URL ← a",
+          "Badge ← span"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 4,
+            "readBy": "Title ← a (4/4)"
+          },
+          {
+            "field": "location",
+            "rowsWithValue": 4,
+            "readBy": "Badge ← span (4/4)"
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": "[data-testid='job-card']:nth-child(1) [href]",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          "xpath": {
+            "selector": "/html/body/div[1]/section[1]/article[1]/h3[1]/a[1]",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        }
+      }
+    }
+  }
+}

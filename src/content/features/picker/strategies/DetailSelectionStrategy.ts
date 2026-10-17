@@ -3,17 +3,9 @@ import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { findListInside, ListMatch } from '../../../services/extraction/items';
-import { generateCssSelector, generateXPath, generateRobustSelectors } from '../../../services/selectors/generate';
+import { elementLocators } from '../../../services/selectors/specs';
 import { clickElementRobust } from '../../../utils/click';
-import type { SelectorResult } from '../../../services/selectors/generate';
 import { hasRenderedBox } from '../../../utils/rendering';
-
-function bestCss(results: SelectorResult[], fallback: () => string): string {
-    return results.find(r => !r.selector.startsWith('/') && !r.selector.startsWith('(') && !r.selector.startsWith('./'))?.selector ?? fallback();
-}
-function bestXPath(results: SelectorResult[], fallback: () => string): string {
-    return results.find(r => r.selector.startsWith('/') || r.selector.startsWith('(') || r.selector.startsWith('./'))?.selector ?? fallback();
-}
 
 type ExtractionType = 'text' | 'link' | 'image' | 'list' | 'table' | 'image_array' | 'text_array' | 'link_array';
 
@@ -65,18 +57,12 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
 
         if (isList) {
             console.log('[DetailStrategy] Detected list/table container:', containerInfo);
-            const cSelectors = generateRobustSelectors(containerInfo.container!);
-            containerSelector = bestCss(cSelectors, () => generateCssSelector(containerInfo.container!));
-            containerXPath = bestXPath(cSelectors, () => generateXPath(containerInfo.container!));
-            const iSelectors = generateRobustSelectors(target);
-            itemSelector = bestCss(iSelectors, () => generateCssSelector(target, false));
-            itemXPath = bestXPath(iSelectors, () => generateXPath(target));
+            ({ css: containerSelector, xpath: containerXPath } = elementLocators(containerInfo.container!));
+            ({ css: itemSelector, xpath: itemXPath } = elementLocators(target));
             data = this.extractor.extract(target, containerInfo);
         } else {
             console.log('[DetailStrategy] No list detected. Extracting single element.');
-            const tSelectors = generateRobustSelectors(target);
-            containerSelector = bestCss(tSelectors, () => generateCssSelector(target));
-            containerXPath = bestXPath(tSelectors, () => generateXPath(target));
+            ({ css: containerSelector, xpath: containerXPath } = elementLocators(target));
             itemSelector = containerSelector;
             itemXPath = containerXPath;
             data = this.extractor.extract(target, { isContainer: false, siblings: [], container: null, childCount: 0 });
@@ -230,9 +216,7 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
 
         if (matchingSiblings.length < 3) return null;
 
-        const pSelectors = generateRobustSelectors(parent);
-        const pCss = bestCss(pSelectors, () => generateCssSelector(parent));
-        const pXPath = bestXPath(pSelectors, () => generateXPath(parent));
+        const { css: pCss, xpath: pXPath } = elementLocators(parent);
         return {
             extractionType: 'table',
             previewValue: `Table (${matchingSiblings.length} items)`,
