@@ -1,5 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { on, send, sendToTab } from '../../shared/messages';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Box, Typography, Paper, Button, IconButton, Chip, Stack, LinearProgress,
@@ -20,10 +19,11 @@ import {
     Grid,
     Layers
 } from 'lucide-react';
-import JSZip from 'jszip';
-import { saveAs } from 'file-saver';
 import { ImageMeta } from '../../content/features/universal-images/ImageScanner';
 import { styled } from '@mui/material/styles';
+import { useImageScan } from '../hooks/useImageScan';
+import { buildSizeGroups, filterImages, getExtension } from '../components/images/imageFilters';
+import { downloadImage, downloadZip } from '../components/images/imageDownload';
 
 const ImageCard = styled(Box)<{ selected?: boolean }>(({ selected }) => ({
     position: 'relative',
@@ -41,70 +41,16 @@ const ImageCard = styled(Box)<{ selected?: boolean }>(({ selected }) => ({
     }
 }));
 
-function getExtension(src: string): string {
-    try {
-        const url = new URL(src);
-        const ext = url.pathname.split('.').pop()?.toLowerCase();
-        return ext && ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'avif'].includes(ext)
-            ? (ext === 'jpeg' ? 'jpg' : ext)
-            : 'jpg';
-    } catch {
-        return 'jpg';
-    }
-}
-
-function getSizeCategory(width: number, height: number): string {
-    const pixels = width * height;
-    if (pixels < 500 * 500) return 'small';
-    if (pixels < 1920 * 1080) return 'medium';
-    return 'large';
-}
-
-interface SizeGroup {
-    label: string;
-    width: number;
-    height: number;
-    images: ImageMeta[];
-}
-
-function buildSizeGroups(images: ImageMeta[]): SizeGroup[] {
-    const groups: SizeGroup[] = [];
-    for (const img of images) {
-        const w = img.naturalWidth;
-        const h = img.naturalHeight;
-        if (w === 0 && h === 0) continue;
-        let matched = false;
-        for (const g of groups) {
-            const wRatio = Math.abs(g.width - w) / Math.max(g.width, 1);
-            const hRatio = Math.abs(g.height - h) / Math.max(g.height, 1);
-            if (wRatio <= 0.2 && hRatio <= 0.2) {
-                g.images.push(img);
-                matched = true;
-                break;
-            }
-        }
-        if (!matched) {
-            groups.push({ label: `${w}\u00d7${h}`, width: w, height: h, images: [img] });
-        }
-    }
-    return groups.sort((a, b) => b.images.length - a.images.length);
-}
-
 interface ImageDownloaderPageProps {
     onBack: () => void;
 }
 
 export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps) {
     const { t } = useTranslation('imageDownloader');
-    const [images, setImages] = useState<ImageMeta[]>([]);
+    const { images, scanning, scanPhase, scanProgress, liveWatching, deepScan, cancelScan, toggleLiveWatch } = useImageScan();
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [downloading, setDownloading] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
-
-    const [scanning, setScanning] = useState(false);
-    const [scanPhase, setScanPhase] = useState<string>('');
-    const [scanProgress, setScanProgress] = useState(0);
-    const [liveWatching, setLiveWatching] = useState(false);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [minWidth, setMinWidth] = useState<number | ''>('');
@@ -117,117 +63,27 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
     const [viewMode, setViewMode] = useState<'grid' | 'grouped'>('grid');
     const [activeGroup, setActiveGroup] = useState<number | null>(null);
 
-    const imageMapRef = useRef<Map<string, ImageMeta>>(new Map());
+    const startDeepScan = () => {
+        setSelected(new Set());
+        void deepScan();
+    };
+
     const scanInitRef = useRef(false);
-
-    const mergeImages = useCallback((newBatch: ImageMeta[]) => {
-        const map = imageMapRef.current;
-        let changed = false;
-        for (const img of newBatch) {
-            if (!map.has(img.src)) {
-                map.set(img.src, img);
-                changed = true;
-            }
-        }
-        if (changed) {
-            setImages(Array.from(map.values()));
-        }
-    }, []);
-
-    useEffect(() => {
-        const offs = [
-            on('SCAN_IMAGES_BATCH', batch => { if (batch) mergeImages(batch); }),
-            on('SCAN_IMAGES_PROGRESS', progress => {
-                if (!progress) return;
-                setScanPhase(progress.phase || '');
-                setScanProgress(progress.scrollPercent || 0);
-            }),
-        ];
-        return () => offs.forEach(off => off());
-    }, [mergeImages]);
-
     useEffect(() => {
         if (scanInitRef.current) return;
         scanInitRef.current = true;
         startDeepScan();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const getActiveTab = async () => {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        return tab?.id;
-    };
-
-    const startDeepScan = async () => {
-        setScanning(true);
-        setScanProgress(0);
-        setScanPhase('starting');
-        imageMapRef.current.clear();
-        setImages([]);
-        setSelected(new Set());
-        try {
-            const tabId = await getActiveTab();
-            if (tabId) {
-                const response = await sendToTab(tabId, 'SCAN_IMAGES_DEEP', { scrollStep: 800, scrollDelay: 120, maxScrollHeight: 50000, watchDuration: 3000 });
-                if (response.success && response.data) {
-                    mergeImages(response.data);
-                }
-            }
-        } catch (error) {
-            console.error('Deep scan failed:', error);
-        } finally {
-            setScanning(false);
-            setScanPhase('complete');
-            setScanProgress(100);
-        }
-    };
-
-    const cancelScan = async () => {
-        try {
-            const tabId = await getActiveTab();
-            if (tabId) {
-                await sendToTab(tabId, 'SCAN_IMAGES_DEEP_CANCEL');
-            }
-        } catch (e) { /* ignore */ }
-    };
-
-    const toggleLiveWatch = async () => {
-        const tabId = await getActiveTab();
-        if (!tabId) return;
-        if (liveWatching) {
-            await sendToTab(tabId, 'SCAN_IMAGES_LIVE_STOP');
-            setLiveWatching(false);
-        } else {
-            setLiveWatching(true);
-            await sendToTab(tabId, 'SCAN_IMAGES_LIVE_START');
-        }
-    };
-
-    const filteredImages = useMemo(() => {
-        return images.filter(img => {
-            if (onlyVisible && img.isVisible === false) return false;
-            if (searchQuery) {
-                const q = searchQuery.toLowerCase();
-                const match = img.src.toLowerCase().includes(q) || (img.alt && img.alt.toLowerCase().includes(q));
-                if (!match) return false;
-            }
-            if (minWidth !== '' && img.naturalWidth < minWidth) return false;
-            if (maxWidth !== '' && img.naturalWidth > maxWidth) return false;
-            if (minHeight !== '' && img.naturalHeight < minHeight) return false;
-            if (maxHeight !== '' && img.naturalHeight > maxHeight) return false;
-            const ext = getExtension(img.src);
-            if (!fileTypes.has(ext)) return false;
-            const cat = getSizeCategory(img.naturalWidth, img.naturalHeight);
-            if (!sizeCategories.has(cat)) return false;
-            return true;
-        });
-    }, [images, searchQuery, minWidth, maxWidth, minHeight, maxHeight, fileTypes, sizeCategories, onlyVisible]);
+    const filteredImages = useMemo(
+        () => filterImages(images, { onlyVisible, searchQuery, minWidth, maxWidth, minHeight, maxHeight, fileTypes, sizeCategories }),
+        [images, searchQuery, minWidth, maxWidth, minHeight, maxHeight, fileTypes, sizeCategories, onlyVisible]);
 
     const sizeGroups = useMemo(() => buildSizeGroups(filteredImages), [filteredImages]);
 
     const displayImages = useMemo(() => {
-        if (viewMode === 'grouped' && activeGroup !== null && sizeGroups[activeGroup]) {
-            return sizeGroups[activeGroup].images;
-        }
+        if (viewMode === 'grouped' && activeGroup !== null && sizeGroups[activeGroup]) return sizeGroups[activeGroup].images;
         return filteredImages;
     }, [viewMode, activeGroup, sizeGroups, filteredImages]);
 
@@ -240,56 +96,22 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
         setSelected(new Set(sizeGroups[idx].images.map(img => img.src)));
     };
 
-    const downloadGroup = (idx: number) => {
-        const group = sizeGroups[idx];
-        downloadAsZip(group.images, `images_${group.label.replace('\u00d7', 'x')}.zip`);
-    };
-
-    const fetchViaProxy = async (url: string): Promise<{ data: number[]; contentType: string } | null> => {
-        const response = await send('DOWNLOAD_IMAGE_PROXY', { url });
-        return response?.success && response.data ? { data: response.data, contentType: response.contentType || 'image/jpeg' } : null;
-    };
-
-    const downloadSingle = async (url: string, e?: React.MouseEvent) => {
-        if (e) e.stopPropagation();
-        const filename = `image-${Date.now()}.${getExtension(url)}`;
-        const response = await send('DOWNLOAD_VIA_CHROME', { url, filename });
-        if (!response?.success) saveAs(url, filename);
-    };
-
     const downloadAsZip = async (imagesToDownload: ImageMeta[], zipName: string) => {
         setDownloading(true);
-        const zip = new JSZip();
-        let count = 0;
-        for (const img of imagesToDownload) {
-            try {
-                let blob: Blob;
-                try {
-                    const directResp = await fetch(img.src, { mode: 'cors' });
-                    if (!directResp.ok) throw new Error('CORS');
-                    blob = await directResp.blob();
-                } catch {
-                    const proxyResult = await fetchViaProxy(img.src);
-                    if (!proxyResult) continue;
-                    blob = new Blob([new Uint8Array(proxyResult.data)], { type: proxyResult.contentType });
-                }
-                count++;
-                const ext = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || getExtension(img.src);
-                zip.file(`image_${count}.${ext}`, blob);
-            } catch { /* skip */ }
-        }
-        if (count > 0) {
-            const content = await zip.generateAsync({ type: 'blob' });
-            saveAs(content, zipName);
-        }
-        setDownloading(false);
+        try { await downloadZip(imagesToDownload, zipName); } finally { setDownloading(false); }
     };
 
-    const downloadSelected = () => {
-        const selectedImgs = filteredImages.filter(img => selected.has(img.src));
-        downloadAsZip(selectedImgs, 'selected_images.zip');
+    const downloadGroup = (idx: number) => {
+        const group = sizeGroups[idx];
+        void downloadAsZip(group.images, `images_${group.label.replace('\u00d7', 'x')}.zip`);
     };
 
+    const downloadSingle = (url: string, e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        void downloadImage(url);
+    };
+
+    const downloadSelected = () => downloadAsZip(filteredImages.filter(img => selected.has(img.src)), 'selected_images.zip');
     const downloadAll = () => downloadAsZip(filteredImages, 'all_images.zip');
 
     const toggleSelection = (src: string) => {

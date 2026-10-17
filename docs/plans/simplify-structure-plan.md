@@ -272,6 +272,14 @@ Suggested start: phases 1, 8 and 4, which are low-risk and quick. Then 2 â†’ 3 â
 | 6 One selector module | done. `content/services/selectors/` has three files. `generate.ts` merges `domBase`, `domUtils` and `SelectorGenerator`, with one `isStableId` in place of 3 copies. `nextButton.ts` merges `XPathGenerator`, `PaginationSelectorGenerator` and `NextButtonSelector`. `common.ts` (list rows) was `CommonSelectorGenerator`. `clickElementRobust` moved to `content/utils/click.ts`. `services/dom/` is gone. | see git log |
 | 7 One repeated-item finder | done. `services/extraction/items.ts` has `findList` (hover), `itemOf` (the card holding the element), `findListInside` (Page Extractor click) and `keepItems` (the field-inference row check). Removed `ContainerDetector`, `IContainerDetector`, `Fingerprint`/`GroupParent` detectors, `ItemSelectorRefiner`, `VisualBlockExtractor`, `utils/similarity.ts`, and the similarity score in `common.ts`. On the real Amazon page: results slot found, the hovered card resolved, 16 of 27 children kept. | see git log |
 | 9 Shared model + helpers | done. Columns: one `Column` / `ColumnType` in `shared/types/database.ts`. It now covers the array, `json` and `tabledata` types and `hidden`/`group`/`element*`. `ExtractionTypes.ts` is gone. `ReaderColumn` and `MappableColumn` derive from `Column`. `originalId` (written in 9 places, never read) is removed, and 12 `as any` casts in `DataTable` are gone. Helpers: `shared/utils/text.ts` `slug` replaces 4 copies, and `sidepanel/services/download.ts` replaces 2 download helpers. The bulk hook's `extraction_settings` read (never written) is removed. Not done: a log helper (production builds already strip `console.*`, so it adds churn for no benefit) and a settings module (each storage key has one owner, so there's nothing to share). | see git log |
-| 10 | to do | none |
+| 10 Split large side panel files | done. `DataTable` went from 1,090 to 415 lines: `data-table/pipeline.ts` (tested), `ColumnHeader`, `FilterOption`, `renderCell`, `MarkdownPreview`, `gridTheme`. `HistoryPage` went from 872 to 187: `history/jobFilters`, `JobCard`, `RerunDialog`, `JobDetailsDialog`, `hooks/useJobRerun`. `ImageDownloaderPage` went from 557 to 379: `hooks/useImageScan`, `images/imageFilters` (tested), `images/imageDownload`. | see git log |
+
+All phases done. Each concern now has one home:
+- messages: `shared/messages.ts`;
+- content handlers: `content/handlers/`;
+- background runs: `background/runs/`;
+- selectors: `content/services/selectors/`;
+- items and fields: `content/services/extraction/`;
+- columns: `shared/types/database.ts`.
 
 Found along the way, for phase 2: several message handlers in the content script have no sender. Phase 2's typed map will make them show up as unused.
