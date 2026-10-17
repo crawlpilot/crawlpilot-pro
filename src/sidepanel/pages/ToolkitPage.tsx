@@ -3,15 +3,16 @@ import { Box, IconButton, Paper, Tab, Tabs, Typography } from '@mui/material';
 import { ChevronLeft } from 'lucide-react';
 import ReconPanel from '../components/toolkit/ReconPanel';
 import SelectorLabPanel from '../components/toolkit/SelectorLabPanel';
+import ApiFinderPanel from '../components/toolkit/ApiFinderPanel';
 
-type ToolkitTab = 'recon' | 'lab';
+type ToolkitTab = 'recon' | 'lab' | 'api';
 
 const TAB_KEY = 'crawlpilot.toolkit.tab';
 
 function initialTab(): ToolkitTab {
     try {
         const v = localStorage.getItem(TAB_KEY);
-        if (v === 'recon' || v === 'lab') return v;
+        if (v === 'recon' || v === 'lab' || v === 'api') return v;
     } catch { /* storage blocked */ }
     return 'recon';
 }
@@ -37,10 +38,11 @@ export default function ToolkitPage({ onBack }: { onBack: () => void }) {
                 <Tabs value={tab} onChange={change} variant="fullWidth" sx={{ mt: 1, minHeight: 36, '& .MuiTab-root': { minHeight: 36, textTransform: 'none', fontWeight: 600 } }}>
                     <Tab value="recon" label="Page Recon" />
                     <Tab value="lab" label="Selector Lab" />
+                    <Tab value="api" label="API Finder" />
                 </Tabs>
             </Paper>
             <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
-                {tab === 'recon' ? <ReconPanel /> : <SelectorLabPanel />}
+                {tab === 'recon' ? <ReconPanel /> : tab === 'lab' ? <SelectorLabPanel /> : <ApiFinderPanel />}
             </Box>
         </Box>
     );

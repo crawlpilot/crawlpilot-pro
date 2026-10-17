@@ -18,6 +18,7 @@ import { resolveFirst, resolveAll } from '../../shared/selectors/resolve';
 import { hashString } from '../../shared/utils/hash';
 import { runRecon } from '../services/recon/ReconService';
 import { LabPicker, evaluateSelector, highlightSelector, clearLabHighlights } from '../features/lab/SelectorLab';
+import { requestNetEntries, clearNetEntries } from '../features/network/NetworkRelay';
 
 export class ContentScriptController {
     private picker: VisualElementPicker | null = null;
@@ -308,6 +309,21 @@ export class ContentScriptController {
             clearLabHighlights();
             this.labPicker.stop();
             sendResponse({ success: true });
+        });
+
+        this.messageClient.on('NET_LIST', async (_msg, sendResponse) => {
+            const res = await requestNetEntries();
+            sendResponse({ success: true, ...res });
+        });
+
+        this.messageClient.on('NET_CLEAR', (_msg, sendResponse) => {
+            clearNetEntries();
+            sendResponse({ success: true });
+        });
+
+        this.messageClient.on('PAGE_COOKIE', (_msg, sendResponse) => {
+            // Non-HttpOnly cookies only: what the page itself can read.
+            sendResponse({ success: true, cookie: document.cookie });
         });
 
         this.messageClient.on('LAB_PICK_START', (_msg, sendResponse) => {
