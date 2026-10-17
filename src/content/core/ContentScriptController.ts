@@ -6,8 +6,7 @@ import { ListSelectionStrategy } from '../features/picker/strategies/ListSelecti
 import { SingleSelectionStrategy } from '../features/picker/strategies/SingleSelectionStrategy';
 import { refreshNetSourcesFor } from '../services/extraction/structuredRows';
 import { hasReaders, inferFields, readRow, similarSiblings, ReaderColumn } from '../services/extraction/fields';
-import { PageExtractor } from '../services/page/PageExtractor';
-import { buildPageRecord } from '../services/page/processors/columnHelpers';
+import { extractPage } from '../services/page/extractPage';
 import { DetailSelectionStrategy } from '../features/picker/strategies/DetailSelectionStrategy';
 import { ImageScanner } from '../features/universal-images/ImageScanner';
 import { ProgressiveImageScanner } from '../features/universal-images/ProgressiveImageScanner';
@@ -36,7 +35,6 @@ export class ContentScriptController {
     /** The list's frozen fields for the running auto-scroll (from the preview, or inferred once). */
     private scrollColumns: ReaderColumn[] | null = null;
     private sentPaginationColumns: unknown = null;
-    private pageExtractor = new PageExtractor();
     private selectionHighlightManager = new SelectionHighlightManager();
 
     // Throttle state for scroll updates (Step 2.2)
@@ -200,74 +198,10 @@ export class ContentScriptController {
             sendResponse({ success: true, enabled: RightClickUnlocker.isEnabled() });
         });
 
-        this.messageClient.on('CMD_EXTRACT_PAGE', async (msg, sendResponse) => {
-            console.log('📄 [Content Script] CMD_EXTRACT_PAGE Received', msg.payload);
-            const { actionType, url, elements, config, tableDataId } = msg.payload;
-
-            const result = await this.pageExtractor.execute(
-                actionType,
-                url,
-                elements,
-                config,
-                tableDataId
-            );
-
-            sendResponse({ success: true, result });
-        });
-
         this.messageClient.on('CMD_EXTRACT_PAGE_BACKGROUND', async (msg, sendResponse) => {
-            console.log('📄 [Content Script] CMD_EXTRACT_PAGE_BACKGROUND Received (no-scroll mode)');
             const { url, elements, config } = msg.payload;
-
-            // Use BackgroundElementProcessor (no scroll, no highlights)
-            const { BackgroundElementProcessor } = await import('../services/page/processors/BackgroundElementProcessor');
-            const processor = new BackgroundElementProcessor(config || {});
-
-            // Aggregator mirrors PageExtractionStrategy logic:
-            // - table type → row explosion (multiple rows)
-            // - list type → numbered column flattening (single row)
-            // - simple → scalar merge (single row)
-            const allColumns: any[] = [];
-            const elementData: Record<string, any> = {};
-
-            for (const element of (elements || [])) {
-                const result = await processor.processElement(element);
-
-                if (result.columns) {
-                    result.columns.forEach((col: any) => {
-                        if (!allColumns.find((c: any) => c.id === col.id)) {
-                            allColumns.push(col);
-                        }
-                    });
-                }
-
-                if (result.success && result.data) {
-                    if (result.data.items && Array.isArray(result.data.items)) {
-                        // List or Table with multiple items
-                        const dataType = result.data.type || element.type || 'list';
-                        elementData[element.id] = {
-                            __type: dataType === 'table' ? 'table' : 'list',
-                            items: result.data.items,
-                            columns: result.columns || result.data.columns || []
-                        };
-                    } else {
-                        // Simple scalar or JSON-consolidated table
-                        elementData[element.id] = result.data[element.id] ?? result.data.value ?? null;
-                        const rawKey = element.id + '__tabledata';
-                        if (result.data[rawKey] !== undefined) elementData[rawKey] = result.data[rawKey];
-                    }
-                } else {
-                    elementData[element.id] = null;
-                }
-            }
-
-            // Same shape as PageExtractionStrategy: scalars, plus each list shaped by the list output setting.
-            const record = buildPageRecord(elementData, allColumns, config?.listOutput);
-
-            sendResponse({
-                success: true,
-                result: { item: record.item, items: record.items, columns: record.columns, url }
-            });
+            const record = await extractPage(elements || [], config || {});
+            sendResponse({ success: true, result: { ...record, url } });
         });
 
         // --- Scraper toolkit: Page Recon and Selector Lab ---

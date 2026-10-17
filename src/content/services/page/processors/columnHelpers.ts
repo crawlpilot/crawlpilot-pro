@@ -1,10 +1,6 @@
 import { ElementDefinition, ExtractionResult } from '../types';
 
-/**
- * Shared between ElementProcessor and BackgroundElementProcessor — byte-for-byte identical
- * in both before this extraction. Builds the column definitions for one element's result,
- * grouping list/smart/table columns under the element's name.
- */
+/** The column definitions for one element's result, grouping list/smart/table columns under the element's name. */
 export function extractColumns(elementDef: ElementDefinition, actionResult: ExtractionResult): any[] {
     // Table elements are JSON-consolidated: one visible JSON column + one hidden raw-data column
     if (elementDef.type === 'table' && (actionResult as any)._columnCount !== undefined) {
@@ -64,8 +60,7 @@ export function extractColumns(elementDef: ElementDefinition, actionResult: Extr
 }
 
 /**
- * Shared between ElementProcessor and BackgroundElementProcessor — byte-for-byte identical
- * in both before this extraction. Collapses table rows into a compact JSON string for the
+ * Collapses table rows into a compact JSON string for the
  * visible column (the raw row/column data is kept separately in the hidden `__tabledata` column).
  */
 export function collapseTableToJson(items: any[], columns: any[]): string {

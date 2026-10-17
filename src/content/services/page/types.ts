@@ -1,6 +1,4 @@
 export interface ExtractionConfig {
-    delayBetweenElements?: number;
-    elementHighlightDuration?: number;
     [key: string]: any;
 }
 

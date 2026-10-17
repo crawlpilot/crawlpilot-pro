@@ -1,14 +1,19 @@
-import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult } from '../types';
-import { DataExtractor } from '../../../services/extraction/DataExtractor';
+/**
+ * Finds one Page Extractor element on the page and extracts (or clicks) it. Runs in tabs that are
+ * often in the background, so nothing waits on timers that hidden tabs throttle: highlights are
+ * fire-and-forget, scrolling is instant, and clicks yield with microtasks (the post-click wait
+ * happens in the service worker).
+ */
+import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult, SelectorDefinition } from '../types';
+import { DataExtractor } from '../../extraction/DataExtractor';
+import { clickElementRobust } from '../../dom/domUtils';
 import { resolveFirst } from '../../../../shared/selectors/resolve';
 import { extractColumns, collapseTableToJson } from './columnHelpers';
 
 export class ElementProcessor {
-    private extractor: DataExtractor;
+    private extractor = new DataExtractor();
 
-    constructor(private config: ExtractionConfig) {
-        this.extractor = new DataExtractor();
-    }
+    constructor(private config: ExtractionConfig) { }
 
     async processElement(elementDef: ElementDefinition): Promise<ProcessedElementResult> {
         const result: ProcessedElementResult = {
@@ -21,40 +26,34 @@ export class ElementProcessor {
         };
 
         try {
-            // Step 1: Fast-path find — element is already in DOM
-            let foundElement = await this.findView(elementDef.selectors, elementDef.name);
-
-            // Step 2: Fallback — element not yet in DOM (lazy-loaded).
-            // Scroll the page progressively to trigger IntersectionObserver-based loaders,
-            // then retry the query.
-            if (!foundElement.success || !foundElement.element) {
-                await this.scrollPageToReveal();
-                foundElement = await this.findView(elementDef.selectors, elementDef.name);
+            if (this.config?.waitForElements) {
+                const timeout = this.config.elementTimeout > 0 ? this.config.elementTimeout : 5000;
+                await this.waitForElement(elementDef.selectors, timeout);
             }
 
-            if (!foundElement.success || !foundElement.element) {
-                result.error = foundElement.error || 'Element not found';
+            // Not in the DOM yet: scroll the page to wake lazy loaders.
+            const element = this.find(elementDef.selectors) ?? await this.scrollPageToReveal(elementDef.selectors);
+            if (!element) {
+                result.error = `Element "${elementDef.name}" not found after full page scroll`;
                 return result;
             }
 
-            // Step 3: Scroll element into view (instant — reliable in background tabs)
-            // and wait for any lazy content it contains to finish loading.
-            await this.scrollIntoViewAndWait(foundElement.element);
+            this.highlight(element, elementDef.name);
+            element.scrollIntoView({ behavior: 'instant', block: 'center' });
+            window.dispatchEvent(new Event('scroll'));
+            document.dispatchEvent(new Event('scroll'));
 
-            await this.highlightElement(foundElement.element, elementDef.name);
-
-            const actionResult = await this.performAction(elementDef, foundElement.element);
+            const actionResult = elementDef.action === 'click'
+                ? await this.click(element)
+                : this.extract(elementDef, element);
 
             if (actionResult.success) {
                 result.success = true;
                 result.data = actionResult.data;
-                // Only extract columns if extracting, not clicking? 
-                // Legacy wrapper logic suggests click might return success but no data columns unless configured
                 result.columns = extractColumns(elementDef, actionResult);
             } else {
                 result.error = actionResult.error;
             }
-
             return result;
         } catch (error: any) {
             result.error = error.message;
@@ -62,142 +61,93 @@ export class ElementProcessor {
         }
     }
 
-    private async findView(selectors: any[], elementName: string): Promise<{ success: boolean; element?: HTMLElement; error?: string; selector?: string }> {
-        const { element, used } = resolveFirst(selectors, document);
-        if (element) {
-            return { success: true, element: element as HTMLElement, selector: used?.value };
-        }
-        return { success: false, error: `Could not find element "${elementName}"` };
+    private find(selectors: SelectorDefinition[]): HTMLElement | null {
+        return resolveFirst(selectors, document).element as HTMLElement | null;
     }
 
-    /**
-     * Scrolls the page in viewport-sized chunks to trigger IntersectionObserver-based
-     * lazy loaders. Called only when findView() returns nothing (element not yet in DOM).
-     * Uses `instant` scroll + explicit `scroll` event dispatch — both are required because
-     * background tabs often skip smooth animation and may not fire scroll events on their own.
-     */
-    private async scrollPageToReveal(): Promise<void> {
-        const viewportHeight = window.innerHeight || 800;
-        const totalHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+    private highlight(element: HTMLElement, elementName?: string): void {
+        try {
+            if (!document.getElementById('crawlpilot-extraction-highlight-styles')) {
+                const style = document.createElement('style');
+                style.id = 'crawlpilot-extraction-highlight-styles';
+                style.textContent = `
+                    @keyframes crawlpilot-extract-pulse {
+                        0% { box-shadow: 0 0 10px rgba(34, 211, 238, 0.3); }
+                        100% { box-shadow: 0 0 25px rgba(34, 211, 238, 0.7); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
 
-        for (let y = 0; y < totalHeight; y += viewportHeight) {
-            window.scrollTo({ top: y, behavior: 'instant' });
-            window.dispatchEvent(new Event('scroll'));
-            await new Promise(r => setTimeout(r, 150));
-        }
-        // Final pause for any triggered network fetches / renders
-        await new Promise(r => setTimeout(r, 400));
-    }
+            const rect = element.getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0) return;
 
-    /**
-     * Scrolls an element to the center of the viewport using `instant` (reliable in
-     * background tabs), dispatches scroll events to wake IntersectionObserver loaders,
-     * waits for content to render, and verifies the element has non-zero dimensions.
-     */
-    private async scrollIntoViewAndWait(element: HTMLElement): Promise<void> {
-        element.scrollIntoView({ behavior: 'instant', block: 'center' });
-        window.dispatchEvent(new Event('scroll'));
-        document.dispatchEvent(new Event('scroll'));
-
-        const baseWait = Math.max(600, this.config?.actionSpeed || 500);
-        await new Promise(r => setTimeout(r, baseWait));
-
-        // If the element still has no dimensions, the browser may not have committed the
-        // scroll (common in background tabs). Fall back to window.scrollTo directly.
-        const rect = element.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) {
-            const absoluteTop = rect.top + window.scrollY;
-            window.scrollTo({ top: Math.max(0, absoluteTop - window.innerHeight / 2), behavior: 'instant' });
-            window.dispatchEvent(new Event('scroll'));
-            await new Promise(r => setTimeout(r, 400));
-        }
-    }
-
-    private async highlightElement(element: HTMLElement, elementName?: string): Promise<void> {
-        const duration = this.config?.actionSpeed || this.config?.elementHighlightDuration || 500;
-        const shouldHighlight = this.config?.showExtractionHighlights !== false;
-        if (!shouldHighlight) return;
-
-        // Inject keyframes if not already present
-        if (!document.getElementById('crawlpilot-extraction-highlight-styles')) {
-            const style = document.createElement('style');
-            style.id = 'crawlpilot-extraction-highlight-styles';
-            style.textContent = `
-                @keyframes crawlpilot-extract-pulse {
-                    0% { box-shadow: 0 0 10px rgba(34, 211, 238, 0.3); }
-                    100% { box-shadow: 0 0 25px rgba(34, 211, 238, 0.7); }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
-        // Create a fixed-position overlay (non-intrusive, doesn't modify original element styles)
-        const rect = element.getBoundingClientRect();
-        const overlay = document.createElement('div');
-        overlay.className = 'crawlpilot-extraction-highlight';
-        overlay.style.cssText = `
-            position: fixed !important;
-            top: ${rect.top}px !important;
-            left: ${rect.left}px !important;
-            width: ${rect.width}px !important;
-            height: ${rect.height}px !important;
-            border: 3px solid #22D3EE !important;
-            background-color: rgba(34, 211, 238, 0.12) !important;
-            z-index: 2147483646 !important;
-            pointer-events: none !important;
-            border-radius: 4px !important;
-            animation: crawlpilot-extract-pulse 0.6s ease-in-out infinite alternate !important;
-        `;
-
-        // Label badge showing element name
-        if (elementName) {
-            const label = document.createElement('div');
-            label.textContent = `⚡ ${elementName}`;
-            label.style.cssText = `
-                position: absolute !important;
-                top: -28px !important;
-                left: 0 !important;
-                background: #22D3EE !important;
-                color: #000 !important;
-                font-size: 11px !important;
-                font-weight: bold !important;
-                padding: 3px 10px !important;
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed !important;
+                top: ${rect.top}px !important;
+                left: ${rect.left}px !important;
+                width: ${rect.width}px !important;
+                height: ${rect.height}px !important;
+                border: 3px solid #22D3EE !important;
+                background-color: rgba(34, 211, 238, 0.12) !important;
+                z-index: 2147483646 !important;
+                pointer-events: none !important;
                 border-radius: 4px !important;
-                font-family: system-ui, -apple-system, sans-serif !important;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
-                white-space: nowrap !important;
+                animation: crawlpilot-extract-pulse 0.6s ease-in-out infinite alternate !important;
             `;
-            overlay.appendChild(label);
-        }
 
-        document.documentElement.appendChild(overlay);
+            if (elementName) {
+                const label = document.createElement('div');
+                label.textContent = `⚡ ${elementName}`;
+                label.style.cssText = `
+                    position: absolute !important;
+                    top: -28px !important;
+                    left: 0 !important;
+                    background: #22D3EE !important;
+                    color: #000 !important;
+                    font-size: 11px !important;
+                    font-weight: bold !important;
+                    padding: 3px 10px !important;
+                    border-radius: 4px !important;
+                    font-family: system-ui, -apple-system, sans-serif !important;
+                    white-space: nowrap !important;
+                `;
+                overlay.appendChild(label);
+            }
 
-        return new Promise(resolve => {
+            document.documentElement.appendChild(overlay);
+
+            const duration = Math.max(this.config?.actionSpeed || 0, 1200);
             setTimeout(() => {
                 overlay.style.opacity = '0';
                 overlay.style.transition = 'opacity 0.3s ease';
-                setTimeout(() => { overlay.remove(); resolve(); }, 300);
+                setTimeout(() => overlay.remove(), 300);
             }, duration);
+        } catch (_e) {
+            // Highlight is best-effort; never block extraction
+        }
+    }
+
+    private waitForElement(selectors: SelectorDefinition[], timeout: number): Promise<void> {
+        return new Promise((resolve) => {
+            if (this.find(selectors)) { resolve(); return; }
+
+            const deadline = setTimeout(() => { observer.disconnect(); resolve(); }, timeout);
+            const observer = new MutationObserver(() => {
+                if (this.find(selectors)) {
+                    clearTimeout(deadline);
+                    observer.disconnect();
+                    resolve();
+                }
+            });
+            observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
         });
     }
 
-    private async performAction(elementDef: ElementDefinition, element: HTMLElement): Promise<ExtractionResult> {
-        if (elementDef.action === 'click') {
-            return this.performClickAction(elementDef, element);
-        } else if (elementDef.action === 'extract') {
-            return this.performExtractAction(elementDef, element);
-        }
-
-        throw new Error(`Unsupported action: ${elementDef.action}`);
-    }
-
-    private async performExtractAction(elementDef: ElementDefinition, element: HTMLElement): Promise<ExtractionResult> {
-        // Detailed extraction types based on legacy background-readable.js analysis
-        // supported types: smart, text, image_url, image_background, link_url
-
+    private extract(elementDef: ElementDefinition, element: HTMLElement): ExtractionResult {
         const type = elementDef.type || 'text';
         let value: string | null = null;
-        let data: any = {};
 
         switch (type) {
             case 'text':
@@ -205,70 +155,50 @@ export class ElementProcessor {
                 break;
             case 'link_url':
             case 'link':
-                if (element.tagName === 'A') {
-                    value = (element as HTMLAnchorElement).href;
-                } else {
-                    // Try to find closest A? or just get text?
-                    // Legacy fallback might be just text or empty
-                    value = element.getAttribute('href') || element.innerText;
-                }
+                value = element.tagName === 'A' ? (element as HTMLAnchorElement).href : element.getAttribute('href') || element.innerText;
                 break;
             case 'image_url':
             case 'image':
                 if (element.tagName === 'IMG') {
                     value = (element as HTMLImageElement).currentSrc || (element as HTMLImageElement).src;
                 } else {
-                    // check background image?
                     const style = window.getComputedStyle(element);
-                    if (style.backgroundImage && style.backgroundImage !== 'none') {
-                        value = style.backgroundImage.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
-                    } else {
-                        value = element.getAttribute('src') || element.getAttribute('data-src');
-                    }
+                    value = style.backgroundImage && style.backgroundImage !== 'none'
+                        ? style.backgroundImage.replace(/^url\(["']?/, '').replace(/["']?\)$/, '')
+                        : element.getAttribute('src') || element.getAttribute('data-src');
                 }
                 break;
             case 'image_array': {
-                const imgs = Array.from(element.querySelectorAll('img')) as HTMLImageElement[];
+                const imgs = Array.from(element.querySelectorAll('img'));
                 return { success: true, data: { [elementDef.id]: imgs.map(img => img.currentSrc || img.src).filter(Boolean) } };
             }
             case 'link_array': {
-                const anchors = Array.from(element.querySelectorAll('a[href]')) as HTMLAnchorElement[];
+                const anchors = Array.from(element.querySelectorAll<HTMLAnchorElement>('a[href]'));
                 return { success: true, data: { [elementDef.id]: anchors.map(a => a.href).filter(v => v && !v.startsWith('javascript:')) } };
             }
             case 'text_array': {
                 const skipTags = new Set(['BR', 'HR', 'SCRIPT', 'STYLE', 'LINK', 'META']);
-                const kids = Array.from(element.children).filter(c => !skipTags.has(c.tagName)) as HTMLElement[];
+                const kids = Array.from(element.children).filter(c => !skipTags.has(c.tagName));
                 return { success: true, data: { [elementDef.id]: kids.map(c => (c.textContent || '').trim()).filter(Boolean) } };
             }
             case 'smart':
             case 'list': {
-                // List Extraction: extract all rows from the container directly.
-                const listData = this.extractContainerRows(element, 'list', elementDef.fields);
-                if (listData.items && listData.items.length > 0) {
-                    return {
-                        success: true,
-                        data: listData,
-                        columns: listData.columns
-                    };
-                } else {
-                    value = element.innerText || element.textContent;
-                }
+                const listData = this.containerRows(element, 'list', elementDef.fields);
+                if (listData.items.length > 0) return { success: true, data: listData, columns: listData.columns };
+                value = element.innerText || element.textContent;
                 break;
             }
-
             case 'table': {
-                const tableData = this.extractContainerRows(element, 'table', elementDef.fields);
-                if (tableData.items && tableData.items.length > 0) {
-                    const json = collapseTableToJson(tableData.items, tableData.columns);
-                    const tableResult: any = {
+                const tableData = this.containerRows(element, 'table', elementDef.fields);
+                if (tableData.items.length > 0) {
+                    return {
                         success: true,
                         data: {
-                            [elementDef.id]: json,
+                            [elementDef.id]: collapseTableToJson(tableData.items, tableData.columns),
                             [elementDef.id + '__tabledata']: JSON.stringify({ items: tableData.items, columns: tableData.columns })
                         },
                         _columnCount: tableData.columns.length
-                    };
-                    return tableResult;
+                    } as ExtractionResult;
                 }
                 value = element.innerText || element.textContent;
                 break;
@@ -277,113 +207,44 @@ export class ElementProcessor {
                 value = element.innerText;
         }
 
-        if (value) {
-            value = value.trim();
-        }
-
-        return {
-            success: true,
-            data: { value, ...data }
-        };
+        return { success: true, data: { [elementDef.id]: value ? value.trim() : value } };
     }
 
-    private async performClickAction(_elementDef: ElementDefinition, element: HTMLElement): Promise<ExtractionResult> {
+    private async click(element: HTMLElement): Promise<ExtractionResult> {
         try {
-            // Full mouse event sequence for maximum compatibility with SPAs,
-            // framework event handlers, and accordion/dropdown components
-            const events: string[] = ['mouseover', 'mouseenter', 'mousemove', 'mousedown', 'focus', 'mouseup', 'click'];
-            for (const eventType of events) {
-                element.dispatchEvent(new MouseEvent(eventType, {
-                    bubbles: true,
-                    cancelable: true,
-                    view: window,
-                    button: 0
-                }));
-            }
-
-            // Also try native click as fallback (some frameworks only listen to this)
-            element.click();
-
-            // For inputs/selects, trigger focus and change events
-            if (element instanceof HTMLInputElement || element instanceof HTMLSelectElement) {
-                element.focus();
-                element.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-
-            // Wait for expansion/animation to complete.
-            // clickWaitMs (from orchestrator config) takes priority so accordion/tab
-            // animations have time to finish before the next element is processed.
-            const waitTime = _elementDef.waitTimeAfterClick
-                || this.config?.clickWaitMs
-                || this.config?.actionSpeed
-                || 1000;
-            await new Promise(r => setTimeout(r, waitTime));
-
-            return {
-                success: true,
-                data: {
-                    value: 'clicked',
-                    action: 'click',
-                    waitTimeApplied: waitTime
-                }
-            };
+            await clickElementRobust(element);
+            return { success: true, data: { value: 'clicked', action: 'click' } };
         } catch (e: any) {
             return { success: false, error: e.message };
         }
     }
 
-    /**
-     * Directly extracts all row-level children from a container element.
-     * Handles nested <table> → <tbody> → <tr> DOM structure automatically.
-     * This bypasses unreliable re-detection (findInternalContainer) which only ever
-     * returns the first match from querySelector.
-     */
-    /** `fields`: the list's fields saved when it was picked, so every page is read with the same columns. */
-    private extractContainerRows(element: HTMLElement, type: 'table' | 'list', fields?: unknown): any {
-        // For <table> elements, dive into <tbody> to get <tr> children
-        let rowsContainer: HTMLElement = element;
-        if (element.tagName === 'TABLE' || element.tagName === 'THEAD' || element.tagName === 'TFOOT') {
-            const tbody = element.querySelector('tbody');
-            if (tbody) rowsContainer = tbody as HTMLElement;
+    /** Scrolls the whole page a viewport at a time (so lazy loaders fire), looking for the element at each step. */
+    private async scrollPageToReveal(selectors: SelectorDefinition[]): Promise<HTMLElement | null> {
+        const viewportHeight = window.innerHeight || 800;
+        const STEP_DELAY_MS = 600;  // clamped to ~1000ms in inactive background tabs
+        const totalHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+        for (let y = 0; y < totalHeight; y += viewportHeight) {
+            window.scrollTo({ top: y, behavior: 'instant' });
+            window.dispatchEvent(new Event('scroll'));
+            await new Promise(r => setTimeout(r, STEP_DELAY_MS));
+            const found = this.find(selectors);
+            if (found) return found;
         }
-
-        // Collect all direct meaningful children
-        const childNodes = Array.from(rowsContainer.children) as HTMLElement[];
-        const rowElements = childNodes.filter(child => {
-            // Skip header rows in tbody if present
-            if (child.tagName === 'THEAD') return false;
-            // Skip hidden elements
-            const style = window.getComputedStyle(child);
-            if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
-            // Must have some text content
-            const text = (child.innerText || child.textContent || '').trim();
-            return text.length > 0;
-        });
-
-        if (rowElements.length === 0) {
-            // Last resort: grab all li/tr/div children anywhere in the element
-            const fallbackRows = Array.from(
-                element.querySelectorAll('li, tr, [class*="item"], [class*="row"]')
-            ).filter((el, _idx, arr) => {
-                // Only top-level occurrences relative to their parent
-                const parent = el.parentElement;
-                return parent && arr.filter(e => e.parentElement === parent).length > 1;
-            }) as HTMLElement[];
-
-            if (fallbackRows.length === 0) {
-                return { type, items: [], columns: [] };
-            }
-
-            return this.buildRowsResult(fallbackRows, type, fields);
-        }
-
-        return this.buildRowsResult(rowElements, type, fields);
+        return this.find(selectors);
     }
 
-    private buildRowsResult(rowElements: HTMLElement[], type: 'table' | 'list', fields?: unknown): any {
-        // Field-first: the fields are inferred once from all rows, then every row is read with them.
+    /** The container's visible rows, read with the list's saved `fields` so every page has the same columns. */
+    private containerRows(element: HTMLElement, type: 'table' | 'list', fields?: unknown): { type: string; items: any[]; columns: any[] } {
+        const rowsContainer = /^(TABLE|THEAD|TFOOT)$/.test(element.tagName) ? element.querySelector('tbody') ?? element : element;
+        const rowElements = (Array.from(rowsContainer.children) as HTMLElement[]).filter(child => {
+            if (child.tagName === 'THEAD') return false;
+            const style = window.getComputedStyle(child);
+            if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+            return (child.innerText || child.textContent || '').trim().length > 0;
+        });
+        if (rowElements.length === 0) return { type, items: [], columns: [] };
         const { columns, items } = this.extractor.extractRows(rowElements, fields);
-        if (items.length === 0) return { type, items: [], columns: [] };
-        return { type, items, columns, count: items.length };
+        return { type, items, columns };
     }
 }
