@@ -339,3 +339,25 @@ independent of each other. P4–P5 depend on the recipe format, so they go toget
 | `packages/recipes/src/thenos_recipes/schema_intake/`, `docs/plans/assist-flow-plan.md` (SC1–SC2 schema intake) | `src/shared/schema/` |
 | `packages/markdown` agent mode with refs (`docs/plans/browser-tools-markdown-plan.md`) | `src/content/services/ai-view/` |
 | `packages/recipes/src/thenos_recipes/verify.py`, `proof.py` (verify before offering) | grounding + compile in `useSchemaExtraction.ts` |
+
+## 7. Progress (branch `feat/scraper-toolkit`)
+
+| Item | State | Notes |
+|---|---|---|
+| G1 | Not a gap | See the G1 row |
+| G2, G3, §3.6 run quality | **Done** | Bulk + metadata verdicts, challenge pause, backoff, per-site gap; listing dedup, page stats, stop reasons, page checks after navigation |
+| G4 stability rules | **Done** | Bootstrap `col-md-*` deliberately kept usable |
+| §3.1 Page Recon | **Done** | Toolkit tab |
+| §3.3 Selector Lab | **Done** | Toolkit tab |
+| §3.2 API Finder | **Done** | Toolkit tab; `public/net-hook.js` |
+| §3.4 / G6 typed fields | **Done** in the data viewer | Not yet in the List/Page Extractor review steps |
+| §3.9 discovery | **Done** | Page Extractor Step 1 |
+| §3.13 AI schema extraction | **Done** for detail pages | List mode (2–3 sample items, item-relative selectors) and the JSON-LD pre-pass are next |
+| G10 README | **Done** | |
+| G5 / §3.5 fingerprints + heal | Open | |
+| G7 shadow DOM / iframes | Open | |
+| G8 / §3.7 portable recipes, code export | Open | |
+| §3.8 schema-first output mapping | Open | Schema intake exists (`shared/ai/schemaIntake.ts`) and can be reused |
+| G9 golden fixtures | Partial | Fixture HTML in `src/test/fixtures/`, no test yet: jsdom has no layout, so the picker's visual paths need a browser runner |
+| §3.10 monitor, §3.11 LLM markdown, §3.12 session export | Open | |
+| i18n for new UI | Open | New screens are English only |

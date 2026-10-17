@@ -1,127 +1,73 @@
-# Ultimate Web Scraper - React Edition
+# CrawlPilot
 
-A modern Chrome extension built with React, TypeScript, and Vite for intelligent web scraping and data extraction.
+A Chrome extension (Manifest V3) for scraping and for building scrapers: extract lists and pages
+without code, and inspect any page to see where its data lives, what protects it, and which
+selectors will last.
 
-## 🚀 Features
+## Features
 
-- **List Extraction** - Extract structured data from web pages
-- **Email Extraction** - Find and collect email addresses
-- **Image Download** - Bulk download images
-- **Text Extraction** - Clean text and metadata extraction
-- **Data Management** - IndexedDB storage with full CRUD operations
+**Extract**
+- **List Extractor**: pick one item, get every similar item as rows; next-button, load-more and
+  infinite-scroll pagination; rows repeated across pages are dropped; each run records rows per page
+  and why it stopped.
+- **Page Extractor**: pick fields once, run them over many URLs in background tabs. URLs come from a
+  CSV, an earlier table, or **site discovery** (sitemaps + page links, grouped by path pattern).
+  Fields can be **filled from a schema by Chrome's on-device AI**: every value is checked against the
+  page and turned into selectors, so bulk runs need no AI.
+- **Metadata Extractor**, **Image Downloader**, **Email Extractor**, **Text Summarizer** (on-device AI).
 
-## 🛠️ Tech Stack
+**Run safely**
+- Every page is checked before extraction: bot checks (pause so you can solve them), blocks, rate
+  limits (back off and retry), waiting rooms, login walls and soft 404s are recorded, not saved as rows.
+- Per-site minimum gap across all tabs, delay jitter, verdict counts in History.
 
-- **React 18** with TypeScript
-- **Vite** - Fast bundling and HMR
-- **TailwindCSS** - Utility-first CSS
-- **IndexedDB** - Client-side data storage
-- **Chrome Extension Manifest V3**
+**Scraper Toolkit**
+- **Page Recon**: rendering (served vs JavaScript), embedded data (JSON-LD, `__NEXT_DATA__`, app
+  state, microdata, OpenGraph), bot-protection vendors, robots.txt, sitemaps, pagination, and a
+  one-line recommendation.
+- **Selector Lab**: test CSS/XPath live, Strong/Fragile/Broken grades with reasons, graded
+  alternatives for a picked element, copy as Playwright, Puppeteer, Selenium, Scrapy, BeautifulSoup
+  or Cheerio.
+- **API Finder**: record the page's JSON calls, point at a value to find the response and JSON path
+  that hold it, save the list as a table, export the request as cURL / Python / fetch / Scrapy.
 
-## 📦 Project Structure
+**Data**
+- Data viewer (IndexedDB) with filters, merges and **typed columns**: detect and clean money (with
+  currency), numbers, counts, percentages, ratings, dates and URLs; raw values are kept.
+- Export to CSV, JSON, Markdown, webhook, Airtable.
+
+Nothing leaves the browser unless you export it. The on-device model runs locally.
+
+## Development
+
+Requires Node.js 18+.
+
+```bash
+npm install
+npm run dev      # Vite dev build with HMR
+npm test         # Vitest (jsdom)
+npm run build    # type-check + production build into dist/
+npm run zip      # build and package chrome-extension.zip
+```
+
+Load the extension: `chrome://extensions` → Developer mode → **Load unpacked** → `dist/`.
+
+## Layout
 
 ```
 src/
-├── background/          # Service worker
-│   └── index.ts
-├── sidepanel/          # React UI
-│   ├── index.tsx
-│   ├── App.tsx
-│   ├── pages/
-│   └── components/
-└── shared/             # Shared utilities
-    ├── db/
-    │   └── db-manager.ts
-    ├── types/
-    │   ├── database.ts
-    │   └── messages.ts
-    └── utils/
-        └── messaging.ts
+  background/        service worker: bulk and metadata orchestrators, tab pool
+  content/           content script: picker, pagination, extraction, recon, lab, AI page view
+  sidepanel/         React UI (pages, wizard steps, toolkit panels, data viewer)
+  shared/            pure, tested modules used by all three:
+    selectors/       stability rules, resolver, grades, code snippets
+    verdict/         page classification and bot-manager detection
+    listing/         per-page run stats and stop reasons
+    recon/           robots.txt, recommendation
+    network/         JSON value search, request export, paging params
+    transforms/      value parsers, transform chains, type detection
+    discovery/       sitemap parsing, URL patterns, filters
+    ai/              schema intake, prompt and grounding for on-device extraction
+public/net-hook.js   API Finder page hook (MAIN world, only while recording)
+docs/plans/          plans (see scraper-toolkit-plan.md)
 ```
-
-## 🔧 Development
-
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-
-### Setup
-
-```bash
-# Install dependencies
-npm install
-
-# Development mode (with hot reload)
-npm run dev
-
-# Build for production
-npm run build
-```
-
-### Loading the Extension
-
-1. Build the extension: `npm run build`
-2. Open Chrome Extensions: `chrome://extensions`
-3. Enable "Developer mode"
-4. Click "Load unpacked"
-5. Select the `dist/` folder
-
-## 📚 Architecture
-
-### Database Schema
-
-**tableData** - Metadata for extracted datasets
-- `id` - Auto-increment primary key
-- `name` - Display name
-- `columns` - Array of column definitions
-- `sourceUrl` - Origin URL
-- `createdAt`, `updatedAt` - Timestamps
-
-**tableRows** - Individual data rows
-- `id` - Auto-increment primary key
-- `tableDataId` - Foreign key to tableData
-- `data` - Row data as key-value pairs
-- `createdAt` - Timestamp
-
-**automations** - Automation tasks
-- `id` - Auto-increment primary key
-- `type` - Automation type
-- `status` - Current status
-- `config` - Configuration object
-- `metadata` - Additional metadata
-
-### Messaging System
-
-Components communicate via Chrome Extension messaging:
-
-```typescript
-// Send from sidepanel
-sendToBackground({
-  type: 'EXTRACTION_COMPLETE',
-  payload: { data: extractionResult }
-});
-
-// Background handles and responds
-onMessage(async (message) => {
-  if (message.type === 'EXTRACTION_COMPLETE') {
-    const id = await db.saveExtraction(message.payload.data);
-    return { success: true, tableDataId: id };
-  }
-});
-```
-
-## 🎯 Development Roadmap
-
-- [x] Phase 1: Project Setup
-- [x] Phase 2: Core Infrastructure  
-- [ ] Phase 3: Side Panel UI
-- [ ] Phase 4: Extraction Tools
-- [ ] Phase 5: Polish & Testing
-
-## 📝 License
-
-MIT# crawlpilot.github.io
-# crawlpilot.github.io
-# crawlpilot.github.io
-# crawlpilot.github.io
