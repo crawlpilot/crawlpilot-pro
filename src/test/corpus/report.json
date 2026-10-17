@@ -11,7 +11,7 @@
       "elementPositional": 14,
       "elementInstanceValue": 0,
       "fields": 18,
-      "fieldsRead": 16
+      "fieldsRead": 17
     },
     "products": {
       "targets": 30,
@@ -184,19 +184,15 @@
         "columns": [
           "Image ← [data-testid=\"productTileImage\"]",
           "URL ← a",
-          "Badge Tag ← [data-testid=\"badgeTagComponent\"] > span",
-          "Unified Global Product Price ← [data-testid=\"unified-global-product-price-a11y-text\"]",
-          "Badge 2 ← div",
+          "Badge Tag ← [data-testid=\"badgeTagComponent\"]",
+          "Badge ← [data-test-id=\"gpt-sponsored-tag-container\"] > div > div > div",
           "Title ← [data-automation-id=\"product-title\"]",
+          "Price ← :scope > div > [data-test-id=\"gpt-main\"] > [data-test-id=\"gpt-product-tile-grid-container\"] > [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > [data-testid=\"unified-global-product-price\"] > [data-testid=\"ugpp-reduced-price\"] > span",
           "Rating ← [data-testid=\"rating-container\"] > span",
-          "Rating 2 ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span",
-          "Badge ← [data-testid=\"badgeTagComponent\"] > span > span",
-          "Text ← [data-testid=\"badgeTagComponent\"] > span > span",
-          "Badge 3 ← [data-testid=\"badgeTagComponent\"] > span > span",
-          "Badge 6 ← .ld",
-          "Badge 4 ← [data-testid=\"badgeTagComponent\"] > span > span > span",
-          "Badge 5 ← [data-testid=\"badgeTagComponent\"] > span > span > span",
-          "Date ← [data-testid=\"badgeTagComponent\"] > span > span"
+          "Was Price ← [data-testid=\"ugpp-was-price\"]",
+          "Rating 2 ← :scope > div > [data-test-id=\"gpt-main\"] > [data-test-id=\"gpt-product-tile-grid-container\"] > [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span",
+          "Price (Ugpp Range Price) ← [data-testid=\"ugpp-range-price\"]",
+          "Product Reviews ← [data-testid=\"product-reviews\"]"
         ],
         "fields": [
           {
@@ -216,13 +212,13 @@
           },
           {
             "field": "price",
-            "rowsWithValue": 9,
-            "readBy": "Unified Global Product Price ← [data-testid=\"unified-global-product-price-a11y-text\"] (9/9)"
+            "rowsWithValue": 6,
+            "readBy": "Price ← :scope > div > [data-test-id=\"gpt-main\"] > [data-test-id=\"gpt-product-tile-grid-container\"] > [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > [data-testid=\"unified-global-product-price\"] > [data-testid=\"ugpp-reduced-price\"] > span (6/6)"
           },
           {
             "field": "was price",
             "rowsWithValue": 6,
-            "readBy": null
+            "readBy": "Was Price ← [data-testid=\"ugpp-was-price\"] (6/6)"
           }
         ]
       },
@@ -303,14 +299,12 @@
         "columns": [
           "Image ← [data-testid=\"productTileImage\"]",
           "URL ← a",
-          "Badge Tag ← [data-testid=\"badgeTagComponent\"] > span",
-          "Text ← [data-testid=\"badgeTagComponent\"] > span > span > span",
+          "Badge Tag ← [data-testid=\"badgeTagComponent\"]",
           "Price Flex ← [data-test-id=\"gpt-price-flex-container\"] > span",
           "Was Price ← [data-test-id=\"gpt-was-price-container\"]",
           "Title ← [data-automation-id=\"product-title\"]",
           "Rating ← [data-testid=\"rating-container\"] > span",
-          "Rating 2 ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span",
-          "Badge ← [data-testid=\"badgeTagComponent\"] > span > span"
+          "Rating 2 ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span"
         ],
         "fields": [
           {
@@ -466,20 +460,20 @@
           "exact": true
         },
         "columns": [
-          "Text ← a",
+          "Title ← a",
           "URL ← a",
-          "Was Price ← p"
+          "Price ← p"
         ],
         "fields": [
           {
             "field": "title",
             "rowsWithValue": 5,
-            "readBy": "Text ← a (5/5)"
+            "readBy": "Title ← a (5/5)"
           },
           {
             "field": "price",
             "rowsWithValue": 5,
-            "readBy": "Was Price ← p (5/5)"
+            "readBy": "Price ← p (5/5)"
           }
         ]
       },

@@ -221,3 +221,21 @@ describe('Amazon-style search results', () => {
         expect(items[9]).toEqual({}); // "Need help?"
     });
 });
+
+describe('table columns', () => {
+    const table = (headers: string[], rows: string[][]) =>
+        `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+
+    it('reads each column by its header, so a page that adds a column still reads the right cells', () => {
+        document.body.innerHTML = table(['Name', 'Price'], [['Lamp', '$5.00'], ['Desk', '$90.00'], ['Chair', '$40.00']]);
+        const { columns } = inferFields(Array.from(document.querySelectorAll('tbody tr')));
+        expect(columns.map(c => c.name)).toEqual(['Name', 'Price']);
+
+        document.body.innerHTML = table(['Name', 'Stock', 'Price'], [['Sofa', 'In stock', '$300.00']]);
+        const row = readRow(document.querySelector('tbody tr')!, columns);
+        expect(row).toEqual({ [columns[0].id]: 'Sofa', [columns[1].id]: '$300.00' });
+
+        document.body.innerHTML = table(['Name', 'Cost'], [['Rug', '$20.00']]);
+        expect(readRow(document.querySelector('tbody tr')!, columns)).toEqual({ [columns[0].id]: 'Rug' });
+    });
+});

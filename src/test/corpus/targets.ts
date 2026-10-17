@@ -62,7 +62,8 @@ export const CORPUS: Record<string, PageTargets> = {
                 { name: 'title', at: '[data-automation-id="product-title"]', attr: 'text' },
                 { name: 'url', at: 'a[link-identifier]', attr: 'href' },
                 { name: 'image', at: '[data-testid="productTileImage"]', attr: 'src' },
-                { name: 'price', at: '[data-testid="unified-global-product-price-a11y-text"]', attr: 'text' },
+                // The visual price ("Now $519.99"); the screen-reader sentence repeats it with the was-price.
+                { name: 'price', at: '[data-testid="ugpp-reduced-price"] > span', attr: 'text' },
                 { name: 'was price', at: '[data-testid="ugpp-was-price"]', attr: 'text' },
             ],
         },

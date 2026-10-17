@@ -6,6 +6,7 @@
  */
 import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult, SelectorDefinition } from '../types';
 import { DataExtractor } from '../../extraction/DataExtractor';
+import { readValue } from '../../extraction/atoms';
 import { clickElementRobust } from '../../../utils/click';
 import { resolveFirst } from '../../../../shared/selectors/resolve';
 import { extractColumns, collapseTableToJson } from './columnHelpers';
@@ -153,28 +154,34 @@ export class ElementProcessor {
             case 'text':
                 value = (element as any).value || element.innerText || element.textContent;
                 break;
+            // Links and images read the way list fields read them (absolute URLs, lazy `data-src`,
+            // the largest `srcset` candidate), so a page element and a list field agree.
             case 'link_url':
-            case 'link':
-                value = element.tagName === 'A' ? (element as HTMLAnchorElement).href : element.getAttribute('href') || element.innerText;
+            case 'link': {
+                const link = element.closest('a[href]') ?? element.querySelector('a[href]');
+                value = (link && readValue(link, 'href')) || element.innerText;
                 break;
+            }
             case 'image_url':
-            case 'image':
-                if (element.tagName === 'IMG') {
-                    value = (element as HTMLImageElement).currentSrc || (element as HTMLImageElement).src;
+            case 'image': {
+                const img = element.tagName === 'IMG' ? element : element.querySelector('img');
+                if (img) {
+                    value = readValue(img, 'src');
                 } else {
                     const style = window.getComputedStyle(element);
                     value = style.backgroundImage && style.backgroundImage !== 'none'
                         ? style.backgroundImage.replace(/^url\(["']?/, '').replace(/["']?\)$/, '')
-                        : element.getAttribute('src') || element.getAttribute('data-src');
+                        : null;
                 }
                 break;
+            }
             case 'image_array': {
-                const imgs = Array.from(element.querySelectorAll('img'));
-                return { success: true, data: { [elementDef.id]: imgs.map(img => img.currentSrc || img.src).filter(Boolean) } };
+                const srcs = Array.from(element.querySelectorAll('img')).map(img => readValue(img, 'src')).filter(Boolean);
+                return { success: true, data: { [elementDef.id]: [...new Set(srcs)] } };
             }
             case 'link_array': {
-                const anchors = Array.from(element.querySelectorAll<HTMLAnchorElement>('a[href]'));
-                return { success: true, data: { [elementDef.id]: anchors.map(a => a.href).filter(v => v && !v.startsWith('javascript:')) } };
+                const hrefs = Array.from(element.querySelectorAll('a[href]')).map(a => readValue(a, 'href')).filter(Boolean);
+                return { success: true, data: { [elementDef.id]: [...new Set(hrefs)] } };
             }
             case 'text_array': {
                 const skipTags = new Set(['BR', 'HR', 'SCRIPT', 'STYLE', 'LINK', 'META']);

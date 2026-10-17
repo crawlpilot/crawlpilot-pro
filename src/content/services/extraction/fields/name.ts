@@ -14,7 +14,8 @@ const NOISE_WORDS = new Set(['text', 'label', 'value', 'wrapper', 'wrap', 'conta
     'puisg', 'csa', 'sg', 'aok', 'js', 'ui', 'mod', 'cmp', 'comp', 'internal', 'external', 'holder', 'area', 'region']);
 /** Short words that do name a value. */
 const SHORT_WORDS = new Set(['sku', 'age', 'url', 'tag', 'fee', 'tax', 'qty', 'new', 'id', 'isbn', 'upc', 'ean', 'mpn', 'brand', 'size']);
-const STRIKE_CLASS = /strike|line-?through|\bwas\b|was-?price|old|original|list-?price|compare|crossed|regular-?price|before|rrp|msrp/i;
+/** Struck-through price classes, as whole class words (`font-bold` is not "old"). */
+const STRIKE_CLASS = /(^|[\s_-])(strike|strikethrough|line-?through|was|was-?price|old|old-?price|original|list-?price|compare|compare-?at|crossed|regular-?price|before|rrp|msrp)($|[\s_-])/i;
 const UNIT_PRICE = /\/\s*(oz|fl\s?oz|lb|kg|g|ml|l|ct|count|each|unit|item|100\s?g|sq\s?ft)\b|\bper\s+\w+/i;
 const REVIEW_WORDS = /reviews?|ratings?/i;
 const SALES_WORDS = /\b(bought|sold|purchased|orders?)\b/i;
@@ -125,6 +126,8 @@ function baseName(f: Field, all: Field[]): string {
     if (sample.some(v => SALES_WORDS.test(v)) && sample.every(v => v.length < 60)) return 'Sales Volume';
     if (anchor) return anchor;
     if ((f.attr === 'text' || f.attr === 'own') && inHeading(f)) return 'Title';
+    // A card's main link text with no heading or hook naming it ("Trail runner") is its title.
+    if (f.attr === 'text' && f.atoms[0].el.closest('a') && !all.some(o => o !== f && inHeading(o))) return 'Title';
     const tag = f.atoms[0].el.tagName;
     if (tag === 'DT' || tag === 'TH') return 'Label';
     if (tag === 'DD') return 'Value';

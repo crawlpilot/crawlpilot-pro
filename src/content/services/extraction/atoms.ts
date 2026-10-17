@@ -29,6 +29,8 @@ const INLINE = new Set(['A', 'ABBR', 'B', 'BDI', 'BDO', 'BR', 'CITE', 'CODE', 'D
 const FORMATTING = new Set(['B', 'BR', 'WBR', 'DEL', 'EM', 'I', 'INS', 'MARK', 'S', 'SMALL', 'STRIKE', 'STRONG', 'SUB', 'SUP', 'U', 'ABBR', 'IMG']);
 /** Text that is only a piece of a number or price ("$", "24", ".99", "%"). */
 const NUMBER_PIECE = /^[\p{Sc}\d.,\s%+\-/]*$/u;
+/** A word that opens a price written in pieces ("Now" $ 519 99). "List:" with a colon is a label, kept apart. */
+const PRICE_WORD = /^(now|from|was|sale|only|price|our price)$/i;
 const MAX_VALUE = 1000;
 
 export function isHidden(el: Element): boolean {
@@ -78,13 +80,16 @@ export function atomText(el: Element): string {
             if (SKIP.has(e.tagName)) return;
             if (skipAriaHidden && e.getAttribute('aria-hidden') === 'true') return;
             if (e.tagName === 'BR') { out += ' '; return; }
-            if (e.tagName === 'SUP') {
-                const sup = (e.textContent || '').trim();
-                if (/^\d{2}$/.test(sup) && /\d$/.test(out.trimEnd()) && !/[.,]\d*$/.test(out.trimEnd())) {
-                    out = out.trimEnd() + '.' + sup;
+            // Cents in their own element after the whole number: `$24<sup>99</sup>`, `<span>519</span><span>99</span>`.
+            if (e.tagName === 'SUP' || (e.tagName === 'SPAN' && e.previousElementSibling && /\d$/.test(e.previousElementSibling.textContent || ''))) {
+                const cents = (e.textContent || '').trim();
+                if (/^\d{2}$/.test(cents) && /\d$/.test(out.trimEnd()) && !/[.,]\d*$/.test(out.trimEnd())) {
+                    out = out.trimEnd() + '.' + cents;
                     return;
                 }
             }
+            // "Now" then "$519": keep a word apart from the amount after it.
+            if (/\p{L}$/u.test(out) && /^[\p{Sc}\d]/u.test((e.textContent || '').trim())) out += ' ';
             e.childNodes.forEach(walk);
         };
         walk(el);
@@ -198,9 +203,13 @@ function computeTextAtom(el: Element): boolean {
     if (el.children.length === 0) return true;
     if (!inlineOnly(el)) return false;
     if (meaningful(ownText(el))) return true;
-    return Array.from(el.children).every(c =>
-        FORMATTING.has(c.tagName) || c.getAttribute('aria-hidden') === 'true' || SKIP.has(c.tagName) ||
-        NUMBER_PIECE.test((c.textContent || '').trim()));
+    const children = Array.from(el.children);
+    const plain = (c: Element) => FORMATTING.has(c.tagName) || c.getAttribute('aria-hidden') === 'true' || SKIP.has(c.tagName);
+    const piece = (c: Element) => NUMBER_PIECE.test((c.textContent || '').trim());
+    if (children.every(c => plain(c) || piece(c))) return true;
+    // A price opened by a word: "Now" $ 519 99.
+    return PRICE_WORD.test((children[0].textContent || '').trim()) && /\d/.test(el.textContent || '')
+        && children.slice(1).every(c => plain(c) || piece(c));
 }
 
 /**
@@ -209,7 +218,8 @@ function computeTextAtom(el: Element): boolean {
  */
 export function isAtomRoot(el: Element, row: Element, attr: AtomAttr): boolean {
     if (attr !== 'text' && attr !== 'own') return true;
-    if (el.closest('[aria-hidden="true"]')) return false;
+    const hidden = el.closest('[aria-hidden="true"]');
+    if (hidden && !visualCopies(row).blocks.has(hidden)) return false;
     for (let p = el === row ? null : el.parentElement; p; p = p.parentElement) {
         if (isTextAtom(p)) return false;
         if (p === row) break;
@@ -219,6 +229,36 @@ export function isAtomRoot(el: Element, row: Element, attr: AtomAttr): boolean {
 
 function sigOf(path: Element[], attr: AtomAttr): string {
     return `${path.map(e => nodeStep(e).label).join('>')}@${attr}`;
+}
+
+/** Text for screen readers only, by the usual class or test-id names (`sr-only`, `visually-hidden`, `a11y-text`). */
+const SCREEN_READER_ONLY = /(^|[\s_-])(sr-only|screen-reader|visually-hidden|visuallyhidden|a11y|offscreen)([\s_-]|$)/i;
+
+function isScreenReaderOnly(el: Element): boolean {
+    return SCREEN_READER_ONLY.test(el.getAttribute('class') || '') || SCREEN_READER_ONLY.test(el.getAttribute('data-testid') || '');
+}
+
+const SCREEN_READER_CANDIDATES = '[class*="sr-only"], [class*="screen-reader"], [class*="isually"], [class*="a11y"], [class*="offscreen"], [data-testid*="a11y"]';
+const digitsOf = (el: Element) => (el.textContent || '').replace(/\D/g, '');
+
+/**
+ * Pairs of a visual copy and its screen-reader sentence: an `aria-hidden` block (not a piece of one
+ * value, like Amazon's `$24<sup>99</sup>` inside `.a-price`) whose numbers a screen-reader-only
+ * element of the row repeats ("Now $519.99 · Was $799.99" and "Price Now $519.99 Was $799.99").
+ */
+function visualCopies(row: Element): { blocks: Set<Element>; sentences: Set<Element> } {
+    const blocks = new Set<Element>();
+    const sentences = new Set<Element>();
+    const readers = Array.from(row.querySelectorAll(SCREEN_READER_CANDIDATES)).filter(isScreenReaderOnly);
+    if (readers.length === 0) return { blocks, sentences };
+    for (const h of Array.from(row.querySelectorAll('[aria-hidden="true"]'))) {
+        if (h.parentElement && isTextAtom(h.parentElement)) continue;
+        const digits = digitsOf(h);
+        if (digits.length === 0) continue;
+        const sentence = readers.find(r => digitsOf(r).includes(digits));
+        if (sentence) { blocks.add(h); sentences.add(sentence); }
+    }
+    return { blocks, sentences };
 }
 
 /** Every atom of a row, in document order (memoised inside `withAtomCache`). */
@@ -250,11 +290,16 @@ function scanAtoms(row: Element): Atom[] {
         }
     };
 
+    // A row with a visual copy of its values hidden from screen readers (`aria-hidden` around
+    // "Now $519.99 · Was $799.99") and a sentence for them ("Price Now $519.99 Was $799.99"): the
+    // visual copy keeps the values apart, so it is read and the screen-reader sentence is not.
+    const copies = visualCopies(row);
+
     const walk = (el: Element, path: Element[]) => {
-        if (SKIP.has(el.tagName) || isHidden(el)) return;
-        // aria-hidden content is the visual copy of text screen readers get elsewhere in the row
-        // ("Now $<b>111</b><sup>96</sup>" next to "current price $111.96"): read only its images.
-        if (el.getAttribute('aria-hidden') === 'true') {
+        if (SKIP.has(el.tagName) || isHidden(el) || copies.sentences.has(el)) return;
+        // Other aria-hidden content is the visual copy of text screen readers get elsewhere in the
+        // row (a "4.5" next to "4.5 out of 5 stars"): read only its images.
+        if (el.getAttribute('aria-hidden') === 'true' && !copies.blocks.has(el)) {
             const imgs = el.tagName === 'IMG' ? [el] : Array.from(el.querySelectorAll('img'));
             imgs.forEach(img => {
                 const chain: Element[] = [];
@@ -270,7 +315,8 @@ function scanAtoms(row: Element): Atom[] {
             const text = atomText(el);
             if (meaningful(text)) add(el, 'text', text, path);
             el.querySelectorAll('a, img, time, [aria-label], [title]').forEach(inner => {
-                if (isHidden(inner) || (inner.tagName !== 'IMG' && inner.closest('[aria-hidden="true"]'))) return;
+                const hidden = inner.closest('[aria-hidden="true"]');
+                if (isHidden(inner) || (inner.tagName !== 'IMG' && hidden && el.contains(hidden))) return;
                 const innerPath: Element[] = [...path];
                 const chain: Element[] = [];
                 for (let p: Element | null = inner; p && p !== el; p = p.parentElement) chain.unshift(p);

@@ -21,6 +21,11 @@ export interface FieldReader {
     rowGate?: RowGate;
     /** Keep only values of this shape (a field the user split by kind of value). */
     onlyShape?: Shape;
+    /**
+     * A table column: read inside the row's cell under `header` (found by its text on every page),
+     * or at `index` (1-based) when the table has no header row. `chain` is relative to the cell.
+     */
+    cell?: { header?: string; index: number };
     /** Read from the page's JSON item behind the row instead of the DOM (structured data first). */
     json?: JsonSpec;
     /** Readers tried in order when this one finds nothing (fields the user joined into this one). */

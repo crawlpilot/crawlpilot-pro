@@ -2,6 +2,7 @@
 import { alignToTemplate, collectAtoms, isAtomRoot, readValue, Shape, shapeOf, withAtomCache } from '../atoms';
 import { readJsonField } from '../structuredRows';
 import { rowFitsGate } from './gate';
+import { tableHeaders } from './table';
 import { FIELD_SCHEMA_VERSION, FieldReader, query, ReaderColumn } from './types';
 
 export function hasReaders(columns: unknown): columns is ReaderColumn[] {
@@ -18,14 +19,31 @@ function readField(row: Element, r: FieldReader): string | undefined {
     return undefined;
 }
 
+/** A table column's cell in this row: under its header when the table has one, else at its position. */
+function cellOf(row: Element, cell: NonNullable<FieldReader['cell']>): Element | null {
+    if (cell.header !== undefined) {
+        const i = tableHeaders(row.closest('table')).indexOf(cell.header);
+        // The header is gone from this page's table: nothing to read, never another column's cell.
+        return i >= 0 ? row.children[i] ?? null : null;
+    }
+    return row.children[cell.index - 1] ?? null;
+}
+
+/** Where a reader's chain is resolved: the row, or its cell for a table column. */
+function baseOf(row: Element, r: Omit<FieldReader, 'alternates'>): Element | null {
+    return r.cell ? cellOf(row, r.cell) : row;
+}
+
 function readOne(row: Element, r: Omit<FieldReader, 'alternates'>, onlyShape?: Shape): string | undefined {
     const ofShape = (v: string) => !onlyShape || shapeOf(v, r.attr) === onlyShape;
     if (r.json) {
         const v = readJsonField(row, r.json);
         return v !== undefined && ofShape(v) ? v : undefined;
     }
+    const base = baseOf(row, r);
+    if (!base) return undefined;
     for (const sel of r.chain) {
-        const values = query(row, sel).filter(el => isAtomRoot(el, row, r.attr)).map(el => readValue(el, r.attr)).filter(Boolean);
+        const values = query(base, sel).filter(el => isAtomRoot(el, row, r.attr)).map(el => readValue(el, r.attr)).filter(Boolean);
         if (values.length === 0) continue;
         if (r.many) {
             const uniq = [...new Set(values.filter(ofShape))];
@@ -77,7 +95,8 @@ function unmappedCached(row: Element, columns: ReaderColumn[]): number {
         const r = col.reader;
         if (!r) continue;
         for (const reader of [r, ...(r.alternates ?? [])]) {
-            reader.chain.forEach(sel => covered.push(...query(row, sel)));
+            const base = baseOf(row, reader);
+            if (base) reader.chain.forEach(sel => covered.push(...query(base, sel)));
         }
     }
     const isCovered = (el: Element) => covered.some(c => c === el || c.contains(el));
