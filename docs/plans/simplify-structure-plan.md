@@ -259,3 +259,14 @@ Expected result: about 2,300 fewer lines (about 7%). The bigger gain is that eve
 - runs: `background/runs`.
 
 Suggested start: phases 1, 8 and 4, which are low-risk and quick. Then 2 → 3 → 5, then 6 → 7, then 9 → 10.
+
+## 7. Progress
+
+| Phase | Status | Commit |
+|-------|--------|--------|
+| 1 Dead code + knip guard | done | `7262e0c` |
+| 8 Split field inference into `extraction/fields/` | done | `e538179` |
+| 4 One element processor | done. The visible-tab path (`CMD_EXTRACT_PAGE`, `PageExtractor`, `PageExtractionStrategy`) had no sender and was deleted. Aggregation is now in `services/page/extractPage.ts`. | `995ed1c` |
+| 2, 3, 5, 6, 7, 9, 10 | to do | none |
+
+Found along the way, for phase 2: several message handlers in the content script have no sender. Phase 2's typed map will make them show up as unused.
