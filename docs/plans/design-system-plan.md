@@ -1,13 +1,18 @@
 # Side panel design system: own components, no MUI, a livelier look
 
-Status: D1 done, D2 waiting on the look review. Follows `ux-simplification-plan.md` (U0–U6 done).
+Status: D1–D7 done. MUI and Emotion are gone; every screen uses the kit.
 
-Done so far:
-- **Tokens** in `src/sidepanel/index.css`: the `--cp-*` names were kept, with new values, and new tokens were added (`brand`, tile pastels, `-soft` status fills, `line`/`line-strong`, `press`). Tailwind classes: `bg-surface`, `text-ink-2`, `border-line`, `bg-brand`, `bg-tile-mint`, `text-danger`, `rounded-card`, `shadow-press`, `font-display`, `text-caption` … `text-display`. Light-mode text colours meet 4.5:1.
+What was built:
+- **Tokens** in `src/sidepanel/index.css`. The `--cp-*` names were kept, with new values, and new tokens were added (`brand`, tile pastels, `-soft` status fills, `line`/`line-strong`, `press`). Tailwind classes: `bg-surface`, `text-ink-2`, `border-line`, `bg-brand`, `bg-tile-mint`, `text-danger`, `rounded-card`, `shadow-press`, `font-display`, `text-caption` … `text-display`. Light-mode text colours meet 4.5:1.
 - **Fonts are bundled** (`@fontsource-variable/*`, imported in `index.tsx`), not fetched from Google Fonts. Remote fonts didn't load in the extension test browser, and bundling means no third-party request and works offline.
-- **The kit** is in `src/sidepanel/ui/` (Button, IconButton, Card, CardButton, Chip, Badge, Text, Heading, TextField, TextArea, Select, Switch, Checkbox, Radio, Segmented, Slider, Dialog, Menu, Tooltip, Notice, Progress, Spinner, Skeleton, Collapse, Disclosure, Stack, Row, Divider, EmptyState). Menus and tooltips opened inside a dialog render inside it, so they stay above the browser's top layer. Tests are in `ui/kit.test.tsx`.
-- **The Kit view** is `?view=kit`, lazy-loaded and always present (it is small). Screenshots: `UX_SHOTS=<dir> UX_MODES=light,dark UX_VIEWS=home,kit UX_HEIGHT=3400 npx playwright test e2e/ux-shots.spec.ts`.
-- **On the kit already:** Home, `Header` and `PageStrip`. The MUI theme (`muiTheme.ts`) was moved to the new colours, fonts and pill buttons, so screens still on MUI match until they move.
+- **The kit** is in `src/sidepanel/ui/`: Button, IconButton, Card, CardButton, Chip, ToggleChip, Badge, Text, Heading, TextField, TextArea, Select, Switch, Checkbox, Radio, Segmented, Slider, Stepper, Dialog, Menu, Tooltip, Notice, Progress, Spinner, Skeleton, Collapse, Disclosure, Stack, Row, Divider, EmptyState. Menus and tooltips opened inside a dialog render inside it, so they stay above the browser's top layer. Rendered markdown uses `.cp-prose`.
+- **Tests:**
+  - `ui/kit.test.tsx` covers behaviour: dialog, menu keys, segmented arrows, select numbers, popover placement.
+  - `ui/design.test.ts` enforces the rules on every `npm test`: no `@mui`/`@emotion`, no hex or `rgba(` in screens, no `sx=` or old classes. It replaces the `scripts/check-design.mjs` the plan first named.
+- **The Kit view** is `?view=kit`, lazy-loaded and always present (it is small). Screenshots: `UX_SHOTS=<dir> UX_MODES=light,dark [UX_VIEWS=home,kit UX_HEIGHT=3400] npx playwright test e2e/ux-shots.spec.ts`.
+- **Removed:** `@mui/material`, `@emotion/*`, `muiTheme.ts`, `components/ui/{Button,Input,Badge,Card,Select,LoadingSpinner,EmptyState}`, the `.btn/.card/.badge/.input-field` CSS, the old colour aliases and the Windows MUI overrides.
+- **Size:** the 350 KB `vendor-mui` chunk is gone. The panel now loads about 340 KB of JavaScript at start (entry, React and three small shared chunks).
+- **Found on the way:** shift-click range selection in the image grid read its anchor after it had moved. MUI's render timing had hidden this; it is fixed.
 
 ## 1. Why
 

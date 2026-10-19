@@ -85,10 +85,12 @@ export default function ImageDownloaderPage({ onBack }: { onBack: () => void }) 
 
     const select = (index: number, e: React.MouseEvent) => {
         const img = shown[index];
+        // Read now: the updater can run after lastClicked has moved to this card.
+        const last = e.shiftKey ? lastClicked.current : null;
         setSelected(prev => {
             const next = new Set(prev);
-            if (e.shiftKey && lastClicked.current !== null) {
-                const [from, to] = [Math.min(lastClicked.current, index), Math.max(lastClicked.current, index)];
+            if (last !== null) {
+                const [from, to] = [Math.min(last, index), Math.max(last, index)];
                 const on = !prev.has(img.src);
                 for (const i of shown.slice(from, to + 1)) { if (on) next.add(i.src); else next.delete(i.src); }
             } else if (next.has(img.src)) next.delete(img.src);

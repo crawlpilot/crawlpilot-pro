@@ -6,7 +6,7 @@ import { Tooltip } from './Tooltip';
 export type ButtonVariant = 'primary' | 'brand' | 'secondary' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
-const BASE = 'relative inline-flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold select-none rounded-control '
+const BASE = 'inline-flex items-center justify-center gap-1.5 whitespace-nowrap font-semibold select-none rounded-control '
     + 'transition-[background-color,border-color,color,box-shadow,transform] duration-150 '
     + 'disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer';
 
