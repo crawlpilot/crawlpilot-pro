@@ -1,6 +1,7 @@
 /** Stage 2: group the rows' values by signature into fields, each with a row-relative selector. */
 import { alignToTemplate, Atom, AtomAttr, isAtomRoot, readValue, Shape, shapeOf } from '../atoms';
 import { nodeStep } from '../nodeName';
+import { AUTHOR_ATTRIBUTES } from '../../../../shared/selectors/stability';
 import { Field, mode, query } from './types';
 
 const MANY_THRESHOLD: Partial<Record<AtomAttr, number>> = { src: 1, href: 2, text: 5, own: 5 };
@@ -23,34 +24,77 @@ function stepsCss(path: Element[], from: number): string {
  * the signature's elements; in rows that don't, it may only match the same kind of node (the same
  * leaf in a sponsored card's extra wrapper), never something else. So variant cards share one
  * selector, and one column, instead of producing a column each that someone merges later.
+ *
+ * A leaf with nothing stable of its own (a `<span>` with a hashed class) next to siblings that have
+ * hooks (`<span data-testid="product-reviews">`) gets them excluded (`span:not([data-testid])`), or
+ * else its position among its siblings. A column's selector reads one thing: when none is unique,
+ * the signature gets no field (null) rather than one that reads another element on a run.
  */
-function selectorFor(group: Group, rowAtoms: Map<Element, Atom[]>[], rows: Element[]): string {
+function selectorFor(group: Group, rowAtoms: Map<Element, Atom[]>[], rows: Element[]): string | null {
     const sample = [...group.perRow.values()][0][0];
     const path = sample.path;
     if (path.length === 0) return ':scope';
     const leaf = nodeStep(path[path.length - 1]).label;
     const full = `:scope > ${stepsCss(path, 0)}`;
 
-    const candidates = path.map((_, i) => stepsCss(path, path.length - 1 - i));
-    candidates.push(full);
-    for (const candidate of candidates) {
-        let ok = true;
-        for (let r = 0; r < rows.length && ok; r++) {
-            const matched = query(rows[r], candidate);
+    /** The elements `candidate` matches that read a value and are not this signature's; [] when it is exact. */
+    const strays = (candidate: string): Element[] => {
+        const out: Element[] = [];
+        rows.forEach((row, r) => {
+            const matched = query(row, candidate);
             const own = group.perRow.get(r);
             // A match that reads nothing (an inline piece inside another value, an empty node) is harmless.
-            const reads = (el: Element) => isAtomRoot(el, rows[r], group.attr) && readValue(el, group.attr) !== '';
+            const reads = (el: Element) => isAtomRoot(el, row, group.attr) && readValue(el, group.attr) !== '';
             if (own) {
                 const want = new Set(own.map(a => a.el));
-                ok = own.every(a => matched.includes(a.el)) && matched.every(el => want.has(el) || !reads(el));
+                // A missed own element can't be excluded: it counts as the candidate's own stray.
+                if (!own.every(a => matched.includes(a.el))) out.push(row);
+                matched.forEach(el => { if (!want.has(el) && reads(el)) out.push(el); });
             } else {
-                ok = matched.every(el => !reads(el) || (rowAtoms[r].get(el) ?? []).some(a =>
-                    a.attr === group.attr && nodeStep(a.el).label === leaf));
+                matched.forEach(el => {
+                    if (reads(el) && !(rowAtoms[r].get(el) ?? []).some(a => a.attr === group.attr && nodeStep(a.el).label === leaf)) out.push(el);
+                });
             }
+        });
+        return out;
+    };
+
+    const candidates = path.map((_, i) => stepsCss(path, path.length - 1 - i));
+    candidates.push(full);
+    for (const candidate of candidates) if (strays(candidate).length === 0) return candidate;
+
+    const ownEls = [...group.perRow.values()].flat().map(a => a.el);
+    for (const candidate of candidates) {
+        const wrong = strays(candidate);
+        if (wrong.some(el => rows.includes(el))) continue;
+        for (const narrowed of [...exclusions(wrong, ownEls), ...positions(ownEls)]) {
+            if (strays(candidate + narrowed).length === 0) return candidate + narrowed;
         }
-        if (ok) return candidate;
     }
-    return full;
+    return null;
+}
+
+/**
+ * `:not(…)` suffixes that drop the stray matches by their own stable steps: by an attribute none of
+ * the signature's elements has (`:not([data-testid])`, which also drops a sibling hook a later page
+ * adds), else by each stray's step.
+ */
+function exclusions(wrong: Element[], own: Element[]): string[] {
+    const out: string[] = [];
+    for (const attr of AUTHOR_ATTRIBUTES) {
+        if (wrong.every(el => el.hasAttribute(attr)) && !own.some(el => el.hasAttribute(attr))) out.push(`:not([${attr}])`);
+    }
+    const steps = [...new Set(wrong.map(el => nodeStep(el).css))];
+    const ownSteps = new Set(own.map(el => nodeStep(el).css));
+    if (steps.every(css => !ownSteps.has(css))) out.push(steps.map(css => `:not(${css})`).join(''));
+    return out;
+}
+
+/** The leaf's position among its same-tag siblings, when it is the same in every row. */
+function positions(own: Element[]): string[] {
+    const index = (el: Element) => Array.from(el.parentElement?.children ?? []).filter(c => c.tagName === el.tagName).indexOf(el) + 1;
+    const at = new Set(own.map(index));
+    return at.size === 1 ? [`:nth-of-type(${[...at][0]})`] : [];
 }
 
 function groupsOf(rowsAtoms: Atom[][]): Group[] {
@@ -119,6 +163,7 @@ export function groupFields(rows: Element[], rowsAtoms: Atom[][]): Field[] {
     const byKey = new Map<string, Field>();
     for (const group of groupsOf(rowsAtoms)) {
         const selector = selectorFor(group, rowAtoms, rows);
+        if (selector === null) continue;
         for (const f of fieldsOf(group, selector, docOrder)) {
             const existing = byKey.get(f.key);
             if (existing) {

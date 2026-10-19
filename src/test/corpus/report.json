@@ -187,10 +187,10 @@
           "Badge Tag ← [data-test-id=\"gpt-product-flag-container\"] [data-testid=\"badgeTagComponent\"]",
           "Badge ← [data-test-id=\"gpt-sponsored-tag-container\"] > div > div > div",
           "Title ← [data-automation-id=\"product-title\"]",
-          "Price ← :scope > div > [data-test-id=\"gpt-main\"] > [data-test-id=\"gpt-product-tile-grid-container\"] > [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > [data-testid=\"unified-global-product-price\"] > [data-testid=\"ugpp-reduced-price\"] > span",
+          "Price ← [data-testid=\"ugpp-reduced-price\"] > span:not([data-testid])",
           "Rating ← [data-testid=\"rating-container\"] > span",
           "Was Price ← [data-testid=\"ugpp-was-price\"]",
-          "Rating 2 ← :scope > div > [data-test-id=\"gpt-main\"] > [data-test-id=\"gpt-product-tile-grid-container\"] > [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span",
+          "Rating 2 ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span:not([data-testid])",
           "Price (Ugpp Range Price) ← [data-testid=\"ugpp-range-price\"]",
           "Save ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] [data-testid=\"badgeTagComponent\"]",
           "Product Reviews ← [data-testid=\"product-reviews\"]",
@@ -217,7 +217,7 @@
           {
             "field": "price",
             "rowsWithValue": 6,
-            "readBy": "Price ← :scope > div > [data-test-id=\"gpt-main\"] > [data-test-id=\"gpt-product-tile-grid-container\"] > [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > [data-testid=\"unified-global-product-price\"] > [data-testid=\"ugpp-reduced-price\"] > span (6/6)"
+            "readBy": "Price ← [data-testid=\"ugpp-reduced-price\"] > span:not([data-testid]) (6/6)"
           },
           {
             "field": "was price",

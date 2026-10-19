@@ -280,6 +280,39 @@ describe('repeated components', () => {
     });
 });
 
+describe('unique column selectors', () => {
+    // A value in a plain span (no hook, no naming class) beside sibling spans that carry their own hooks, and
+    // that only some cards have: `div > span` would read whichever comes first.
+    const tile = (i: number, o: { range?: boolean; reviews?: boolean }) => `<li class="tile">
+        <a href="/p/${i}"><h3>Thing ${i}</h3></a>
+        <div><span data-qa="price">$${i}9.99</span>${o.range ? `<span data-qa="range">Options from $${i}9.99 – $${i + 1}9.99</span>` : ''}${o.reviews ? `<span data-qa="count">${i * 7}</span>` : ''}<span>4.${i} out of 5 stars. ${i * 7} reviews</span></div>
+    </li>`;
+    const list = `<ul>${[tile(1, { reviews: true }), tile(2, { range: true }), tile(3, {}), tile(4, { range: true, reviews: true }), tile(5, { reviews: true })].join('')}</ul>`;
+
+    it('reads one element per column, never a sibling under the same path', () => {
+        const rows = rowsOf(list, '.tile');
+        const { columns } = inferFields(rows);
+        const items = rows.map(r => readRow(r, columns));
+        const summary = columns.find(c => items[0][c.id] === '4.1 out of 5 stars. 7 reviews')!;
+        expect(items.map(i => i[summary.id])).toEqual([1, 2, 3, 4, 5].map(i => `4.${i} out of 5 stars. ${i * 7} reviews`));
+        // On a later page with a sibling hook never seen before, still the same element.
+        const later = rowsOf(`<ul><li class="tile"><a href="/p/9"><h3>Thing 9</h3></a><div><span data-qa="promo">Rollback</span><span data-qa="price">$9.99</span><span>4.9 out of 5 stars. 63 reviews</span></div></li></ul>`, '.tile');
+        expect(readRow(later[0], columns)[summary.id]).toBe('4.9 out of 5 stars. 63 reviews');
+    });
+
+    it('reads the Walmart rating sentence, not the price, range or count beside it (walmart.com/search?q=cars)', () => {
+        loadPage('corpus/walmart-search.html.gz');
+        const rows = Array.from(document.querySelector('[data-testid="item-stack"]')!.children);
+        const { columns } = inferFields(rows);
+        const items = rows.map(r => readRow(r, columns)).filter(i => Object.keys(i).length > 0);
+        const rating2 = columns.find(c => c.name === 'Rating 2')!.id;
+        items.forEach(i => expect(i[rating2]).toMatch(/^\d(\.\d)? out of 5 Stars\. \d+ reviews$/));
+        // No two columns read through the same selector unless they split it by slot or kind.
+        const plain = columns.filter(c => c.reader!.slot === undefined && c.reader!.kind === undefined).map(c => c.reader!.chain[0]);
+        expect(new Set(plain).size).toBe(plain.length);
+    });
+});
+
 describe('table columns', () => {
     const table = (headers: string[], rows: string[][]) =>
         `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
