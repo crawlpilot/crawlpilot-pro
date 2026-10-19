@@ -1,6 +1,6 @@
 # Picker: the user controls how much is selected
 
-Status: 2026-10-19. **L1–L4 built** for every picker (the Page Extractor's readings, the bar, the side panel mirror in the Page Extractor). L5–L7 to do: issues #35, #36, #37 (list extraction left for now).
+Status: 2026-10-19. **L1–L4 built** for every picker (the Page Extractor's readings, the bar, the side panel mirror in the Page Extractor). **L5 built** (#35). L6–L7 to do: issues #36, #37.
 
 Decided by default (the open questions below): the Page Extractor first; the keys as proposed; no sticky offset across elements; "leave out part" later.
 
@@ -14,6 +14,10 @@ Decided by default (the open questions below): the Page Extractor first; the key
   - `PICKER_ACTION` names: wider, narrower, prev, next, lock, select, `reading:i`, `step:i`.
 - `DetailSelectionStrategy.readings()`: from the existing detectors, suggested in their old order, and the click saves the reading shown (no re-deciding). For example, a spec row is suggested as "Texts · 2" as before, with "Items like this · 4" and its "Text" one key away.
 - `PickerControls` (side panel): path, Wider / Narrower / Prev / Next, "Save it as" chips, Lock, Select, and the keys forwarded. It is used in the Page Extractor's "Pick the fields".
+- **L5, List Extractor:**
+  - `findListCandidates` (`items.ts`) keeps every section the walk scores, nearest first, and the rows of a grid laid out in rows; `findList` still returns the same pick.
+  - `ListSelectionStrategy.readings()` offers them, with the old pick suggested; `stepsThroughReadings` makes ↑ / ↓ step through sections (keeping cards or rows), and the click saves the section shown.
+  - The bar shows "Sections", and `PickerControls` is in the List Extractor's pick step.
 - Tests:
   - `path.test.ts` (4);
   - `e2e/picker-levels.spec.ts` (4: steps and back, the next row and readings, lock and bar buttons, the side panel protocol).
