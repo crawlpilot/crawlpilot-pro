@@ -129,6 +129,34 @@ test('Page Extractor bulk run with a click step: values revealed by the click ar
     expect(job).toMatchObject({ status: 'completed', tableId: done.tableId });
 });
 
+test('Page Extractor bulk run reads closed sections without clicking: a hidden tab panel\'s table, a closed details, a collapsed accordion', async ({ panel, origin }) => {
+    const urls = [1, 2].map(n => `${origin}/site/product-hidden.html?id=${n}`);
+    const elements = [
+        { id: 'title', name: 'Title', action: 'extract', type: 'text', selectors: ['h1'] },
+        { id: 'specs', name: 'Specs', action: 'extract', type: 'table', selectors: ['table.specs'] },
+        { id: 'materials', name: 'Materials', action: 'extract', type: 'text', selectors: ['p.materials'] },
+        { id: 'highlights', name: 'Highlights', action: 'extract', type: 'text_array', selectors: ['ul.highlights'] },
+        { id: 'features', name: 'Features', action: 'extract', type: 'list', selectors: ['ul.features'] },
+        { id: 'note', name: 'Note', action: 'extract', type: 'text', selectors: ['p.materials-note'] },
+    ];
+    await panel.clear();
+    const start = await panel.toExtension('BULK_EXTRACTION_START', { urls, elements, config: { requestDelay: 0 }, maxConcurrent: 2, customName: 'e2e hidden' });
+    expect(start?.success).toBe(true);
+    const done = await panel.next('BULK_EXTRACTION_COMPLETE', 50_000);
+    expect(done.success).toBe(true);
+    const rows = (await panel.store('rows')).filter(r => r.tableId === done.tableId).map(r => r.data);
+    const lamp2 = rows.find(r => (r.Title ?? r.title) === 'Lamp model 2')!;
+    // Read as the table's rows, not its text run together.
+    expect(JSON.parse(String(lamp2.Specs ?? lamp2.specs))).toEqual([['Wattage', '20 W'], ['Cable', '2 m']]);
+    expect(lamp2.Materials ?? lamp2.materials).toBe('Steel and linen');
+    expect(JSON.stringify(lamp2.Highlights ?? lamp2.highlights)).toContain('Dimmable to 5%');
+    // A list in the hidden panel is read item by item, its fields apart.
+    const features = JSON.parse(String(lamp2.Features ?? lamp2.features)) as Record<string, string>[];
+    expect(features.map(f => Object.values(f).join('='))).toEqual(['Dimmer=Touch', 'Base=Weighted', 'Bulb=E27', 'Switch=Inline']);
+    // visibility: hidden has no innerText at all: read while shown.
+    expect(lamp2.Note ?? lamp2.note).toBe('Shade fabric is washable');
+});
+
 test('a bulk run where every page fails is reported as failed, not completed', async ({ panel }) => {
     // Nothing listens on port 9: every page load fails.
     const urls = ['http://127.0.0.1:9/a', 'http://127.0.0.1:9/b'];

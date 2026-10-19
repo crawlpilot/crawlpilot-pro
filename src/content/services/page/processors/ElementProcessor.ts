@@ -6,9 +6,10 @@
  */
 import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult } from '../types';
 import { DataExtractor } from '../../extraction/DataExtractor';
-import { readValue } from '../../extraction/atoms';
+import { atomText, isTextAtom, readValue } from '../../extraction/atoms';
 import { clickElementRobust } from '../../../utils/click';
 import { settle } from '../../../utils/settle';
+import { whileShown } from '../reveal';
 import { resolveOne } from '../../../../shared/selectors/resolve';
 import { extractColumns, collapseTableToJson } from './columnHelpers';
 
@@ -52,7 +53,8 @@ export class ElementProcessor {
                 if (!result.success) result.error = `Clicking "${elementDef.name}" changed nothing on the page`;
                 return result;
             }
-            const actionResult = this.extract(elementDef, element);
+            // Content in a collapsed section is read as if it were shown (`reveal.ts`).
+            const actionResult = whileShown(element, () => this.extract(elementDef, element));
 
             if (actionResult.success) {
                 result.success = true;
@@ -159,7 +161,8 @@ export class ElementProcessor {
 
         switch (type) {
             case 'text':
-                value = (element as any).value || element.innerText || element.textContent;
+                // One value told twice (a screen-reader copy and a shown one) reads as shown (`atomText`).
+                value = (element as any).value || (isTextAtom(element) ? atomText(element) : element.innerText) || element.textContent;
                 break;
             // Links and images read the way list fields read them (absolute URLs, lazy `data-src`,
             // the largest `srcset` candidate), so a page element and a list field agree.
@@ -193,7 +196,7 @@ export class ElementProcessor {
             case 'text_array': {
                 const skipTags = new Set(['BR', 'HR', 'SCRIPT', 'STYLE', 'LINK', 'META']);
                 const kids = Array.from(element.children).filter(c => !skipTags.has(c.tagName));
-                return { success: true, data: { [elementDef.id]: kids.map(c => (c.textContent || '').trim()).filter(Boolean) } };
+                return { success: true, data: { [elementDef.id]: kids.map(c => ((c as HTMLElement).innerText || c.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean) } };
             }
             case 'smart':
             case 'list': {
