@@ -130,6 +130,30 @@ test('scroll run with late content: placeholders fill as they are reached, "Show
     await page.close();
 });
 
+test('scroll run stopped part way: the rows read so far have already reached the side panel', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/late.html`);
+    await page.waitForTimeout(400);
+    const list = await pickList(panel, page, '.card .card-title');
+    const tabId = await panel.tabId(page.url());
+
+    await panel.clear();
+    await panel.toTab(tabId, 'EXECUTE_AUTO_SCROLL', {
+        container: list.container, items: list.items, enableInfiniteScroll: true,
+        scrollDelay: 300, contentLoadDelay: 2000, columns: list.data?.columns,
+    });
+    await panel.next('AUTO_SCROLL_UPDATE', 20_000);
+    await panel.toTab(tabId, 'STOP_AUTO_SCROLL');
+    await page.waitForTimeout(1000);
+    const streamed = (await panel.received('AUTO_SCROLL_UPDATE')).flatMap(u => u.items ?? []);
+    const count = (await panel.received('AUTO_SCROLL_UPDATE')).at(-1).count;
+    expect(streamed.length).toBeGreaterThan(0);
+    // Every row counted was sent, and none twice.
+    expect(streamed).toHaveLength(count);
+    expect(new Set(streamed.map(r => JSON.stringify(r))).size).toBe(streamed.length);
+    await page.close();
+});
+
 test('Page Extractor bulk run with a click step: values revealed by the click are read', async ({ panel, origin }) => {
     const urls = [1, 2, 3].map(n => `${origin}/site/product.html?id=${n}`);
     const elements = [

@@ -20,6 +20,9 @@ let scrollColumns: ReaderColumn[] | null = null;
 let sentPaginationColumns: unknown = null;
 let pendingUpdates = 0;
 let rowTotal = 0;
+/** Rows read since the last update: sent with it, so the side panel has every row even if the run is cut short. */
+let unsentRows: Record<string, string>[] = [];
+let sentScrollColumns: unknown = null;
 let updateTimer: ReturnType<typeof setTimeout> | null = null;
 
 function injectHighlightStyle() {
@@ -41,8 +44,9 @@ function flashRow(element: HTMLElement) {
 }
 
 /** Count updates go out in batches (every 10 rows or 500 ms), not per row. */
-function queueUpdate(total: number) {
+function queueUpdate(total: number, row: Record<string, string>) {
     rowTotal = total;
+    unsentRows.push(row);
     pendingUpdates++;
     if (pendingUpdates >= UPDATE_BATCH_SIZE) { flushUpdates(); return; }
     if (!updateTimer) updateTimer = setTimeout(flushUpdates, UPDATE_INTERVAL_MS);
@@ -52,12 +56,16 @@ function flushUpdates() {
     if (updateTimer) { clearTimeout(updateTimer); updateTimer = null; }
     if (pendingUpdates === 0) return;
     pendingUpdates = 0;
-    void send('AUTO_SCROLL_UPDATE', { count: rowTotal });
+    const items = unsentRows;
+    unsentRows = [];
+    const columns = scrollColumns && scrollColumns !== sentScrollColumns ? scrollColumns : undefined;
+    if (columns) sentScrollColumns = columns;
+    void send('AUTO_SCROLL_UPDATE', { count: rowTotal, items, ...(columns ? { columns } : {}) });
 }
 
 function stopAutoScroll() {
-    if (updateTimer) { clearTimeout(updateTimer); updateTimer = null; }
-    pendingUpdates = 0;
+    // The rows read so far go out now: they are what a stopped run saves.
+    flushUpdates();
     scrollAbort?.abort();
     scrollAbort = null;
 }
@@ -69,6 +77,8 @@ function stopPagination() {
 
 async function startAutoScroll(req: AutoScrollRequest) {
     stopAutoScroll();
+    unsentRows = [];
+    sentScrollColumns = null;
     scrollColumns = hasReaders(req.columns) ? req.columns : null;
     scrollAbort = new AbortController();
     const signal = scrollAbort.signal;
@@ -122,7 +132,7 @@ async function startAutoScroll(req: AutoScrollRequest) {
             if (seen.has(hash)) return;
             seen.add(hash);
             results.push(row);
-            queueUpdate(results.length);
+            queueUpdate(results.length, row);
             flashRow(element);
         }
     } as any);

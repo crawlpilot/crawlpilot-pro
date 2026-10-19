@@ -227,16 +227,19 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                         try {
                             const extractionResult = await new Promise<{ items: any[], columns: any[] }>((resolve) => {
                                 let previousCount = 0;
-                                giveUpRef.current = () => { untrack(); resolve({ items: [], columns: [] }); };
+                                // Rows as they arrive: a run cut short (stopped, page gone) still has them.
+                                const streamed: any[] = [];
+                                let streamedColumns: any[] = sel.data?.columns ?? [];
+                                giveUpRef.current = () => { untrack(); resolve({ items: streamed, columns: streamedColumns }); };
                                 const untrack = track(
                                     on('AUTO_SCROLL_COMPLETE', payload => {
                                         untrack();
-                                        resolve(payload.success
-                                            ? { items: payload.items || [], columns: payload.columns || [] }
-                                            : { items: [], columns: [] }
-                                        );
+                                        const items = payload.success && payload.items?.length ? payload.items : streamed;
+                                        resolve({ items, columns: payload.success && payload.columns?.length ? payload.columns : streamedColumns });
                                     }),
                                     on('AUTO_SCROLL_UPDATE', payload => {
+                                        if (payload.items?.length) streamed.push(...payload.items);
+                                        if (payload.columns?.length) streamedColumns = payload.columns;
                                         const currentCount = payload.count;
                                         const delta = currentCount - previousCount;
                                         previousCount = currentCount;
@@ -334,8 +337,10 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             const finalExtraction = consolidateSelectors(processedSelectors, currentTab.url || 'unknown');
             finalExtraction.timestamp = new Date().toISOString();
 
-            // Save as a SINGLE dataset linked to the automation
-            const tableId = await db.tables.save(finalExtraction, {
+            // Save as a SINGLE dataset linked to the automation. A stopped run that read nothing
+            // keeps the preview's rows instead of replacing them with none.
+            const keepPreview = stopExtractionRef.current && finalExtraction.items.length === 0 && previewTableId !== undefined;
+            const tableId = keepPreview ? previewTableId! : await db.tables.save(finalExtraction, {
                 name: pageTitle,
                 jobId: jobId,
                 tableId: previewTableId,

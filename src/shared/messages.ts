@@ -200,7 +200,8 @@ export interface Messages {
     ELEMENT_SELECTED: { payload: ElementSelected };
     PICKER_CANCELLED: {};
     LAB_PICKED: { payload: LabPick | null };
-    AUTO_SCROLL_UPDATE: { payload: { count: number } };
+    /** `items`: the rows read since the last update (a stopped run keeps them); `columns` when they change. */
+    AUTO_SCROLL_UPDATE: { payload: { count: number; items?: any[]; columns?: any[] } };
     AUTO_SCROLL_COMPLETE: { payload: { success: boolean; items?: any[]; columns?: any[]; error?: string } };
     PAGINATION_UPDATE: { payload: { items: any[]; page: number; total?: number; columns?: any[]; unmapped?: number; fallback?: boolean; healedItems?: string; healedFields?: string[]; brokenFields?: string[]; loading?: number } };
     PAGINATION_COMPLETE: { payload: { success: boolean; reason?: string; error?: string } };
