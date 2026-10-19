@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isUnstableClass, isHashClass, isStableAttributeValue, isVolatileSelector, filterPersistableChain, isStableId, isUtilityByFrequency, xpathLiteral } from './stability';
+import { isUnstableClass, isHashClass, isStableAttributeValue, isVolatileSelector, isStableId, isUtilityByFrequency, xpathLiteral } from './stability';
 
 describe('isUnstableClass', () => {
     it('flags Tailwind utility classes', () => {
@@ -83,24 +83,6 @@ describe('isVolatileSelector', () => {
     });
 });
 
-describe('filterPersistableChain', () => {
-    it('drops volatile entries when a stable entry exists', () => {
-        const chain = [
-            { selector: '.css-dy3i81', strategy: 'CSS Gen' },
-            { selector: '.product-card', strategy: 'Minimal' },
-            { selector: 'div:nth-child(3)', strategy: 'Path' },
-        ];
-        expect(filterPersistableChain(chain)).toEqual([{ selector: '.product-card', strategy: 'Minimal' }]);
-    });
-    it('keeps the whole chain when every entry is volatile', () => {
-        const chain = [{ selector: '.css-dy3i81', strategy: 'CSS Gen' }, { selector: 'div:nth-child(3)', strategy: 'Path' }];
-        expect(filterPersistableChain(chain)).toEqual(chain);
-    });
-    it('passes through empty/undefined chains unchanged', () => {
-        expect(filterPersistableChain(undefined)).toBeUndefined();
-        expect(filterPersistableChain([])).toEqual([]);
-    });
-});
 
 // Shared cases pinned against real pages (ported from thenos stability-cases.json).
 // Bootstrap col-md-* is intentionally kept usable for grid items (short col-6 was already unstable).

@@ -3,9 +3,10 @@ import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, D
 import { Activity, Copy, ExternalLink, Settings, Trash2, X } from 'lucide-react';
 import { PageStat, stopReasonLabel } from '@/shared/listing/runStats';
 import { VERDICT_LABELS, PageVerdict } from '@/shared/verdict/classifyPage';
+import { jobKind, jobUrl, type JobWithRecipe } from './jobFilters';
 
 interface Props {
-    detailsJob: any | null;
+    detailsJob: JobWithRecipe | null;
     onClose: () => void;
     onDelete: (id: number) => void;
     onRerun: (job: any) => void;
@@ -63,11 +64,8 @@ export function JobDetailsDialog({ detailsJob, onClose, onDelete, onRerun }: Pro
                                 {!!detailsJob.stats?.duplicatesRemoved && (
                                     <DetailItem label={t('duplicatesSkipped', 'Duplicates skipped')} value={detailsJob.stats.duplicatesRemoved} />
                                 )}
-                                {detailsJob.configSnapshot?.type === 'bulk-extraction' && (
-                                    <>
-                                        <DetailItem label={t('parallel')} value={detailsJob.configSnapshot.options?.useParallel ? tc('yes') : tc('no')} />
-                                        <DetailItem label={t('concurrency')} value={detailsJob.configSnapshot.options?.maxConcurrent || 1} />
-                                    </>
+                                {jobKind(detailsJob) === 'page' && (
+                                    <DetailItem label={t('concurrency')} value={detailsJob.input?.concurrency || 1} />
                                 )}
                             </Box>
                             {detailsJob.stats?.verdicts && Object.keys(detailsJob.stats.verdicts).length > 0 && (
@@ -132,9 +130,9 @@ export function JobDetailsDialog({ detailsJob, onClose, onDelete, onRerun }: Pro
                             <Box sx={{ p: 2, bgcolor: alpha(theme.palette.background.default, 0.5), borderRadius: 2, border: 1, borderColor: 'divider', mb: 2 }}>
                                 <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>{t('sourceUrl')}</Typography>
                                 <Typography variant="body2" fontFamily="monospace" sx={{ wordBreak: 'break-all', display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    {detailsJob.sourceUrl || tc('na')}
-                                    {detailsJob.sourceUrl && (
-                                        <IconButton size="small" onClick={() => window.open(detailsJob.sourceUrl, '_blank')}>
+                                    {jobUrl(detailsJob) || tc('na')}
+                                    {jobUrl(detailsJob) && (
+                                        <IconButton size="small" onClick={() => window.open(jobUrl(detailsJob), '_blank')}>
                                             <ExternalLink size={12} />
                                         </IconButton>
                                     )}
@@ -144,13 +142,18 @@ export function JobDetailsDialog({ detailsJob, onClose, onDelete, onRerun }: Pro
                             <Stack spacing={1}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <Typography variant="caption" color="text.secondary">{t('recipeType')}</Typography>
-                                    <Typography variant="caption" fontFamily="monospace">{detailsJob.recipe?.type || detailsJob.configSnapshot?.type || tc('na')}</Typography>
+                                    <Typography variant="caption" fontFamily="monospace">{jobKind(detailsJob) || tc('na')}</Typography>
                                 </Box>
-                                {(detailsJob.recipe?.type !== 'bulk-extraction' && detailsJob.configSnapshot?.type !== 'bulk-extraction') && (
+                                {detailsJob.recipe?.spec.kind === 'list' && (
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                         <Typography variant="caption" color="text.secondary">{t('paginationMode')}</Typography>
-                                        <Typography variant="caption" fontFamily="monospace">{detailsJob.configSnapshot?.options?.pagination?.mode || 'none'}</Typography>
+                                        <Typography variant="caption" fontFamily="monospace">{detailsJob.recipe.spec.pagination.mode}</Typography>
                                     </Box>
+                                )}
+                                {detailsJob.recipe && detailsJob.recipe.rev > detailsJob.recipeRev && (
+                                    <Typography variant="caption" color="text.secondary">
+                                        {t('recipeChanged', 'The recipe has changed since this run (revision {{ran}} → {{now}}); a rerun uses the current one.', { ran: detailsJob.recipeRev, now: detailsJob.recipe.rev })}
+                                    </Typography>
                                 )}
                             </Stack>
                         </Box>

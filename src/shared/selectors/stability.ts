@@ -243,14 +243,3 @@ export function isVolatileSelector(selector: string): boolean {
     const classTokens = selector.match(/\.[a-zA-Z0-9_-]+/g) || [];
     return classTokens.some(token => isHashClass(token.slice(1)));
 }
-
-/**
- * Filters volatile entries (hash classes, positional selectors) out of a chain before
- * it's persisted in a saved recipe, so recipes survive CSS-in-JS redeploys. If every
- * entry is volatile, keeps them all — a volatile chain is still better than an empty one.
- */
-export function filterPersistableChain<T extends { selector: string }>(chain: T[] | undefined): T[] | undefined {
-    if (!chain || chain.length === 0) return chain;
-    const stable = chain.filter(entry => !isVolatileSelector(entry.selector));
-    return stable.length > 0 ? stable : chain;
-}

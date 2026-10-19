@@ -1,6 +1,7 @@
 /** Page Extractor bulk runs: click the recipe's click elements, then extract its elements, on every URL. */
 import type { BulkStart } from '../../shared/messages';
 import type { RunJob } from './JobRunner';
+import { pageSpec } from '../../shared/recipes/spec';
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -73,7 +74,6 @@ export function bulkJob(start: BulkStart): RunJob {
     const extracts = elements.filter(e => e.action !== 'click');
     const actionSpeed = config.actionSpeed || 500;
     const clickWaitMs = config.clickWaitMs ?? Math.max(actionSpeed, 2000);
-    const action = { type: 'EXTRACT_PAGES', elements, config };
 
     return {
         kind: 'bulk',
@@ -83,13 +83,8 @@ export function bulkJob(start: BulkStart): RunJob {
         // Clicks need a focusable window so animations run at full speed.
         interactive: clicks.length > 0,
         jobId: start.jobId,
-        recipeId: start.recipeId,
         name: start.customName,
-        recipe: {
-            type: 'bulk-extraction',
-            description: 'Background bulk page extraction',
-            config: { type: 'bulk-extraction', urls: Array.from(new Set(start.urls)), options: { actions: [action] } },
-        },
+        spec: pageSpec(elements, config),
         tableType: 'bulk-page',
         columns: found => [
             { id: 'source_url', name: 'Source URL', type: 'url' },

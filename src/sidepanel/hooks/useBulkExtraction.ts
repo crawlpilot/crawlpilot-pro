@@ -23,7 +23,6 @@ interface BulkExtractionOptions {
     onProgress?: (completed: number) => void;
     onStart?: (jobId: number) => void;
     jobId?: number;
-    recipeId?: number;
     customName?: string;
 }
 
@@ -127,7 +126,6 @@ export function useBulkExtraction() {
             onProgress,
             onStart,
             jobId: existingJobId,
-            recipeId: passedRecipeId,
             customName
         } = options;
 
@@ -172,7 +170,6 @@ export function useBulkExtraction() {
             elements,
             config,
             jobId: existingJobId,
-            recipeId: passedRecipeId,
             customName,
             maxConcurrent: Math.min(maxConcurrent, 5)
         });

@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next';
 import { Box, Button, Card, CardContent, Chip, IconButton, Stack, Theme, Typography, alpha, useTheme } from '@mui/material';
 import { CheckCircle2, Clock, Database, ExternalLink, Loader2, PauseCircle, Play, RefreshCcw, Settings, XCircle } from 'lucide-react';
 import type { Job } from '@/shared/types/database';
-import type { JobWithRecipe } from './jobFilters';
+import { jobUrl, type JobWithRecipe } from './jobFilters';
 
 function statusIcon(job: Job, theme: Theme) {
     if (job.stats?.stoppedByUser) return <PauseCircle size={16} color={theme.palette.text.secondary} />;
@@ -11,8 +11,7 @@ function statusIcon(job: Job, theme: Theme) {
         case 'completed': return <CheckCircle2 size={16} color={theme.palette.success.main} />;
         case 'running': return <Play size={16} color={theme.palette.secondary.main} className="animate-pulse" />;
         case 'failed': return <XCircle size={16} color={theme.palette.error.main} />;
-        case 'paused': return <PauseCircle size={16} color={theme.palette.text.secondary} />;
-        case 'pending': return <Clock size={16} color={theme.palette.text.secondary} />;
+        case 'stopped': return <PauseCircle size={16} color={theme.palette.text.secondary} />;
         default: return <Clock size={16} color={theme.palette.text.secondary} />;
     }
 }
@@ -23,7 +22,6 @@ function statusColor(job: Job): 'default' | 'secondary' | 'error' | 'success' {
         case 'completed': return 'success';
         case 'running': return 'secondary';
         case 'failed': return 'error';
-        case 'paused': return 'default';
         default: return 'default';
     }
 }
@@ -57,7 +55,7 @@ export function JobCard({ job, isRunning, busy, onStop, onRerun, onViewData, onD
     const { t } = useTranslation('history');
     const { t: tc } = useTranslation('common');
     const title = job.name || job.recipe?.name || t('untitledJob');
-    const url = job.sourceUrl || t('unknownUrl');
+    const url = jobUrl(job) || t('unknownUrl');
     const emoji = title.includes('LinkedIn') ? '💼' : title.includes('Walmart') ? '🛒' : title.includes('Amazon') ? '📦' : '🌐';
 
     return (
@@ -162,8 +160,8 @@ export function JobCard({ job, isRunning, busy, onStop, onRerun, onViewData, onD
                                     size="small"
                                     variant="contained"
                                     color="primary"
-                                    onClick={(e) => { e.stopPropagation(); if (job.result?.tableDataId) onViewData(job.result.tableDataId); }}
-                                    disabled={!job.result?.tableDataId}
+                                    onClick={(e) => { e.stopPropagation(); if (job.tableId) onViewData(job.tableId); }}
+                                    disabled={!job.tableId}
                                     startIcon={<Database size={14} />}
                                     sx={{ minWidth: 'auto', px: 1.5, py: 0.2 }}
                                 >

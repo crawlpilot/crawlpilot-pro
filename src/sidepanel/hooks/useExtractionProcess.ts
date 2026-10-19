@@ -4,9 +4,19 @@ import { db } from '../../shared/db';
 import { SelectorState, PaginationConfig, ExtractionStatus, SelectorMetadata } from '../../shared/types/extraction';
 import { PAGINATION_PROFILES, PaginationSpeed } from '../../shared/constants/paginationConfig';
 import { consolidateSelectors } from '../../shared/utils/extractionLogic';
-import { filterPersistableChain } from '../../shared/selectors/stability';
+import { listSpec } from '../../shared/recipes/spec';
 import { columnCoverage, ListingRunTracker } from '../../shared/listing/runStats';
 import { looksLikeXPath } from '../../shared/selectors/resolve';
+
+/** Puts a re-derived item selector first in a list recipe's item chain. */
+async function healRecipe(recipeId: number, listId: string, itemSelector: string) {
+    const recipe = await db.jobs.getRecipe(recipeId);
+    if (recipe?.spec.kind !== 'list') return;
+    const lists = recipe.spec.lists.map(l => l.id === listId
+        ? { ...l, items: [itemSelector, ...l.items.filter(s => s !== itemSelector)].slice(0, 3) }
+        : l);
+    await db.jobs.reviseRecipe(recipeId, { ...recipe.spec, lists });
+}
 
 export function useExtractionProcess(onComplete?: (tableId: number) => void, onStart?: (jobId: number) => void) {
     const [status, setStatus] = useState<ExtractionStatus>({
@@ -73,7 +83,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
         });
     }, []);
 
-    const startExtraction = useCallback(async (selectors: SelectorState[], pagination: PaginationConfig, options?: { tableDataId?: number; recipeId?: number; customName?: string; maxPages?: number }) => {
+    const startExtraction = useCallback(async (selectors: SelectorState[], pagination: PaginationConfig, options?: { tableDataId?: number; customName?: string; maxPages?: number }) => {
         if (selectors.length === 0) return;
 
         const { tableDataId, customName, maxPages } = options || {};
@@ -169,58 +179,18 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             const pageTitle = customName || `${cleanTitle} · ${modeLabel}`;
             const automationTitle = pageTitle;
 
-            // 0. Use existing or create new Recipe
-            let recipeId = options?.recipeId;
-            if (!recipeId) {
-                recipeId = await db.jobs.createRecipe({
-                    name: automationTitle,
-                    description: "Auto-generated extraction",
-                    type: 'list-extraction',
-                    version: 1,
-                    config: {
-                        type: 'list-extraction',
-                        selectors: selectors.map(s => s.containerSelector),
-                        options: {
-                            pagination,
-                            // Volatile entries (CSS-in-JS hash classes, :nth-child) are dropped
-                            // from persisted fallback chains so saved recipes survive redeploys —
-                            // they're still tried live during picking/preview, just not stored.
-                            fullSelectors: selectors.map(({ data, containerSelectors, itemSelectors, ...rest }) => ({
-                                ...rest,
-                                containerSelectors: filterPersistableChain(containerSelectors),
-                                itemSelectors: filterPersistableChain(itemSelectors),
-                                data: { columns: data?.columns || [] }
-                            }))
-                        }
-                    },
-                    createdAt: Date.now(),
-                    updatedAt: Date.now()
-                });
-            }
-
-            // Use 'jobId' variable (renamed from automationId) to hold Job ID
+            // The recipe is the pick (the same pick run again is the same recipe); the job is this run.
+            const recipe = await db.jobs.saveRecipe(automationTitle, listSpec(selectors, pagination));
             const jobId = await db.jobs.create({
-                recipeId: recipeId,
+                recipeId: recipe.id,
+                recipeRev: recipe.rev,
                 name: customName || undefined,
                 status: 'running',
-                sourceUrl: sourceTab?.url || currentTab?.url || '',
-                configSnapshot: {
-                    type: 'list-extraction',
-                    selectors: selectors.map(s => s.containerSelector),
-                    options: {
-                        pagination,
-                        fullSelectors: selectors.map(({ data, ...rest }) => ({
-                            ...rest,
-                            data: { columns: data?.columns || [] }
-                        }))
-                    }
+                input: {
+                    urls: [sourceTab?.url || currentTab?.url || ''],
+                    ...(pagination.maxPages ? { maxPages: pagination.maxPages } : {}),
                 },
-                stats: {
-                    startTime: Date.now(),
-                    itemsExtracted: 0,
-                    pagesVisited: 0,
-                    errors: 0
-                },
+                stats: { startTime: Date.now(), itemsExtracted: 0, pagesVisited: 0, errors: 0 },
                 createdAt: Date.now(),
                 updatedAt: Date.now()
             });
@@ -316,7 +286,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 setStatus(prev => ({ ...prev, stopReason }));
                                 resolve();
                             }),
-                            on('PAGINATION_UPDATE', ({ items, page, columns, unmapped, fallback }) => {
+                            on('PAGINATION_UPDATE', ({ items, page, columns, unmapped, fallback, healedItems }) => {
                                 if (page) pagesVisitedRef.current = page;
                                 // The fields the run reads every page with (frozen): save them as the columns.
                                 if (Array.isArray(columns) && columns.length > 0) sel.data.columns = columns;
@@ -327,6 +297,9 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 }
                                 if (unmapped) tracker.addUnmapped(page || pagesVisitedRef.current, unmapped);
                                 if (fallback) tracker.markFallback(page || pagesVisitedRef.current);
+                                // The stored item chain stopped matching and the page re-derived one: the recipe
+                                // starts with it from now on (a new revision; this job keeps the one it ran).
+                                if (healedItems) void healRecipe(recipe.id, sel.id, healedItems);
                                 setStatus(prev => ({
                                     ...prev,
                                     progress: { id: sel.id, count: (sel.data.items?.length || 0) },
@@ -375,10 +348,8 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             const finalStatus = stopExtractionRef.current ? 'stopped' : 'completed';
 
             await db.jobs.update(jobId, {
-                status: stopExtractionRef.current ? 'paused' : 'completed',
-                result: {
-                    tableDataId: tableId
-                },
+                status: stopExtractionRef.current ? 'stopped' : 'completed',
+                tableId,
                 stats: {
                     ...(currentJob?.stats || { startTime: Date.now(), itemsExtracted: 0 }),
                     endTime: Date.now(),

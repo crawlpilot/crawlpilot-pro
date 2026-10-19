@@ -50,6 +50,8 @@ export class PaginationAction extends BaseAction {
     private lastPageHash: string | null = null;
     /** Whether this page's container or items were found through a fallback entry (or a healed selector). */
     private usedFallback = false;
+    /** An item selector re-derived on this run because the stored chain no longer matched: sent once, saved to the recipe. */
+    private healedItems: string | undefined;
 
     constructor(private config: PaginationConfig) {
         super();
@@ -287,11 +289,13 @@ export class PaginationAction extends BaseAction {
                 columns: lastColumns,
                 unmapped: pendingUnmapped,
                 fallback: this.usedFallback || undefined,
+                healedItems: this.healedItems,
                 page: pageCount,
                 cumulativeTotal: mode !== 'loadMore' ? newTotal : pageItems.length
             });
             pending = [];
             pendingUnmapped = 0;
+            this.healedItems = undefined;
         };
 
         this.context?.onProgress?.({ type: 'extract', page: pageCount, message: 'Scrolling and extracting data...' });
@@ -321,7 +325,7 @@ export class PaginationAction extends BaseAction {
                     itemSelectionMode = 'items';
                     resolvedItemSelector = healed;
                     console.log('[PaginationAction] Item selector chain stale — healed to:', healed);
-                    this.context?.onProgress?.({ type: 'selector_healed', message: `Item selector re-derived: ${healed}` });
+                    this.healedItems = healed;
                 }
             }
         }

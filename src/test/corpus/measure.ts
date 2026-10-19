@@ -14,7 +14,7 @@ import { inferFields, readRow } from '../../content/services/extraction/fields';
 import { readValue } from '../../content/services/extraction/atoms';
 import { gradeSelector } from '../../shared/selectors/grade';
 import { looksLikeXPath } from '../../shared/selectors/resolve';
-import { filterPersistableChain } from '../../shared/selectors/stability';
+import { chainOf } from '../../shared/recipes/spec';
 import type { PageTargets, PdpTarget } from './targets';
 
 const FIXTURES = resolve(__dirname, '../fixtures');
@@ -57,7 +57,7 @@ function measureList(t: PageTargets['list']) {
     const children = Array.from(container.children) as HTMLElement[];
     const kept = keepItems(children);
     const locators = listLocators(container, children);
-    const persisted = filterPersistableChain(locators.items) ?? [];
+    const persisted = chainOf(locators.items);
 
     const itemEntry = (selector: string) => {
         const matched = query(selector, container);
@@ -97,7 +97,7 @@ function measureList(t: PageTargets['list']) {
         itemChain: locators.items.slice(0, CHAIN_SHOWN).map(c => itemEntry(c.selector)),
         itemChainLength: locators.items.length,
         firstExactAt: locators.items.findIndex(c => itemEntry(c.selector).exact),
-        persistedFirst: persisted[0] ? itemEntry(persisted[0].selector) : null,
+        persistedFirst: persisted[0] ? itemEntry(persisted[0]) : null,
         columns: columns.map(c => `${c.name} ← ${c.reader?.chain[0]}`),
         fields,
     };

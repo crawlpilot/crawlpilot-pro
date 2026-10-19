@@ -48,7 +48,6 @@ function toRow(result: MetadataExtractResult, options: MetadataExtractOptions): 
 export function metadataJob(start: MetadataStart): RunJob {
     const options = start.options ?? {};
     const columns: Column[] = options.outputText ? [...COLUMNS, { id: 'text', name: 'Raw Text', type: 'text', order: COLUMNS.length }] : COLUMNS;
-    const urls = Array.from(new Set(start.urls));
 
     return {
         kind: 'metadata',
@@ -56,11 +55,7 @@ export function metadataJob(start: MetadataStart): RunJob {
         maxConcurrent: start.maxConcurrent,
         settings: { requestDelay: start.requestDelay ?? 1000, loadTimeout: start.loadTimeout ?? 30000 },
         name: start.customName,
-        recipe: {
-            type: 'metadata-extraction',
-            description: 'Automatic metadata and content extraction',
-            config: { type: 'metadata-extraction', urls, options },
-        },
+        spec: { kind: 'metadata', options },
         tableType: 'metadata-extraction',
         columns: () => columns,
 

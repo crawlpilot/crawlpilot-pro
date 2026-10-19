@@ -98,7 +98,7 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                         <FilterChip label={t('filter.all')} count={stats.all} active={filter === 'all'} onClick={() => setFilter('all')} icon={<Database size={12} />} />
                         <FilterChip label={t('filter.running')} count={stats.running} active={filter === 'running'} onClick={() => setFilter('running')} icon={<Play size={12} />} color="secondary" />
                         <FilterChip label={t('filter.completed')} count={stats.completed} active={filter === 'completed'} onClick={() => setFilter('completed')} icon={<CheckCircle2 size={12} />} color="success" />
-                        <FilterChip label={t('filter.stopped')} count={stats.stopped} active={filter === 'paused'} onClick={() => setFilter('paused')} icon={<PauseCircle size={12} />} />
+                        <FilterChip label={t('filter.stopped')} count={stats.stopped} active={filter === 'stopped'} onClick={() => setFilter('stopped')} icon={<PauseCircle size={12} />} />
                         <FilterChip label={t('filter.failed')} count={stats.failed} active={filter === 'failed'} onClick={() => setFilter('failed')} icon={<XCircle size={12} />} color="error" />
                     </Stack>
                 </Box>

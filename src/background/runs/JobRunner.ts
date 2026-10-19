@@ -9,7 +9,7 @@
 import { send } from '../../shared/messages';
 import type { UrlStatus } from '../../shared/messages';
 import { db } from '../../shared/db';
-import type { AutomationConfig, AutomationType, Column } from '../../shared/types/database';
+import type { Column, RecipeSpec } from '../../shared/types/database';
 import { classifyPage, collectPageSignals, PageClassification, VERDICT_LABELS } from '../../shared/verdict/classifyPage';
 import { TabPool } from './TabPool';
 import { buildFinalName, buildInitialName, buildPreviewName } from './naming';
@@ -45,11 +45,11 @@ export interface RunJob {
     settings: RunSettings;
     /** Open pages in a focusable popup window (needed for clicks) instead of a background tab. */
     interactive?: boolean;
-    /** Continue an existing job / recipe instead of creating them. */
+    /** Continue an existing job instead of creating one. */
     jobId?: number;
-    recipeId?: number;
     name?: string;
-    recipe: { type: AutomationType; description: string; config: AutomationConfig };
+    /** What the run extracts: saved as its recipe (the same spec is the same recipe). */
+    spec: RecipeSpec;
     /** The table's `type` and `metadata.extractionType`. */
     tableType: string;
     /** The table's columns, from the columns the pages reported so far. */
@@ -166,12 +166,10 @@ export class JobRunner {
         }
         const name = job.name || buildInitialName(urls);
         const now = Date.now();
-        const recipeId = job.recipeId ?? await db.jobs.createRecipe({
-            name, description: job.recipe.description, type: job.recipe.type, version: 1,
-            config: job.recipe.config, createdAt: now, updatedAt: now,
-        });
+        const recipe = await db.jobs.saveRecipe(name, job.spec);
         return db.jobs.create({
-            recipeId, name, status: 'running', sourceUrl: urls[0], configSnapshot: job.recipe.config,
+            recipeId: recipe.id, recipeRev: recipe.rev, name, status: 'running',
+            input: { urls, ...(job.maxConcurrent ? { concurrency: job.maxConcurrent } : {}) },
             stats, createdAt: now, updatedAt: now,
         });
     }
@@ -407,8 +405,8 @@ export class JobRunner {
             }
 
             await db.jobs.update(jobId, {
-                status: stoppedByUser ? 'paused' : 'completed',
-                result: tableDataId ? { tableDataId } : undefined,
+                status: stoppedByUser ? 'stopped' : 'completed',
+                tableId: tableDataId,
                 stats: { startTime, endTime: Date.now(), itemsExtracted: rows.length, pagesVisited: done, errors, stoppedByUser, verdicts: this.verdictCounts() },
             });
             void send(MESSAGES[this.kind].complete, { jobId, tableDataId, totalItems: rows.length, success: !error && !stoppedByUser, error, stoppedByUser });

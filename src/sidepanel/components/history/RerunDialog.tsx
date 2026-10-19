@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, FormHelperText, Stack, Switch, TextField, Typography } from '@mui/material';
 import { Play } from 'lucide-react';
-import type { JobWithRecipe } from './jobFilters';
+import { isBulkJob, type JobWithRecipe } from './jobFilters';
 
 export interface RerunOptions {
     name: string;
@@ -22,11 +22,10 @@ export function RerunDialog({ job, onClose, onStart }: { job: JobWithRecipe | nu
 
     useEffect(() => {
         if (!job) return;
-        const config = job.configSnapshot || job.recipe?.config;
         setRerunName(job.name ? `${job.name} (${t('rerun')})` : `${t('rerun')}: ${job.recipe?.name || tc('na')}`);
-        setRerunMaxPages(config?.options?.pagination?.maxPages || 10);
-        setRerunParallel(config?.options?.useParallel || false);
-        setRerunConcurrent(config?.options?.maxConcurrent || 3);
+        setRerunMaxPages(job.input?.maxPages || 10);
+        setRerunParallel((job.input?.concurrency ?? 1) > 1);
+        setRerunConcurrent(job.input?.concurrency || 3);
     }, [job, t, tc]);
 
     return (
@@ -50,7 +49,7 @@ export function RerunDialog({ job, onClose, onStart }: { job: JobWithRecipe | nu
                         onChange={(e) => setRerunName(e.target.value)}
                         placeholder={t('runNamePlaceholder')}
                     />
-                    {job?.configSnapshot?.options?.pagination?.mode === 'pagination' && (
+                    {job?.recipe?.spec.kind === 'list' && job.recipe.spec.pagination.mode === 'pagination' && (
                         <Box>
                             <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={1}>
                                 {t('maxPages')}
@@ -67,7 +66,7 @@ export function RerunDialog({ job, onClose, onStart }: { job: JobWithRecipe | nu
                         </Box>
                     )}
 
-                    {(job?.configSnapshot?.type === 'bulk-extraction' || job?.recipe?.type === 'bulk-extraction') && (
+                    {job && isBulkJob(job) && (
                         <>
                             <Box>
                                 <FormControlLabel

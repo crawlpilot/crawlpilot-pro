@@ -1,17 +1,42 @@
-/** Runs (`jobs`) and the recipes they ran (`recipes`). */
-import type { AutomationRecipe, Job } from '../types/database';
+/** Recipes (what to extract) and jobs (runs of them). */
+import type { Job, Recipe, RecipeSpec } from '../types/database';
+import { specHash, specJson } from '../recipes/spec';
 import { done, req, transaction, walk } from './idb';
 import { STORES } from './schema';
 import { tables } from './tables';
 
-export type JobWithRecipe = Job & { recipe?: AutomationRecipe };
+export type JobWithRecipe = Job & { recipe?: Recipe };
 
-async function createRecipe(recipe: AutomationRecipe): Promise<number> {
+/**
+ * The recipe for a spec: the one already saved with the same spec (running a pick again, a rerun),
+ * otherwise a new one. Returns its id and revision.
+ */
+async function saveRecipe(name: string, spec: RecipeSpec): Promise<{ id: number; rev: number }> {
+    const hash = specHash(spec);
+    const json = specJson(spec);
     const tx = await transaction(STORES.recipes, 'readwrite');
-    return await req(tx.objectStore(STORES.recipes).add(recipe)) as number;
+    const store = tx.objectStore(STORES.recipes);
+    const sameHash: Recipe[] = await req(store.index('hash').getAll(IDBKeyRange.only(hash)));
+    const existing = sameHash.find(r => specJson(r.spec) === json);
+    if (existing) return { id: existing.id!, rev: existing.rev };
+    const now = Date.now();
+    const id = await req(store.add({ name, spec, hash, rev: 1, createdAt: now, updatedAt: now } satisfies Recipe)) as number;
+    return { id, rev: 1 };
 }
 
-async function getRecipe(id: number): Promise<AutomationRecipe | null> {
+/** Replaces a recipe's spec (an edit, a healed selector): its revision goes up; jobs keep the revision they ran. */
+async function reviseRecipe(id: number, spec: RecipeSpec): Promise<number> {
+    const tx = await transaction(STORES.recipes, 'readwrite');
+    const store = tx.objectStore(STORES.recipes);
+    const current: Recipe | undefined = await req(store.get(id));
+    if (!current) throw new Error(`Recipe ${id} not found`);
+    const rev = current.rev + 1;
+    store.put({ ...current, spec, hash: specHash(spec), rev, updatedAt: Date.now() } satisfies Recipe);
+    await done(tx);
+    return rev;
+}
+
+async function getRecipe(id: number): Promise<Recipe | null> {
     const tx = await transaction(STORES.recipes);
     return (await req(tx.objectStore(STORES.recipes).get(id))) ?? null;
 }
@@ -19,6 +44,11 @@ async function getRecipe(id: number): Promise<AutomationRecipe | null> {
 async function create(job: Job): Promise<number> {
     const tx = await transaction(STORES.jobs, 'readwrite');
     return await req(tx.objectStore(STORES.jobs).add(job)) as number;
+}
+
+async function get(id: number): Promise<Job | null> {
+    const tx = await transaction(STORES.jobs);
+    return (await req(tx.objectStore(STORES.jobs).get(id))) ?? null;
 }
 
 async function update(id: number, patch: Partial<Job>): Promise<void> {
@@ -33,23 +63,23 @@ async function update(id: number, patch: Partial<Job>): Promise<void> {
 /** Newest first, each with its recipe. */
 async function list(limit = 100): Promise<JobWithRecipe[]> {
     const tx = await transaction([STORES.jobs, STORES.recipes]);
-    const jobs: Job[] = [];
+    const found: Job[] = [];
     await walk<Job>(tx.objectStore(STORES.jobs).index('createdAt').openCursor(null, 'prev'), j => {
-        jobs.push(j);
-        return jobs.length < limit;
+        found.push(j);
+        return found.length < limit;
     });
     const recipes = tx.objectStore(STORES.recipes);
-    const byId = new Map<number, AutomationRecipe>();
-    for (const id of new Set(jobs.map(j => j.recipeId))) {
-        const recipe: AutomationRecipe | undefined = await req(recipes.get(id));
+    const byId = new Map<number, Recipe>();
+    for (const id of new Set(found.map(j => j.recipeId))) {
+        const recipe: Recipe | undefined = await req(recipes.get(id));
         if (recipe) byId.set(id, recipe);
     }
-    return jobs.map(j => ({ ...j, recipe: byId.get(j.recipeId) }));
+    return found.map(j => ({ ...j, recipe: byId.get(j.recipeId) }));
 }
 
-/** Deletes a job and its table; its recipe too, unless another job (a rerun) still uses it. */
+/** Deletes a job and its table; its recipe too, unless another job still uses it. */
 async function remove(job: Job): Promise<void> {
-    if (job.result?.tableDataId) await tables.remove(job.result.tableDataId);
+    if (job.tableId) await tables.remove(job.tableId);
     const tx = await transaction([STORES.jobs, STORES.recipes], 'readwrite');
     tx.objectStore(STORES.jobs).delete(job.id!);
     const users = await req(tx.objectStore(STORES.jobs).index('recipeId').count(IDBKeyRange.only(job.recipeId)));
@@ -57,9 +87,4 @@ async function remove(job: Job): Promise<void> {
     await done(tx);
 }
 
-async function get(id: number): Promise<Job | null> {
-    const tx = await transaction(STORES.jobs);
-    return (await req(tx.objectStore(STORES.jobs).get(id))) ?? null;
-}
-
-export const jobs = { createRecipe, getRecipe, create, get, update, list, remove };
+export const jobs = { saveRecipe, reviseRecipe, getRecipe, create, get, update, list, remove };

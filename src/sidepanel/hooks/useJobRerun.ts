@@ -4,6 +4,7 @@ import { useExtractionProcess } from './useExtractionProcess';
 import { useBulkExtraction } from './useBulkExtraction';
 import contentScriptPath from '../../content/element-selector?script';
 import { isBulkJob, JobWithRecipe } from '../components/history/jobFilters';
+import { listRunInput, pageRunInput } from '../../shared/recipes/spec';
 import type { RerunOptions } from '../components/history/RerunDialog';
 
 /**
@@ -61,23 +62,25 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
         }
     };
 
+    /** Reruns a job with its recipe as it is now (edits and healed selectors included) on the job's pages. */
     const rerun = useCallback(async (job: JobWithRecipe, options: RerunOptions) => {
-        const config = job.configSnapshot || job.recipe?.config;
-        if (!config) {
-            alert("This job doesn't have enough configuration to re-run.");
+        const spec = job.recipe?.spec;
+        if (!spec) {
+            alert("This job's recipe is gone, so it can't be re-run.");
             return;
         }
         try {
             if (job.id) onStarted(job.id);
+            const urls = job.input?.urls ?? [];
+            const targetUrl = urls[0];
             const isFullPageExtension = window.location.protocol === 'chrome-extension:';
             const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            const targetUrl = job.sourceUrl || (config.type === 'bulk-extraction' ? config.urls?.[0] : config.options?.url);
 
             if (isFullPageExtension && targetUrl) {
-                    await chrome.tabs.create({ url: targetUrl, active: true });
+                await chrome.tabs.create({ url: targetUrl, active: true });
                 await waitForTabReady();
             } else if (activeTab && targetUrl && activeTab.url !== targetUrl) {
-                    await chrome.tabs.update(activeTab.id!, { url: targetUrl });
+                await chrome.tabs.update(activeTab.id!, { url: targetUrl });
                 await waitForTabReady();
             } else {
                 // Same URL — just ensure content script is injected
@@ -87,18 +90,13 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
             // The tab after any navigation or new tab.
             const [finalActiveTab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-            if (config.type === 'bulk-extraction') {
-                const actions = config.options?.actions;
-                const elements = actions?.[0]?.elements;
-                const urls = config.urls;
-
-                if (!elements || !urls || urls.length === 0) {
+            if (spec.kind === 'page') {
+                if (urls.length === 0 || spec.elements.length === 0) {
                     alert("This bulk extraction job doesn't have enough configuration to re-run.");
                     return;
                 }
-
+                const { elements } = pageRunInput(spec);
                 await startBulkExtraction(urls, elements, {
-                    recipeId: job.recipeId,
                     customName: options.name,
                     maxConcurrent: options.concurrent,
                     onStart: onStarted
@@ -106,27 +104,15 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
                     console.error("Bulk re-run failed:", err);
                     alert("Bulk re-run failed: " + err.message);
                 });
-            } else {
-                if (!config?.options?.fullSelectors || !config?.options?.pagination) {
-                    alert("This job doesn't have enough configuration to re-run.");
-                    return;
-                }
-
-                const sanitizedSelectors = config.options.fullSelectors.map((s: any) => ({
-                    ...s,
-                    sourceTabId: finalActiveTab?.id
-                }));
-
+            } else if (spec.kind === 'list') {
+                const { selectors, pagination } = listRunInput(spec, options.maxPages);
                 await startExtraction(
-                    sanitizedSelectors,
-                    config.options.pagination,
-                    {
-                        tableDataId: undefined, // Create NEW dataset
-                        recipeId: job.recipeId, // REUSE existing recipe
-                        customName: options.name,
-                        maxPages: options.maxPages
-                    }
+                    selectors.map(s => ({ ...s, sourceTabId: finalActiveTab?.id })),
+                    pagination,
+                    { tableDataId: undefined, customName: options.name, maxPages: options.maxPages }
                 );
+            } else {
+                alert('Metadata runs are re-run from the Metadata page.');
             }
         } catch (err) {
             console.error('Re-run failed:', err);

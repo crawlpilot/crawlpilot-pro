@@ -77,31 +77,6 @@ export interface TableRow {
     };
 }
 
-// Automation types
-export type AutomationStatus =
-    | 'pending'
-    | 'running'
-    | 'completed'
-    | 'failed'
-    | 'paused';
-
-export type AutomationType =
-    | 'list-extraction'
-    | 'email-extraction'
-    | 'image-download'
-    | 'text-extraction'
-    | 'bulk-extraction'
-    | 'metadata-extraction';
-
-export interface AutomationConfig {
-    type: AutomationType;
-    urls?: string[];
-    selectors?: string[];
-    options?: Record<string, any>;
-}
-
-
-
 // Extraction result format
 export interface ExtractionResult {
     columns: Column[];
@@ -112,40 +87,88 @@ export interface ExtractionResult {
     timestamp?: string;
 }
 
-// --- NEW SCHEMA (Refactoring Phase 1) ---
+// --- Recipes and runs (schema v6, shared/db/schema.ts) ---
 
-export interface AutomationRecipe {
+/** Selectors for one target, best first: CSS or XPath (told apart by `looksLikeXPath`), at most three. */
+export type Chain = string[];
+
+/** One picked list: its container, its items (relative to the container) and the fields read from each item. */
+export interface ListTarget {
+    id: string;
+    container: Chain;
+    items: Chain;
+    /** The list's frozen fields (`ReaderColumn`s: columns carrying their readers). */
+    fields: Column[];
+    /** How it was picked: a list of items, or a single element read like one item. */
+    mode: 'list' | 'single';
+}
+
+export interface ListSpec {
+    kind: 'list';
+    lists: ListTarget[];
+    pagination: {
+        mode: 'auto' | 'pagination' | 'loadMore';
+        /** The Next / Load more control. */
+        next?: Chain;
+        speed?: import('../constants/paginationConfig').PaginationSpeed;
+    };
+}
+
+/** One Page Extractor element: read (or clicked) on every page of a bulk run. */
+export interface PageElement {
+    id: string;
+    name: string;
+    action: 'extract' | 'click';
+    /** What is read: text, link, image, list, table, arrays (`ElementProcessor`). */
+    type: string;
+    selectors: Chain;
+    /** A list or table element's frozen fields. */
+    fields?: Column[];
+}
+
+export interface PageSpec {
+    kind: 'page';
+    elements: PageElement[];
+    /** Pacing, viewport and wait settings for the run (`RunSettings` and the Page Extractor's options). */
+    settings: Record<string, unknown>;
+}
+
+export interface MetadataSpec {
+    kind: 'metadata';
+    options: import('./metadata').MetadataExtractOptions;
+}
+
+export type RecipeSpec = ListSpec | PageSpec | MetadataSpec;
+
+/** What to extract. One per distinct spec, updated in place (`rev` counts the updates). */
+export interface Recipe {
     id?: number;
     name: string;
-    description?: string;
-    type: AutomationType;
-    version: number;
-
-    // The normalized strategy configuration
-    config: AutomationConfig; // Reuse existing config structure for now, can be refined later
-
-    // Scheduling
-    schedule?: {
-        enabled: boolean;
-        cronExpression?: string; // e.g. "0 0 * * *"
-        nextRunAt?: number;
-    };
-
+    spec: RecipeSpec;
+    /** Hash of the spec: the same pick saved twice is one recipe. */
+    hash: string;
+    rev: number;
     createdAt: number;
     updatedAt: number;
 }
 
+export type JobStatus = 'running' | 'completed' | 'stopped' | 'failed';
+
+/** One run of a recipe: its inputs and outcome. The recipe is referenced, not copied. */
 export interface Job {
     id?: number;
-    recipeId: number; // FK to AutomationRecipe
-    name?: string; // [NEW] Optional run-specific name
-    status: AutomationStatus;
-    sourceUrl?: string; // Where it ran
+    recipeId: number;
+    /** The recipe's revision this run used. */
+    recipeRev: number;
+    name?: string;
+    status: JobStatus;
+    input: {
+        /** Where it ran: the list page, or every page of a bulk / metadata run. */
+        urls: string[];
+        maxPages?: number;
+        concurrency?: number;
+    };
 
-    // Snapshot of config at run time (in case recipe changes)
-    configSnapshot?: AutomationConfig;
-
-    // Performance metrics & Result Metadata
     stats: {
         startTime: number;
         endTime?: number;
@@ -163,13 +186,9 @@ export interface Job {
         coverage?: { name: string; fill: number }[];
     };
 
-    result?: {
-        tableDataId?: number; // Link to the data
-        outputFile?: string;
-    };
-
+    /** The table the run wrote. */
+    tableId?: number;
     error?: string;
-    logs?: string[];
     createdAt: number;
     updatedAt: number;
 }
