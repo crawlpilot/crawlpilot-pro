@@ -1,3 +1,4 @@
+import type { ListAlternative } from '../messages';
 import { PaginationSpeed } from '../../shared/constants/paginationConfig';
 import type { Chain } from './database';
 
@@ -15,6 +16,11 @@ export interface ListPick {
     count: number;
     /** The tab it was picked in: the run goes back to it. */
     sourceTabId?: number;
+    /** What the list is ("Results · 18 items") and its kind. */
+    label?: string;
+    kind?: ListAlternative['kind'];
+    /** The page's other lists of the same items (a sponsored shelf, a carousel), to switch to. */
+    alternatives?: ListAlternative[];
 }
 
 export type PaginationMode = 'auto' | 'pagination' | 'loadMore';

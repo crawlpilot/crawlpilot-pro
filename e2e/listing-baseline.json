@@ -1,10 +1,10 @@
 {
   "bestbuy-search": {
-    "matched": 33,
+    "matched": 100,
     "title.found": 100,
     "title.exact": 100,
-    "url.found": 67,
-    "url.exact": 67,
+    "url.found": 100,
+    "url.exact": 100,
     "id.found": 0,
     "id.exact": 0,
     "rating.found": 100,
@@ -13,15 +13,15 @@
     "review_count.exact": 0
   },
   "walmart-search-live": {
-    "matched": 98,
+    "matched": 100,
     "title.found": 100,
     "title.exact": 100,
     "url.found": 100,
-    "url.exact": 86,
+    "url.exact": 87,
     "id.found": 0,
     "id.exact": 0,
-    "price.found": 39,
-    "price.exact": 39,
+    "price.found": 38,
+    "price.exact": 38,
     "rating.found": 100,
     "rating.exact": 0,
     "review_count.found": 5,

@@ -84,6 +84,9 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                         data: payload.data,
                         patternFound: payload.patternFound || false,
                         sourceTabId: tabId,
+                        label: payload.label,
+                        kind: payload.kind,
+                        alternatives: payload.alternatives,
                     };
                     addSelector(pick);
                     setSelectionStatus('ready');

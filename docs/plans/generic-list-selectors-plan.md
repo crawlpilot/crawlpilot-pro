@@ -319,4 +319,5 @@ Each phase ends with the held-out score in §8.
 
 | Phase | Status |
 |---|---|
-| GS1–GS7 | Not started. Prerequisite: the reliability plan's L0 (dev-set captures and scorecard) and the held-out captures (§6) |
+| GS1 | Done: `content/services/extraction/itemSets.ts` (fingerprint from the clicked item by majority, else the named tile inside bare cells; document-wide matches; groups by region with alike parents within 3 levels merged; kinds results/sponsored/carousel; headings), used by `ListSelectionStrategy` on hover and click; alternatives reported (`ListAlternative`) and switchable in `SelectorCard` (`READ_LIST`); placeholders kept as items (`keepItems`); descendant item chains (`.//x`). Scorecard: BestBuy 4 → 18/18 picked (9/9 rendered matched); Walmart 50 picks with 6 non-products → 45/45; the first click on Walmart's sponsored shelf → the 45 results with "Sponsored · 3 items" offered. e2e harness now offline (non-local requests aborted). Not done: offering the results when the sponsored list is a *different* component (BestBuy's carousel), which needs content-based similarity across fingerprints; `ListSpec` with `exclude` (the chosen group's chains are stored as today's container + items) |
+| GS2–GS7 | Not started. The held-out captures (§6) are still to do |

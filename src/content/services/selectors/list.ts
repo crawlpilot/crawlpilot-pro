@@ -16,7 +16,7 @@ import { keepItems } from '../extraction/items';
 import { looksLikeXPath } from '../../../shared/selectors/resolve';
 import { selectorFamily } from '../../../shared/selectors/grade';
 import {
-    AUTHOR_ATTRIBUTES, isNamingClass, isStableAttributeValue, isVolatileSelector, STATE_ATTRIBUTES, xpathLiteral,
+    AUTHOR_ATTRIBUTES, IDENTITY_ATTRIBUTE, isNamingClass, isStableAttributeValue, isVolatileSelector, STATE_ATTRIBUTES, xpathLiteral,
 } from '../../../shared/selectors/stability';
 
 export interface ChainEntry {
@@ -45,8 +45,6 @@ const MAX_CONTAINER_LEVELS = 4;
 const FEATURE_ITEMS = 20;
 const FEATURE_NODES = 150;
 const MAX_CHILD_HOOKS = 8;
-/** Attributes whose presence marks an item (a product, a listing), whatever their per-item value. */
-const IDENTITY = /^data-(.+[-_])?(id|sku|asin|key|guid|uuid|urn|pid)$/;
 const AUTHOR = new Set<string>(AUTHOR_ATTRIBUTES);
 const NAMING_ATTRIBUTES = [...AUTHOR_ATTRIBUTES, 'role', 'aria-label', 'name'];
 const CLASS_TEST = (c: string) => `contains(concat(' ', normalize-space(@class), ' '), ' ${c} ')`;
@@ -122,7 +120,7 @@ function childHooks(items: Element[]): { css: string; xpath: string; cost: numbe
             : Array.from(item.querySelectorAll('*')).slice(0, FEATURE_NODES));
         for (const node of nodes[0]) {
             // Author hooks and identity attributes only: a child's other data-* say little about the item.
-            for (const attr of attributeNames(node).filter(a => AUTHOR.has(a) || IDENTITY.test(a))) {
+            for (const attr of attributeNames(node).filter(a => AUTHOR.has(a) || IDENTITY_ATTRIBUTE.test(a))) {
                 // The same attribute on a node of the same tag in every item.
                 const hits = nodes.map(list => list.find(n => n.tagName === node.tagName && n.hasAttribute(attr)));
                 if (hits.some(h => !h)) continue;
@@ -177,8 +175,9 @@ function itemChain(root: Element, items: Element[]): ChainEntry[] {
             chain.push({ selector: c.css, strategy: c.family });
             families.add(c.family);
         }
-        // XPath children (`./x`) only exist under the list's own element.
-        if (!xpath && c.xpath && items.every(i => i.parentElement === root) && exact(root, c.xpath, set)) xpath = c.xpath;
+        // Items under the list's own element are its children (`./x`); items spread over rows are descendants (`.//x`).
+        const relative = c.xpath && (items.every(i => i.parentElement === root) ? c.xpath : c.xpath.replace(/^\.\//, './/'));
+        if (!xpath && relative && exact(root, relative, set)) xpath = relative;
     }
     if (xpath) chain.push({ selector: xpath, strategy: 'xpath' });
     return chain;
@@ -233,8 +232,9 @@ export function listLocators(container: HTMLElement, children: HTMLElement[]): L
     // Nothing names the list without positions: the list's own element, and its children by tag
     // (the saved row gate keeps headers and ads out of the rows).
     const tag = items[0].tagName.toLowerCase();
+    const direct = items.every(i => i.parentElement === container);
     return {
         container: elementChain(container),
-        items: [{ selector: `:scope > ${tag}`, strategy: 'structure' }],
+        items: [{ selector: direct ? `:scope > ${tag}` : tag, strategy: 'structure' }],
     };
 }

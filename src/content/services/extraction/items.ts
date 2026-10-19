@@ -85,17 +85,24 @@ export function itemOf(target: HTMLElement, container: HTMLElement): HTMLElement
     return el.parentElement === container ? el : target;
 }
 
+/** An element's tag and classes: what a not-yet-rendered placeholder shares with the items it will become. */
+const shellOf = (el: Element) => `${el.tagName}|${Array.from(el.classList).sort().join(' ')}`;
+
 /**
  * The items among a list's children: the ones with the list's common structure (cards, rows),
- * without headers, spacers, ad blocks and widgets. Falls back to all of them when fewer than two pass.
+ * without headers, spacers, ad blocks and widgets. Placeholders (an item's element with nothing in
+ * it yet: lazy grids render cards on scroll) are kept, as items still loading. Falls back to all of
+ * them when fewer than two pass.
  */
 export function keepItems(children: HTMLElement[]): HTMLElement[] {
     if (children.length < 4) return children;
     return withAtomCache(() => {
         const atoms = children.map(collectAtoms);
         const { keep } = gateRows(children, atoms);
-        const items = children.filter((_, i) => keep[i] && atoms[i].length > 0);
-        return items.length >= MIN_ITEMS ? items : children;
+        const rendered = children.filter((_, i) => keep[i] && atoms[i].length > 0);
+        const shells = new Set(rendered.map(shellOf));
+        const items = children.filter((c, i) => (keep[i] && atoms[i].length > 0) || (atoms[i].length === 0 && shells.has(shellOf(c))));
+        return rendered.length >= MIN_ITEMS ? items : children;
     });
 }
 

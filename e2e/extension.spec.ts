@@ -42,9 +42,12 @@ for (const l of LISTINGS) {
             const rows = sel.startsWith('/') || sel.startsWith('./')
                 ? (() => { const r = document.evaluate(sel, container, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null); return Array.from({ length: r.snapshotLength }, (_, k) => r.snapshotItem(k)); })()
                 : Array.from(container.querySelectorAll(sel));
-            return [truth.length, rows.filter(r => truth.includes(r as Element)).length + (rows.length - truth.length === 0 ? 0 : 1000)];
+            // A row is a true item, or the one named element inside it (a product tile in a layout cell).
+            const owners = rows.map(r => truth.find(t => t === r || t.contains(r as Element)));
+            const oneEach = new Set(owners).size === owners.length && owners.every(Boolean);
+            return [truth.length, owners.filter(Boolean).length + (oneEach && rows.length === truth.length ? 0 : 1000)];
         }, [l.container, l.items, { container: picked.container, items: picked.items }] as const);
-        // Every true item, and nothing else (an extra or a miss adds 1000).
+        // Every true item once, and nothing else (an extra, a miss or a double adds 1000).
         expect(found).toBe(expected);
         expect(picked.count).toBe(expected);
         await page.close();

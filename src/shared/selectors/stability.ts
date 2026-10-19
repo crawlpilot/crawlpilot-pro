@@ -113,6 +113,9 @@ export function isHashClass(c: string): boolean {
  * Attributes a site sets to name an element for its own tests and tooling, strongest first. Every
  * generator, the field steps and the field namer read this one list.
  */
+/** Attributes whose presence marks an item (a product, a listing), whatever their per-item value. */
+export const IDENTITY_ATTRIBUTE = /^data-(.+[-_])?(id|sku|asin|key|guid|uuid|urn|pid)$/;
+
 export const AUTHOR_ATTRIBUTES = [
     'data-testid', 'data-test-id', 'data-test', 'data-qa', 'data-cy', 'data-automation-id',
     'data-component-type', 'data-component', 'itemprop',

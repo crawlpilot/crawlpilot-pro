@@ -247,6 +247,9 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
             viewport: { width: 1280, height: 900 },
             args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
         });
+        // Corpus pages point at their real sites (`<base>`): images and fonts would load from the
+        // internet. Tests stay offline: only the local server, the extension and inline data load.
+        await context.route(url => !/^(https?:\/\/127\.0\.0\.1[:/]|chrome-extension:|data:|blob:|about:)/.test(url.href), route => route.abort());
         await use(context);
         await context.close();
         fs.rmSync(profile, { recursive: true, force: true });
