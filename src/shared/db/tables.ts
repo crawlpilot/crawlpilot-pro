@@ -14,8 +14,8 @@ export interface SaveOptions {
     replace?: boolean;
 }
 
-/** Fields that differ for the same item read on two pages (where it was read, its position). */
-const NOT_IDENTITY = new Set(['source_url', 'recordId']);
+/** Fields that differ for the same item read on two pages (where it was read, its position, how it was read). */
+const NOT_IDENTITY = new Set(['source_url', 'recordId', '_sources']);
 
 function sortKeys(value: any): any {
     if (typeof value !== 'object' || value === null) return value;

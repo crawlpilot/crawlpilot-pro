@@ -3,7 +3,9 @@
  * `main/floating.py`, `main/pruning.py`):
  *
  * - **Named boilerplate** (`header`, `nav`, `.sidebar`, `#cookie`…) is removed, unless it holds
- *   force-included content or the page's first `h1` (an `<article><header><h1>` keeps its title).
+ *   force-included content or the page's first `h1` (an `<article><header><h1>` keeps its title). An
+ *   `<aside>` is removed only when it is mostly links or short: some stores build the product-details
+ *   column as an `<aside>` (Uniqlo), while sidebars of navigation or related links are link text.
  * - **Floating chrome** (`data-cp-pos`: fixed or sticky) is removed in `fit`, unless it holds the `h1`,
  *   `main` or `article` (a sticky product summary can be the content).
  * - **Density pruning** (`fit`): every element scored on text density, link density, tag, class/id
@@ -30,6 +32,18 @@ function holdsForced(el: Element): boolean {
     return FORCE_INCLUDE_SELECTORS.some(s => el.matches(s) || el.querySelector(s));
 }
 
+const ASIDE_MIN_TEXT = 200;
+const ASIDE_LINK_RATIO = 0.5;
+
+/** An `<aside>` that reads as content: 200+ characters, under half of them link text. */
+function contentAside(el: Element): boolean {
+    if (el.localName !== 'aside') return false;
+    const text = (el.textContent ?? '').replace(/\s+/g, '').length;
+    if (text < ASIDE_MIN_TEXT) return false;
+    const links = Array.from(el.querySelectorAll('a')).reduce((n, a) => n + (a.textContent ?? '').replace(/\s+/g, '').length, 0);
+    return links / text < ASIDE_LINK_RATIO;
+}
+
 export function removeBoilerplate(root: Element): number {
     const h1 = root.querySelector('h1');
     const matches = new Set<Element>();
@@ -38,7 +52,7 @@ export function removeBoilerplate(root: Element): number {
     }
     let dropped = 0;
     for (const el of matches) {
-        if (!root.contains(el) || holdsForced(el) || (h1 && el.contains(h1))) continue;
+        if (!root.contains(el) || holdsForced(el) || (h1 && el.contains(h1)) || contentAside(el)) continue;
         el.remove();
         dropped++;
     }

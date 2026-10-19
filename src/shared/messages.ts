@@ -12,7 +12,7 @@ import type { PageVerdict } from './verdict/classifyPage';
 import type { ReconReport } from './recon/types';
 import type { NetEntry } from './network/types';
 import type { LabEval, LabPick } from '../content/features/lab/SelectorLab';
-import type { VerifiedField } from '../content/services/ai-view/ReferencedView';
+import type { GroundRequest, Grounded, PageView } from './ai/page';
 import type { Chain } from './types/database';
 
 type Fail = { success: false; error: string };
@@ -137,8 +137,8 @@ export interface Messages {
     NET_LIST: { reply: Res<{ installed: boolean; entries: NetEntry[] }> };
     NET_CLEAR: { reply: Res };
     PAGE_COOKIE: { reply: Res<{ cookie: string }> };
-    AI_BUILD_VIEW: { payload: { maxChars?: number }; reply: Res<{ view: string; refs: number; truncated: boolean }> };
-    AI_VERIFY: { payload: { answers: any[] }; reply: Res<{ fields: VerifiedField[] }> };
+    AI_PAGE_VIEW: { payload: { chunkChars: number; maxChunks: number }; reply: Res<{ view: PageView }> };
+    AI_GROUND: { payload: { requests: GroundRequest[] }; reply: Res<{ results: Grounded[] }> };
 
     // ---- content script → side panel (broadcasts)
     ELEMENT_SELECTED: { payload: ElementSelected };

@@ -5,8 +5,8 @@ import {
 import { Sparkles } from 'lucide-react';
 import { parseSchemaInput, SCHEMA_PRESETS } from '../../../shared/ai/schemaIntake';
 import { modelStatus, type ModelStatus } from '../../services/ai/modelHost';
-import { runSchemaExtraction, SchemaExtractionResult } from '../../services/ai/extractSession';
-import type { VerifiedField } from '../../../content/services/ai-view/ReferencedView';
+import { runPageExtract, ExtractStopped, type ExtractOutcome, type ExtractedValue } from '../../services/ai/extractRun';
+import { STATUS } from '../../pages/AiExtractPage';
 
 interface Props {
     open: boolean;
@@ -17,12 +17,8 @@ interface Props {
 
 const DRAFT_KEY = 'crawlpilot.aiSchema.draft';
 
-const STATUS: Record<VerifiedField['status'], { label: string; color: 'success' | 'info' | 'warning' | 'default' }> = {
-    verified: { label: 'Verified on page', color: 'success' },
-    relocated: { label: 'Verified (found elsewhere)', color: 'info' },
-    not_on_page: { label: 'Not on page', color: 'warning' },
-    empty: { label: 'Not found', color: 'default' },
-};
+/** A field the Page Extractor can rerun with no model: found on the page, with a selector. */
+const usable = (v: ExtractedValue | undefined) => Boolean(v?.selectors?.length) && (v!.status === 'structured' || v!.status === 'verified' || v!.status === 'relocated');
 
 export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) {
     const [text, setText] = useState(() => {
@@ -34,7 +30,7 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
     const [status, setStatus] = useState('');
     const [download, setDownload] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [result, setResult] = useState<SchemaExtractionResult | null>(null);
+    const [result, setResult] = useState<ExtractOutcome | null>(null);
     const [chosen, setChosen] = useState<Set<string>>(new Set());
     const abortRef = useRef<AbortController | null>(null);
 
@@ -55,15 +51,16 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
         setDownload(null);
         abortRef.current = new AbortController();
         try {
-            const res = await runSchemaExtraction(intake.fields, {
+            const res = await runPageExtract({ fields: intake.fields, lists: [] }, {
+                compileSingle: true,
                 onStatus: setStatus,
                 onDownloadProgress: setDownload,
                 signal: abortRef.current.signal,
             });
             setResult(res);
-            setChosen(new Set(res.fields.filter(f => f.status === 'verified' || f.status === 'relocated').map(f => f.name)));
+            setChosen(new Set(intake.fields.filter(f => usable(res.single[f.name])).map(f => f.name)));
         } catch (e: any) {
-            setError(e?.message || String(e));
+            if (!(e instanceof ExtractStopped)) setError(e?.message || String(e));
         } finally {
             setRunning(false);
             setStatus('');
@@ -73,17 +70,12 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
     const add = () => {
         if (!result) return;
         const now = Date.now();
-        const elements = result.fields
-            .filter(f => chosen.has(f.name) && f.selectors.length > 0)
-            .map((f, i) => ({
-                id: `${now}_${i}`,
-                name: f.name,
-                selectors: f.selectors,
-                action: 'extract',
-                type: f.type,
-                value: f.preview ?? f.value,
-                source: 'ai',
-            }));
+        const elements = intake.fields
+            .filter(f => chosen.has(f.name) && usable(result.single[f.name]))
+            .map((f, i) => {
+                const v = result.single[f.name];
+                return { id: `${now}_${i}`, name: f.name, selectors: v.selectors!, action: 'extract', type: v.elementType ?? 'text', value: v.text, source: 'ai' };
+            });
         onAddElements(elements);
         onClose();
     };
@@ -102,7 +94,7 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
                     </Typography>
                     {unavailable && (
                         <Alert severity="info" variant="outlined">
-                            Chrome's built-in AI isn't available here. You can still pick each field with “Select Element”.
+                            Chrome's built-in AI isn't available here: only fields the page publishes as structured data can be found. You can still pick each field with “Select Element”.
                             {model?.reason && <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>{model.reason}</Typography>}
                         </Alert>
                     )}
@@ -123,7 +115,7 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
                         disabled={running}
                     />
                     <Typography variant="caption" color={intake.error ? 'warning.main' : 'text.secondary'}>
-                        {intake.error ?? `${intake.fields.length} field${intake.fields.length !== 1 ? 's' : ''} (${intake.source === 'json-schema' ? 'from JSON Schema' : intake.source === 'example' ? 'from example' : 'from lines'})`}
+                        {intake.error ?? `${intake.fields.length} field${intake.fields.length !== 1 ? 's' : ''} (${intake.source === 'json-schema' ? 'from JSON Schema' : intake.source === 'example' ? 'from example' : 'from lines'})${intake.lists.length ? `; lists (${intake.lists.map(l => l.name).join(', ')}) are filled in AI Extract, not here` : ''}`}
                     </Typography>
 
                     {running && (
@@ -138,22 +130,16 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
 
                     {result && (
                         <Box>
-                            {result.truncated && (
-                                <Typography variant="caption" color="warning.main" display="block" sx={{ mb: 0.5 }}>
-                                    The page was too long for the model; only the first part was read.
-                                </Typography>
-                            )}
-                            {result.relaxed.length > 0 && (
-                                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                                    This Chrome couldn't enforce part of the answer format ({result.relaxed.join(', ')}); every value is still checked against the page.
-                                </Typography>
-                            )}
+                            {result.warnings.map((w, i) => (
+                                <Typography key={i} variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>{w}</Typography>
+                            ))}
                             <Stack spacing={0.5}>
-                                {result.fields.map(f => {
-                                    const usable = f.selectors.length > 0 && (f.status === 'verified' || f.status === 'relocated');
+                                {intake.fields.map(f => {
+                                    const v = result.single[f.name];
+                                    const ok = usable(v);
                                     return (
-                                        <Box key={f.name} sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, p: 1, display: 'flex', gap: 1, alignItems: 'flex-start', opacity: usable ? 1 : 0.7 }}>
-                                            <Checkbox size="small" sx={{ p: 0.25 }} disabled={!usable} checked={chosen.has(f.name)}
+                                        <Box key={f.name} sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, p: 1, display: 'flex', gap: 1, alignItems: 'flex-start', opacity: ok ? 1 : 0.7 }}>
+                                            <Checkbox size="small" sx={{ p: 0.25 }} disabled={!ok} checked={chosen.has(f.name)}
                                                 onChange={e => {
                                                     const next = new Set(chosen);
                                                     if (e.target.checked) next.add(f.name); else next.delete(f.name);
@@ -162,17 +148,19 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
                                             <Box sx={{ flex: 1, minWidth: 0 }}>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                                                     <Typography variant="caption" fontWeight={700}>{f.name}</Typography>
-                                                    <Chip size="small" label={STATUS[f.status].label} color={STATUS[f.status].color} sx={{ height: 18, fontSize: 10 }} />
-                                                    {f.grade && usable && (
+                                                    {v && <Chip size="small" label={STATUS[v.status].label} color={STATUS[v.status].color} sx={{ height: 18, fontSize: 10 }} />}
+                                                    {v?.grade && ok && (
                                                         <Chip size="small" variant="outlined" sx={{ height: 18, fontSize: 10 }}
-                                                            color={f.grade.grade === 'strong' ? 'success' : f.grade.grade === 'fragile' ? 'warning' : 'error'}
-                                                            label={`${f.grade.grade} selector`} title={f.grade.reason} />
+                                                            color={v.grade.grade === 'strong' ? 'success' : v.grade.grade === 'fragile' ? 'warning' : 'error'}
+                                                            label={`${v.grade.grade} selector`} title={v.grade.reason} />
                                                     )}
                                                 </Box>
                                                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
-                                                    {f.status === 'not_on_page' ? `Model said “${f.value.slice(0, 80)}”, which isn't on the page: dropped.`
-                                                        : f.status === 'empty' ? 'The model found nothing for this field.'
-                                                            : (f.preview || f.value).slice(0, 160)}
+                                                    {!v || v.status === 'empty' ? 'Nothing found for this field.'
+                                                        : v.status === 'needs_model' ? 'Needs the on-device model.'
+                                                            : v.status === 'unverified' ? `The model said “${v.text.slice(0, 80)}”, which isn't on the page: dropped.`
+                                                                : !v.selectors?.length ? `${v.text.slice(0, 120)} (from the page's data; not shown on the page, so no selector)`
+                                                                    : v.text.slice(0, 160)}
                                                 </Typography>
                                             </Box>
                                         </Box>
@@ -189,7 +177,7 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
                 ) : (
                     <>
                         <Button onClick={onClose} sx={{ mr: 'auto' }}>Cancel</Button>
-                        <Button onClick={run} disabled={!!intake.error || unavailable} variant={result ? 'outlined' : 'contained'}>
+                        <Button onClick={run} disabled={!!intake.error || intake.fields.length === 0} variant={result ? 'outlined' : 'contained'}>
                             {result ? 'Run again' : 'Find fields'}
                         </Button>
                         {result && (

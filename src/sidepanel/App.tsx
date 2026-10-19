@@ -13,6 +13,7 @@ import UtilitiesPage from './pages/UtilitiesPage';
 import DataTablePage from './pages/DataTablePage';
 import SettingsPage from './pages/SettingsPage';
 import TextSummarizerPage from './pages/TextSummarizerPage';
+import AiExtractPage from './pages/AiExtractPage';
 import WelcomePage from './pages/WelcomePage';
 import MetadataExtractorPage from './pages/MetadataExtractorPage';
 import ToolkitPage from './pages/ToolkitPage';
@@ -47,6 +48,8 @@ function App() {
                 return <PageExtractorPage onBack={() => setCurrentView('home')} />;
             case 'metadata-extractor':
                 return <MetadataExtractorPage onBack={() => setCurrentView('home')} />;
+            case 'ai-extract':
+                return <AiExtractPage onBack={() => setCurrentView('home')} />;
             case 'text-summarizer':
                 return <TextSummarizerPage onBack={() => setCurrentView('home')} />;
             case 'image-downloader':

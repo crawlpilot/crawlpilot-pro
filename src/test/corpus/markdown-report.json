@@ -327,8 +327,8 @@
     "markdown": {
       "title": "Unisex Oversized Sweatshirt | UNIQLO IN",
       "attempt": "markdown",
-      "chars": 62649,
-      "headings": 13,
+      "chars": 75475,
+      "headings": 16,
       "tables": [
         "2x2",
         "1x2",
@@ -337,37 +337,37 @@
         "1x2",
         "3x5"
       ],
-      "listItems": 61,
+      "listItems": 76,
       "codeBlocks": 0,
-      "images": 404,
-      "links": 72,
+      "images": 455,
+      "links": 99,
       "dropped": {
-        "boilerplate": 4,
+        "boilerplate": 3,
         "pruned": 0,
         "injections": 0
       },
-      "keptShare": 0.74,
+      "keptShare": 0.97,
       "chromeLeaks": 0
     },
     "fit": {
       "title": "Unisex Oversized Sweatshirt | UNIQLO IN",
       "attempt": "fit",
-      "chars": 7305,
-      "headings": 12,
+      "chars": 20115,
+      "headings": 15,
       "tables": [
         "2x2",
         "3x5"
       ],
-      "listItems": 3,
+      "listItems": 18,
       "codeBlocks": 0,
-      "images": 21,
-      "links": 7,
+      "images": 72,
+      "links": 34,
       "dropped": {
-        "boilerplate": 4,
-        "pruned": 159,
+        "boilerplate": 3,
+        "pruned": 169,
         "injections": 0
       },
-      "keptShare": 0.34,
+      "keptShare": 0.57,
       "chromeLeaks": 0
     }
   },

@@ -24,7 +24,11 @@ export interface RenderSettings {
     links: boolean;
     images: 'content' | 'none';
     tables: boolean;
+    /** Block refs: ` [bN]` after each leaf block (heading, paragraph, item, row, image), '' when off. */
+    ref?: (el: Element) => string;
 }
+
+const refOf = (el: Element, s: RenderSettings) => (s.ref ? s.ref(el) : '');
 
 type Handler = (el: Element, depth: number, s: RenderSettings) => string;
 
@@ -84,9 +88,14 @@ export function renderChildren(el: Element, depth: number, s: RenderSettings): s
 
 const heading = (level: number): Handler => (el, d, s) => {
     const inner = flat(renderChildren(el, d, s));
-    return inner ? block(`${'#'.repeat(level)} ${inner}`) : '';
+    return inner ? block(`${'#'.repeat(level)} ${inner}${refOf(el, s)}`) : '';
 };
-const container: Handler = (el, d, s) => block(renderChildren(el, d, s));
+const container: Handler = (el, d, s) => {
+    const inner = renderChildren(el, d, s);
+    // A leaf block (one line of text) gets a ref; a container of blocks leaves them to its children.
+    const leaf = s.ref && inner.trim() && !inner.trim().includes('\n') && !/\[b\d+\]$/.test(inner.trim());
+    return block(leaf ? `${inner.trimEnd()}${refOf(el, s)}` : inner);
+};
 const wrap = (marker: string): Handler => (el, d, s) => {
     const inner = oneLine(renderChildren(el, d, s));
     return inner ? `${marker}${inner}${marker}` : '';
@@ -132,7 +141,7 @@ const list = (ordered: boolean): Handler => (el, d, s) => {
         const content = collapseBlankLines(renderChildren(item, d + 1, s)).trim();
         const [first, ...rest] = content ? content.split('\n') : [''];
         if (!first && rest.length === 0) continue;
-        lines.push(`${marker} ${first}`.trimEnd());
+        lines.push(`${`${marker} ${first}`.trimEnd()}${first ? refOf(item, s) : ''}`);
         for (const extra of rest) lines.push(extra ? `${indent}${extra}` : '');
     }
     if (!lines.length) return '';
@@ -186,11 +195,11 @@ const table: Handler = (el, d, s) => {
     const columns = Math.max(0, ...grid.map(row => row.length));
     if (!columns) return '';
     const header = rows.findIndex(([tr, inHead], i) => inHead || (i === 0 && cells(tr).length > 0 && cells(tr).every(c => c.localName === 'th')));
-    const line = (row: (string | undefined)[]) => `| ${Array.from({ length: columns }, (_, i) => row[i] ?? '').join(' | ')} |`;
+    const line = (row: (string | undefined)[], i: number) => `| ${Array.from({ length: columns }, (_, c) => row[c] ?? '').join(' | ')} |${refOf(rows[i][0], s)}`;
     const separator = `|${' --- |'.repeat(columns)}`;
     const lines: string[] = [];
-    if (header < 0) lines.push(`|${'     |'.repeat(columns)}`, separator, ...grid.map(line));
-    else grid.forEach((row, i) => { lines.push(line(row)); if (i === header) lines.push(separator); });
+    if (header < 0) lines.push(`|${'     |'.repeat(columns)}`, separator, ...grid.map((row, i) => line(row, i)));
+    else grid.forEach((row, i) => { lines.push(line(row, i)); if (i === header) lines.push(separator); });
     const caption = Array.from(el.children).find(c => c.localName === 'caption');
     const captionText = caption ? oneLine(renderChildren(caption, 0, s)) : '';
     return `\n\n${captionText ? `*${captionText}*\n\n` : ''}${lines.join('\n')}\n\n`;
@@ -260,12 +269,12 @@ const image: Handler = (el, _d, s) => {
     if (isIcon(el)) return '';
     if (!src || src.startsWith('data:')) return alt;
     const title = el.getAttribute('title');
-    return title ? `![${alt}](${src} "${title.replace(/"/g, '\\"')}")` : `![${alt}](${src})`;
+    return (title ? `![${alt}](${src} "${title.replace(/"/g, '\\"')}")` : `![${alt}](${src})`) + refOf(el, s);
 };
 
 const figcaption: Handler = (el, d, s) => {
     const text = oneLine(renderChildren(el, d, s));
-    return text ? block(`*${text}*`) : '';
+    return text ? block(`*${text}*${refOf(el, s)}`) : '';
 };
 
 // ─── Other ────────────────────────────────────────────────────────────────────
@@ -276,11 +285,11 @@ const keepTag = (tag: string): Handler => (el, d, s) => {
 };
 const term: Handler = (el, d, s) => {
     const text = oneLine(renderChildren(el, d, s));
-    return text ? `\n\n**${text}**\n` : '';
+    return text ? `\n\n**${text}**${refOf(el, s)}\n` : '';
 };
 const definition: Handler = (el, d, s) => {
     const text = oneLine(renderChildren(el, d, s));
-    return text ? `: ${text}\n` : '';
+    return text ? `: ${text}${refOf(el, s)}\n` : '';
 };
 const summary: Handler = (el, d, s) => {
     const text = oneLine(renderChildren(el, d, s));

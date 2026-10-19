@@ -130,3 +130,27 @@ test('markdown from a live page: rendered text only, lazy images, shadow DOM, no
     expect(md).not.toContain('Lamps & Co');
     await page.close();
 });
+
+test('AI Extract page access: view with block refs, grounding with selectors, on a live page', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/article.html`);
+    const tabId = await panel.tabId(page.url());
+    const res = await panel.toTab(tabId, 'AI_PAGE_VIEW', { chunkChars: 4000, maxChunks: 4 });
+    expect(res.success).toBe(true);
+    const view = res.view.chunks.join('\n\n');
+    expect(view).toMatch(/^# How to choose a desk lamp \[b\d+\]$/m);
+    expect(view).toMatch(/\| 450 \| 2700K \| \[b\d+\]/);
+    const ref = /Look for at least 450 lumens.*\[(b\d+)\]/.exec(view)![1];
+
+    const grounded = await panel.toTab(tabId, 'AI_GROUND', { requests: [
+        { key: 'lumens', value: 'at least 450 lumens', ref, type: 'string', compile: true },
+        { key: 'cited wrong', value: '2700K', ref, type: 'string' },
+        { key: 'invented', value: 'Ships in 3 days', type: 'string' },
+    ] });
+    const [lumens, moved, invented] = grounded.results;
+    expect(lumens).toMatchObject({ status: 'verified' });
+    expect(lumens.selectors.length).toBeGreaterThan(0);
+    expect(moved.status).toBe('relocated');
+    expect(invented.status).toBe('not_on_page');
+    await page.close();
+});

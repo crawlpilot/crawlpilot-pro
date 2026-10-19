@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseSchemaInput, SCHEMA_PRESETS } from './schemaIntake';
-import { buildResponseSchema, buildExtractPrompt, parseModelOutput, isGrounded } from './extractPrompt';
+import { buildResponseSchema, buildExtractPrompt, buildListPrompt, buildListSchema, parseListOutput, parseModelOutput, isGrounded } from './extractPrompt';
 
 describe('parseSchemaInput', () => {
     it('reads field lines with descriptions and infers url/image', () => {
@@ -28,7 +28,29 @@ describe('parseSchemaInput', () => {
         expect(r.fields.map(f => [f.name, f.type])).toEqual([['title', 'string'], ['price', 'number'], ['count', 'integer'], ['photo', 'image']]);
     });
     it('presets parse', () => {
-        Object.values(SCHEMA_PRESETS).forEach(p => expect(parseSchemaInput(p.text).fields.length).toBeGreaterThan(3));
+        Object.values(SCHEMA_PRESETS).forEach(p => {
+            const r = parseSchemaInput(p.text);
+            expect(r.error).toBeUndefined();
+            expect(r.fields.length + r.lists.reduce((n, l) => n + l.fields.length, 0)).toBeGreaterThan(3);
+        });
+        expect(parseSchemaInput(SCHEMA_PRESETS.listing.text).lists[0]).toMatchObject({ name: 'products', description: 'every product shown in the results' });
+    });
+    it('splits entity lists from single answers: lines, JSON Schema, example', () => {
+        const lines = parseSchemaInput('category: page heading\nproducts[]:\n  title: name\n  image\nsellers[]: name, rating\nfooter_note');
+        expect(lines.fields.map(f => f.name)).toEqual(['category', 'footer_note']);
+        expect(lines.lists).toEqual([
+            { name: 'products', fields: [{ name: 'title', description: 'name', type: 'string' }, { name: 'image', description: undefined, type: 'image' }] },
+            { name: 'sellers', fields: [{ name: 'name', description: undefined, type: 'string' }, { name: 'rating', description: undefined, type: 'string' }] },
+        ]);
+        const schema = parseSchemaInput(JSON.stringify({
+            type: 'object',
+            properties: { total: { type: 'integer' }, products: { type: 'array', description: 'results', items: { $ref: '#/$defs/p' } } },
+            $defs: { p: { type: 'object', required: ['title'], properties: { title: { type: 'string' }, url: { type: 'string', format: 'uri' } } } },
+        }));
+        expect(schema.fields).toEqual([{ name: 'total', type: 'integer', required: false, description: undefined }]);
+        expect(schema.lists).toEqual([{ name: 'products', description: 'results', fields: [{ name: 'title', type: 'string', required: true, description: undefined }, { name: 'url', type: 'url', required: false, description: undefined }] }]);
+        const example = parseSchemaInput('[{"title": "Lamp", "price": 9.5}]');
+        expect(example.lists).toEqual([{ name: 'items', fields: [{ name: 'title', type: 'string', description: 'e.g. Lamp' }, { name: 'price', type: 'number', description: undefined }] }]);
     });
     it('reports errors', () => {
         expect(parseSchemaInput('').error).toBeTruthy();
@@ -44,14 +66,26 @@ describe('prompt and output', () => {
         expect(s.additionalProperties).toBe(false);
         expect(s.properties.price.required).toEqual(['value', 'ref']);
     });
-    it('lists fields in the prompt', () => {
-        expect(buildExtractPrompt('[e1] Lamp', fields)).toContain('- price');
+    it('fences the page as data and lists fields and user instructions', () => {
+        const p = buildExtractPrompt('# Lamp [b1]', fields, 'prices in USD');
+        expect(p).toContain('<page>\n# Lamp [b1]\n</page>');
+        expect(p).toContain('- price');
+        expect(p).toContain('prices in USD');
     });
-    it('parses clean, fenced and prose-wrapped output', () => {
-        expect(parseModelOutput('{"title":{"value":"Lamp","ref":"e1"},"price":{"value":"$9","ref":"[e4]"}}', fields))
-            .toEqual({ title: { value: 'Lamp', ref: 'e1' }, price: { value: '$9', ref: 'e4' } });
-        expect(parseModelOutput('Sure!\n```json\n{"title":"Lamp"}\n```', fields).title).toEqual({ value: 'Lamp', ref: '' });
-        expect(parseModelOutput('nonsense', fields).price).toEqual({ value: '', ref: '' });
+    it('parses clean and fenced output; anything else is invalid', () => {
+        expect(parseModelOutput('{"title":{"value":"Lamp","ref":"b1"},"price":{"value":"$9","ref":"[b4]"}}', fields))
+            .toEqual({ title: { value: 'Lamp', ref: 'b1' }, price: { value: '$9', ref: 'b4' } });
+        expect(parseModelOutput('```json\n{"title":"Lamp"}\n```', fields).title).toEqual({ value: 'Lamp', ref: '' });
+        expect(() => parseModelOutput('nonsense', fields)).toThrow();
+    });
+    it('lists: one ref per item, bounded, empty items dropped', () => {
+        const list = parseSchemaInput('products[]: title, price').lists[0];
+        const schema: any = buildListSchema(list, 12);
+        expect(schema.properties.items.maxItems).toBe(12);
+        expect(schema.properties.items.items.required).toEqual(['ref', 'title', 'price']);
+        expect(buildListPrompt('x', list, 12)).toContain('at most 12');
+        expect(parseListOutput('{"items":[{"ref":"b3","title":"Lamp","price":"$9"},{"ref":"","title":"","price":""}]}', list))
+            .toEqual([{ ref: 'b3', values: { title: 'Lamp', price: '$9' } }]);
     });
 });
 

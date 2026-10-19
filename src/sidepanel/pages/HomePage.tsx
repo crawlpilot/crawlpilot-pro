@@ -144,6 +144,54 @@ export default function HomePage({ onNavigate, isTabConnected = true }: HomePage
                     </Card>
                     </Tooltip>
 
+                    {/* AI Extract */}
+                    <Tooltip title={t('aiExtract.tooltip')} placement="left" arrow>
+                    <Card
+                        elevation={0}
+                        sx={{
+                            borderRadius: 3,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            bgcolor: 'background.paper',
+                            transition: 'all 0.2s',
+                            opacity: isTabConnected ? 1 : 0.5,
+                            '&:hover': {
+                                borderColor: 'primary.main',
+                                transform: 'translateY(-2px)',
+                                boxShadow: '0 8px 25px -8px rgba(6, 182, 212, 0.3)'
+                            }
+                        }}
+                    >
+                        <CardActionArea onClick={() => onNavigate('ai-extract')} sx={{ p: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Box sx={{
+                                        p: 1.5,
+                                        borderRadius: 2,
+                                        bgcolor: 'rgba(139, 92, 246, 0.1)',
+                                        color: 'secondary.main',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <Sparkles size={22} />
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="subtitle2" fontWeight="600" sx={{ lineHeight: 1.2 }}>
+                                            {t('aiExtract.title')}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                            {t('aiExtract.description')}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                                <ChevronRight size={18} style={{ color: 'rgba(255,255,255,0.3)' }} />
+                            </Box>
+                        </CardActionArea>
+                    </Card>
+                    </Tooltip>
+
+
                     {/* Text Summarizer */}
                     <Tooltip title={t('textSummarizer.tooltip')} placement="left" arrow>
                     <Card

@@ -7,6 +7,11 @@
     "description": "Turn any product listing, job board or table into a spreadsheet",
     "tooltip": "Click any repeating element on a page — products, jobs, prices, news — and export a clean spreadsheet or JSON in seconds"
   },
+  "aiExtract": {
+    "title": "AI Extract",
+    "description": "Describe the data you want; on-device AI fills it from the page",
+    "tooltip": "Give a schema (fields, lists, a JSON Schema or an example) and Chrome's built-in model fills it from the current page. Every value is checked against the page; nothing leaves your browser."
+  },
   "textSummarizer": {
     "title": "Text Summarizer",
     "description": "Instantly summarize any page and ask questions about it with AI",

@@ -180,3 +180,23 @@ describe('injection filter false positives', () => {
         expect(md(desc)).toContain('Copilot key');
     });
 });
+
+describe('block refs', () => {
+    it('one ref per leaf block, mapped to the live element', () => {
+        document.body.innerHTML = '<h1 id="t">Lamp</h1><div><p id="p">Warm light.</p></div><ul><li id="l">Dimmable</li></ul><table><tr><th>Watts</th></tr><tr id="r"><td>8</td></tr></table><img id="i" src="https://x.test/a.jpg" alt="lamp" width="300">';
+        const r = toMarkdown(document, { live: false, mainContent: false, refs: true });
+        expect(r.markdown).toBe('# Lamp [b1]\n\nWarm light. [b2]\n\n- Dimmable [b3]\n\n| Watts | [b4]\n| --- |\n| 8 | [b5]\n\n![lamp](https://x.test/a.jpg) [b6]\n');
+        expect([...r.refs!.entries()].map(([k, el]) => [k, el.id || el.localName])).toEqual([['b1', 't'], ['b2', 'p'], ['b3', 'l'], ['b4', 'tr'], ['b5', 'r'], ['b6', 'i']]);
+        expect(toMarkdown(document, { live: false, mainContent: false }).markdown).not.toContain('[b');
+    });
+});
+
+describe('asides', () => {
+    it('keeps an aside of content, drops one of links', () => {
+        const prose = 'Crisp, supple cotton-blend fabric with a premium look and a smooth polyester lining for a comfortable fit. '.repeat(3);
+        const links = Array.from({ length: 10 }, (_, i) => `<a href="/r${i}">Related article number ${i}</a>`).join(' ');
+        const out = md(`<h1>Shirt</h1><aside class="layout"><p>${prose}</p></aside><aside class="related">${links}</aside>`, { mainContent: true });
+        expect(out).toContain('Crisp, supple');
+        expect(out).not.toContain('Related article');
+    });
+});

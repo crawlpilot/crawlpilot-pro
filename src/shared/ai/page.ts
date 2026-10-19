@@ -1,0 +1,41 @@
+/** What AI Extract asks of a page (content script) and gets back: its view, and grounding of answers. */
+import type { GradedSelector } from '../selectors/grade';
+import type { StructuredData } from './structured';
+import type { SchemaFieldType } from './schemaIntake';
+
+export interface PageView {
+    url: string;
+    title: string;
+    /** The page as markdown, each leaf block ending in ` [bN]`, cut into chunks of at most `chunkChars`. */
+    chunks: string[];
+    /** More chunks than were asked for: the end of the page wasn't read. */
+    truncated: boolean;
+    structured: StructuredData;
+}
+
+export interface GroundRequest {
+    /** The caller's id for the answer (`price`, `products.3.title`). */
+    key: string;
+    value: string;
+    /** The block the model cited (`b12`), if any. */
+    ref?: string;
+    /** For a list item: its first block and the next item's first block; a value found between them is verified. */
+    within?: [string, string | undefined];
+    type: SchemaFieldType;
+    /** Build a selector chain for the element (single fields that become Page Extractor elements). */
+    compile?: boolean;
+}
+
+export type GroundStatus = 'verified' | 'relocated' | 'not_on_page' | 'empty';
+
+export interface Grounded {
+    key: string;
+    status: GroundStatus;
+    /** The value as the page has it: a link's URL, an image's source, else the element's text. */
+    pageValue?: string;
+    /** Page Extractor element type. */
+    type: 'text' | 'link' | 'image';
+    selectors: string[];
+    matchCount: number;
+    grade?: GradedSelector;
+}

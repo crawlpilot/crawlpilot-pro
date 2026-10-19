@@ -2,7 +2,7 @@
 import { runRecon } from '../services/recon/ReconService';
 import { LabPicker, evaluateSelector, highlightSelector, clearLabHighlights } from '../features/lab/SelectorLab';
 import { requestNetEntries, clearNetEntries } from '../features/network/NetworkRelay';
-import { buildReferencedView, verifyAndCompile } from '../services/ai-view/ReferencedView';
+import { buildPageView, ground } from '../services/ai-view/pageView';
 import { RightClickUnlocker } from '../features/utility/RightClickUnlocker';
 import { fail, ok, on, send } from '../../shared/messages';
 
@@ -35,8 +35,8 @@ export function registerToolkitHandlers() {
     // Non-HttpOnly cookies only: what the page itself can read.
     on('PAGE_COOKIE', () => ok({ cookie: document.cookie }));
 
-    on('AI_BUILD_VIEW', p => ok(buildReferencedView(p?.maxChars)));
-    on('AI_VERIFY', p => ok({ fields: verifyAndCompile(p?.answers || []) }));
+    on('AI_PAGE_VIEW', ({ chunkChars, maxChunks }) => ok({ view: buildPageView(chunkChars, maxChunks) }));
+    on('AI_GROUND', ({ requests }) => ok({ results: ground(requests) }));
 
     on('TOGGLE_RIGHT_CLICK', ({ enable }) => {
         if (enable) RightClickUnlocker.enable();

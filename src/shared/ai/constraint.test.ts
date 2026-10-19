@@ -49,7 +49,7 @@ describe('compileConstraint', () => {
 
     it('keeps the extraction schema as built, ref pattern included', () => {
         const schema = compileConstraint(buildResponseSchema([{ name: 'price', type: 'string' }]));
-        expect(schema.properties.price.properties.ref).toEqual({ type: 'string', pattern: '^(e[0-9]+)?$' });
+        expect(schema.properties.price.properties.ref).toEqual({ type: 'string', pattern: '^(b[0-9]+)?$' });
     });
 });
 

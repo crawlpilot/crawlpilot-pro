@@ -10,7 +10,7 @@
  * result can't be told from a page that never loaded, so attempts run from strictest to loosest and
  * the first with content wins (`attempt`, `fellBack`).
  */
-import { compose, type ComposeOptions } from './compose';
+import { compose, SOURCE_ATTRIBUTE, type ComposeOptions } from './compose';
 import { dropFloating, prune, removeBoilerplate } from './main';
 import { dropInjections } from './injection';
 import { convert, plainText, type RenderSettings } from './convert';
@@ -56,6 +56,8 @@ export interface MarkdownResult {
     truncated: boolean;
     outline: Heading[];
     stats: MarkdownStats;
+    /** With `refs`: each ` [bN]` in the markdown and the live element it was read from. */
+    refs?: Map<string, Element>;
 }
 
 export function fallbackChain(mode: MarkdownMode, mainContent: boolean): Attempt[] {
@@ -95,8 +97,21 @@ export function toMarkdown(source: Element | Document = document, options: Markd
     let markdown = '';
     let attempt = chain[0];
     let stats: MarkdownStats = { composedChars, keptChars: 0, markdownChars: 0, hidden: composed.hidden, boilerplateDropped: 0, floatingDropped: 0, prunedDropped: 0, injectionsDropped: 0 };
+    let refs: Map<string, Element> | undefined;
     for (attempt of chain) {
         const root = base.cloneNode(true) as Element;
+        if (options.refs) {
+            const map = new Map<string, Element>();
+            refs = map;
+            settings.ref = el => {
+                const i = el.getAttribute(SOURCE_ATTRIBUTE);
+                const source = i === null ? undefined : composed.sources[Number(i)];
+                if (!source) return '';
+                const key = `b${map.size + 1}`;
+                map.set(key, source);
+                return ` [${key}]`;
+            };
+        }
         const boilerplateDropped = attempt.mainContent ? removeBoilerplate(root) : 0;
         const floatingDropped = attempt.mode === 'fit' && attempt.mainContent ? dropFloating(root) : 0;
         const prunedDropped = attempt.mode === 'fit' ? prune(root) : 0;
@@ -119,5 +134,6 @@ export function toMarkdown(source: Element | Document = document, options: Markd
         truncated: cut.truncated,
         outline: attempt.mode === 'text' ? [] : outline(cut.markdown),
         stats: { ...stats, markdownChars: cut.markdown.length },
+        ...(refs ? { refs } : {}),
     };
 }

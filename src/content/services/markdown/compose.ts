@@ -29,6 +29,8 @@ const KEEP_ATTRIBUTES = [
 export interface ComposeOptions {
     /** Read layout (visibility, position, sizes). False in tests without layout. */
     live?: boolean;
+    /** Keep each copy's source element (`sources`, indexed by `data-cp-src`): for block refs. */
+    refs?: boolean;
 }
 
 export interface Composed {
@@ -36,7 +38,11 @@ export interface Composed {
     root: HTMLElement;
     /** Elements left out because they weren't rendered. */
     hidden: number;
+    /** With `refs`: the live element of each copy, by its `data-cp-src` index. */
+    sources: Element[];
 }
+
+export const SOURCE_ATTRIBUTE = 'data-cp-src';
 
 function rendered(el: Element, inDetails: boolean, live: boolean): boolean {
     if (el.getAttribute('aria-hidden') === 'true') return false;
@@ -66,6 +72,7 @@ export function compose(source: Element | Document, options: ComposeOptions = {}
     const start = source instanceof Document ? (source.body ?? source.documentElement) : source;
     const doc = sourceDoc.implementation.createHTMLDocument(sourceDoc.title);
     let hidden = 0;
+    const sources: Element[] = [];
 
     const copy = (el: Element, inDetails: boolean, inFloating: boolean): Element | null => {
         const tag = el.localName;
@@ -79,6 +86,7 @@ export function compose(source: Element | Document, options: ComposeOptions = {}
             return wrapper;
         }
         const out = doc.createElement(tag);
+        if (options.refs) { out.setAttribute(SOURCE_ATTRIBUTE, String(sources.length)); sources.push(el); }
         for (const name of KEEP_ATTRIBUTES) {
             const v = el.getAttribute(name);
             if (v !== null) out.setAttribute(name, v);
@@ -117,7 +125,7 @@ export function compose(source: Element | Document, options: ComposeOptions = {}
 
     const root = copy(start, false, false) as HTMLElement ?? doc.createElement('body');
     doc.body.replaceWith(root.localName === 'body' ? root : wrapInBody(doc, root));
-    return { doc, root: doc.body, hidden };
+    return { doc, root: doc.body, hidden, sources };
 }
 
 function wrapInBody(doc: Document, el: Element): HTMLElement {
