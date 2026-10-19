@@ -157,8 +157,24 @@ in two layers, safest first.
 **The report** is shown above the result: "Opened 3 sections (Specifications, Details, Shipping) and read 2
 tabs before reading the page." Anything skipped as unsafe is listed under the warnings.
 
-**Shared.** The reveal is used by AI Extract, the Page assistant and "Article text & details", so all three
-read the same full page.
+**Shared by every markdown reader.** The reveal runs inside the content script, right before
+`toMarkdown`. So it applies the same way to:
+
+- **AI Extract** (`ai-view/pageView.ts`) and the **Page assistant**, on the open page.
+- **The metadata extractor** ("Article text & details", `metadata/MetadataExtractionService.ts`):
+  - on one page;
+  - in **bulk runs**, where `metadataJob` sends `CMD_EXTRACT_METADATA` to a background tab per URL, and the reveal runs in that tab before the article markdown is taken.
+
+In bulk runs:
+
+- **Setting:** a new `MetadataExtractOptions.reveal: 'off' | 'read' | 'open'`, default `'open'`, set in the run's settings ("Open hidden sections before reading").
+  - `'read'` only reads disclosure panels already in the page, with no clicks.
+  - Reruns keep the setting.
+- **Budget:** clicks cost time on every page, so the per-page cap is **10 clicks or 4 seconds**, counted inside the page's load timeout.
+- **Restore:** not needed in tabs the run opened itself (they are closed). It still happens when the run reads the user's own tab.
+- **Report:** each row records what was opened in a hidden `_revealed` field ("Specifications, Details · 2 tabs"), and the run summary counts pages where sections were opened or clicks were skipped as unsafe.
+
+The markdown engine's own rule doesn't change: what isn't revealed and isn't rendered stays out.
 
 ### 3.2 Fitting Gemini Nano: smaller asks, narrower input
 
@@ -305,7 +321,7 @@ Each step ships on its own, keeps the e2e suite green and adds its tests.
 |---|---|---|
 | **A1 Schema core** | `schemaNormalize`, `schemaPlan`, `assemble`, validator; lines, example and presets compile to JSON Schema; JSON export in the schema's shape with per-pointer sources | Nested object, array of scalars, enum and required round-trip on 12 unit schemas; the existing intake tests still pass through the new path |
 | **A2 Budget and groups** | Output reserve from the plan; leaf groups of ≤ 8; list items per chunk from item cost; column passes for wide items; per-page chars-per-token | With a fake model, a 20-field schema runs as 3 calls each within budget; a 12-leaf list item runs in 2 passes; no call exceeds the measured room |
-| **A2b Reveal** | §3.1a: no-click disclosure reading, safe expander with deny list and caps, tab capture, restore, report; used by AI Extract, Page assistant and Article text | New fixtures for: Bootstrap collapse, ARIA accordion, Radix `data-state`, tabs, a line-clamped description, a lazy "Show more" that fetches its content on click, an "Add to cart" button and a navigating link. Every hidden field is read; the cart button and the link are never clicked; the page is restored (e2e in Chromium) |
+| **A2b Reveal** | §3.1a: no-click disclosure reading, safe expander with deny list and caps, tab capture, restore, report; wired into every `toMarkdown` caller: AI Extract, Page assistant, and the metadata extractor on one page and in bulk runs (`reveal` option, per-page cap, `_revealed`) | New fixtures for: Bootstrap collapse, ARIA accordion, Radix `data-state`, tabs, a line-clamped description, a lazy "Show more" that fetches its content on click, an "Add to cart" button and a navigating link. Every hidden field is read; the cart button and the link are never clicked; the page is restored (e2e in Chromium). A bulk metadata run over the accordion fixtures returns the revealed text in its markdown, with `reveal: 'off'` it doesn't, and each row's `_revealed` is filled |
 | **A3 Markdown input** | Full → fit → BM25 → truncate chooser; heading trail; list overlap; list-region view; evidence stored | On the corpus, single answers read `fit` on every page where full overflows; listing pages read only the list region; every value has evidence |
 | **A4 Resilience** | Recovery ladder, partial runs, validate-then-repair, identity-aware merge, call cache, progress saved to `jobs` | A fault-injecting fake model (`too_large`, `invalid_output`, `session_lost` at chosen calls) ends every run `ok` or `partial` with the right warnings and no lost values; a rerun of the same page makes 0 model calls |
 | **A5 No-model path** | Embedded state in T0; T1 by name from the List Extractor | On the 4 product pages with the model off, price, title and availability fill from page data; on 2 listings, a list comes back matched by name |
