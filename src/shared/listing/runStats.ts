@@ -34,6 +34,7 @@ export const STOP_REASON_LABELS: Record<string, string> = {
     unable_to_click: 'Could not click "Next"',
     container_lost: 'List not found on the next page',
     page_blocked: 'Site blocked the next page',
+    no_access: 'CrawlPilot could not read the next page (no access to this site)',
     error: 'Error',
 };
 

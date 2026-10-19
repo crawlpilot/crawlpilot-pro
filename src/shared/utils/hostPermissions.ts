@@ -39,6 +39,16 @@ export function openSiteAccessSettings(): void {
  * Inject into all open http(s) tabs instead. Double injection is safe: the crxjs loader
  * dynamic-imports the same module URL, so the page's ES module cache makes re-runs a no-op.
  */
+/** Starts CrawlPilot in one tab (a no-op where it runs already); false when Chrome refuses (no access). */
+export async function injectContentScript(tabId: number): Promise<boolean> {
+    try {
+        await chrome.scripting.executeScript({ target: { tabId }, files: [contentScriptPath] });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 export async function injectContentScriptIntoOpenTabs(): Promise<void> {
     const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
     await Promise.allSettled(

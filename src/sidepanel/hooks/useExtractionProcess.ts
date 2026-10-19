@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { on, sendToActiveTab, sendToTab } from '../../shared/messages';
 import { db } from '../../shared/db';
 import { storage } from '../../shared/storage';
+import { hasAllUrlsPermission, injectContentScript, requestAllUrlsPermission } from '../../shared/utils/hostPermissions';
 import type { ExtractionStatus, ListPick, PaginationConfig } from '../../shared/types/extraction';
 import { PAGINATION_PROFILES, PaginationSpeed } from '../../shared/constants/paginationConfig';
 import { consolidateSelectors } from '../../shared/utils/extractionLogic';
@@ -20,6 +21,14 @@ async function healRecipe(recipeId: number, listId: string, itemSelector: string
 
 /** How long a Stop waits for the page to confirm before the run is saved as it is. */
 const STOP_GRACE_MS = 5000;
+/** After a next-button run loads a page: how long before checking CrawlPilot is running in it. */
+const PAGE_CHECK_MS = 3000;
+
+/** True when the tab's content script answers within `ms`. */
+async function answers(tabId: number, ms = 2000): Promise<boolean> {
+    const reply = sendToTab(tabId, 'PING').then(r => !!r?.success, () => false);
+    return Promise.race([reply, new Promise<boolean>(r => setTimeout(() => r(false), ms))]);
+}
 
 export function useExtractionProcess(onComplete?: (tableId: number) => void, onStart?: (jobId: number) => void) {
     const [status, setStatus] = useState<ExtractionStatus>({
@@ -91,6 +100,11 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
 
     const startExtraction = useCallback(async (selectors: ListPick[], pagination: PaginationConfig, options?: { tableId?: number; customName?: string; maxPages?: number }) => {
         if (selectors.length === 0) return;
+
+        // Each "Next" loads a new page, and Chrome starts CrawlPilot in it only with access to the
+        // site (the click's temporary access ends when the page changes): asked now, while the
+        // Start click still counts as the user's.
+        if (pagination.mode === 'pagination' && !(await hasAllUrlsPermission())) await requestAllUrlsPermission();
 
         const { tableId: previewTableId, customName, maxPages } = options || {};
         if (maxPages !== undefined) {
@@ -284,7 +298,25 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                 if (sel) {
                     await new Promise<void>((resolve) => {
                         giveUpRef.current = () => { untrack(); resolve(); };
-                        const untrack = track(
+                        // Each page the run loads must have CrawlPilot running to continue the run:
+                        // started here when Chrome didn't, else the run ends instead of waiting forever.
+                        let checkTimer: ReturnType<typeof setTimeout> | null = null;
+                        const onLoaded = (id: number, info: { status?: string }) => {
+                            if (id !== activeTabId || info.status !== 'complete') return;
+                            if (checkTimer) clearTimeout(checkTimer);
+                            checkTimer = setTimeout(async () => {
+                                if (await answers(activeTabId!)) return;
+                                await injectContentScript(activeTabId!);
+                                await new Promise(r => setTimeout(r, 1500));
+                                if (await answers(activeTabId!)) return;
+                                stopReason = 'no_access';
+                                setStatus(prev => ({ ...prev, stopReason, error: 'CrawlPilot could not read the next page: allow it on this site (Site access → On all sites), then run again. The pages read so far are saved.' }));
+                                giveUpRef.current?.();
+                            }, PAGE_CHECK_MS);
+                        };
+                        chrome.tabs.onUpdated.addListener(onLoaded);
+                        const offLoaded = () => { chrome.tabs.onUpdated.removeListener(onLoaded); if (checkTimer) clearTimeout(checkTimer); };
+                        const untrack = track(offLoaded,
                             on('PAGINATION_COMPLETE', p => {
                                 untrack();
                                 stopReason = p.reason || (p.success === false ? 'error' : undefined);

@@ -125,6 +125,10 @@ export function Step3Review({
                 </div>
             )}
 
+            {!isExtracting && status?.status !== 'failed' && status?.stopReason === 'no_access' && status.error && (
+                <Notice tone="warning">{status.error}</Notice>
+            )}
+
             {!isExtracting && status?.status === 'failed' && (
                 <Notice tone="danger" title={t('step3.extractionFailed')}>{status.error || t('step3.unknownError')}</Notice>
             )}
