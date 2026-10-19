@@ -66,15 +66,8 @@ export interface MetadataStart {
 }
 
 /** A picked element, as the picker strategies report it. */
-/** Another list of the same items on the page (a sponsored shelf, a carousel), offered next to a list pick. */
-export interface ListAlternative {
-    /** "Sponsored · 3 items". */
-    label: string;
-    kind: 'results' | 'sponsored' | 'carousel';
-    count: number;
-    container: Chain;
-    items: Chain;
-}
+/** What a picked list is: ordinary results, a sponsored shelf, a carousel. */
+export type ListKind = 'results' | 'sponsored' | 'carousel';
 
 export interface ElementSelected {
     success: boolean;
@@ -88,10 +81,9 @@ export interface ElementSelected {
     selectors?: Chain;
     patternFound?: boolean;
     count?: number;
-    /** A list pick: what the chosen list is ("Results · 18 items"), and the page's other lists of the same items. */
+    /** A list pick: what the picked section is ("Results · 18 items", "Sponsored · 3 items"). */
     label?: string;
-    kind?: ListAlternative['kind'];
-    alternatives?: ListAlternative[];
+    kind?: ListKind;
     /** Page Extractor extras: `value`, `previewValue`, `extractionType`, `tagName`, viewport. */
     [key: string]: any;
 }
@@ -128,7 +120,6 @@ export interface Messages {
     // ---- side panel / background → content script
     PING: { reply: Res<{ status: string }> };
     /** Reads a list from its chains (switching a pick to one of its alternatives). */
-    READ_LIST: { payload: { container: Chain; items: Chain }; reply: Res<{ data: any; count: number }> };
     START_PICKER: { payload: { mode?: 'list' | 'single' | 'detail'; action?: 'extract' | 'click' }; reply: Res };
     STOP_PICKER: { reply: Res };
     PICKER_ACTION: { payload: { action: string }; reply: Res };

@@ -1,7 +1,7 @@
 /**
- * Item sets (`docs/plans/generic-list-selectors-plan.md` GS1) on real pages: a grid split over
- * sibling rows is one list, a sponsored shelf is told apart from the results, and the stored
- * selectors carry no positions.
+ * Sections (`docs/plans/picker-container-bound-plan.md`) on real pages: a pick is the section under
+ * the cursor. A grid split over sibling rows is one list, a sponsored shelf is its own list (picked
+ * as a second list when wanted), and the stored selectors carry no positions.
  */
 import { test, expect, pickList } from './harness';
 
@@ -28,21 +28,20 @@ test('BestBuy: the carousel above the grid is labelled sponsored', async ({ pane
     await page.close();
 });
 
-test('Walmart: clicking the sponsored shelf picks the 45 results and offers the shelf', async ({ panel, ext, origin }) => {
+test('Walmart: the sponsored shelf and the results are two sections, each picked as its own list', async ({ panel, ext, origin }) => {
     const page = await ext.newPage();
     await page.goto(`${origin}/corpus/walmart-search-live`);
     // The first product title on the page is in the sponsored brand shelf above the results.
-    const picked = await pickList(panel, page, '[data-item-id] [data-automation-id="product-title"] >> nth=0');
-    expect(picked.count).toBe(45);
-    expect(picked.label).toMatch(/· 45 items$/);
-    const sponsored = picked.alternatives.find((a: any) => a.kind === 'sponsored');
-    expect(sponsored).toMatchObject({ count: 3, label: 'Sponsored · 3 items' });
+    const shelf = await pickList(panel, page, '[data-item-id] [data-automation-id="product-title"] >> nth=0');
+    expect(shelf.label).toBe('Sponsored · 3 items');
+    expect(shelf.count).toBe(3);
+    expect(shelf.alternatives).toBeUndefined();
 
-    // Switching to it reads the shelf through its own chains.
-    const tabId = await panel.tabId(page.url());
-    const read = await panel.toTab(tabId, 'READ_LIST', { container: sponsored.container, items: sponsored.items });
-    expect(read.success).toBe(true);
-    expect(read.count).toBe(3);
-    expect(read.data.items).toHaveLength(3);
+    // A product further down is in the results: its own section, with none of the shelf's products.
+    const results = await pickList(panel, page, '[data-item-id] [data-automation-id="product-title"] >> nth=10');
+    expect(results.count).toBeGreaterThanOrEqual(45);
+    const titles = (pick: any) => new Set<string>(pick.data.items.map((i: Record<string, string>) => Object.values(i).find(v => v.length > 30)));
+    const shelfTitles = titles(shelf);
+    expect([...titles(results)].some(t => shelfTitles.has(t))).toBe(false);
     await page.close();
 });

@@ -86,7 +86,6 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                         sourceTabId: tabId,
                         label: payload.label,
                         kind: payload.kind,
-                        alternatives: payload.alternatives,
                     };
                     addSelector(pick);
                     setSelectionStatus('ready');

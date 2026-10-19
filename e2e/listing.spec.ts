@@ -119,6 +119,8 @@ for (const listing of LISTINGS) {
         console.log(lines.join('\n'));
         // SHOW_COLUMNS=1: every column with the values of the first rows, to see what a pick made.
         if (process.env.SHOW_COLUMNS) {
+            const unmatched = products.filter(t => !rows.some(r => Object.values(r).some(v => (t.id && clean(v) === clean(t.id)) || (t.title && clean(v).includes(clean(t.title))))));
+            if (unmatched.length) console.log(`  unmatched: ${unmatched.map(t => `${t.id} ${String(t.title).slice(0, 40)}`).join(' · ')}`);
             Object.entries(s.fields).forEach(([f, v]) => { if (v.misses.length) console.log(`  ✗ ${f}: ${v.misses.join(' · ')}`); });
             console.log(columns.map(c => {
                 const filled = rows.map(r => r[c.id]).filter(v => v !== undefined && v !== '');

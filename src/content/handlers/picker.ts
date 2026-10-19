@@ -1,11 +1,11 @@
 /** The visual element picker, the Page Extractor's selection highlights, and the selector test. */
 import { VisualElementPicker } from '../features/picker/VisualElementPicker';
-import { ListSelectionStrategy, readListFromChains } from '../features/picker/strategies/ListSelectionStrategy';
+import { ListSelectionStrategy } from '../features/picker/strategies/ListSelectionStrategy';
 import { SingleSelectionStrategy } from '../features/picker/strategies/SingleSelectionStrategy';
 import { DetailSelectionStrategy } from '../features/picker/strategies/DetailSelectionStrategy';
 import { SelectionHighlightManager } from '../services/page/SelectionHighlightManager';
 import { HL_COLOR, HL_BG, HL_GLOW, HL_GLOW_STRONG, DUR_VALIDATE, DUR_FADE } from '../utils/highlight-tokens';
-import { fail, ok, on, send } from '../../shared/messages';
+import { ok, on, send } from '../../shared/messages';
 
 let picker: VisualElementPicker | null = null;
 const selectionHighlights = new SelectionHighlightManager();
@@ -136,10 +136,6 @@ function testSelector(selector: string) {
 export function registerPickerHandlers() {
     on('START_PICKER', p => { startPicker(p?.mode, p?.action); return ok(); });
     on('STOP_PICKER', () => { stopPicker(); return ok(); });
-    on('READ_LIST', ({ container, items }) => {
-        const read = readListFromChains([...container], [...items]);
-        return read ? ok(read) : fail('That list is no longer on the page');
-    });
     on('PICKER_ACTION', p => { picker?.handleExternalAction(p.action); return ok(); });
     on('SHOW_SELECTION_HIGHLIGHTS', p => {
         if (Array.isArray(p?.elements)) selectionHighlights.showHighlights(p.elements);

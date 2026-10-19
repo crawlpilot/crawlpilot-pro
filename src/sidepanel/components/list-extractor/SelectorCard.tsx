@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { sendToTab, type ListAlternative } from '../../../shared/messages';
 import { CheckCircle2, Edit, Eye, Trash2, Database } from 'lucide-react';
 import type { ListPick } from '../../../shared/types/extraction';
 import { SelectorEditDialog } from '../shared/SelectorEditDialog';
 import { FieldEditor } from './FieldEditor';
-import { Box, Card, Typography, IconButton, Button, Stack, Chip, Tooltip } from '@mui/material';
+import { Box, Card, Typography, IconButton, Button, Stack, Chip } from '@mui/material';
 
 function getSelectorQuality(selector: string): { label: string; color: 'success' | 'warning' | 'error' } {
     if (!selector) return { label: 'None', color: 'error' };
@@ -30,31 +29,6 @@ interface SelectorCardProps {
 
 export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorCardProps) {
     const [editMode, setEditMode] = useState<'container' | 'items' | null>(null);
-    const [switching, setSwitching] = useState<string | null>(null);
-    const [switchError, setSwitchError] = useState<string | null>(null);
-
-    /** Use another list of the same items on the page instead (the results instead of a sponsored shelf, or back). */
-    const switchTo = async (alt: ListAlternative) => {
-        if (selector.sourceTabId === undefined) return;
-        setSwitching(alt.label);
-        setSwitchError(null);
-        try {
-            const read = await sendToTab(selector.sourceTabId, 'READ_LIST', { container: alt.container, items: alt.items });
-            if (!read.success) { setSwitchError(read.error); return; }
-            const current: ListAlternative | null = selector.label
-                ? { label: selector.label, kind: selector.kind ?? 'results', count: selector.count, container: selector.container, items: selector.items }
-                : null;
-            onUpdate(selector.id, {
-                container: alt.container, items: alt.items, count: read.count, data: read.data,
-                label: alt.label, kind: alt.kind,
-                alternatives: [...(current ? [current] : []), ...(selector.alternatives ?? []).filter(a => a !== alt)],
-            });
-        } catch (e) {
-            setSwitchError((e as Error)?.message || String(e));
-        } finally {
-            setSwitching(null);
-        }
-    };
 
     return (
         <Card
@@ -142,23 +116,6 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
                     </IconButton>
                 </Stack>
             </Box>
-
-            {!!selector.alternatives?.length && (
-                <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase" sx={{ display: 'block', mb: 0.5 }}>
-                        Also on this page
-                    </Typography>
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                        {selector.alternatives.map(alt => (
-                            <Tooltip key={alt.label + alt.container[0]} title={`Use this list instead (${alt.count} items)`}>
-                                <Chip size="small" variant="outlined" label={switching === alt.label ? 'Switching…' : alt.label}
-                                    color={alt.kind === 'results' ? 'primary' : 'default'} disabled={!!switching} onClick={() => void switchTo(alt)} />
-                            </Tooltip>
-                        ))}
-                    </Stack>
-                    {switchError && <Typography variant="caption" color="error.main">{switchError}</Typography>}
-                </Box>
-            )}
 
             <Stack spacing={2}>
                 {/* 1. Container Selectors */}

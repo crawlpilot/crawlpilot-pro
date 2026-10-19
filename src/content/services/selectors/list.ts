@@ -183,6 +183,32 @@ function itemChain(root: Element, items: Element[]): ChainEntry[] {
     return chain;
 }
 
+/**
+ * The named item selector matching most of `items` (≥ 80%) and nothing outside them, as a chain of
+ * one: a naming class or an author hook most of the cards share (`li.product-list-item`).
+ */
+function closestItemChain(root: Element, items: Element[]): ChainEntry[] {
+    const set = new Set(items);
+    const tags = new Set(items.map(i => i.tagName.toLowerCase()));
+    const tag = tags.size === 1 ? [...tags][0] : '';
+    const most = (test: (i: Element) => boolean) => items.filter(test).length >= items.length * 0.8;
+    const names: { css: string; family: string }[] = [];
+    for (const c of new Set(items.flatMap(i => Array.from(i.classList)))) {
+        if (isNamingClass(c) && most(i => i.classList.contains(c))) names.push({ css: `${tag}.${CSS.escape(c)}`, family: 'class' });
+    }
+    for (const attr of AUTHOR_ATTRIBUTES) {
+        const v = items[0].getAttribute(attr);
+        if (v && isStableAttributeValue(attr, v) && most(i => i.getAttribute(attr) === v)) names.push({ css: `${tag}${cssAttr(attr, v)}`, family: 'author' });
+    }
+    let best: { css: string; family: string; hit: number } | null = null;
+    for (const n of names) {
+        const matched = query(root, n.css);
+        if (matched.length === 0 || matched.some(m => !set.has(m))) continue;
+        if (matched.length >= items.length * 0.8 && (!best || matched.length > best.hit)) best = { ...n, hit: matched.length };
+    }
+    return best ? [{ selector: best.css, strategy: best.family }] : [];
+}
+
 const POSITIONAL = /:nth-(child|of-type)\(|\[\d+\]/;
 
 /** The selector's last step carries a name (id, attribute, class), not just a tag under a named scope. */
@@ -214,10 +240,11 @@ function containerChain(el: HTMLElement, ownName: boolean): ChainEntry[] {
 
 /**
  * Container and item chains for a picked list. `children` are the container's candidate items
- * (headers and ads among them are left out by `keepItems`).
+ * (headers and ads among them are left out by `keepItems`), or, with `decided`, the cards the
+ * picker already chose: they are named as they are, not judged again.
  */
-export function listLocators(container: HTMLElement, children: HTMLElement[]): ListLocators {
-    const items = keepItems(children);
+export function listLocators(container: HTMLElement, children: HTMLElement[], decided = false): ListLocators {
+    const items = decided ? children : keepItems(children);
     // A container named by its own id, attribute or class, moving up if needed; else any
     // position-free name (a unique bare tag) for the list's element or an ancestor.
     for (const ownName of [true, false]) {
@@ -228,6 +255,14 @@ export function listLocators(container: HTMLElement, children: HTMLElement[]): L
             const chain = itemChain(root, items);
             if (chain.length > 0) return { container: named, items: chain };
         }
+    }
+    // No selector names exactly these cards (a few ad cells looked like products): the named one that
+    // covers most of them (≥ 80%) and nothing else, so a run reads the cards the selector names.
+    for (let root: HTMLElement | null = container, level = 0; root && root !== document.body && level <= MAX_CONTAINER_LEVELS; level++, root = root.parentElement) {
+        const named = containerChain(root, false);
+        if (named.length === 0) continue;
+        const chain = closestItemChain(root, items);
+        if (chain.length > 0) return { container: named, items: chain };
     }
     // Nothing names the list without positions: the list's own element, and its children by tag
     // (the saved row gate keeps headers and ads out of the rows).
