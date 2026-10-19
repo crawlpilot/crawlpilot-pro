@@ -19,6 +19,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const TextSummarizerPage = lazy(() => import('./pages/TextSummarizerPage'));
 const AiExtractPage = lazy(() => import('./pages/AiExtractPage'));
 const ToolkitPage = lazy(() => import('./pages/ToolkitPage'));
+const TablesPage = lazy(() => import('./pages/TablesPage'));
 const KitPage = lazy(() => import('./pages/KitPage'));
 
 import Header from './components/ui/Header';
@@ -63,6 +64,8 @@ function App() {
                 return <EmailExtractorPage onBack={() => setCurrentView('home')} />;
             case 'utilities':
                 return <UtilitiesPage onBack={() => setCurrentView('home')} />;
+            case 'tables':
+                return <TablesPage onBack={() => setCurrentView('home')} onNavigate={setCurrentView} />;
             case 'toolkit':
                 return <ToolkitPage onBack={() => setCurrentView('home')} onNavigate={setCurrentView} />;
             case 'history':
