@@ -10,6 +10,7 @@ import { ASK_SYSTEM, parseTable, tablePrompt, tableSchema, type AnswerTable } fr
 import { citedSentences, type CiteStatus } from '../../shared/ai/cite';
 import type { PageView } from '../../shared/ai/page';
 import { detectLanguage, translateCited, translatorFor } from '../services/ai/translate';
+import { askImage, imageTable, type PageImage } from '../services/ai/vision';
 
 const SUGGESTIONS_SCHEMA = { type: 'array', items: { type: 'string' }, minItems: 3, maxItems: 3 };
 
@@ -23,16 +24,20 @@ export interface AskMessage {
     /** Still being written. */
     streaming?: boolean;
     /** "As a table": the answer's items as rows, each row checked against the page. */
-    table?: { data: AnswerTable; rows: CiteStatus[] };
+    table?: { data: AnswerTable; rows: CiteStatus[]; fromImage?: boolean };
     tabling?: boolean;
     tableError?: string;
+    /** A question about an image: the picture (user messages) and, on the answer, the image it read. */
+    image?: { url: string; label: string };
+    fromImage?: Blob;
 }
 
 export interface AskSessionApi {
     messages: AskMessage[];
     thinking: boolean;
     suggestions: string[];
-    ask(question: string): void;
+    /** Asks about the page, or about `image` (something picked on the page, or the visible page). */
+    ask(question: string, image?: PageImage): void;
     /** Turns the answer at `index` into a table of rows copied from the page. */
     asTable(index: number): void;
 }
@@ -79,12 +84,19 @@ export function useAskSession(view: PageView | null, page: AssistantPage | null,
         return next;
     });
 
-    const ask = useCallback(async (question: string) => {
+    const ask = useCallback(async (question: string, image?: PageImage) => {
         const q = question.trim();
         if (!q || thinking || !view) return;
-        setMessages(prev => [...prev, { role: 'user', content: q }, { role: 'model', content: '', streaming: true }]);
+        setMessages(prev => [...prev, { role: 'user', content: q, ...(image ? { image: { url: image.url, label: image.label } } : {}) }, { role: 'model', content: '', streaming: true }]);
         setThinking(true);
         try {
+            if (image) {
+                // One question about the image: its answer can't be checked against the page's text.
+                const full = await askImage(await toEnglish(q), image.blob, text => { if (mounted.current) update(m => ({ ...m, content: text })); });
+                const shown = userLang === 'en' ? full : await into(userLang, full);
+                if (mounted.current) update(m => ({ ...m, content: shown, streaming: false, fromImage: image.blob }));
+                return;
+            }
             if (!session.current) {
                 const reference = await askReference(view, ASK_SYSTEM);
                 if (typeof reference !== 'string') throw new Error(CALL_ERROR_MESSAGES[reference.code]);
@@ -156,9 +168,18 @@ export function useAskSession(view: PageView | null, page: AssistantPage | null,
     const asTable = useCallback(async (index: number) => {
         const s = session.current;
         const question = [...messages.slice(0, index)].reverse().find(m => m.role === 'user')?.content;
-        if (!s || !question || thinking) return;
+        const fromImage = messages[index]?.fromImage;
+        if ((!s && !fromImage) || !question || thinking) return;
         const set = (patch: Partial<AskMessage>) => setMessages(prev => prev.map((m, i) => (i === index ? { ...m, ...patch } : m)));
         set({ tabling: true, tableError: undefined });
+        if (fromImage) {
+            const res = await imageTable(question, fromImage);
+            if (!mounted.current) return;
+            if (!res.ok) { set({ tabling: false, tableError: res.code === 'invalid_output' ? "The image couldn't be made into a table." : CALL_ERROR_MESSAGES[res.code] }); return; }
+            set({ tabling: false, table: { data: res.value, rows: res.value.rows.map(() => 'unchecked' as const), fromImage: true } });
+            return;
+        }
+        if (!s) return;
         // A clone of the conversation: it knows the page and the answer, and the table doesn't join the history.
         const res = await modelHost.runOn(s, { prompt: tablePrompt(question), schema: tableSchema(), parse: parseTable, timeoutMs: 90_000 });
         if (!mounted.current) return;

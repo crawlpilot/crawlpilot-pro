@@ -5,14 +5,15 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { AlertTriangle, ArrowRight, Languages, CheckCircle2, Copy, Database, Download, Lock, MapPin, RotateCcw, Send, Sparkles, Table2 } from 'lucide-react';
-import { Button, Card, Chip, Heading, IconButton, Notice, Progress, Skeleton, Spinner, Text, ToggleChip, Tooltip, cx } from '../../ui';
+import { AlertTriangle, ArrowRight, Crosshair, ImagePlus, Languages, Monitor, CheckCircle2, Copy, Database, Download, Lock, MapPin, RotateCcw, Send, Sparkles, Table2 } from 'lucide-react';
+import { Button, Card, Chip, Heading, IconButton, Menu, MenuItem, Notice, Progress, Skeleton, Spinner, Text, ToggleChip, Tooltip, cx } from '../../ui';
 import { usePageAssistant, type BriefStatus } from '../../hooks/usePageAssistant';
 import { useAskSession, type AskMessage } from '../../hooks/useAskSession';
 import { usePageTab } from '../../hooks/usePageTab';
 import { briefMarkdown, openTable, pointKey, saveBrief, saveTable, type BriefOutcome } from '../../services/ai/assistant';
 import { setExtractDraft } from '../../services/ai/extractDraft';
 import { languageName } from '../../services/ai/translate';
+import { capturePage, pickOnPage, type PageImage } from '../../services/ai/vision';
 import { SCHEMA_PRESETS } from '../../../shared/ai/schemaIntake';
 import { BRIEFS, EXTRACT_PRESET, tableCsv, type AnswerTable } from '../../../shared/ai/brief';
 import type { CiteStatus } from '../../../shared/ai/cite';
@@ -144,7 +145,10 @@ function Answer({ message, onShow }: { message: AskMessage; onShow: (ref: string
                     );
                 },
             }}>{markdown || ' '}</ReactMarkdown>
-            {numbers.size === 0 && !message.streaming && message.content && !/^the page doesn'?t say/i.test(message.content.trim()) && (
+            {message.fromImage && !message.streaming && (
+                <Text size="caption" tone="muted" className="mt-1">From the image: not checked against the page's text.</Text>
+            )}
+            {!message.fromImage && numbers.size === 0 && !message.streaming && message.content && !/^the page doesn'?t say/i.test(message.content.trim()) && (
                 <Text size="caption" tone="muted" className="mt-1">No part of the page cited: check before relying on it.</Text>
             )}
             {!!message.unsupported && (
@@ -154,7 +158,7 @@ function Answer({ message, onShow }: { message: AskMessage; onShow: (ref: string
     );
 }
 
-function TableView({ table, rows, name, url }: { table: AnswerTable; rows: CiteStatus[]; name: string; url: string }) {
+function TableView({ table, rows, name, url, fromImage }: { table: AnswerTable; rows: CiteStatus[]; name: string; url: string; fromImage?: boolean }) {
     const [saved, setSaved] = useState<number | null>(null);
     const [copied, setCopied] = useState(false);
     const found = rows.filter(s => s === 'verified' || s === 'relocated').length;
@@ -169,7 +173,7 @@ function TableView({ table, rows, name, url }: { table: AnswerTable; rows: CiteS
                     <tbody>
                         {table.rows.map((r, i) => (
                             <tr key={i} className="border-t border-line" data-status={rows[i]}>
-                                <td className={cx('px-1.5 align-top', STATUS[rows[i] ?? 'unchecked'].tone)} title={STATUS[rows[i] ?? 'unchecked'].label}>{STATUS[rows[i] ?? 'unchecked'].icon}</td>
+                                <td className={cx('px-1.5 align-top', STATUS[rows[i] ?? 'unchecked'].tone)} title={STATUS[rows[i] ?? 'unchecked'].label}>{!fromImage && STATUS[rows[i] ?? 'unchecked'].icon}</td>
                                 {r.cells.map((c, k) => <td key={k} className={cx('px-2 py-1.5 align-top', rows[i] === 'not_on_page' && 'text-ink-3 italic')}>{c}</td>)}
                             </tr>
                         ))}
@@ -177,7 +181,7 @@ function TableView({ table, rows, name, url }: { table: AnswerTable; rows: CiteS
                 </table>
             </div>
             <span className="flex flex-wrap items-center gap-1">
-                <Text size="caption" tone="muted" className="mr-auto">{found} of {rows.length} rows found on the page</Text>
+                <Text size="caption" tone="muted" className="mr-auto">{fromImage ? 'Read from the image: check before relying on it' : `${found} of ${rows.length} rows found on the page`}</Text>
                 <Button size="sm" variant="ghost" icon={<Copy />} onClick={async () => { await navigator.clipboard.writeText(tableCsv(table)).catch(() => undefined); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>{copied ? 'Copied' : 'Copy CSV'}</Button>
                 {saved === null
                     ? <Button size="sm" variant="ghost" icon={<Database />} onClick={async () => setSaved(await saveTable(table, name, url))}>Save to My data</Button>
@@ -187,25 +191,50 @@ function TableView({ table, rows, name, url }: { table: AnswerTable; rows: CiteS
     );
 }
 
-function AskPanel({ outcome, page, onShow, userLang }: { outcome: BriefOutcome; page: ReturnType<typeof usePageAssistant>['page']; onShow: (ref: string) => void; userLang: string }) {
+const IMAGE_QUESTIONS = ['What does this show?', 'What are the numbers in it?', 'Read the text in it.'];
+
+function AskPanel({ outcome, page, onShow, userLang, tabId }: { outcome: BriefOutcome; page: ReturnType<typeof usePageAssistant>['page']; onShow: (ref: string) => void; userLang: string; tabId: number | null }) {
     const session = useAskSession(outcome.view, page, BRIEFS[outcome.kind].questions, userLang);
     const [input, setInput] = useState('');
+    const [image, setImage] = useState<PageImage | null>(null);
+    const [picking, setPicking] = useState(false);
+    const [imageError, setImageError] = useState<string | null>(null);
+    const [menu, setMenu] = useState<HTMLElement | null>(null);
+    const attach = async (how: 'pick' | 'screen') => {
+        setMenu(null);
+        if (tabId === null) return;
+        setImageError(null);
+        setPicking(how === 'pick');
+        try {
+            const region = how === 'pick' ? await pickOnPage(tabId) : null;
+            if (how === 'pick' && !region) return;
+            setImage(await capturePage(tabId, region));
+        } catch (e) {
+            setImageError(`Couldn't take a picture of the page: ${(e as Error).message}`);
+        } finally {
+            setPicking(false);
+        }
+    };
     const end = useRef<HTMLDivElement>(null);
     useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [session.messages.length, session.messages[session.messages.length - 1]?.content]);
     const send = (text?: string) => {
         const q = (text ?? input).trim();
         if (!q || session.thinking) return;
         if (text === undefined) setInput('');
-        session.ask(q);
+        session.ask(q, image ?? undefined);
+        setImage(null);
     };
     return (
         <div className="flex flex-col gap-2.5">
             {session.messages.map((m, i) => m.role === 'user' ? (
-                <div key={i} className="ml-8 self-end rounded-2xl rounded-tr-md bg-ink px-3.5 py-2 text-bg"><p className="m-0 text-body whitespace-pre-wrap">{m.content}</p></div>
+                <div key={i} className="ml-8 flex flex-col gap-1.5 self-end rounded-2xl rounded-tr-md bg-ink px-3.5 py-2 text-bg">
+                    {m.image && <img src={m.image.url} alt={m.image.label} className="max-h-40 w-auto self-end rounded-lg" data-testid="asked-image" />}
+                    <p className="m-0 text-body whitespace-pre-wrap">{m.content}</p>
+                </div>
             ) : (
                 <div key={i} className="mr-4 rounded-2xl rounded-tl-md border border-line bg-surface px-3.5 py-2.5" data-testid="answer">
                     {m.content ? <Answer message={m} onShow={onShow} /> : <Text size="small" tone="muted" className="flex items-center gap-2"><Spinner size={12} /> Reading the page…</Text>}
-                    {m.table && <TableView table={m.table.data} rows={m.table.rows} url={outcome.view.url}
+                    {m.table && <TableView table={m.table.data} rows={m.table.rows} url={outcome.view.url} fromImage={m.table.fromImage}
                         name={`${outcome.view.title || 'Page'}: ${[...session.messages.slice(0, i)].reverse().find(x => x.role === 'user')?.content ?? 'table'}`.slice(0, 120)} />}
                     {m.tableError && <Text size="caption" tone="muted" className="mt-1">{m.tableError}</Text>}
                     {!m.streaming && !m.table && m.content && !/^the page doesn'?t say/i.test(m.content.trim()) && !/^error:/i.test(m.content) && (
@@ -215,14 +244,28 @@ function AskPanel({ outcome, page, onShow, userLang }: { outcome: BriefOutcome; 
             ))}
             {!session.thinking && (
                 <div className="flex flex-wrap gap-1.5" data-testid="suggestions">
-                    {session.suggestions.map(q => (
+                    {(image ? IMAGE_QUESTIONS : session.suggestions).map(q => (
                         <ToggleChip key={q} selected={false} onClick={() => send(q)} className="h-auto py-1 text-left whitespace-normal">{q}</ToggleChip>
                     ))}
                 </div>
             )}
             <div ref={end} />
+            {picking && <Notice tone="info">Click what to ask about on the page. Esc cancels.</Notice>}
+            {imageError && <Notice tone="warning">{imageError}</Notice>}
+            {image && (
+                <div className="flex items-center gap-2 rounded-xl border border-line bg-surface p-1.5" data-testid="attached-image">
+                    <img src={image.url} alt={image.label} className="size-12 rounded-md object-cover" />
+                    <Text size="caption" className="min-w-0 flex-1" truncate>{image.label}</Text>
+                    <Button size="sm" variant="ghost" onClick={() => setImage(null)}>Remove</Button>
+                </div>
+            )}
             <div className="flex items-end gap-1 rounded-card border-[1.5px] border-line bg-surface p-1.5 focus-within:border-line-strong">
-                <textarea rows={1} placeholder="Ask about this page…" value={input} onChange={e => setInput(e.target.value)} aria-label="Ask about this page"
+                <IconButton label="Ask about an image" variant="ghost" onClick={e => setMenu(e.currentTarget)} disabled={session.thinking || picking}><ImagePlus /></IconButton>
+                <Menu anchor={menu} onClose={() => setMenu(null)}>
+                    <MenuItem icon={<Crosshair />} onClick={() => void attach('pick')} hint="An image, a chart, a table">Point at something on the page</MenuItem>
+                    <MenuItem icon={<Monitor />} onClick={() => void attach('screen')} hint="What you see now">The whole visible page</MenuItem>
+                </Menu>
+                <textarea rows={1} placeholder={image ? 'Ask about the image…' : 'Ask about this page…'} value={input} onChange={e => setInput(e.target.value)} aria-label="Ask about this page"
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} disabled={session.thinking}
                     className="max-h-28 min-h-9 flex-1 resize-none border-0 bg-transparent px-2.5 py-2 text-body text-ink outline-none placeholder:text-ink-3 disabled:opacity-60" />
                 <IconButton label="Ask" variant="secondary" onClick={() => send()} disabled={!input.trim() || session.thinking}
@@ -314,7 +357,7 @@ export function PageAssistant({ initialTabId, onSummary, onNavigate }: { initial
             {a.phase === 'ready' && a.outcome && (
                 <>
                     <BriefCard outcome={a.outcome} onShow={a.show} onNavigate={onNavigate} />
-                    <AskPanel outcome={a.outcome} page={a.page} onShow={ref => a.show(ref)} userLang={a.userLang} />
+                    <AskPanel outcome={a.outcome} page={a.page} onShow={ref => a.show(ref)} userLang={a.userLang} tabId={a.tabId} />
                 </>
             )}
         </div>

@@ -20,8 +20,12 @@ function fakeModel() {
         async clone() { const c = new FakeLM(); c.page = this.page; return c; }
         async measureContextUsage(t: string, o?: any) { return Math.ceil((String(t).length + (o?.responseConstraint ? JSON.stringify(o.responseConstraint).length : 0)) / 4); }
         async append(msgs: any[]) { this.page += msgs.map(m => (typeof m.content === 'string' ? m.content : '')).join('\n'); }
-        async prompt(text: string, opts?: any) {
+        async prompt(text: any, opts?: any) {
             const schema = opts?.responseConstraint;
+            // A question about an image: the prompt carries it.
+            if (Array.isArray(text) && text[0]?.content?.some((c: any) => c.type === 'image')) {
+                return JSON.stringify({ columns: ['Part', 'Colour'], rows: [{ cells: ['Body', 'Red'], ref: '' }, { cells: ['Lights', 'White'], ref: '' }] });
+            }
             if (schema?.type === 'array') return JSON.stringify(['Is it in stock?', 'How long does the battery last?', 'What age is it for?']);
             // "As a table": in a clone of the conversation, which holds the page.
             if (schema?.properties?.columns) {
@@ -50,7 +54,10 @@ function fakeModel() {
             out[last] = [...(out[last] ?? []).slice(0, 1), { text: 'It can drive over water', quote: 'drives over lakes and rivers with ease', ref: list[0].ref }];
             return JSON.stringify(out);
         }
-        promptStreaming() {
+        promptStreaming(input?: any) {
+            if (Array.isArray(input) && input[0]?.content?.some((c: any) => c.type === 'image' && c.value instanceof Blob)) {
+                return new ReadableStream({ start(c) { c.enqueue('The image shows a red ATV '); c.enqueue('with white lights.'); c.close(); } });
+            }
             const list = blocks(this.page);
             const hit = list.find(b => /mph/.test(b.text)) ?? list[0];
             const answer = `The top speed is 3 mph [${hit.ref}]. It is also waterproof to 10 meters [${hit.ref}].`;
@@ -129,6 +136,29 @@ test('a brief made for a product page: points checked on the page, shown with a 
     await product.evaluate(() => (CSS as any).highlights.delete('crawlpilot-cite'));
     await answer.getByTestId('cite').first().click();
     await expect.poll(() => product.evaluate(() => [...((CSS as any).highlights?.get('crawlpilot-cite') ?? [])][0]?.toString() ?? '')).toContain('3 mph');
+
+    // Ask about an image: point at it on the page; the answer reads the picture, marked as such.
+    await ui.getByRole('button', { name: 'Ask about an image' }).click();
+    await ui.getByRole('menuitem', { name: /Point at something on the page/ }).click();
+    const img = product.locator('img');
+    await img.scrollIntoViewIfNeeded();
+    const box = (await img.boundingBox())!;
+    await expect(product.locator('[data-crawlpilot-pick]').first()).toBeAttached();
+    await product.mouse.move(box.x + 40, box.y + 40);
+    await product.mouse.click(box.x + 40, box.y + 40);
+    await ui.bringToFront();
+    await expect(ui.getByTestId('attached-image')).toContainText('Image: Red kids ATV');
+    const size = await ui.getByTestId('attached-image').locator('img').evaluate((i: HTMLImageElement) => new Promise<[number, number]>(r => { if (i.complete) r([i.naturalWidth, i.naturalHeight]); else i.onload = () => r([i.naturalWidth, i.naturalHeight]); }));
+    // The crop is the image's shape (320 × 200), not the whole page.
+    expect(Math.abs(size[0] / size[1] - 1.6)).toBeLessThan(0.1);
+    await ui.getByTestId('suggestions').getByText('What does this show?').click();
+    const imageAnswer = ui.getByTestId('answer').last();
+    await expect(imageAnswer).toContainText('The image shows a red ATV with white lights.');
+    await expect(imageAnswer).toContainText("From the image: not checked against the page's text.");
+    await expect(ui.getByTestId('asked-image')).toBeVisible();
+    await imageAnswer.getByRole('button', { name: 'As a table' }).click();
+    await expect(imageAnswer.getByTestId('answer-table')).toContainText('Read from the image');
+    await expect(imageAnswer.getByTestId('answer-table')).toContainText('Lights');
 
     // Next step for a product: the same details as data, in AI Extract with its product schema.
     await ui.bringToFront();
