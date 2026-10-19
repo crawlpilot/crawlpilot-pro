@@ -134,6 +134,12 @@ Next, if needed: test fewer candidate selectors per group, and give the JSON sea
 - **Reuse work between hovers.** Consecutive hovers in the same card share ancestors, so cache `cardsIn(el)` per ancestor until the DOM changes (a mutation counter).
 - **Target:** at 8×, the scorecard passes and a hover takes ≤ 16 ms.
 
+**Done (P2):**
+- `THROTTLE=4|8` added to `e2e/picker.spec.ts`. At both rates **all 8 scorecard pages pick the same section and card count** as at 1×.
+- The budget only stops the climb after a section has been found, so on these pages a slow machine gives the same answer. The budget stays as it is.
+- Hover after P1 takes 22–37 ms at 8×: about two frames, within the 100 ms that feels instant. Caching between hovers isn't worth it yet.
+- Run `THROTTLE=8 npx playwright test e2e/picker.spec.ts` before releases (it takes about 6 minutes).
+
 ### P3. Side panel starts light (target: home ≤ 400 ms at 8×, ≤ 700 KB of JS at start)
 
 - **Load each page when it's opened** (`React.lazy` per view in `App.tsx`). The data table, and with it ag-grid's 975 KB, then loads only when a table is opened. The Page Extractor, Image Downloader, Toolkit and AI pages work the same way.
@@ -167,7 +173,7 @@ Next, if needed: test fewer candidate selectors per group, and give the JSON sea
 | Phase | Status | Before → after (8×) |
 |---|---|---|
 | P1 Faster picks | done (more possible) | pick 5.7 → 1.9 s (Walmart), 4.8 → 2.6 s (Chewy); "Reading N items…" at once |
-| P2 Same hover answer on every machine | — | hover 34–37 ms (after P1), budget 20 ms |
+| P2 Same hover answer on every machine | done | scorecard passes at 4× and 8× (same sections); hover 22–37 ms at 8× |
 | P3 Light side panel | — | home 923 ms, 2.26 MB JS |
 | P4 Runs that fit the machine | — | fixed 3 tabs |
 | P5 Later | — | |

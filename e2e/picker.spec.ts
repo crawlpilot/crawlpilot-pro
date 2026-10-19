@@ -7,6 +7,8 @@
 import type { Page } from '@playwright/test';
 import { test, expect, type Panel } from './harness';
 
+const THROTTLE = Number(process.env.THROTTLE ?? 1);
+
 interface Case { page: string; cards: string; count: number; points: string[] }
 
 // `count` is the section's cards alike to the hovered one (picker-container-bound-plan.md): same size,
@@ -30,7 +32,7 @@ async function hover(page: Page, panel: Panel, selector: string): Promise<{ tip:
     await loc.evaluate(el => el.scrollIntoView({ block: 'center' }));
     const box = (await loc.boundingBox())!;
     await page.mouse.move(box.x + Math.min(8, box.width / 2), box.y + Math.min(8, box.height / 2));
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(150 * THROTTLE);
     const tip = (await page.locator('[data-testid="element-picker-tooltip"]').innerText().catch(() => '')).replace(/\s+/g, ' ');
     const outlines = await page.evaluate(() => Array.from(document.documentElement.children)
         .filter(e => (e as HTMLElement).style?.border?.includes('dashed'))
@@ -40,11 +42,14 @@ async function hover(page: Page, panel: Panel, selector: string): Promise<{ tip:
 
 for (const c of CASES) {
     test(`hover finds the cards: ${c.page}`, async ({ panel, ext, origin }) => {
+        test.setTimeout(60_000 * THROTTLE);
         const page = await ext.newPage();
         await page.setViewportSize({ width: 1280, height: 800 });
         await page.goto(`${origin}${c.page}`);
         // The picker writes what it considered on <html>: a failure says why.
         await page.evaluate(() => document.documentElement.setAttribute('data-cp-debug', ''));
+        // THROTTLE=4|8: a slower computer (docs/plans/performance-plan.md P2) must pick the same section.
+        if (THROTTLE > 1) await (await ext.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
         await panel.toTab(await panel.tabId(page.url()), 'START_PICKER', { mode: 'list', action: 'extract' });
         const cardSize = await page.locator(c.cards).nth(1).boundingBox();
         // Wherever the pointer is, in whichever card: the same section and the same cards.
@@ -62,7 +67,7 @@ for (const c of CASES) {
                 expect(sized.length, where).toBeGreaterThanOrEqual(Math.floor(c.count * 0.5));
                 // Hover never stalls the page: the picker's own measure of this hover.
                 const ms = Number(/(\d+) ms\n/.exec(ladder)?.[1] ?? 0);
-                expect(ms, where).toBeLessThanOrEqual(10);
+                expect(ms, where).toBeLessThanOrEqual(10 * THROTTLE);
             }
         }
         await page.close();
