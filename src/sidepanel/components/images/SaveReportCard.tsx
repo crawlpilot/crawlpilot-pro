@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Box, Button, Collapse, Stack, Typography } from '@mui/material';
+import { Button, Collapse, Notice, Stack, Text } from '../../ui';
 import { FAIL_REASONS, type SaveReport } from '../../services/images/save';
 import type { FailReason } from '../../services/images/fetchImage';
 
@@ -14,38 +14,36 @@ export function SaveReportCard({ report, onRetry, onDismiss }: { report: SaveRep
     const [open, setOpen] = useState(false);
     const byReason = new Map<FailReason, string[]>();
     for (const f of report.failures) byReason.set(f.reason, [...(byReason.get(f.reason) ?? []), f.src]);
-    const severity = report.done === 0 ? 'error' : report.failures.length ? 'warning' : 'success';
+    const tone = report.done === 0 ? 'danger' : report.failures.length ? 'warning' : 'success';
 
     return (
-        <Alert severity={severity} variant="outlined" onClose={onDismiss} sx={{ mb: 1.5, '& .MuiAlert-message': { width: '100%' } }}>
-            <Typography variant="body2" fontWeight={600}>
-                {t('savedSummary', { done: report.done, total: report.total, size: megabytes(report.bytes), target: report.target })}
-            </Typography>
-            {report.converted > 0 && <Typography variant="caption" component="div">{t('convertedCount', { count: report.converted })}</Typography>}
-            {report.keptAnimated > 0 && <Typography variant="caption" component="div">{t('keptAnimated', { count: report.keptAnimated })}</Typography>}
-            {report.downgraded > 0 && <Typography variant="caption" component="div">{t('downgraded', { count: report.downgraded })}</Typography>}
+        <Notice tone={tone} onClose={onDismiss} className="mb-3"
+            title={t('savedSummary', { done: report.done, total: report.total, size: megabytes(report.bytes), target: report.target })}>
+            {report.converted > 0 && <div>{t('convertedCount', { count: report.converted })}</div>}
+            {report.keptAnimated > 0 && <div>{t('keptAnimated', { count: report.keptAnimated })}</div>}
+            {report.downgraded > 0 && <div>{t('downgraded', { count: report.downgraded })}</div>}
             {report.failures.length > 0 && (
                 <>
-                    <Stack direction="row" spacing={1} sx={{ mt: 0.75 }}>
-                        <Button size="small" variant="contained" onClick={onRetry}>{t('retryFailed', { count: report.failures.length })}</Button>
-                        <Button size="small" onClick={() => void navigator.clipboard.writeText(report.failures.map(f => f.src).join('\n'))}>{t('copyFailed')}</Button>
-                        <Button size="small" onClick={() => setOpen(o => !o)}>{open ? t('hideDetails') : t('showDetails')}</Button>
-                    </Stack>
-                    <Collapse in={open}>
-                        <Stack spacing={1} sx={{ mt: 1 }}>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                        <Button size="sm" variant="primary" onClick={onRetry}>{t('retryFailed', { count: report.failures.length })}</Button>
+                        <Button size="sm" variant="ghost" onClick={() => void navigator.clipboard.writeText(report.failures.map(f => f.src).join('\n'))}>{t('copyFailed')}</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setOpen(o => !o)}>{open ? t('hideDetails') : t('showDetails')}</Button>
+                    </div>
+                    <Collapse open={open}>
+                        <Stack gap={2} className="mt-2">
                             {[...byReason].map(([reason, srcs]) => (
-                                <Box key={reason}>
-                                    <Typography variant="caption" fontWeight={700}>{FAIL_REASONS[reason]} · {srcs.length}</Typography>
+                                <div key={reason}>
+                                    <Text size="caption" weight="bold">{FAIL_REASONS[reason]} · {srcs.length}</Text>
                                     {srcs.slice(0, 5).map(src => (
-                                        <Typography key={src} variant="caption" component="div" sx={{ color: 'text.secondary', wordBreak: 'break-all' }}>{src.startsWith('data:') ? src.slice(0, 40) + '…' : src}</Typography>
+                                        <Text key={src} size="caption" tone="muted" className="break-all">{src.startsWith('data:') ? src.slice(0, 40) + '…' : src}</Text>
                                     ))}
-                                    {srcs.length > 5 && <Typography variant="caption" color="text.secondary">{t('andMore', { count: srcs.length - 5 })}</Typography>}
-                                </Box>
+                                    {srcs.length > 5 && <Text size="caption" tone="muted">{t('andMore', { count: srcs.length - 5 })}</Text>}
+                                </div>
                             ))}
                         </Stack>
                     </Collapse>
                 </>
             )}
-        </Alert>
+        </Notice>
     );
 }
