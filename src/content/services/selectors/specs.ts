@@ -4,7 +4,6 @@
  * selectors are chosen is a change here.
  */
 import { elementChain } from './element';
-import { nextButtonSelectors } from './nextButton';
 import { looksLikeXPath } from '../../../shared/selectors/resolve';
 
 export { listLocators } from './list';
@@ -17,9 +16,4 @@ export function elementLocators(el: HTMLElement): { css: string; xpath: string }
         css: chain.find(r => !looksLikeXPath(r.selector))?.selector ?? '',
         xpath: chain.find(r => looksLikeXPath(r.selector))?.selector ?? '',
     };
-}
-
-/** The chain a picked Next / Load more control stores. */
-export function controlLocators(el: HTMLElement): { selector: string; strategy: string }[] {
-    return nextButtonSelectors(el);
 }

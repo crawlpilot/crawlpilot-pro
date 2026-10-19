@@ -7,7 +7,8 @@
 import { readFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { resolve } from 'path';
-import { controlLocators, elementLocators, listLocators } from '../../content/services/selectors/specs';
+import { elementLocators, listLocators } from '../../content/services/selectors/specs';
+import { nextButtonSelectors } from '../../content/services/selectors/nextButton';
 import { elementChain } from '../../content/services/selectors/element';
 import { keepItems } from '../../content/services/extraction/items';
 import { inferFields, readRow } from '../../content/services/extraction/fields';
@@ -120,7 +121,7 @@ function measureElement(at: string) {
 
 function measureControl(at: string) {
     const target = document.querySelector(at) as HTMLElement;
-    const chain = controlLocators(target);
+    const chain = nextButtonSelectors(target);
     const invalid = chain.filter(c => {
         try {
             if (looksLikeXPath(c.selector)) document.evaluate(c.selector, document, null, XPathResult.ANY_TYPE, null);

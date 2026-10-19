@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Box, Button, Chip, Stack, TextField, Typography, Alert, ToggleButton, ToggleButtonGroup, IconButton, Tooltip } from '@mui/material';
 import { Crosshair, Play, Copy, Check } from 'lucide-react';
-import type { LabEval, LabCandidate, LabPick } from '../../../content/features/lab/SelectorLab';
+import type { LabEval, LabCandidate, LabChainEntry, LabPick } from '../../../content/features/lab/SelectorLab';
 import { SNIPPET_LABELS, SnippetTarget, toSnippet } from '../../../shared/selectors/snippets';
 import { on, sendToActiveTab } from '../../../shared/messages';
 import { copyText } from '../../services/clipboard';
@@ -11,6 +11,38 @@ const GRADE_LABEL = { strong: 'Strong', fragile: 'Fragile', broken: 'Broken' } a
 
 function GradeChip({ ev }: { ev: LabEval }) {
     return <Chip size="small" color={GRADE_COLOR[ev.grade.grade]} label={GRADE_LABEL[ev.grade.grade]} sx={{ fontWeight: 700 }} />;
+}
+
+/** A stored chain in order: family, grade, matches, and the entry a run would use on this page. */
+function StoredChain({ title, entries, onUse }: { title: string; entries: LabChainEntry[]; onUse: (selector: string) => void }) {
+    const winner = entries.findIndex(e => e.wins);
+    return (
+        <Box>
+            <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>{title}</Typography>
+            {winner > 0 && (
+                <Typography variant="caption" color="warning.main" display="block" mb={0.5}>
+                    The first {winner === 1 ? 'entry no longer works' : `${winner} entries no longer work`} here: a run would use backup #{winner + 1}.
+                </Typography>
+            )}
+            {winner < 0 && entries.length > 0 && (
+                <Typography variant="caption" color="error.main" display="block" mb={0.5}>No entry finds it on this page.</Typography>
+            )}
+            <Stack spacing={0.5}>
+                {entries.map((e, i) => (
+                    <Box key={e.selector} onClick={() => onUse(e.selector)}
+                        sx={{ border: 1, borderColor: e.wins ? 'success.main' : 'divider', borderRadius: 1.5, p: 1, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+                            <Typography variant="caption" fontWeight={700}>#{i + 1}</Typography>
+                            <Chip size="small" color={GRADE_COLOR[e.grade.grade]} label={GRADE_LABEL[e.grade.grade]} sx={{ fontWeight: 700 }} />
+                            <Typography variant="caption" color="text.secondary">{e.family} · {e.count} match{e.count !== 1 ? 'es' : ''}</Typography>
+                            {e.wins && <Chip size="small" variant="outlined" color="success" label="used now" />}
+                        </Box>
+                        <Typography variant="caption" sx={{ fontFamily: 'monospace', wordBreak: 'break-all', display: 'block' }}>{e.selector}</Typography>
+                    </Box>
+                ))}
+            </Stack>
+        </Box>
+    );
 }
 
 export default function SelectorLabPanel() {
@@ -122,9 +154,24 @@ export default function SelectorLabPanel() {
             )}
 
             {pick && (
+                <Stack spacing={1}>
+                    <Typography variant="overline" color="text.secondary" fontWeight={700}>
+                        What a recipe stores for &lt;{pick.tag}&gt; “{pick.text.slice(0, 40)}”
+                    </Typography>
+                    <StoredChain title="This element (Page Extractor)" entries={pick.stored} onUse={s => { setSelector(s); evaluate(s); }} />
+                    {pick.storedList && (
+                        <>
+                            <StoredChain title="Its list: container" entries={pick.storedList.container} onUse={s => { setSelector(s); evaluate(s); }} />
+                            <StoredChain title="Its list: items (inside the container)" entries={pick.storedList.items} onUse={() => undefined} />
+                        </>
+                    )}
+                </Stack>
+            )}
+
+            {pick && (
                 <Box>
                     <Typography variant="overline" color="text.secondary" fontWeight={700}>
-                        Ways to find &lt;{pick.tag}&gt; “{pick.text.slice(0, 40)}”
+                        Every way to find it
                     </Typography>
                     {pick.candidates.length === 0 && <Typography variant="caption" color="text.secondary">No selector found for this element.</Typography>}
                     <Stack spacing={0.5}>

@@ -3,9 +3,9 @@
  * get graded alternatives from each evidence family. Independent of the extraction picker so it can be
  * used on any page without starting a run.
  */
-import { elementCandidates } from '../../services/selectors/element';
+import { elementCandidates, elementChain } from '../../services/selectors/element';
 import { listLocators } from '../../services/selectors/list';
-import { looksLikeXPath } from '../../../shared/selectors/resolve';
+import { looksLikeXPath, resolveContainer, resolveItems, resolveOne } from '../../../shared/selectors/resolve';
 import { gradeSelector, GradedSelector } from '../../../shared/selectors/grade';
 import { sanitizeCssSelector } from '../../../shared/selectors/sanitize';
 
@@ -24,10 +24,24 @@ export interface LabCandidate extends LabEval {
     list: boolean;
 }
 
+/** One entry of a chain a recipe would store, and whether a run on this page would use it. */
+export interface LabChainEntry {
+    selector: string;
+    family: string;
+    count: number;
+    grade: GradedSelector;
+    /** The entry the run's resolver picks on this page (the first that answers; a later one means the earlier ones broke). */
+    wins: boolean;
+}
+
 export interface LabPick {
     tag: string;
     text: string;
     candidates: LabCandidate[];
+    /** The chain a Page Extractor pick of this element stores. */
+    stored: LabChainEntry[];
+    /** When the element is one of a list's items: the container and item chains a list pick stores. */
+    storedList?: { container: LabChainEntry[]; items: LabChainEntry[] };
 }
 
 const OVERLAY_CLASS = 'crawlpilot-lab-overlay';
@@ -116,6 +130,39 @@ function listSelectors(el: HTMLElement): { selector: string; strategy: string }[
     });
 }
 
+function chainEntries(chain: { selector: string; strategy: string }[], used: number, root: ParentNode, expected?: number): LabChainEntry[] {
+    return chain.map((c, i) => {
+        let count = 0;
+        try {
+            if (looksLikeXPath(c.selector)) {
+                count = document.evaluate(c.selector, root as Node, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null).snapshotLength;
+            } else {
+                count = root.querySelectorAll(sanitizeCssSelector(c.selector)).length;
+            }
+        } catch { /* invalid: count 0 */ }
+        return { selector: c.selector, family: c.strategy, count, grade: gradeSelector(c.selector, count, expected), wins: i === used };
+    });
+}
+
+/** What a recipe would store for the element, and which entry a run would use on this page. */
+export function storedFor(el: HTMLElement): Pick<LabPick, 'stored' | 'storedList'> {
+    const chain = elementChain(el);
+    const stored = chainEntries(chain, resolveOne(chain.map(c => c.selector)).used, document, 1);
+    const parent = el.parentElement;
+    const siblings = parent ? Array.from(parent.children).filter(c => c.tagName === el.tagName) as HTMLElement[] : [];
+    if (!parent || siblings.length < 2) return { stored };
+    const { container, items } = listLocators(parent, siblings);
+    const found = resolveContainer(container.map(c => c.selector), items.map(c => c.selector));
+    const root = found.result ?? parent;
+    return {
+        stored,
+        storedList: {
+            container: chainEntries(container, found.used, document, 1),
+            items: chainEntries(items, resolveItems(items.map(c => c.selector), root).used, root),
+        },
+    };
+}
+
 export function candidatesFor(el: HTMLElement): LabCandidate[] {
     const out: LabCandidate[] = [];
     const seen = new Set<string>();
@@ -177,7 +224,7 @@ export class LabPicker {
         const cb = this.onPick;
         this.stop();
         if (!el || !cb) return;
-        cb({ tag: el.tagName.toLowerCase(), text: sampleText(el), candidates: candidatesFor(el) });
+        cb({ tag: el.tagName.toLowerCase(), text: sampleText(el), candidates: candidatesFor(el), ...storedFor(el) });
     };
 
     private handleKey = (e: KeyboardEvent) => {
