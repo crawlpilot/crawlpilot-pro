@@ -275,6 +275,23 @@
 
 @layer components {
 
+    /* Kit: rendered markdown (AI answers, previews). */
+    .cp-prose { font-size: var(--text-body); line-height: 1.6; }
+    .cp-prose > :first-child { margin-top: 0; }
+    .cp-prose > :last-child { margin-bottom: 0; }
+    .cp-prose p, .cp-prose ul, .cp-prose ol { margin: 0 0 0.75em; }
+    .cp-prose ul, .cp-prose ol { padding-left: 1.3em; }
+    .cp-prose ul { list-style: disc; }
+    .cp-prose ol { list-style: decimal; }
+    .cp-prose li { margin-bottom: 0.25em; }
+    .cp-prose strong { font-weight: 650; }
+    .cp-prose h1, .cp-prose h2, .cp-prose h3 { font-family: var(--font-display); font-weight: 700; margin: 0.9em 0 0.35em; }
+    .cp-prose a { color: inherit; text-decoration: underline; text-decoration-color: var(--cp-brand); text-decoration-thickness: 2px; text-underline-offset: 2px; }
+    .cp-prose code { font-family: var(--font-mono); font-size: 0.88em; background: rgb(var(--cp-ink-rgb) / 0.07); border-radius: 5px; padding: 0.1em 0.35em; }
+    .cp-prose table { border-collapse: collapse; width: 100%; margin-bottom: 0.75em; font-size: var(--text-small); }
+    .cp-prose th, .cp-prose td { border: 1px solid var(--cp-line); padding: 0.4em 0.6em; text-align: left; }
+    .cp-prose th { background: rgb(var(--cp-ink-rgb) / 0.05); font-weight: 600; }
+
     /* Kit: the range input's thumb (ui/Slider.tsx). */
     .cp-range::-webkit-slider-thumb {
         -webkit-appearance: none;

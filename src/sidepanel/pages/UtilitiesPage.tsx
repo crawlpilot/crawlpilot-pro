@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import { sendToTab } from '../../shared/messages';
-import {
-    Box, Typography, Stack, Chip, Switch,
-     Card, CardContent, Fade
-} from '@mui/material';
+import { Card, Chip, Collapse, Stack, Switch, Text } from '../ui';
 import { Unlock, MousePointer, Shield, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ToolHeader from '../components/ui/ToolHeader';
@@ -36,101 +33,39 @@ export default function UtilitiesPage({ onBack }: UtilitiesPageProps) {
     };
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden' }}>
+        <div className="flex h-full flex-col overflow-hidden bg-bg">
             <ToolHeader title={t('title')} subtitle={t('subtitle')} onBack={onBack} />
-
-            {/* Content */}
-            <Box sx={{ flex: 1, overflowY: 'auto', p: 2, '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { background: 'rgb(var(--cp-ink-rgb) / 0.08)', borderRadius: 4 } }}>
-                <Stack spacing={1.5}>
-                    {/* Right-Click Unlocker */}
-                    <Card
-                        elevation={0}
-                        sx={{
-                            borderRadius: 3,
-                            border: '1px solid',
-                            borderColor: rightClickEnabled ? 'rgb(var(--cp-accent-rgb) / 0.3)' : 'divider',
-                            bgcolor: rightClickEnabled ? 'rgb(var(--cp-accent-rgb) / 0.04)' : 'background.paper',
-                            transition: 'all 0.2s ease',
-                            '&:hover': { borderColor: rightClickEnabled ? 'rgb(var(--cp-accent-rgb) / 0.5)' : 'rgb(var(--cp-ink-rgb) / 0.12)' }
-                        }}
-                    >
-                        <CardContent sx={{ p: '16px !important' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Box sx={{
-                                    p: 1.25,
-                                    borderRadius: 2.5,
-                                    bgcolor: rightClickEnabled ? 'rgb(var(--cp-accent-rgb) / 0.15)' : 'rgb(var(--cp-ink-rgb) / 0.04)',
-                                    color: rightClickEnabled ? 'var(--cp-accent)' : 'text.secondary',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    transition: 'all 0.2s'
-                                }}>
-                                    <Unlock size={20} />
-                                </Box>
-                                <Box sx={{ flex: 1 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Typography variant="subtitle2" fontWeight={650} sx={{ lineHeight: 1.2, fontSize: '0.82rem' }}>
-                                            {t('rightClickUnlocker.title')}
-                                        </Typography>
-                                        {rightClickEnabled && (
-                                            <Chip label={t('rightClickUnlocker.active')} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: 'rgb(var(--cp-accent-rgb) / 0.15)', color: 'var(--cp-accent)', borderRadius: '6px' }} />
-                                        )}
-                                    </Box>
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', lineHeight: 1.4, mt: 0.25, display: 'block' }}>
-                                        {t('rightClickUnlocker.description')}
-                                    </Typography>
-                                </Box>
-                                <Switch
-                                    checked={rightClickEnabled}
-                                    onChange={toggleRightClick}
-                                    disabled={loading}
-                                    size="small"
-                                    sx={{
-                                        '& .MuiSwitch-switchBase.Mui-checked': { color: 'var(--cp-accent)' },
-                                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: 'var(--cp-accent)' }
-                                    }}
-                                />
-                            </Box>
-                            <Fade in={rightClickEnabled}>
-                                <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgb(var(--cp-ink-rgb) / 0.05)' }}>
-                                    <Stack direction="row" spacing={1.5}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-                                            <MousePointer size={11} />
-                                            <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>{t('rightClickUnlocker.rightClick')}</Typography>
-                                        </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-                                            <Shield size={11} />
-                                            <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>{t('rightClickUnlocker.copyPaste')}</Typography>
-                                        </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-                                            <Zap size={11} />
-                                            <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>{t('rightClickUnlocker.textSelect')}</Typography>
-                                        </Box>
-                                    </Stack>
-                                </Box>
-                            </Fade>
-                        </CardContent>
+            <div className="flex-1 overflow-y-auto p-4">
+                <Stack gap={3}>
+                    <Card tone={rightClickEnabled ? 'mint' : 'plain'} className="transition-colors duration-200">
+                        <div className="flex items-center gap-3">
+                            <span className={rightClickEnabled
+                                ? 'flex size-10 shrink-0 items-center justify-center rounded-xl border-[1.5px] border-line-strong bg-brand text-on-brand'
+                                : 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-ink/6 text-ink-2'}>
+                                <Unlock size={19} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                    <Text weight="semibold">{t('rightClickUnlocker.title')}</Text>
+                                    {rightClickEnabled && <Chip tone="brand">{t('rightClickUnlocker.active')}</Chip>}
+                                </div>
+                                <Text size="caption" tone="muted" className="mt-0.5">{t('rightClickUnlocker.description')}</Text>
+                            </div>
+                            <Switch checked={rightClickEnabled} onChange={() => void toggleRightClick()} disabled={loading} aria-label={t('rightClickUnlocker.title')} />
+                        </div>
+                        <Collapse open={rightClickEnabled}>
+                            <div className="mt-3 flex flex-wrap gap-3 border-t border-line pt-3 text-caption text-ink-2">
+                                <span className="flex items-center gap-1"><MousePointer size={12} />{t('rightClickUnlocker.rightClick')}</span>
+                                <span className="flex items-center gap-1"><Shield size={12} />{t('rightClickUnlocker.copyPaste')}</span>
+                                <span className="flex items-center gap-1"><Zap size={12} />{t('rightClickUnlocker.textSelect')}</span>
+                            </div>
+                        </Collapse>
                     </Card>
-
-                    {/* Coming Soon Placeholder */}
-                    <Card
-                        elevation={0}
-                        sx={{
-                            borderRadius: 3,
-                            border: '1px dashed',
-                            borderColor: 'rgb(var(--cp-ink-rgb) / 0.06)',
-                            bgcolor: 'rgb(var(--cp-ink-rgb) / 0.01)',
-                        }}
-                    >
-                        <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, fontSize: '0.68rem', opacity: 0.5 }}>
-                                {t('comingSoon')}
-                            </Typography>
-                        </CardContent>
-                    </Card>
+                    <div className="rounded-card border-[1.5px] border-dashed border-line p-4 text-center">
+                        <Text size="caption" weight="semibold" tone="faint">{t('comingSoon')}</Text>
+                    </div>
                 </Stack>
-            </Box>
-        </Box>
+            </div>
+        </div>
     );
 }

@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react';
-import { Box, Tab, Tabs } from '@mui/material';
 import PageStrip from '../components/ui/PageStrip';
 import ToolHeader from '../components/ui/ToolHeader';
 import { Radar, Crosshair, Network } from 'lucide-react';
@@ -7,7 +6,7 @@ import ReconPanel from '../components/toolkit/ReconPanel';
 import SelectorLabPanel from '../components/toolkit/SelectorLabPanel';
 import ApiFinderPanel from '../components/toolkit/ApiFinderPanel';
 import { ToolkitProvider, ToolkitTool, usePageTab } from '../components/toolkit/context';
-import { ACCENT } from '../components/toolkit/ui';
+import { Segmented } from '../ui';
 
 const TAB_KEY = 'crawlpilot.toolkit.tab';
 
@@ -38,27 +37,21 @@ export default function ToolkitPage({ onBack, onNavigate }: { onBack: () => void
 
     return (
         <ToolkitProvider page={page} openTool={openTool} navigate={onNavigate}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden' }}>
+            <div className="flex h-full flex-col overflow-hidden bg-bg">
                 <ToolHeader title="Scraper Toolkit" subtitle={TOOLS.find(t => t.id === tool)!.hint} onBack={onBack}>
-                    <Box sx={{ mt: 1.25 }} />
-                    <PageStrip page={page} />
-                    <Tabs value={tool} onChange={(_, v: ToolkitTool) => openTool(v)} variant="fullWidth"
-                        TabIndicatorProps={{ sx: { bgcolor: ACCENT, height: 2.5, borderRadius: '12px' } }}
-                        sx={{
-                            mt: 1, minHeight: 40,
-                            '& .MuiTab-root': { minHeight: 40, textTransform: 'none', fontWeight: 600, fontSize: '0.74rem', color: 'text.secondary', gap: 0.6, px: 0.5 },
-                            '& .Mui-selected': { color: `${ACCENT} !important` },
-                        }}>
-                        {TOOLS.map(t => <Tab key={t.id} value={t.id} label={t.label} icon={t.icon} iconPosition="start" />)}
-                    </Tabs>
+                    <div className="mt-3 flex flex-col gap-2.5">
+                        <PageStrip page={page} />
+                        <Segmented tabs fullWidth size="sm" aria-label="Tools" value={tool} onChange={openTool}
+                            options={TOOLS.map(t => ({ value: t.id, label: t.label, icon: t.icon }))} />
+                    </div>
                 </ToolHeader>
-                <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
+                <div className="flex-1 overflow-y-auto p-4">
                     {/* Kept mounted per page so switching tools doesn't throw away a report or a recording. */}
-                    <Box key={`recon-${page.tab?.id}`} sx={{ display: tool === 'recon' ? 'block' : 'none' }}><ReconPanel /></Box>
+                    <div key={`recon-${page.tab?.id}`} className={tool === 'recon' ? 'block' : 'hidden'}><ReconPanel /></div>
                     {tool === 'lab' && <SelectorLabPanel />}
-                    <Box key={`api-${page.tab?.id}`} sx={{ display: tool === 'api' ? 'block' : 'none' }}><ApiFinderPanel /></Box>
-                </Box>
-            </Box>
+                    <div key={`api-${page.tab?.id}`} className={tool === 'api' ? 'block' : 'hidden'}><ApiFinderPanel /></div>
+                </div>
+            </div>
         </ToolkitProvider>
     );
 }
