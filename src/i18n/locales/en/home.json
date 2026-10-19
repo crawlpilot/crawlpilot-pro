@@ -13,9 +13,9 @@
     "tooltip": "Give a schema (fields, lists, a JSON Schema or an example) and Chrome's built-in model fills it from the current page. Every value is checked against the page; nothing leaves your browser."
   },
   "textSummarizer": {
-    "title": "Summarize & ask",
-    "description": "A short summary of this page, and answers to your questions",
-    "tooltip": "Browse any article, report or docs page — get a concise summary and ask follow-up questions powered by AI"
+    "title": "Page assistant",
+    "description": "What matters on this page, and answers you can check on it",
+    "tooltip": "A brief made for the kind of page (product, article, job, docs…), with every point linked to where the page says it. Ask questions; runs on your device"
   },
   "pageExtractor": {
     "title": "Same details from many pages",
@@ -50,7 +50,7 @@
     "product": "A product page",
     "productAction": "Get this product's details",
     "article": "An article",
-    "articleAction": "Summarize it",
+    "articleAction": "Brief it",
     "articleSecondary": "Get its text",
     "none": "What do you want from this page?",
     "noneHint": "Point at a list on the page and CrawlPilot finds the rest",
@@ -72,8 +72,8 @@
       "hint": "Every picture, ready to save"
     },
     "summary": {
-      "title": "Summarize & ask",
-      "hint": "A summary and answers"
+      "title": "Page assistant",
+      "hint": "A brief and answers you can check"
     }
   },
   "recent": {

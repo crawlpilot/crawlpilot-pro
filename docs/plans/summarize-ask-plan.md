@@ -171,6 +171,23 @@ The assistant works on the current tab only (decided 2026-10-19).
   - **tables:** `db.tables.save` with source `ai`;
   - **saved briefs:** one table "Briefs" for every kind of page. Each row has URL, kind, title and gist, plus the kind's fields; a field another kind doesn't have stays empty.
 
+## Progress
+
+**P1, built (2026-10-19):**
+- **Kinds and briefs:** `shared/ai/brief.ts` holds the kinds and each one's fields. `detectKind` is right on all 12 saved pages in `src/test/corpus/brief.test.ts`.
+- **Checks:** `shared/ai/cite.ts`, run on the page by `content/services/ai-view/claims.ts`.
+- **Run:** `sidepanel/services/ai/assistant.ts` briefs up to 3 chunks and merges them.
+- **Screen:** `components/summarizer/PageAssistant.tsx`, with "Brief" as the default mode and "Summary" for the old summary.
+- **Messages:** `AI_CHECK` and `AI_SHOW`.
+- **e2e:** `e2e/assistant.spec.ts`, with a scripted model, covers:
+  - the kind chip;
+  - points checked, with an invented one marked "not found";
+  - clicking a point highlights its quote on the page;
+  - each answer citation shows its own sentence's check;
+  - an unsupported sentence is flagged;
+  - suggested questions.
+- **Still to do for P1:** scoring briefs with the real Gemini Nano in Chrome on the saved pages. The target is at least 90% of claims found on the page.
+
 ## Phases
 
 Each phase is committed on its own and can be used by itself.
