@@ -6,8 +6,9 @@
  * - `/corpus/<name>` serves `src/test/fixtures/corpus/<name>.html.gz` with page scripts blocked
  *   (saved retail pages would otherwise try to boot their apps); content scripts are not affected.
  * - `/site/<file>` serves `e2e/site/<file>` as is, scripts allowed.
- * - `/img/<name>-<w>x<h>.<ext>` and `/cdn/<name>?w=&h=` serve a generated PNG of that size (any
- *   extension: the bytes are PNG, which browsers sniff), for the Image Downloader. Names starting
+ * - `/img/<name>-<w>x<h>.<ext>` and `/cdn/<name>?id=&w=&h=` serve a generated PNG of that size (any
+ *   extension: the bytes are PNG, which browsers sniff), for the Image Downloader: one picture per
+ *   name (or per `?pic=`), at whatever size is asked. Names starting
  *   `protected-` need this site as Referer, `private-` a `session=1` cookie; `missing-` is a 404 and
  *   `notimage-` an HTML page. `/wp-content/uploads/<name>-<w>x<h>.<ext>` is that size and
  *   `/wp-content/uploads/<name>.<ext>` the 2400×1600 original, like WordPress.
@@ -38,8 +39,19 @@ function crc32(bytes: Buffer): number {
     return (c ^ 0xffffffff) >>> 0;
 }
 
-/** A solid-colour PNG, `width`×`height`. */
-export function png(width: number, height: number, rgb: [number, number, number] = [200, 120, 40]): Buffer {
+/** A number from a name: the same picture for the same name. */
+function seedOf(name: string): number {
+    let h = 2166136261;
+    for (const c of name) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+    return h >>> 0;
+}
+
+/**
+ * A PNG, `width`×`height`: grey ramps across 8 vertical bands, each rising or falling by a bit of
+ * `seed`. The pattern scales with the image, so one seed is one picture at any size (a perceptual
+ * hash matches) and different seeds are different pictures.
+ */
+export function png(width: number, height: number, seed = 0): Buffer {
     const chunk = (type: string, data: Buffer) => {
         const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
         const out = Buffer.alloc(body.length + 8);
@@ -52,7 +64,13 @@ export function png(width: number, height: number, rgb: [number, number, number]
     header.writeUInt32BE(width, 0);
     header.writeUInt32BE(height, 4);
     header.set([8, 2, 0, 0, 0], 8); // 8-bit RGB
-    const row = Buffer.concat([Buffer.from([0]), Buffer.from(Array.from({ length: width }, () => rgb).flat())]);
+    const row = Buffer.alloc(1 + width * 3);
+    for (let x = 0; x < width; x++) {
+        const band = Math.floor(x * 8 / width);
+        const t = (x * 8 / width) - band;
+        const v = Math.round(((seed >>> band) & 1 ? t : 1 - t) * 200 + 30);
+        row[1 + x * 3] = v; row[2 + x * 3] = v; row[3 + x * 3] = v;
+    }
     const pixels = Buffer.concat(Array.from({ length: height }, () => row));
     return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', header), chunk('IDAT', deflateSync(pixels)), chunk('IEND', Buffer.alloc(0))]);
 }
@@ -79,7 +97,7 @@ function serve(): Promise<{ server: Server; origin: string }> {
             if (url.pathname.startsWith('/wp-content/uploads/')) {
                 const wp = /-(\d+)x(\d+)\.\w+$/.exec(url.pathname);
                 res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' });
-                res.end(png(wp ? Number(wp[1]) : 2400, wp ? Number(wp[2]) : 1600));
+                res.end(png(wp ? Number(wp[1]) : 2400, wp ? Number(wp[2]) : 1600, seedOf(url.pathname.replace(/-\d+x\d+(?=\.\w+$)/, ''))));
                 return;
             }
             const sized = /^\/img\/[\w-]*?-(\d+)x(\d+)\.\w+$/.exec(url.pathname);
@@ -87,7 +105,9 @@ function serve(): Promise<{ server: Server; origin: string }> {
                 const w = Number(sized?.[1] ?? url.searchParams.get('w') ?? 100);
                 const h = Number(sized?.[2] ?? url.searchParams.get('h') ?? 100);
                 res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' });
-                res.end(png(Math.min(w, 4000), Math.min(h, 4000)));
+                // The picture: `?pic=` when given (one picture under unrelated URLs), else the name without its size.
+                const picture = url.searchParams.get('pic') ?? (url.pathname.startsWith('/cdn/') ? url.pathname + (url.searchParams.get('id') ?? '') : name.replace(/-\d+x\d+\.\w+$/, ''));
+                res.end(png(Math.min(w, 4000), Math.min(h, 4000), seedOf(picture)));
                 return;
             }
             if (url.pathname.startsWith('/site/')) {

@@ -198,3 +198,44 @@ test('panel: range select, preview and show on page, filters kept per site, save
     await ui.close();
     await page.close();
 });
+
+test('duplicates folded (URL variants, then look-alikes by pixels); converted to JPG at most 512 px', async ({ panel, ext, origin, extensionId }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/dupes.html`);
+    const tabId = await panel.tabId(page.url());
+    const ui = await ext.newPage();
+    await ui.goto(`chrome-extension://${extensionId}/sidepanel.html?view=image-downloader&tabId=${tabId}`);
+    await ui.evaluate(() => {
+        localStorage.setItem('crawlpilot.images.mode', 'zip');
+        localStorage.setItem('crawlpilot.images.template', '{alt}');
+        localStorage.setItem('crawlpilot.images.manifest', 'off');
+        localStorage.setItem('crawlpilot.images.processing', JSON.stringify({ format: 'jpeg', quality: 0.85, maxSide: 512 }));
+    });
+    await ui.reload();
+    const cards = ui.getByRole('checkbox');
+    // 5 images; the two sizes of /cdn/photo?id=9 fold into the larger.
+    await expect(cards).toHaveCount(4, { timeout: 10_000 });
+    await expect(ui.getByText(/1 duplicates folded/)).toBeVisible();
+
+    await ui.getByRole('button', { name: 'More' }).click();
+    await ui.getByRole('menuitem', { name: /Find look-alikes/ }).click();
+    await expect(cards).toHaveCount(3, { timeout: 15_000 });
+    await expect(ui.getByText(/2 duplicates folded/)).toBeVisible();
+
+    await ui.getByRole('button', { name: /Download All \(3\)/ }).click();
+    await expect(ui.getByText(/Saved 3 of 3/)).toBeVisible({ timeout: 30_000 });
+    await expect(ui.getByText(/3 converted or resized/)).toBeVisible();
+    const zips = await ui.evaluate(() => chrome.downloads.search({ mime: 'application/zip', state: 'complete', orderBy: ['-startTime'] }));
+    const entries = unzipSync(new Uint8Array(fs.readFileSync(zips[0].filename)));
+    // The larger of each pair kept: Large (1200×800) and Kitty (600×400), then resized to 512 at most.
+    expect(Object.keys(entries).sort()).toEqual(['Dog.jpg', 'Kitty.jpg', 'Large.jpg']);
+    for (const [name, bytes] of Object.entries(entries)) {
+        expect(sniffType(bytes), name).toBe('image/jpeg');
+        const size = imageDimensions(bytes)!;
+        expect(Math.max(size.width, size.height), name).toBe(512);
+    }
+    // The profile is shared: later saves shouldn't convert.
+    await ui.evaluate(() => localStorage.removeItem('crawlpilot.images.processing'));
+    await ui.close();
+    await page.close();
+});

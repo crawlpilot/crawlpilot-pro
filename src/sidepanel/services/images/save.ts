@@ -6,6 +6,8 @@
  * An image with a full-size original (`image.full`) is saved from the original, named after it; if
  * the original can't be had, the file shown on the page is saved instead and counted as `downgraded`.
  *
+ * With `processing`, each file is converted or resized first (`transform.ts`).
+ *
  * With `manifest`, a `manifest.csv` goes with the files: each file's name, URL, page, alt text and size.
  */
 import type { FoundImage } from '../../../shared/images/types';
@@ -15,6 +17,7 @@ import { fetchImage, FetchFailure, type FailReason, type Fetched, type InPage } 
 import { NameBook, renderName, today } from './naming';
 import { hostKey, runPool } from './pool';
 import { ZipWriter } from './zip';
+import { processImage, type Processing } from './transform';
 
 export type SaveMode = 'zip' | 'folder';
 
@@ -48,6 +51,10 @@ export interface SaveReport extends SaveProgress {
     failures: SaveFailure[];
     /** Saved at the size shown because the full-size original failed. */
     downgraded: number;
+    /** Converted or resized. */
+    converted: number;
+    /** Animated GIF/WebP kept as they are instead of being converted. */
+    keptAnimated: number;
     stopped: boolean;
     /** Where the files went: the zip's name, or the folder. */
     target: string;
@@ -59,6 +66,7 @@ export interface SaveOptions {
     pageTitle: string;
     signal: AbortSignal;
     manifest?: boolean;
+    processing?: Processing;
     onProgress?: (p: SaveProgress) => void;
 }
 
@@ -124,7 +132,7 @@ export function browserDeps(tabId: number | null): SaveDeps {
 }
 
 export async function saveImages(images: FoundImage[], options: SaveOptions, deps: SaveDeps): Promise<SaveReport> {
-    const { mode, template, pageTitle, signal, onProgress, manifest } = options;
+    const { mode, template, pageTitle, signal, onProgress, manifest, processing } = options;
     const date = today();
     const site = siteOf(images);
     const names = new NameBook();
@@ -134,6 +142,8 @@ export async function saveImages(images: FoundImage[], options: SaveOptions, dep
     const failures: SaveFailure[] = [];
     const started = new Set<number>();
     let downgraded = 0;
+    let converted = 0;
+    let keptAnimated = 0;
     const files: SavedFile[] = [];
 
     await runPool(images, img => hostKey(img.src), async (image, index) => {
@@ -148,6 +158,12 @@ export async function saveImages(images: FoundImage[], options: SaveOptions, dep
                 file = await deps.fetch(image.src, signal);
                 named = image;
                 downgraded++;
+            }
+            if (processing) {
+                const result = await processImage(file, processing).catch(() => ({ file, outcome: 'kept' as const }));
+                file = result.file;
+                if (result.outcome === 'converted') converted++;
+                if (result.outcome === 'animated') keptAnimated++;
             }
             const ext = typeLabel(file.type) || typeLabel(guessType(named.src)) || 'jpg';
             const path = names.claim(renderName(template, { image: named, n: index + 1, total: images.length, pageTitle, date }), ext);
@@ -172,7 +188,7 @@ export async function saveImages(images: FoundImage[], options: SaveOptions, dep
             await deps.download(await zip.finish(), target);
         } catch {
             // The zip itself didn't save: every file in it is lost.
-            return { ...progress, done: 0, failed: images.length, failures: images.map(i => ({ src: i.src, reason: 'save' as const })), files: [], downgraded: 0, stopped: signal.aborted, target };
+            return { ...progress, done: 0, failed: images.length, failures: images.map(i => ({ src: i.src, reason: 'save' as const })), files: [], downgraded: 0, converted: 0, keptAnimated: 0, stopped: signal.aborted, target };
         }
     }
     // Images a stop kept from starting.
@@ -181,7 +197,7 @@ export async function saveImages(images: FoundImage[], options: SaveOptions, dep
         failures.push({ src: image.src, reason: 'stopped' });
         progress.failed++;
     });
-    return { ...progress, files, failures, downgraded, stopped: signal.aborted, target };
+    return { ...progress, files, failures, downgraded, converted, keptAnimated, stopped: signal.aborted, target };
 }
 
 /** The output a selection of this size gets by default. */

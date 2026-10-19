@@ -16,6 +16,8 @@ import { useImageScan } from '../hooks/useImageScan';
 import { useImageSave } from '../hooks/useImageSave';
 import { useFullSize } from '../hooks/useFullSize';
 import { useImageFilters } from '../hooks/useImageFilters';
+import { useLookalikes } from '../hooks/useLookalikes';
+import { foldDuplicates } from '../../shared/images/dedupe';
 import { domainCounts, filterImages, groupImages, savedSrc, sortImages, type GroupBy, type SortBy } from '../components/images/imageFilters';
 import { ImageCard } from '../components/images/ImageCard';
 import { ImageLightbox } from '../components/images/ImageLightbox';
@@ -28,6 +30,7 @@ import { imageTable } from '../services/images/imageTable';
 
 const PAGE_SIZE = 200;
 const CARD_KEY = 'crawlpilot.images.cardSize';
+const FOLD_KEY = 'crawlpilot.images.fold';
 const iconButton = { color: 'text.secondary', bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.selected', color: 'primary.main' } } as const;
 
 function siteOf(url: string): string {
@@ -43,6 +46,9 @@ export default function ImageDownloaderPage({ onBack }: { onBack: () => void }) 
     const fullSize = useFullSize(images);
     const site = siteOf(images[0]?.pageUrl ?? '');
     const { filters, update, toggle, reset } = useImageFilters(site);
+    const lookalikes = useLookalikes(page.tabId);
+    const [fold, setFoldState] = useState(() => { try { return localStorage.getItem(FOLD_KEY) !== 'off'; } catch { return true; } });
+    const setFold = (on: boolean) => { setFoldState(on); try { localStorage.setItem(FOLD_KEY, on ? 'on' : 'off'); } catch { /* storage blocked */ } };
 
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [showFilters, setShowFilters] = useState(false);
@@ -65,7 +71,9 @@ export default function ImageDownloaderPage({ onBack }: { onBack: () => void }) 
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const sized = useMemo(() => fullSize.apply(images), [images, fullSize.enabled, fullSize.found]);
-    const filtered = useMemo(() => sortImages(filterImages(sized, filters), sortBy), [sized, filters, sortBy]);
+    const folded = useMemo(() => (fold ? foldDuplicates(sized, lookalikes.hashes) : sized), [sized, fold, lookalikes.hashes]);
+    const foldedAway = sized.length - folded.length;
+    const filtered = useMemo(() => sortImages(filterImages(folded, filters), sortBy), [folded, filters, sortBy]);
     const groups = useMemo(() => (groupBy === 'none' ? [] : groupImages(filtered, groupBy)), [filtered, groupBy]);
     const shown = useMemo(() => {
         if (groupBy === 'none' || activeGroup === null) return filtered;
@@ -139,7 +147,8 @@ export default function ImageDownloaderPage({ onBack }: { onBack: () => void }) 
     const statusText = scanning === 'quick' ? t('reading')
         : scanning === 'deep' ? t('scanning', { progress })
             : liveWatching ? t('liveWatching')
-                : t('imagesCount', { filtered: filtered.length, total: images.length });
+                : lookalikes.progress ? t('comparing', { done: lookalikes.progress.done, total: lookalikes.progress.total })
+                    : t('imagesCount', { filtered: filtered.length, total: images.length }) + (foldedAway > 0 ? ` · ${t('duplicatesFolded', { count: foldedAway })}` : '');
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden', position: 'relative' }}>
@@ -165,6 +174,9 @@ export default function ImageDownloaderPage({ onBack }: { onBack: () => void }) 
                     <Menu anchorEl={menu} open={!!menu} onClose={() => setMenu(null)}>
                         <MenuItem disabled={!filtered.length} onClick={() => { setMenu(null); void copyUrls(filtered); }}><ListItemText>{t('copyAllUrls', { count: filtered.length })}</ListItemText></MenuItem>
                         <MenuItem disabled={!filtered.length} onClick={() => { setMenu(null); void saveToData(filtered); }}><ListItemText>{t('saveAllToData', { count: filtered.length })}</ListItemText></MenuItem>
+                        <MenuItem disabled={!sized.length || !!lookalikes.progress} onClick={() => { setMenu(null); setFold(true); void lookalikes.run(sized); }}>
+                            <ListItemText primary={t('findLookalikes')} secondary={t('findLookalikesHint')} secondaryTypographyProps={{ fontSize: '0.65rem' }} />
+                        </MenuItem>
                         {page.tabId !== null && !new URLSearchParams(window.location.search).get('tabId') && (
                             <MenuItem onClick={() => { setMenu(null); chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=image-downloader&tabId=${page.tabId}`) }); }}>
                                 <ListItemText>{t('openInTab')}</ListItemText>
@@ -174,6 +186,7 @@ export default function ImageDownloaderPage({ onBack }: { onBack: () => void }) 
                 </Box>
 
                 {error && <Typography variant="caption" color="warning.main" sx={{ display: 'block', mb: 1 }}>{error}</Typography>}
+                {lookalikes.progress && <LinearProgress variant="determinate" value={lookalikes.progress.done / lookalikes.progress.total * 100} sx={{ height: 3, borderRadius: 2, mb: 1.5 }} />}
                 {scanning && <LinearProgress variant={scanning === 'quick' ? 'indeterminate' : 'determinate'} value={progress} sx={{ height: 3, borderRadius: 2, mb: 1.5 }} />}
 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -213,7 +226,10 @@ export default function ImageDownloaderPage({ onBack }: { onBack: () => void }) 
                                 {fullSize.pending > 0 ? t('fullSizeSearching', { found: fullSize.found, pending: fullSize.pending }) : t('fullSizeFound', { count: fullSize.found })}
                             </Typography>
                         </Box>
-                        <SaveOptions mode={saver.mode} onMode={saver.setMode} template={saver.template} onTemplate={saver.setTemplate} manifest={saver.manifest} onManifest={saver.setManifest} />
+                        <FormControlLabel sx={{ ml: 0 }} control={<Switch size="small" checked={fold} onChange={e => setFold(e.target.checked)} />}
+                            label={<Typography variant="caption" fontWeight={600}>{t('foldDuplicates')}</Typography>} />
+                        <SaveOptions mode={saver.mode} onMode={saver.setMode} template={saver.template} onTemplate={saver.setTemplate} manifest={saver.manifest} onManifest={saver.setManifest}
+                            processing={saver.processing} onProcessing={saver.setProcessing} />
                     </FiltersPanel>
                     </Box>
                 </Collapse>

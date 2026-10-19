@@ -144,5 +144,21 @@
     "noscript": "A no-script fallback",
     "meta": "Page metadata (og:image, JSON-LD)",
     "icon": "A site icon"
-  }
+  },
+  "convertedCount": "{{count}} converted or resized",
+  "keptAnimated": "{{count}} animated images kept as they are (converting would keep one frame)",
+  "convert": "Convert",
+  "formatOriginal": "Keep format",
+  "maxSide": "Largest side",
+  "maxSideN": "Max {{n}} px",
+  "fullResolution": "Full resolution",
+  "quality": "Quality {{n}}%",
+  "convertNone": "Files are saved exactly as served, metadata included",
+  "convertHint": "Converted on this device; re-encoding removes photo metadata (camera, location)",
+  "foldDuplicates": "Fold duplicates (the same picture at other sizes)",
+  "duplicatesFolded": "{{count}} duplicates folded",
+  "duplicatesTip": "{{count}} more copies of this picture (other sizes or URLs), folded in",
+  "findLookalikes": "Find look-alikes",
+  "findLookalikesHint": "Compares the pictures themselves, across URLs",
+  "comparing": "Comparing pictures… {{done}} of {{total}}"
 }

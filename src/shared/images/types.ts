@@ -34,6 +34,8 @@ export interface FoundImage {
     pageUrl: string;
     /** A larger original found for it (side panel only: set by the full-size search, checked by a probe). */
     full?: FullSize;
+    /** Other images folded into this one (side panel only): the same picture at other sizes or URLs. */
+    duplicates?: string[];
 }
 
 export interface FullSize {
