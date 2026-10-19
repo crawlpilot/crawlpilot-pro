@@ -1,8 +1,7 @@
 @import 'ag-grid-community/styles/ag-grid.css';
 @import 'ag-grid-community/styles/ag-theme-alpine.css';
 
-/* Bricolage Grotesque for titles and numbers, Geist for text, Geist Mono for selectors and code. */
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap');
+/* Fonts (Bricolage Grotesque, Geist, Geist Mono) are bundled and imported in index.tsx. */
 
 @import "tailwindcss";
 
@@ -150,9 +149,9 @@
     --color-ring-focus: var(--cp-ring);
 
     /* Type: font-display for titles and numbers; text-caption … text-display for sizes. */
-    --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    --font-display: 'Bricolage Grotesque', 'Geist', system-ui, sans-serif;
-    --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+    --font-sans: 'Geist Variable', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-display: 'Bricolage Grotesque Variable', 'Geist Variable', system-ui, sans-serif;
+    --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', monospace;
     --text-caption: 11.5px;
     --text-caption--line-height: 1.4;
     --text-small: 12.5px;

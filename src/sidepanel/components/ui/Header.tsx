@@ -1,6 +1,6 @@
-import { Box, Button, IconButton, Tooltip, Typography } from '@mui/material';
 import { Database, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Button, IconButton, Tooltip, cx } from '../../ui';
 
 interface HeaderProps {
     onNavigate: (view: string) => void;
@@ -17,27 +17,18 @@ export default function Header({ onNavigate, activeView, disabled }: HeaderProps
     const go = (view: string) => { if (!disabled) onNavigate(view); };
 
     return (
-        <Box component="header" sx={{
-            display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.1, flexShrink: 0,
-            borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper',
-            opacity: disabled ? 0.5 : 1, pointerEvents: disabled ? 'none' : 'auto', transition: 'opacity 0.3s',
-        }}>
-            <Box onClick={() => go('home')} role="link" aria-label={t('nav.home')}
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', flex: 1, minWidth: 0 }}>
-                <Box component="img" src={chrome.runtime.getURL('icons/icon32.png')} alt="" sx={{ width: 22, height: 22 }} />
-                <Typography sx={{ fontWeight: 700, fontSize: '0.92rem', letterSpacing: '-0.02em', color: 'text.primary' }}>CrawlPilot</Typography>
-            </Box>
+        <header className={cx('flex shrink-0 items-center gap-1 border-b border-line bg-bg px-4 py-2.5 transition-opacity duration-300', disabled && 'pointer-events-none opacity-50')}>
+            <button type="button" onClick={() => go('home')} aria-label={t('nav.home')}
+                className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
+                <img src={chrome.runtime.getURL('icons/icon32.png')} alt="" className="size-6" />
+                <span className="font-display text-lead font-extrabold tracking-[-0.03em] text-ink">CrawlPilot</span>
+            </button>
             <Tooltip title={t('nav.myDataTooltip')}>
-                <Button size="small" onClick={() => go('history')} startIcon={<Database size={15} />}
-                    sx={{ color: activeView === 'history' ? 'primary.main' : 'text.secondary', fontWeight: 600, px: 1.25, '&:hover': { color: 'text.primary' } }}>
+                <Button size="sm" variant="ghost" icon={<Database />} onClick={() => go('history')} className={cx(activeView === 'history' && 'text-ink')}>
                     {t('nav.myData')}
                 </Button>
             </Tooltip>
-            <Tooltip title={t('nav.settings')}>
-                <IconButton size="small" onClick={() => go('settings')} aria-label={t('nav.settings')} sx={{ color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
-                    <Settings size={17} />
-                </IconButton>
-            </Tooltip>
-        </Box>
+            <IconButton label={t('nav.settings')} onClick={() => go('settings')}><Settings /></IconButton>
+        </header>
     );
 }

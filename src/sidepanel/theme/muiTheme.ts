@@ -34,14 +34,14 @@ const PALETTES = {
 /** Faint overlay of the text colour: hovers, wells, outlines. */
 const ink = (mode: ColorMode, a: number) => (mode === 'light' ? `rgba(22, 19, 15, ${a})` : `rgba(246, 242, 234, ${a})`);
 
-const DISPLAY = "'Bricolage Grotesque', 'Geist', system-ui, sans-serif";
+const DISPLAY = "'Bricolage Grotesque Variable', 'Geist Variable', system-ui, sans-serif";
 
 export function createAppTheme(mode: ColorMode): Theme {
     const p = PALETTES[mode];
     return createTheme({
         palette: { mode, ...p },
         typography: {
-            fontFamily: "'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            fontFamily: "'Geist Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             h1: { fontFamily: DISPLAY, fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.2 },
             h2: { fontFamily: DISPLAY, fontSize: '1.15rem', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.3 },
             h3: { fontFamily: DISPLAY, fontSize: '1rem', fontWeight: 700, letterSpacing: '-0.01em' },

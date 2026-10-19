@@ -4,9 +4,8 @@
  * recent tables, and the rest of the tools one tap further.
  */
 import { ReactNode, useEffect, useState } from 'react';
-import { Box, Button, ButtonBase, Collapse, Skeleton, Stack, Typography } from '@mui/material';
 import {
-    ChevronDown, ChevronRight, FileText, Image as ImageIcon, Layers, List, MessageSquareText, MousePointerClick,
+    ArrowRight, ChevronRight, FileText, Image as ImageIcon, Layers, List, MessageSquareText, MousePointerClick,
     Radar, ShoppingBag, Sparkles, Table2, Unlock,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +16,7 @@ import { sendToPage } from '../../shared/messages';
 import type { PageSummary } from '../../shared/types/pageSummary';
 import type { Table } from '../../shared/types/database';
 import { db } from '../../shared/db';
+import { Button, Card, CardButton, Disclosure, Heading, Row, Skeleton, Stack, Text, type Tone } from '../ui';
 
 interface HomePageProps {
     onNavigate: (view: string) => void;
@@ -63,64 +63,62 @@ function Suggestion({ summary, web, onNavigate }: { summary: PageSummary | null;
     const { t } = useTranslation('home');
     if (!summary) {
         return (
-            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: '14px', p: 2 }}>
-                <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>{t('page.checking')}</Typography>
-                <Skeleton variant="text" width="70%" height={26} />
-                <Skeleton variant="rounded" width={170} height={34} sx={{ mt: 1.25, borderRadius: '8px' }} />
-            </Box>
+            <Card>
+                <Text size="caption" tone="faint">{t('page.checking')}</Text>
+                <Skeleton className="mt-2 h-6 w-3/4" />
+                <Skeleton className="mt-3 h-9 w-44 rounded-control" />
+            </Card>
         );
     }
     const s: { icon: ReactNode; title: string; hint?: string; action: string; view: string; secondary?: { label: string; view: string } } =
-        summary.kind === 'list' ? { icon: <List size={18} />, title: t('page.list', { count: summary.items, noun: summary.noun }), hint: t('page.listHint'), action: t('page.listAction'), view: 'list-extractor' }
-            : summary.kind === 'product' ? { icon: <ShoppingBag size={18} />, title: t('page.product'), hint: summary.name, action: t('page.productAction'), view: 'ai-extract' }
-                : summary.kind === 'article' ? { icon: <FileText size={18} />, title: t('page.article'), hint: summary.name, action: t('page.articleAction'), view: 'text-summarizer', secondary: { label: t('page.articleSecondary'), view: 'metadata-extractor' } }
-                    : { icon: <MousePointerClick size={18} />, title: web ? t('page.none') : t('page.notWeb'), hint: web ? t('page.noneHint') : undefined, action: t('page.noneAction'), view: 'list-extractor' };
+        summary.kind === 'list' ? { icon: <List />, title: t('page.list', { count: summary.items, noun: summary.noun }), hint: t('page.listHint'), action: t('page.listAction'), view: 'list-extractor' }
+            : summary.kind === 'product' ? { icon: <ShoppingBag />, title: t('page.product'), hint: summary.name, action: t('page.productAction'), view: 'ai-extract' }
+                : summary.kind === 'article' ? { icon: <FileText />, title: t('page.article'), hint: summary.name, action: t('page.articleAction'), view: 'text-summarizer', secondary: { label: t('page.articleSecondary'), view: 'metadata-extractor' } }
+                    : { icon: <MousePointerClick />, title: web ? t('page.none') : t('page.notWeb'), hint: web ? t('page.noneHint') : undefined, action: t('page.noneAction'), view: 'list-extractor' };
+    const found = summary.kind !== 'none';
     return (
-        <Box sx={{
-            borderRadius: '14px', p: 2, border: 1, borderColor: 'rgb(var(--cp-accent-rgb) / 0.35)',
-            background: 'linear-gradient(180deg, rgb(var(--cp-accent-rgb) / 0.08) 0%, rgb(var(--cp-accent-rgb) / 0.02) 100%)',
-        }}>
-            <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
-                <Box sx={{ color: 'primary.light', display: 'flex', mt: 0.25 }}>{s.icon}</Box>
-                <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3, color: 'text.primary' }}>{s.title}</Typography>
-                    {s.hint && <Typography variant="body2" sx={{ mt: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{s.hint}</Typography>}
-                </Box>
-            </Box>
+        <Card raised={found} className="animate-slide-up">
+            <Row align="start" gap={3}>
+                <div className={found
+                    ? 'flex size-10 shrink-0 -rotate-6 items-center justify-center rounded-xl border-[1.5px] border-line-strong bg-brand text-on-brand [&_svg]:size-5'
+                    : 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-ink/7 text-ink-2 [&_svg]:size-5'}>
+                    {s.icon}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <Heading size="heading">{s.title}</Heading>
+                    {s.hint && <Text size="small" tone="muted" lines={2} className="mt-0.5">{s.hint}</Text>}
+                </div>
+            </Row>
             {web && (
-                <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-                    <Button variant="contained" onClick={() => onNavigate(s.view)} endIcon={<ChevronRight size={16} />} sx={{ fontWeight: 700, px: 2 }}>{s.action}</Button>
-                    {s.secondary && <Button variant="text" color="inherit" onClick={() => onNavigate(s.secondary!.view)} sx={{ color: 'text.secondary' }}>{s.secondary.label}</Button>}
-                </Stack>
+                <Row gap={1} wrap className="mt-4">
+                    <Button variant="primary" onClick={() => onNavigate(s.view)} iconEnd={<ArrowRight />}>{s.action}</Button>
+                    {s.secondary && <Button variant="ghost" onClick={() => onNavigate(s.secondary!.view)}>{s.secondary.label}</Button>}
+                </Row>
             )}
-        </Box>
+        </Card>
     );
 }
 
-function IntentTile({ icon, title, hint, onClick }: { icon: ReactNode; title: string; hint: string; onClick: () => void }) {
+function IntentTile({ icon, title, hint, tone, onClick }: { icon: ReactNode; title: string; hint: string; tone: Tone; onClick: () => void }) {
     return (
-        <ButtonBase onClick={onClick} sx={{
-            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5, p: 1.5, borderRadius: '12px', textAlign: 'left',
-            border: 1, borderColor: 'divider', bgcolor: 'background.paper', transition: 'border-color .15s, background-color .15s',
-            '&:hover': { borderColor: 'rgb(var(--cp-ink-rgb) / 0.18)', bgcolor: 'rgb(var(--cp-ink-rgb) / 0.03)' },
-        }}>
-            <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>
-            <Typography sx={{ fontWeight: 600, fontSize: '0.8rem', color: 'text.primary', lineHeight: 1.25 }}>{title}</Typography>
-            <Typography variant="caption" sx={{ fontSize: '0.7rem', lineHeight: 1.3 }}>{hint}</Typography>
-        </ButtonBase>
+        <CardButton tone={tone} pad="sm" onClick={onClick} className="flex flex-col items-start gap-0.5">
+            <span className="mb-2 flex size-8 items-center justify-center rounded-lg bg-surface/80 text-ink [&_svg]:size-[17px]">{icon}</span>
+            <Text weight="semibold" className="leading-tight">{title}</Text>
+            <Text size="caption" tone="muted">{hint}</Text>
+        </CardButton>
     );
 }
 
 function ToolRow({ icon, title, hint, onClick }: { icon: ReactNode; title: string; hint: string; onClick: () => void }) {
     return (
-        <ButtonBase onClick={onClick} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%', px: 1.25, py: 1, borderRadius: '10px', textAlign: 'left', '&:hover': { bgcolor: 'rgb(var(--cp-ink-rgb) / 0.04)' } }}>
-            <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 600, fontSize: '0.78rem', color: 'text.primary' }}>{title}</Typography>
-                <Typography variant="caption" noWrap sx={{ display: 'block', fontSize: '0.68rem' }}>{hint}</Typography>
-            </Box>
-            <ChevronRight size={15} color="var(--cp-text-3)" />
-        </ButtonBase>
+        <button type="button" onClick={onClick} className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 text-left hover:bg-ink/5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-ink-2 [&_svg]:size-4">{icon}</span>
+            <span className="min-w-0 flex-1">
+                <Text size="small" weight="semibold">{title}</Text>
+                <Text size="caption" tone="faint" truncate>{hint}</Text>
+            </span>
+            <ChevronRight size={15} className="shrink-0 text-ink-3" />
+        </button>
     );
 }
 
@@ -142,60 +140,51 @@ export default function HomePage({ onNavigate, isTabConnected = true }: HomePage
     const [more, setMore] = useState(false);
 
     return (
-        <Box sx={{ height: '100%', overflowY: 'auto', bgcolor: 'background.default' }}>
-            <Stack spacing={2} sx={{ p: 2, pb: 3 }}>
+        <div className="h-full overflow-y-auto bg-bg">
+            <Stack gap={5} className="p-4 pb-6">
                 <PageStrip page={page} />
                 <Suggestion summary={summary} web={page.web} onNavigate={onNavigate} />
 
-                <Box>
-                    <Typography variant="caption" sx={{ display: 'block', mb: 0.75, fontWeight: 600, fontSize: '0.72rem' }}>{t('intents.title')}</Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-                        <IntentTile icon={<List size={18} />} title={t('intents.list.title')} hint={t('intents.list.hint')} onClick={() => onNavigate('list-extractor')} />
-                        <IntentTile icon={<Sparkles size={18} />} title={t('intents.details.title')} hint={t('intents.details.hint')} onClick={() => onNavigate('ai-extract')} />
-                        <IntentTile icon={<ImageIcon size={18} />} title={t('intents.images.title')} hint={t('intents.images.hint')} onClick={() => onNavigate('image-downloader')} />
-                        <IntentTile icon={<MessageSquareText size={18} />} title={t('intents.summary.title')} hint={t('intents.summary.hint')} onClick={() => onNavigate('text-summarizer')} />
-                    </Box>
-                </Box>
+                <Stack gap={2}>
+                    <Heading size="label">{t('intents.title')}</Heading>
+                    <div className="grid grid-cols-2 gap-2">
+                        <IntentTile tone="lilac" icon={<List />} title={t('intents.list.title')} hint={t('intents.list.hint')} onClick={() => onNavigate('list-extractor')} />
+                        <IntentTile tone="mint" icon={<Sparkles />} title={t('intents.details.title')} hint={t('intents.details.hint')} onClick={() => onNavigate('ai-extract')} />
+                        <IntentTile tone="peach" icon={<ImageIcon />} title={t('intents.images.title')} hint={t('intents.images.hint')} onClick={() => onNavigate('image-downloader')} />
+                        <IntentTile tone="sky" icon={<MessageSquareText />} title={t('intents.summary.title')} hint={t('intents.summary.hint')} onClick={() => onNavigate('text-summarizer')} />
+                    </div>
+                </Stack>
 
                 {recent.length > 0 && (
-                    <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                            <Typography variant="caption" sx={{ flex: 1, fontWeight: 600, fontSize: '0.72rem' }}>{t('recent.title')}</Typography>
-                            <Button size="small" onClick={() => onNavigate('history')} sx={{ fontSize: '0.7rem', minWidth: 0 }}>{t('recent.all')}</Button>
-                        </Box>
-                        <Box sx={{ border: 1, borderColor: 'divider', borderRadius: '12px', overflow: 'hidden' }}>
+                    <Stack gap={1.5}>
+                        <Row justify="between">
+                            <Heading size="label">{t('recent.title')}</Heading>
+                            <Button size="sm" variant="ghost" iconEnd={<ChevronRight />} className="-mr-2" onClick={() => onNavigate('history')}>{t('recent.all')}</Button>
+                        </Row>
+                        <Card pad="none" className="overflow-hidden">
                             {recent.map((table, i) => (
-                                <ButtonBase key={table.id} onClick={() => openTable(table.id)} sx={{
-                                    display: 'flex', alignItems: 'center', gap: 1.25, width: '100%', px: 1.5, py: 1, textAlign: 'left',
-                                    borderTop: i ? 1 : 0, borderColor: 'divider', '&:hover': { bgcolor: 'rgb(var(--cp-ink-rgb) / 0.03)' },
-                                }}>
-                                    <Table2 size={15} color="var(--cp-text-2)" />
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography noWrap sx={{ fontSize: '0.76rem', fontWeight: 600, color: 'text.primary' }}>{table.name}</Typography>
-                                        <Typography variant="caption" sx={{ fontSize: '0.66rem' }}>{t('recent.rows', { count: table.rowCount })} · {ago(table.updatedAt || table.createdAt, tc)}</Typography>
-                                    </Box>
-                                    <ChevronRight size={15} color="var(--cp-text-3)" />
-                                </ButtonBase>
+                                <button key={table.id} type="button" onClick={() => openTable(table.id)}
+                                    className={`flex w-full cursor-pointer items-center gap-3 px-3.5 py-2.5 text-left hover:bg-ink/4 ${i ? 'border-t border-line' : ''}`}>
+                                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-tile-butter text-ink [&_svg]:size-4"><Table2 /></span>
+                                    <span className="min-w-0 flex-1">
+                                        <Text size="small" weight="semibold" truncate>{table.name}</Text>
+                                        <Text size="caption" tone="faint">{t('recent.rows', { count: table.rowCount })} · {ago(table.updatedAt || table.createdAt, tc)}</Text>
+                                    </span>
+                                    <ChevronRight size={15} className="shrink-0 text-ink-3" />
+                                </button>
                             ))}
-                        </Box>
-                    </Box>
+                        </Card>
+                    </Stack>
                 )}
 
-                <Box>
-                    <ButtonBase onClick={() => setMore(m => !m)} aria-expanded={more} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.5, borderRadius: '6px', color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
-                        <Layers size={14} />
-                        <Typography sx={{ fontSize: '0.74rem', fontWeight: 600, color: 'inherit' }}>{t('moreTools')}</Typography>
-                        <ChevronDown size={14} style={{ transform: more ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} />
-                    </ButtonBase>
-                    <Collapse in={more}>
-                        <Stack spacing={0.25} sx={{ mt: 0.75 }}>
-                            <ToolRow icon={<FileText size={17} />} title={t('pageExtractor.title')} hint={t('pageExtractor.description')} onClick={() => onNavigate('page-extractor')} />
-                            <ToolRow icon={<Radar size={17} />} title={t('scraperToolkit.title')} hint={t('scraperToolkit.description')} onClick={() => onNavigate('toolkit')} />
-                            <ToolRow icon={<Unlock size={17} />} title={t('browserUtilities.title')} hint={t('browserUtilities.description')} onClick={() => onNavigate('utilities')} />
-                        </Stack>
-                    </Collapse>
-                </Box>
+                <Disclosure variant="plain" icon={<Layers />} summary={t('moreTools')} open={more} onToggle={setMore}>
+                    <Stack gap={0.5}>
+                        <ToolRow icon={<FileText />} title={t('pageExtractor.title')} hint={t('pageExtractor.description')} onClick={() => onNavigate('page-extractor')} />
+                        <ToolRow icon={<Radar />} title={t('scraperToolkit.title')} hint={t('scraperToolkit.description')} onClick={() => onNavigate('toolkit')} />
+                        <ToolRow icon={<Unlock />} title={t('browserUtilities.title')} hint={t('browserUtilities.description')} onClick={() => onNavigate('utilities')} />
+                    </Stack>
+                </Disclosure>
             </Stack>
-        </Box>
+        </div>
     );
 }

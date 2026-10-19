@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { initI18n } from '../i18n';
+// Bundled fonts: titles and numbers, text, selectors and code. No font requests, works offline.
+import '@fontsource-variable/bricolage-grotesque/opsz.css';
+import '@fontsource-variable/geist';
+import '@fontsource-variable/geist-mono';
 import './index.css';
 import { applyMode, cachedAppearance, resolveMode } from './theme/colorMode';
 
