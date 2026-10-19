@@ -74,10 +74,10 @@ export function fieldFill(data: FieldData, id: string): number {
 }
 
 const SHAPE_LABELS: Record<Shape, string> = {
-    text: 'text', price: 'price', rating: 'rating', count: 'count', number: 'number', date: 'date', url: 'link', image: 'image',
+    text: 'text', price: 'price', rating: 'rating', count: 'count', number: 'number', phone: 'phone', date: 'date', url: 'link', image: 'image',
 };
 const SHAPE_TYPES: Record<Shape, string> = {
-    text: 'text', price: 'price', rating: 'number', count: 'number', number: 'number', date: 'date', url: 'url', image: 'image',
+    text: 'text', price: 'price', rating: 'number', count: 'number', number: 'number', phone: 'text', date: 'date', url: 'url', image: 'image',
 };
 
 /** The kinds of value a field's preview rows hold, most common first. */

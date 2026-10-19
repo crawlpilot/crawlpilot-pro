@@ -442,6 +442,80 @@ describe('a column reads one element per card', () => {
     }, 30_000);
 });
 
+describe('BestBuy price blocks (bestbuy.com TV search, prices loaded)', () => {
+    const sr = (t: string) => `<span class="sr-only">${t}</span>`;
+    const price = (p: string) => { const [w, c] = p.split('.'); return `<div data-testid="price-block-customer-price">${sr('$' + p)}<span aria-hidden="true">$</span><span aria-hidden="true">${w}</span><span aria-hidden="true">${c}</span></div>`; };
+    const bbCard = (o: { brand: string; rest: string; price: string; save?: string; was?: string; deal?: boolean; sku: string }) => `
+    <li class="product-list-item grid-view"><div class="sku-block">
+     <div class="product-image"><a href="/product/${o.sku}"><img data-testid="product-image" src="/i/${o.sku}.jpg"></a></div>
+     <div class="sku-block-content-title"><a class="product-list-item-link" href="/product/${o.sku}"><h3 class="product-title"><span class="first-title">${o.brand}</span><span> - ${o.rest}</span></h3></a></div>
+     <div class="ratings"><a data-testid="rnr-stats-link" href="/product/${o.sku}#r"><div class="c-ratings-reviews"><p class="visually-hidden">Rating 4.6 out of 5 stars with 22 reviews</p><span aria-hidden="true" class="font-weight-bold">4.6</span><span aria-hidden="true" class="c-reviews">(22 reviews)</span></div></a></div>
+     <div class="pricing"><div data-testid="bestbuy-price-ui-price-experience"><div data-testid="MEDIUM_profile">
+      <div data-testid="price-block"><div data-testid="MEDIUM_profile"><div data-testid="price-block-content"><div data-testid="price-block-column">
+       ${o.deal ? `<div data-testid="price-block-badging"><span class="sr-only">Top Deal</span><span aria-hidden="true">Top Deal</span></div>` : ''}
+       ${price(o.price)}
+       <div data-testid="price-block-savings">${o.save ? `<div data-testid="price-block-total-savings"><span>Save $${o.save}</span></div>` : ''}${o.was ? `<div data-testid="price-block-regular-price"><div role="text">${sr('The comparable value is ')}<span style="text-decoration-line: line-through"><span style="text-decoration-line: line-through">$${o.was}</span></span></div></div>` : ''}</div>
+      </div></div><div data-testid="price-block-footer"></div></div></div>
+      <div data-testid="plus-x-offers"><button aria-label="Plus 3 offers for you"><span>+ 3 offers for you</span></button></div>
+     </div></div></div>
+     <div class="fulfillment"><p><span>Pick up today</span></p><p><span>Shipping unavailable</span></p></div>
+    </div></li>`;
+
+
+    it('reads the price, savings and comparable value, not the price block whole; the title whole', () => {
+        document.body.innerHTML = '<ul>' + [
+        bbCard({ brand: 'LG', rest: '50” Class NU700B Series TV', price: '249.99', save: '80', was: '329.99', sku: '6675545' }),
+        bbCard({ brand: 'Insignia™', rest: '50" Class F50 Series Fire TV', price: '179.99', save: '120', was: '299.99', deal: true, sku: '6607830' }),
+        bbCard({ brand: 'Insignia™', rest: '55" Class QF Series Fire TV', price: '229.99', save: '170', was: '399.99', sku: '6616640' }),
+        bbCard({ brand: 'LG', rest: '43” Class NU700B Series TV', price: '199.99', save: '50', was: '249.99', sku: '6675538' }),
+        bbCard({ brand: 'LG', rest: '75" Class 7S Series QNED TV', price: '499.99', save: '180', was: '679.99', sku: '6675543' }),
+        bbCard({ brand: 'Samsung', rest: '65" Class DU7200 TV', price: '399.99', sku: '6576415' }),
+        bbCard({ brand: 'TCL', rest: '55" Class S5 Series TV', price: '299.99', save: '30', was: '329.99', sku: '6576416' }),
+        bbCard({ brand: 'Sony', rest: '65" Class BRAVIA 3 TV', price: '599.99', sku: '6576417' }),
+        bbCard({ brand: 'Hisense', rest: '58" Class A6 Series TV', price: '279.99', save: '20', was: '299.99', sku: '6576418' }),
+        ].join('') + '</ul>';
+        const rows = Array.from(document.querySelectorAll('li'));
+        const { columns } = inferFields(rows);
+        const byName = (n: string) => columns.find(c => c.name === n)?.id;
+        expect(columns.map(c => c.name)).toEqual(expect.arrayContaining(['Title', 'Price', 'Savings', 'Was Price']));
+        expect(columns.map(c => c.name)).not.toContain('Offers');
+        const lg = readRow(rows[0], columns);
+        expect(lg[byName('Title')!]).toBe('LG - 50” Class NU700B Series TV');
+        expect(lg[byName('Price')!]).toBe('$249.99');
+        expect(lg[byName('Was Price')!]).toBe('$329.99');
+        expect(readRow(rows[1], columns)[byName('Price')!]).toBe('$179.99');
+    });
+});
+
+describe('Google Maps results (google.com/maps/search/cars, Bangalore)', () => {
+    const dot = '<span aria-hidden="true">·</span>';
+    const row = (o: { name: string; rating?: string; reviews?: string; kind: string; addr?: string; open?: string; phone?: string }) => `
+    <div role="article" class="Nv2PK" aria-label="${o.name}"><a class="hfpxzc" href="/maps/place/${encodeURIComponent(o.name)}" aria-label="${o.name}"></a>
+     <div class="bfdHYd"><div class="lI9IFe"><div class="y7PRA"><div><div class="Lui3Od"><div class="NrDZNb"><div class="qBF1Pd fontHeadlineSmall">${o.name}</div></div>
+      <div class="W4Efsd">${o.rating ? `<span class="e4rVHe fontBodyMedium"><span role="img" class="ZkP5Je" aria-label="${o.rating} stars ${o.reviews} Reviews"><span class="MW4etd" aria-hidden="true">${o.rating}</span><span class="UY7F9" aria-hidden="true">(${o.reviews})</span></span></span>` : '<span class="e4rVHe fontBodyMedium">No reviews</span>'}</div>
+      <div class="W4Efsd"><div class="W4Efsd"><span><span>${o.kind}</span></span><span>${dot}<span></span></span>${o.addr ? `<span>${dot}<span>${o.addr}</span></span>` : ''}</div>
+       <div class="W4Efsd">${o.open ? `<span><span><span style="color:green">${o.open.split(' ⋅ ')[0]}</span>${o.open.includes(' ⋅ ') ? `<span style="font-weight:400"> ⋅ ${o.open.split(' ⋅ ')[1]}</span>` : ''}</span></span>` : ''}${o.phone ? `<span>${o.open ? dot : ''}<span class="UsdlK">${o.phone}</span></span>` : ''}</div></div>
+     </div></div></div></div></div></div>`;
+
+    it('reads the phone number whole into one Phone column, whatever its format and its place in the line', () => {
+        document.body.innerHTML = '<div role="feed">' + [
+                row({ name: 'Mahindra First Choice', rating: '4.5', reviews: '1,234', kind: 'Used car dealer', addr: 'Hennur Main Rd', open: 'Open 24 hours', phone: '080 4370 1234' }),
+                row({ name: 'Spinny Car Hub', rating: '4.7', reviews: '5,012', kind: 'Used car dealer', addr: 'Outer Ring Rd', open: 'Open ⋅ Closes 8 pm', phone: '098455 12345' }),
+                row({ name: 'Cars24', rating: '4.1', reviews: '320', kind: 'Car dealer', open: 'Closed ⋅ Opens 10 am', phone: '1800-258-5656' }),
+                row({ name: 'Toyota Showroom', rating: '4.3', reviews: '890', kind: 'Toyota dealer', addr: 'Old Madras Rd', phone: '080 6767 6767' }),
+                row({ name: 'Hyundai Motors', kind: 'Car dealer', addr: 'Banaswadi', open: 'Open ⋅ Closes 9 pm' }),
+                row({ name: 'Maruti Arena', rating: '4.0', reviews: '2,101', kind: 'Car dealer', addr: 'HRBR Layout', open: 'Open ⋅ Closes 8 pm', phone: '+91 99019 14211' }),
+                row({ name: 'Kia Motors', rating: '4.6', reviews: '77', kind: 'Kia dealer', open: 'Open 24 hours', phone: '06362570000' }),
+            ].join('') + '</div>';
+        const rows = Array.from(document.querySelectorAll('[role="article"]'));
+        const { columns } = inferFields(rows);
+        const phones = columns.filter(c => c.name === 'Phone');
+        expect(phones).toHaveLength(1);
+        expect(phones[0].type).toBe('text');
+        expect(rows.map(r => readRow(r, columns)[phones[0].id])).toEqual(['080 4370 1234', '098455 12345', '1800-258-5656', '080 6767 6767', undefined, '+91 99019 14211', '06362570000']);
+    });
+});
+
 describe('table columns', () => {
     const table = (headers: string[], rows: string[][]) =>
         `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;

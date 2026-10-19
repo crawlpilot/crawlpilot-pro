@@ -10,6 +10,7 @@ import { shapeOf, Shape } from '../../../shared/extraction/shape';
 export { shapeOf };
 export type { Shape };
 import { nodeStep, NodeStep, setStepCache } from './nodeName';
+import { AUTHOR_ATTRIBUTES } from '../../../shared/selectors/stability';
 
 /** Where a value is read from: text, a link or image URL, a label, or a value-holding `data-*` attribute (`data-product-id`). */
 export type AtomAttr = 'text' | 'own' | 'cell' | 'href' | 'src' | 'aria-label' | 'title' | 'datetime' | `data-${string}`;
@@ -52,7 +53,8 @@ export function isHidden(el: Element): boolean {
     return false;
 }
 
-function meaningful(text: string): boolean {
+/** Text that can be a value: more than one character, or a letter or digit (not a lone "·" separator). */
+export function meaningful(text: string): boolean {
     return text.length > 1 || /[\p{L}\d]/u.test(text);
 }
 
@@ -227,9 +229,14 @@ function inlineOnly(el: Element): boolean {
     return true;
 }
 
+const HOOKED = AUTHOR_ATTRIBUTES.map(a => `[${a}]`).join(', ');
+
 function computeTextAtom(el: Element): boolean {
     if (el.children.length === 0) return true;
     if (!inlineOnly(el)) return false;
+    // A heading is one value (BestBuy's `<h3><span class="first-title">LG</span><span> - 50" Class…</span></h3>`),
+    // unless the page names its parts (Home Depot's `attribute-brandname-inline` and `attribute-product-label`).
+    if (/^H[1-6]$/.test(el.tagName) && !el.querySelector(HOOKED)) return true;
     if (meaningful(ownText(el))) return true;
     const children = Array.from(el.children);
     const plain = (c: Element) => FORMATTING.has(c.tagName) || c.getAttribute('aria-hidden') === 'true' || SKIP.has(c.tagName);

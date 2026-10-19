@@ -70,7 +70,7 @@
           "Image ← img",
           "ASIN ← :scope",
           "URL ← [data-cy=\"title-recipe\"] > a",
-          "Title ← h2 > span",
+          "Title ← h2",
           "Rating ← [data-cy=\"reviews-block\"] > .a-row > span > a",
           "Differentiators ← .title-differentiators",
           "Review Count ← .s-csa-instrumentation-wrapper > a",
@@ -85,7 +85,7 @@
           {
             "field": "title",
             "rowsWithValue": 16,
-            "readBy": "Title ← h2 > span (16/16)"
+            "readBy": "Title ← h2 (16/16)"
           },
           {
             "field": "url",
@@ -202,7 +202,7 @@
           "URL ← [data-cy=\"title-recipe\"] > a",
           "Links ← div[role=\"listitem\"] > a",
           "Options ← div[role=\"listitem\"] > a",
-          "Title ← h2 > span",
+          "Title ← h2",
           "Rating ← [data-cy=\"reviews-block\"] > .a-row > span > a",
           "Differentiators ← .title-differentiators",
           "Badge ← .a-row > .s-background-color-platinum",
@@ -219,7 +219,7 @@
           {
             "field": "title",
             "rowsWithValue": 24,
-            "readBy": "Title ← h2 > span (24/24)"
+            "readBy": "Title ← h2 (24/24)"
           },
           {
             "field": "url",
@@ -569,7 +569,7 @@
         },
         "columns": [
           "Image ← img",
-          "Title ← a",
+          "Title ← h5",
           "URL ← a",
           "Price ← .price"
         ],
@@ -577,7 +577,7 @@
           {
             "field": "title",
             "rowsWithValue": 4,
-            "readBy": "Title ← a (4/4)"
+            "readBy": "Title ← h5 (4/4)"
           },
           {
             "field": "url",
@@ -723,7 +723,7 @@
           "exact": true
         },
         "columns": [
-          "Title ← a",
+          "Title ← h3",
           "URL ← a",
           "Badge ← span"
         ],
@@ -731,7 +731,7 @@
           {
             "field": "title",
             "rowsWithValue": 4,
-            "readBy": "Title ← a (4/4)"
+            "readBy": "Title ← h3 (4/4)"
           },
           {
             "field": "location",

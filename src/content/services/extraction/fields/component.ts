@@ -46,7 +46,11 @@ export function kindOf(text: string, kinds: string[][]): number {
     return best;
 }
 
-/** Author hooks (`attr="value"`) that occur at least twice in at least two rows. */
+/**
+ * Author hooks (`attr="value"`) that occur at least twice in at least two rows, side by side: a hook
+ * nested in itself (BestBuy's `MEDIUM_profile` around the price block and again inside it) is a
+ * layout wrapper, not a component, so only its outermost occurrence counts.
+ */
 function repeatedHooks(rows: Element[]): string[] {
     const counts = new Map<string, number>();
     for (const row of rows) {
@@ -56,6 +60,7 @@ function repeatedHooks(rows: Element[]): string[] {
                 const value = el.getAttribute(attr)!;
                 if (!isStableAttributeValue(attr, value)) return;
                 const key = cssAttr(attr, value);
+                if (el.parentElement?.closest(key) && row.contains(el.parentElement.closest(key))) return;
                 perRow.set(key, (perRow.get(key) ?? 0) + 1);
             });
         }

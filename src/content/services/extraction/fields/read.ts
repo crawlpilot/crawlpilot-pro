@@ -1,5 +1,5 @@
 /** Reading rows with frozen fields: the same on the preview, every later page and every run. */
-import { alignToTemplate, collectAtoms, isAtomRoot, labelValue, readValue, Shape, shapeOf, withAtomCache } from '../atoms';
+import { alignToTemplate, collectAtoms, isAtomRoot, labelValue, meaningful, readValue, Shape, shapeOf, withAtomCache } from '../atoms';
 import { readJsonField } from '../structuredRows';
 import { kindOf } from './component';
 import { applyDerive } from './split';
@@ -60,7 +60,7 @@ function readOne(row: Element, r: Omit<FieldReader, 'alternates'>, onlyShape?: S
     for (const sel of r.chain) {
         // Labels are read where inference read them (`labelValue`): not the star link's "4.5 out of 5 stars, rating details".
         const read = (el: Element) => (r.attr === 'aria-label' || r.attr === 'title' ? labelValue(el, r.attr) : readValue(el, r.attr));
-        const values = query(base, sel).filter(el => isAtomRoot(el, row, r.attr)).map(read).filter(Boolean);
+        const values = query(base, sel).filter(el => isAtomRoot(el, row, r.attr)).map(read).filter(meaningful);
         if (values.length === 0) continue;
         if (r.many) {
             const uniq = [...new Set(values.filter(ofShape))];

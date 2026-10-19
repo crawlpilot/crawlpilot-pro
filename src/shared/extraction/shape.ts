@@ -4,7 +4,7 @@
  */
 import { detectType } from '../transforms/detect';
 
-export type Shape = 'text' | 'price' | 'rating' | 'count' | 'number' | 'date' | 'url' | 'image';
+export type Shape = 'text' | 'price' | 'rating' | 'count' | 'number' | 'phone' | 'date' | 'url' | 'image';
 
 /** Where a value was read from: images and links have their shape by attribute. */
 type ShapeAttr = string;
@@ -22,7 +22,9 @@ export function shapeOf(value: string, attr: ShapeAttr = 'text'): Shape {
     // "(1.3K)", "(39)": a count in brackets, as shown next to stars.
     const bare = value.trim().replace(/^\((.*)\)$/, '$1');
     let shape: Shape;
-    switch (detectType([bare]).type) {
+    const type = detectType([bare]).type;
+    if (type !== 'date' && isPhone(value.trim())) shape = 'phone';
+    else switch (type) {
         case 'money': shape = mostlyAmount(bare) ? 'price' : 'text'; break;
         case 'rating': shape = 'rating'; break;
         case 'count': shape = 'count'; break;
@@ -36,6 +38,24 @@ export function shapeOf(value: string, attr: ShapeAttr = 'text'): Shape {
     return shape;
 }
 
+/**
+ * A phone number, however it is written: "080 4370 1234", "098455 12345", "1800-258-5656",
+ * "(555) 123-4567", "+44 20 7946 0958": 8 to 15 digits in 2 to 4 groups, or one group with a
+ * country code or a trunk 0. Thousands written with spaces ("10 000 000") and plain IDs ("12574753") are
+ * numbers.
+ */
+const PHONE = /^\+?\(?\d+\)?(?:[\s.-]\(?\d+\)?){0,3}$/;
+function isPhone(value: string): boolean {
+    if (!PHONE.test(value)) return false;
+    const digits = value.replace(/\D/g, '');
+    if (digits.length < 8 || digits.length > 15) return false;
+    const groups = value.replace(/^\+/, '').split(/[\s.\-()]+/).filter(Boolean);
+    // One run of digits: with a country code, or a trunk 0 and 10 digits ("09845512345"); a 12- or 13-digit barcode isn't one.
+    if (groups.length === 1) return value.startsWith('+') || (digits.length === 11 && value.startsWith('0'));
+    // Thousands: "10 000 000", "1.234.567".
+    if (groups.slice(1).every(g => g.length === 3) && groups[0].length <= 3 && !/^[+0(]/.test(value)) return false;
+    return true;
+}
 
 /**
  * A price is a value that is mostly its amount: "$24.99", "List: $325.99", "From £20". Text that

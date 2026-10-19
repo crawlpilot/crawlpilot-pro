@@ -24,8 +24,8 @@ const SALES_WORDS = /\b(bought|sold|purchased|orders?)\b/i;
 const LIMIT_WORDS = /\blimit(ed)?\b.*\bper\b|\bmax(imum)?\b.*\bper\b/i;
 const DELIVERY_WORDS = /\b(deliver(y|ed|s)?|shipping|ships|arrives)\b/i;
 const BRACKET_COUNT = /^\(?[\d.,]+\s*[kKmM]?\+?\)?$/;
-const WAS_LABEL = /^(was|list|list price|reg(ular)?|orig(inal)?|compare at|before|msrp|rrp)\s*(price)?\s*:?$/i;
-const WAS_BEFORE = /(was|list|reg(ular)?|orig(inal)?|compare at|before|msrp|rrp)\s*(price)?\s*:?\s*$/i;
+const WAS_LABEL = /^(was|list|list price|reg(ular)?|orig(inal)?|compare at|before|msrp|rrp|(the )?comparable value( is)?)\s*(price)?\s*:?$/i;
+const WAS_BEFORE = /(was|list|reg(ular)?|orig(inal)?|compare at|before|msrp|rrp|comparable value( is)?)\s*(price)?\s*:?\s*$/i;
 
 export const HTML_TAGS = new Set(['a', 'abbr', 'article', 'aside', 'b', 'button', 'dd', 'div', 'dl', 'dt', 'em', 'figcaption', 'figure', 'footer',
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'i', 'img', 'label', 'li', 'main', 'nav', 'ol', 'p', 'picture', 'section', 'small',
@@ -81,7 +81,7 @@ function isStruck(f: Field): boolean {
     return f.atoms.slice(0, 5).some(a => WAS_LABEL.test((a.el.previousElementSibling?.textContent || '').trim()) || [a.el, ...a.path].some(el =>
         /^(S|DEL|STRIKE)$/.test(el.tagName) || STRIKE_CLASS.test(el.getAttribute('class') || '') ||
         Array.from(el.attributes).some(at => /strike/i.test(at.name) && at.value !== 'false') ||
-        /line-through/.test((el as HTMLElement).style?.textDecoration || '') ||
+        /line-through/.test(`${(el as HTMLElement).style?.textDecoration} ${(el as HTMLElement).style?.textDecorationLine}`) ||
         (el === a.el && /line-through/.test(getComputedStyle(el).textDecorationLine || ''))));
 }
 
@@ -138,6 +138,7 @@ function baseName(f: Field, all: Field[]): string {
             if (sample.some(v => REVIEW_WORDS.test(v)) || sample.every(v => BRACKET_COUNT.test(v.trim()))) return 'Review Count';
             return anchor || className(f) || 'Count';
         case 'date': return 'Date';
+        case 'phone': return 'Phone';
     }
     if (sample.some(v => LIMIT_WORDS.test(v)) && sample.every(v => v.length < 60)) return 'Purchase Limit';
     if (sample.some(v => SALES_WORDS.test(v)) && sample.every(v => v.length < 60)) return 'Sales Volume';
