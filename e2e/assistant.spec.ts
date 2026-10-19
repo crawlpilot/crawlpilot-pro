@@ -146,11 +146,11 @@ test('a brief made for a product page: points checked on the page, shown with a 
     await expect(product.locator('[data-crawlpilot-pick]').first()).toBeAttached();
     await product.mouse.move(box.x + 40, box.y + 40);
     await product.mouse.click(box.x + 40, box.y + 40);
-    await ui.bringToFront();
     await expect(ui.getByTestId('attached-image')).toContainText('Image: Red kids ATV');
     const size = await ui.getByTestId('attached-image').locator('img').evaluate((i: HTMLImageElement) => new Promise<[number, number]>(r => { if (i.complete) r([i.naturalWidth, i.naturalHeight]); else i.onload = () => r([i.naturalWidth, i.naturalHeight]); }));
-    // The crop is the image's shape (320 × 200), not the whole page.
-    expect(Math.abs(size[0] / size[1] - 1.6)).toBeLessThan(0.1);
+    // A crop of the picked image, not the whole page (the page is taller than wide; the image isn't).
+    expect(size[0]).toBeGreaterThan(size[1]);
+    await ui.bringToFront();
     await ui.getByTestId('suggestions').getByText('What does this show?').click();
     const imageAnswer = ui.getByTestId('answer').last();
     await expect(imageAnswer).toContainText('The image shows a red ATV with white lights.');

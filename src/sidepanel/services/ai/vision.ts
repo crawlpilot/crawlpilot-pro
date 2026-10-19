@@ -33,15 +33,21 @@ export async function pickOnPage(tabId: number): Promise<PickedRegion | null> {
 /** The tab's visible page as an image, cropped to `region` when given. */
 export async function capturePage(tabId: number, region?: PickedRegion | null): Promise<PageImage> {
     const tab = await chrome.tabs.get(tabId);
-    await chrome.tabs.update(tabId, { active: true }).catch(() => undefined);
+    if (!tab.active) {
+        // Brought to the front: a moment for it to be drawn, or the capture is of what was there before.
+        await chrome.tabs.update(tabId, { active: true }).catch(() => undefined);
+        await new Promise(r => setTimeout(r, 300));
+    }
     const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
     const shot = await createImageBitmap(await (await fetch(dataUrl)).blob());
-    // Capture pixels per CSS pixel (the screen's density, and any zoom).
-    const scale = region ? shot.width / region.viewportWidth : 1;
-    const sx = region ? Math.round(region.x * scale) : 0;
-    const sy = region ? Math.round(region.y * scale) : 0;
-    const sw = region ? Math.max(1, Math.round(region.width * scale)) : shot.width;
-    const sh = region ? Math.max(1, Math.round(region.height * scale)) : shot.height;
+    // Capture pixels per CSS pixel, across and down (the screen's density and zoom; the two differ
+    // only when the viewport is emulated, as in tests).
+    const kx = region ? shot.width / region.viewportWidth : 1;
+    const ky = region ? shot.height / region.viewportHeight : 1;
+    const sx = region ? Math.round(region.x * kx) : 0;
+    const sy = region ? Math.round(region.y * ky) : 0;
+    const sw = region ? Math.max(1, Math.round(region.width * kx)) : shot.width;
+    const sh = region ? Math.max(1, Math.round(region.height * ky)) : shot.height;
     const fit = Math.min(1, MAX_SIDE / Math.max(sw, sh));
     const canvas = new OffscreenCanvas(Math.max(1, Math.round(sw * fit)), Math.max(1, Math.round(sh * fit)));
     canvas.getContext('2d')!.drawImage(shot, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);

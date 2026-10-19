@@ -45,7 +45,8 @@ export function rangeOf(el: Element, quote: string): Range | null {
 export function showCitation(ref: string, quote?: string): boolean {
     const el = viewBlocks().get(ref);
     if (!el) return false;
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    // Smooth where it can be seen; a hidden tab doesn't animate, and would finish scrolling later.
+    el.scrollIntoView({ block: 'center', behavior: document.visibilityState === 'visible' ? 'smooth' : 'instant' });
     const range = (quote && rangeOf(el, quote)) || (() => { const r = document.createRange(); r.selectNodeContents(el); return r; })();
     const css = (globalThis as any).CSS;
     if (css?.highlights && typeof (globalThis as any).Highlight === 'function') {
@@ -57,12 +58,18 @@ export function showCitation(ref: string, quote?: string): boolean {
         }
         css.highlights.set(HIGHLIGHT, new (globalThis as any).Highlight(range));
     }
-    // A brief outline on the block too, so it is found when the quote is small.
-    const box = el as HTMLElement;
-    const before = box.style.outline;
-    box.style.outline = '2px solid rgba(250, 204, 21, 0.9)';
-    setTimeout(() => { box.style.outline = before; }, 2000);
+    outline(el as HTMLElement);
     return true;
+}
+
+/** The block outlined now: one at a time, its own outline put back after a moment. */
+let outlined: { el: HTMLElement; before: string; timer: ReturnType<typeof setTimeout> } | null = null;
+
+function outline(el: HTMLElement) {
+    if (outlined) { clearTimeout(outlined.timer); outlined.el.style.outline = outlined.before; }
+    const before = el.style.outline;
+    el.style.outline = '2px solid rgba(250, 204, 21, 0.9)';
+    outlined = { el, before, timer: setTimeout(() => { el.style.outline = before; outlined = null; }, 2000) };
 }
 
 export function clearCitation() {

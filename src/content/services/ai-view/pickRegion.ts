@@ -45,22 +45,33 @@ export function pickRegion(): Promise<PickedRegion | null> {
             const r = current.getBoundingClientRect();
             Object.assign(box.style, { display: 'block', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
         };
-        const finish = async (picked: PickedRegion | null) => {
-            cleanup();
-            // The outline gone from the screen before the capture.
-            await frame();
-            await frame();
-            resolve(picked);
-        };
-        const click = (e: MouseEvent) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const el = current ?? candidate(e.target as Element);
+        /** Where `el` is now, clipped to the viewport; null when it is off screen. */
+        const regionOf = (el: Element): PickedRegion | null => {
             const r = el.getBoundingClientRect();
             const vw = window.innerWidth, vh = window.innerHeight;
             const x = Math.max(0, r.left), y = Math.max(0, r.top);
             const width = Math.min(vw, r.right) - x, height = Math.min(vh, r.bottom) - y;
-            void finish(width > 4 && height > 4 ? { x, y, width, height, viewportWidth: vw, viewportHeight: vh, label: labelOf(el) } : null);
+            return width > 4 && height > 4 ? { x, y, width, height, viewportWidth: vw, viewportHeight: vh, label: labelOf(el) } : null;
+        };
+        const finish = async (picked: Element | null) => {
+            cleanup();
+            // The outline gone from the screen before the capture, and the page still (a scroll still
+            // running moves it): measured last, just before the capture.
+            await frame();
+            await frame();
+            await new Promise(r => setTimeout(r, 120));
+            // Until the page stops scrolling (a smooth scroll still running), at most a second.
+            for (let i = 0, last = scrollY; i < 60; i++) {
+                await frame();
+                if (scrollY === last) break;
+                last = scrollY;
+            }
+            resolve(picked ? regionOf(picked) : null);
+        };
+        const click = (e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void finish(current ?? candidate(e.target as Element));
         };
         const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); void finish(null); } };
         const block = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
