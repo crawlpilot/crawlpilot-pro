@@ -129,6 +129,7 @@ export interface Messages {
     SCAN_IMAGES_CANCEL: { reply: Res };
     SCAN_IMAGES_LIVE_START: { reply: Res };
     SCAN_IMAGES_LIVE_STOP: { reply: Res };
+    SHOW_IMAGE: { payload: { src: string }; reply: Res };
     /** The page's own fetch of an image (its cookies, `Referer` and `blob:` URLs), as a data URL. */
     FETCH_IMAGE: { payload: { url: string }; reply: { success: true; dataUrl: string } | (Fail & { status?: number }) };
     TOGGLE_RIGHT_CLICK: { payload: { enable: boolean }; reply: Res<{ enabled: boolean }> };

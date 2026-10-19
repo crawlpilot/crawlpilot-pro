@@ -5,6 +5,7 @@ import { browserDeps, defaultMode, saveImages, type SaveMode, type SaveProgress,
 
 const MODE_KEY = 'crawlpilot.images.mode';
 const TEMPLATE_KEY = 'crawlpilot.images.template';
+const MANIFEST_KEY = 'crawlpilot.images.manifest';
 
 function stored<T extends string>(key: string, fallback: T): T {
     try { return (localStorage.getItem(key) as T) || fallback; } catch { return fallback; }
@@ -18,6 +19,7 @@ function store(key: string, value: string) {
 export function useImageSave(tabId: number | null, pageTitle: string) {
     const [mode, setModeState] = useState<SaveMode | 'auto'>(() => stored(MODE_KEY, 'auto'));
     const [template, setTemplateState] = useState<string>(() => stored(TEMPLATE_KEY, NAMING_PRESETS.original.template));
+    const [manifest, setManifestState] = useState(() => stored<string>(MANIFEST_KEY, 'off') === 'on');
     const [progress, setProgress] = useState<SaveProgress | null>(null);
     const [report, setReport] = useState<SaveReport | null>(null);
     const lastRun = useRef<FoundImage[]>([]);
@@ -25,6 +27,7 @@ export function useImageSave(tabId: number | null, pageTitle: string) {
 
     const setMode = (m: SaveMode | 'auto') => { setModeState(m); store(MODE_KEY, m); };
     const setTemplate = (t: string) => { setTemplateState(t); store(TEMPLATE_KEY, t); };
+    const setManifest = (on: boolean) => { setManifestState(on); store(MANIFEST_KEY, on ? 'on' : 'off'); };
 
     const save = useCallback(async (images: FoundImage[], forced?: SaveMode) => {
         if (!images.length || abortRef.current) return;
@@ -38,6 +41,7 @@ export function useImageSave(tabId: number | null, pageTitle: string) {
                 mode: forced ?? (mode === 'auto' ? defaultMode(images.length) : mode),
                 template: template.trim() || NAMING_PRESETS.original.template,
                 pageTitle,
+                manifest,
                 signal: controller.signal,
                 onProgress: setProgress,
             }, browserDeps(tabId));
@@ -46,7 +50,7 @@ export function useImageSave(tabId: number | null, pageTitle: string) {
             abortRef.current = null;
             setProgress(null);
         }
-    }, [mode, template, pageTitle, tabId]);
+    }, [mode, template, manifest, pageTitle, tabId]);
 
     const retryFailed = useCallback(() => {
         if (!report) return;
@@ -57,5 +61,5 @@ export function useImageSave(tabId: number | null, pageTitle: string) {
     const stop = useCallback(() => abortRef.current?.abort(), []);
     const dismiss = useCallback(() => setReport(null), []);
 
-    return { mode, setMode, template, setTemplate, progress, report, save, retryFailed, stop, dismiss };
+    return { mode, setMode, template, setTemplate, manifest, setManifest, progress, report, save, retryFailed, stop, dismiss };
 }

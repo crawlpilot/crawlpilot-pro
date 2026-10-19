@@ -5,6 +5,8 @@
  *
  * An image with a full-size original (`image.full`) is saved from the original, named after it; if
  * the original can't be had, the file shown on the page is saved instead and counted as `downgraded`.
+ *
+ * With `manifest`, a `manifest.csv` goes with the files: each file's name, URL, page, alt text and size.
  */
 import type { FoundImage } from '../../../shared/images/types';
 import { guessType, typeLabel } from '../../../shared/images/type';
@@ -33,7 +35,16 @@ export interface SaveFailure {
     status?: number;
 }
 
+export interface SavedFile {
+    file: string;
+    image: FoundImage;
+    src: string;
+    type: string;
+    bytes: number;
+}
+
 export interface SaveReport extends SaveProgress {
+    files: SavedFile[];
     failures: SaveFailure[];
     /** Saved at the size shown because the full-size original failed. */
     downgraded: number;
@@ -47,6 +58,7 @@ export interface SaveOptions {
     template: string;
     pageTitle: string;
     signal: AbortSignal;
+    manifest?: boolean;
     onProgress?: (p: SaveProgress) => void;
 }
 
@@ -112,7 +124,7 @@ export function browserDeps(tabId: number | null): SaveDeps {
 }
 
 export async function saveImages(images: FoundImage[], options: SaveOptions, deps: SaveDeps): Promise<SaveReport> {
-    const { mode, template, pageTitle, signal, onProgress } = options;
+    const { mode, template, pageTitle, signal, onProgress, manifest } = options;
     const date = today();
     const site = siteOf(images);
     const names = new NameBook();
@@ -122,6 +134,7 @@ export async function saveImages(images: FoundImage[], options: SaveOptions, dep
     const failures: SaveFailure[] = [];
     const started = new Set<number>();
     let downgraded = 0;
+    const files: SavedFile[] = [];
 
     await runPool(images, img => hostKey(img.src), async (image, index) => {
         started.add(index);
@@ -140,6 +153,7 @@ export async function saveImages(images: FoundImage[], options: SaveOptions, dep
             const path = names.claim(renderName(template, { image: named, n: index + 1, total: images.length, pageTitle, date }), ext);
             if (zip) zip.add(path, file.bytes);
             else await deps.download(new Blob([file.bytes as BlobPart], { type: file.type }), `${target}/${path}`);
+            files.push({ file: path, image, src: named.src, type: file.type, bytes: file.bytes.length });
             progress.done++;
             progress.bytes += file.bytes.length;
         } catch (e) {
@@ -150,12 +164,15 @@ export async function saveImages(images: FoundImage[], options: SaveOptions, dep
         onProgress?.({ ...progress });
     }, { signal });
 
+    const csv = manifest && files.length ? new TextEncoder().encode(manifestCsv(files)) : null;
+    if (csv && !zip) await deps.download(new Blob([csv as BlobPart], { type: 'text/csv' }), `${target}/manifest.csv`).catch(() => undefined);
     if (zip && progress.done > 0) {
+        if (csv) zip.add('manifest.csv', csv);
         try {
             await deps.download(await zip.finish(), target);
         } catch {
             // The zip itself didn't save: every file in it is lost.
-            return { ...progress, done: 0, failed: images.length, failures: images.map(i => ({ src: i.src, reason: 'save' as const })), downgraded: 0, stopped: signal.aborted, target };
+            return { ...progress, done: 0, failed: images.length, failures: images.map(i => ({ src: i.src, reason: 'save' as const })), files: [], downgraded: 0, stopped: signal.aborted, target };
         }
     }
     // Images a stop kept from starting.
@@ -164,10 +181,26 @@ export async function saveImages(images: FoundImage[], options: SaveOptions, dep
         failures.push({ src: image.src, reason: 'stopped' });
         progress.failed++;
     });
-    return { ...progress, failures, downgraded, stopped: signal.aborted, target };
+    return { ...progress, files, failures, downgraded, stopped: signal.aborted, target };
 }
 
 /** The output a selection of this size gets by default. */
 export function defaultMode(count: number): SaveMode {
     return count > FOLDER_ABOVE ? 'folder' : 'zip';
+}
+
+const csvCell = (v: unknown) => {
+    const text = v === undefined || v === null ? '' : String(v);
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
+
+/** One row per saved file, in selection order. */
+export function manifestCsv(files: SavedFile[]): string {
+    const header = ['file', 'url', 'shown_url', 'page', 'alt', 'caption', 'section', 'width', 'height', 'type', 'bytes'];
+    const rows = [...files].sort((a, b) => a.image.order - b.image.order).map(f => {
+        const size = f.src === f.image.full?.src ? f.image.full : f.image;
+        const src = f.src.startsWith('data:') ? '' : f.src;
+        return [f.file, src, f.image.src.startsWith('data:') ? '' : f.image.src, f.image.pageUrl, f.image.alt, f.image.caption, f.image.heading, size.width || '', size.height || '', f.type, f.bytes];
+    });
+    return [header, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
 }

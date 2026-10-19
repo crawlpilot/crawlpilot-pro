@@ -95,6 +95,7 @@ export class ImageCollector {
     private added = new Set<string>();
     private updated = new Set<string>();
     private readonly canvases = new WeakSet<Element>();
+    private readonly elements = new Map<string, WeakRef<Element>>();
     private order = 0;
 
     constructor(private readonly doc: Document = document) {}
@@ -128,6 +129,12 @@ export class ImageCollector {
         } else {
             this.walk(root as Element, true);
         }
+    }
+
+    /** The element showing `src`, while it is still on the page. */
+    elementFor(src: string): Element | null {
+        const el = this.elements.get(src)?.deref();
+        return el?.isConnected ? el : null;
     }
 
     /** Records a measured file size for a known image. */
@@ -311,6 +318,7 @@ export class ImageCollector {
         const rect = el && el.nodeType === Node.ELEMENT_NODE ? el.getBoundingClientRect() : null;
         const shown = rect && (rect.width || rect.height) ? { width: Math.round(rect.width), height: Math.round(rect.height) } : undefined;
         const variants = (f.variants ?? []).map(v => absolute(v, doc)).filter((v): v is string => !!v && v !== src && usable(v));
+        if (el && (f.origin !== 'meta' && f.origin !== 'icon') && !this.elementFor(src)) this.elements.set(src, new WeakRef(el));
         const existing = this.found.get(src);
         if (!existing) {
             const figure = el?.closest('figure');

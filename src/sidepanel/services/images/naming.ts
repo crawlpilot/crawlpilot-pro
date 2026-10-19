@@ -17,10 +17,10 @@
 import type { FoundImage } from '../../../shared/images/types';
 
 export const NAMING_PRESETS = {
-    original: { label: 'Original file names', template: '{name}' },
-    numbered: { label: 'Page title / number', template: '{page}/{n}' },
-    described: { label: 'Number and alt text', template: '{n}-{alt}' },
-    sections: { label: 'Section / original name', template: '{heading}/{name}' },
+    original: { template: '{name}' },
+    numbered: { template: '{page}/{n}' },
+    described: { template: '{n}-{alt}' },
+    sections: { template: '{heading}/{name}' },
 } as const;
 
 export interface NameContext {

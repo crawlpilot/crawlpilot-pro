@@ -139,3 +139,62 @@ test('full size: the linked original and a WordPress original are found, shown a
     await ui.close();
     await page.close();
 });
+
+test('panel: range select, preview and show on page, filters kept per site, save to Data, manifest in the zip', async ({ panel, ext, origin, extensionId }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/downloads.html`);
+    await page.waitForFunction(() => (document.getElementById('blob') as HTMLImageElement).src.startsWith('blob:'));
+    const tabId = await panel.tabId(page.url());
+    const ui = await ext.newPage();
+    const open = () => ui.goto(`chrome-extension://${extensionId}/sidepanel.html?view=image-downloader&tabId=${tabId}`);
+    await open();
+    const cards = ui.getByRole('checkbox');
+    await expect(cards).toHaveCount(7, { timeout: 10_000 });
+
+    // Shift-click selects the range.
+    await cards.nth(1).click();
+    await cards.nth(4).click({ modifiers: ['Shift'] });
+    await expect(ui.getByText('selected')).toBeVisible();
+    await expect(cards.and(ui.locator('[aria-checked="true"]'))).toHaveCount(4);
+
+    // Preview the first image and show it on the page: the page scrolls to it and outlines it.
+    await cards.nth(0).dblclick();
+    await expect(ui.getByText('Image 1 of 7')).toBeVisible();
+    await ui.getByRole('button', { name: 'Show on page' }).click();
+    await expect(ui.getByText('Shown on the page')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => [...document.documentElement.children].some(e => e.tagName === 'DIV' && (e as HTMLElement).style.border.includes('solid')))).toBe(true);
+    await ui.keyboard.press('Escape');
+
+    // Save the selection to Data: a table with one row per image.
+    const tablePage = ext.waitForEvent('page');
+    await ui.getByRole('button', { name: 'Save the list to Data' }).click();
+    await (await tablePage).waitForLoadState();
+    const tables = await panel.store('tables');
+    const table = tables.find((t: any) => t.source === 'images');
+    expect(table?.rowCount).toBe(4);
+
+    // Filters are kept for the site: drop PNG, reopen, still dropped.
+    await ui.getByRole('button', { name: 'Filters' }).click();
+    await ui.getByRole('button', { name: 'png', exact: true }).click();
+    // Left: the SVG, and the blob: image (its URL doesn't say its type, and unknown types pass).
+    await expect(cards).toHaveCount(2);
+    await open();
+    await expect(cards).toHaveCount(2, { timeout: 10_000 });
+    await ui.getByRole('button', { name: 'Filters' }).click();
+    await ui.getByRole('button', { name: 'Reset filters' }).first().click();
+    await expect(cards).toHaveCount(7);
+
+    // A zip with its manifest.
+    await ui.evaluate(() => { localStorage.setItem('crawlpilot.images.mode', 'zip'); localStorage.setItem('crawlpilot.images.template', '{name}'); localStorage.setItem('crawlpilot.images.manifest', 'on'); });
+    await open();
+    await ui.getByRole('button', { name: /Download All \(7\)/ }).click({ timeout: 10_000 });
+    await expect(ui.getByText(/Saved 5 of 7/)).toBeVisible({ timeout: 30_000 });
+    const zips = await ui.evaluate(() => chrome.downloads.search({ mime: 'application/zip', state: 'complete', orderBy: ['-startTime'] }));
+    const entries = unzipSync(new Uint8Array(fs.readFileSync(zips[0].filename)));
+    const csv = new TextDecoder().decode(entries['manifest.csv']).trim().split('\r\n');
+    expect(csv[0]).toBe('file,url,shown_url,page,alt,caption,section,width,height,type,bytes');
+    expect(csv).toHaveLength(6);
+    expect(csv.find(r => r.startsWith('protected-500x500.png'))).toContain(',Protected,');
+    await ui.close();
+    await page.close();
+});
