@@ -1,6 +1,6 @@
 # Automation, page tools and developer aids
 
-Status: plan, nothing built yet (2026-10-19). All decisions made (§9). Next: T1 (Tables).
+Status: T1 done (2026-10-19). All decisions made (§9). The other steps are GitHub issues #38–#49. Next: T2 (Markdown).
 
 This plan adds 12 features in three groups:
 
@@ -383,3 +383,45 @@ Suggested order: T1–T4 (small, visible), then M1–M4 (the biggest value; M1 f
 - **Cookies are credentials.** They are asked for and warned about each time, never stored, and never sent anywhere by CrawlPilot.
 - **Moving panel list runs to the background (M1)** changes the most-used flow. The listing e2e suite is the gate, and the panel keeps its live preview through progress messages.
 - **Store review.** `cookies`, even as an optional permission, gets closer review; it needs a clear justification and a visible use.
+
+## 10. Progress
+
+| Step | State | Issue |
+|---|---|---|
+| T1 Tables | **Done** | |
+| T2 Markdown | Open | #38 |
+| T3 Data on this page | Open | #39 |
+| T4 Load everything | Open | #40 |
+| M1 Background list runs | Open | #41 |
+| M2 Monitors | Open | #42 |
+| M3 Changes and notifications | Open | #43 |
+| M4 Webhooks | Open | #44 |
+| C1 Screenshot | Open | #45 |
+| D1 Request to code, whole series | Open | #46 |
+| D2 Recipe to script | Open | #47 |
+| D3 Cookies | Open | #48 |
+| D4 Anti-bot check | Open | #49 |
+
+What T1 built:
+
+- **`content/services/tables/findTables.ts`.** It finds `<table>`s and ARIA grids.
+  - **Spans:** `colspan`/`rowspan` (and `aria-*span`) are expanded.
+  - **Headers:** the `thead`, else the leading rows of header cells. Several header rows are joined ("Q1 › Revenue"). With no header: "Column N".
+  - **Link and image columns:** a column whose cells mostly hold a link or an image gets a "(link)" / "(image)" column next to it. In-page `#` and footnote links don't count.
+  - **Footnotes:** citation markers ("[12]", "[citation needed]") are dropped from the text.
+  - **Names:** caption, else `aria-label`, else the heading above, else "Table N".
+  - **Left out:** hidden tables, navigation (menus, Wikipedia's navboxes), `role="presentation"`, one-column tables (lists), tables with no data row (2 with no header), and layout tables (most cells hold blocks of content).
+  - At most 10,000 rows per table, with the total reported.
+- **Messages:** `TABLES_FIND` and `TABLES_SHOW` (scrolls to a table and outlines it).
+- **`shared/export/tables.ts`:** TSV (pastes as cells), CSV, and the saved-table shape (link and image columns typed, `source_url` on each row).
+- **Screen:** `TablesPage` (`?view=tables`), from Home → More tools → "Tables on this page". Each table has a card with:
+  - its size and a 3-row preview;
+  - Copy, CSV and Save to My data;
+  - Show on page.
+
+  An empty state points to the List Extractor. The strings are in the new `tables` i18n namespace (English, other languages fall back).
+- **Tests:**
+  - `findTables.test.ts` (9): the fixture's plain, spans, two-row header, ARIA grid, header-less and one-row tables; the Table N fallback; Wikipedia's 3 data tables with no navboxes or footnote links; MDN's one-column table left out.
+  - `tables.test.ts` (3): the exports.
+  - `e2e/tables.spec.ts` (2): the finder on a live page, and the screen (cards, Show on page, Save to My data).
+- **Differs from the plan:** a "many pages" table run (§3.5, last bullet) isn't built; it belongs with the bulk-run work. A one-column table counts as a list, not a table.

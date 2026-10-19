@@ -148,11 +148,28 @@ export class VisualElementPicker {
     /** A new element under the cursor: a fresh path, unless the user's level holds. */
     private hover(target: HTMLElement) {
         if (this.locked) return;
-        if (this.adjusted && this.selected?.contains(target)) return;
+        if (this.adjusted && this.selected?.contains(target)) {
+            // Sections: the chosen one stays, but Narrower now starts from where the cursor is.
+            if (this.strategy?.stepsThroughReadings && this.path?.start !== target) this.follow(target);
+            return;
+        }
         if (!this.adjusted && this.path?.start === target) return;
         this.path = new SelectionPath(target);
         this.adjusted = false;
         this.update(false);
+    }
+
+    /** The sections around `target`, the chosen one (same outline, cards or rows) kept selected. */
+    private follow(target: HTMLElement) {
+        const now = this.reading;
+        const readings = this.strategy?.readings?.(target) ?? [];
+        const i = readings.findIndex(r => r.outline === now?.outline && r.variant === now?.variant);
+        if (i < 0) return;
+        this.path = new SelectionPath(target);
+        this.currentElement = this.path.current;
+        this.readings = readings;
+        this.readingIndex = i;
+        this.render(false);
     }
 
     private move(step: () => boolean) {

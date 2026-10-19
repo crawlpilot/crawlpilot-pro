@@ -221,6 +221,10 @@ test('Adjust a picked list: opens on its section; ↓ takes one card\'s swatches
     expect((await panel.toTab(tabId, 'START_PICKER', { mode: 'list', action: 'extract', adjust: { chain: grid.container, items: grid.items } })).success).toBe(true);
     await outlined(page, '#grid');
     await expect(tooltip(page)).toContainText('· 6 items');
+    // Unlocked, the grid stays chosen while the cursor moves inside it; ↓ narrows from where it points.
+    await page.keyboard.press(' ');
+    await hover(page, '#sw1 li:nth-child(2)');
+    await outlined(page, '#grid');
     await page.keyboard.press('ArrowDown');
     await outlined(page, '#sw1');
     await page.keyboard.press('Enter');
