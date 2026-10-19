@@ -84,6 +84,29 @@ test('pagination: three pages through the picked Next button, every row once', a
     await page.close();
 });
 
+test('pagination: a Stop that misses the page (it was moving to the next one) still ends the run', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/list-1.html`);
+    const list = await pickList(panel, page, '.card .card-title');
+    const next = await pickElement(panel, page, 'a.next');
+
+    await panel.clear();
+    await panel.toTab(await panel.tabId(page.url()), 'EXECUTE_PAGINATION', {
+        container: list.container, items: list.items, next: next.selectors, maxPages: -1,
+        navigationDelay: 0, contentLoadDelay: 1500, pageLoadDelay: 250, urlChangeTimeout: 5000,
+        columns: list.data?.columns,
+    });
+    await panel.next('PAGINATION_UPDATE', 20_000);
+    // The side panel's Stop, as recorded for every page; no STOP message reaches the page.
+    await panel.page.evaluate(() => chrome.storage.local.set({ pagination_stopped_at: Date.now() }));
+    const done = await panel.next('PAGINATION_COMPLETE', 20_000);
+    expect(done).toMatchObject({ success: true, reason: 'cancelled' });
+    await page.waitForTimeout(3000);
+    expect(page.url()).not.toContain('list-3.html');
+    expect(await panel.page.evaluate(() => chrome.storage.local.get('pagination_state'))).toEqual({});
+    await page.close();
+});
+
 test('scroll run with late content: placeholders fill as they are reached, "Show more" is found and clicked, every row complete', async ({ panel, ext, origin }) => {
     const page = await ext.newPage();
     await page.goto(`${origin}/site/late.html`);

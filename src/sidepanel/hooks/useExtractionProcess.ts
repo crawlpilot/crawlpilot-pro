@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { on, sendToActiveTab, sendToTab } from '../../shared/messages';
 import { db } from '../../shared/db';
+import { storage } from '../../shared/storage';
 import type { ExtractionStatus, ListPick, PaginationConfig } from '../../shared/types/extraction';
 import { PAGINATION_PROFILES, PaginationSpeed } from '../../shared/constants/paginationConfig';
 import { consolidateSelectors } from '../../shared/utils/extractionLogic';
@@ -17,6 +18,9 @@ async function healRecipe(recipeId: number, listId: string, itemSelector: string
     await db.jobs.reviseRecipe(recipeId, { ...recipe.spec, lists });
 }
 
+/** How long a Stop waits for the page to confirm before the run is saved as it is. */
+const STOP_GRACE_MS = 5000;
+
 export function useExtractionProcess(onComplete?: (tableId: number) => void, onStart?: (jobId: number) => void) {
     const [status, setStatus] = useState<ExtractionStatus>({
         isExtracting: false,
@@ -30,6 +34,8 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
     const activeModeRef = useRef<'auto' | 'pagination' | 'loadMore' | null>(null);
     const pagesVisitedRef = useRef(1);
     const extractionTabIdRef = useRef<number | null>(null); // [NEW] Track the extraction tab ID
+    /** Ends the wait for the page's "complete" message (the page never answered a Stop). */
+    const giveUpRef = useRef<(() => void) | null>(null);
 
     // Message handlers registered by startExtraction's auto-scroll / pagination promises, removed
     // on unmount too: navigating away mid-extraction would otherwise leak them.
@@ -64,6 +70,12 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             return;
         }
 
+        // Kept where every page of the run sees it: a next-button run may be between two pages,
+        // and the Stop message then reaches the page that is going away (or none).
+        void storage.set('pagination_stopped_at', Date.now());
+        // What was read so far is saved even if the page never confirms the stop.
+        setTimeout(() => giveUpRef.current?.(), STOP_GRACE_MS);
+
         const targetTabId = extractionTabIdRef.current;
 
         const stopType = activeModeRef.current === 'pagination' ? 'STOP_PAGINATION' : 'STOP_AUTO_SCROLL';
@@ -73,12 +85,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             : sendToActiveTab(stopType);
         stop.catch(e => {
             console.warn('[Stop] Target tab unreachable:', e);
-            setStatus(prev => ({
-                ...prev,
-                isExtracting: false,
-                status: 'stopped',
-                error: 'Extraction stopped (connection lost to page).'
-            }));
+            giveUpRef.current?.();
         });
     }, []);
 
@@ -220,6 +227,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                         try {
                             const extractionResult = await new Promise<{ items: any[], columns: any[] }>((resolve) => {
                                 let previousCount = 0;
+                                giveUpRef.current = () => { untrack(); resolve({ items: [], columns: [] }); };
                                 const untrack = track(
                                     on('AUTO_SCROLL_COMPLETE', payload => {
                                         untrack();
@@ -272,6 +280,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
 
                 if (sel) {
                     await new Promise<void>((resolve) => {
+                        giveUpRef.current = () => { untrack(); resolve(); };
                         const untrack = track(
                             on('PAGINATION_COMPLETE', p => {
                                 untrack();
@@ -320,6 +329,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                 }
             }
 
+            giveUpRef.current = null;
             // 2. Merge and Save (FRESH DATASET)
             const finalExtraction = consolidateSelectors(processedSelectors, currentTab.url || 'unknown');
             finalExtraction.timestamp = new Date().toISOString();
