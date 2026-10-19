@@ -9,16 +9,33 @@
  * - **Picker**: a hover (the picker's own measure) and a click until the pick's rows arrive.
  * - **Side panel**: opening it (until the home screen shows) and how much of its JS runs.
  * - **Data table**: opening a 2,000-row Page Extractor table with two list columns.
+ *
+ * Measures with a limit (`BUDGETS`) fail the run when over it: run before each release.
  */
 import { chromium, type Page, type CDPSession } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { test, pickList } from './harness';
+import { test, expect, pickList } from './harness';
 
 const RATES = [1, 4, 8];
 const RUNS = 3;
 const results: Record<string, Record<string, number>> = {};
-const record = (name: string, rate: number, value: number) => { (results[name] ??= {})[`${rate}x`] = Math.round(value * 10) / 10; };
+/**
+ * Limits, checked at 4× (an older laptop; sizes at 1×): today's figures plus headroom, so a change
+ * that makes a slow computer noticeably slower fails here (`docs/plans/performance-plan.md` P6).
+ */
+const BUDGETS: { measure: RegExp; rate: number; max: number }[] = [
+    { measure: /^picker .* · click → rows ms$/, rate: 4, max: 1500 },
+    { measure: /^picker .* · hover ms$/, rate: 4, max: 30 },
+    { measure: /^side panel · open until home shows ms$/, rate: 4, max: 800 },
+    { measure: /^side panel · JS loaded KB$/, rate: 1, max: 700 },
+    { measure: /^data table .* · open ms$/, rate: 4, max: 2500 },
+];
+
+const record = (name: string, rate: number, value: number) => {
+    (results[name] ??= {})[`${rate}x`] = Math.round(value * 10) / 10;
+    for (const b of BUDGETS) if (b.rate === rate && b.measure.test(name)) expect.soft(value, `${name} at ${rate}x`).toBeLessThanOrEqual(b.max);
+};
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 
 test.skip(!process.env.PERF, 'PERF=1 to measure');

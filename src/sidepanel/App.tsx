@@ -20,6 +20,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const TextSummarizerPage = lazy(() => import('./pages/TextSummarizerPage'));
 const AiExtractPage = lazy(() => import('./pages/AiExtractPage'));
 const ToolkitPage = lazy(() => import('./pages/ToolkitPage'));
+const KitPage = lazy(() => import('./pages/KitPage'));
 
 import Header from './components/ui/Header';
 import { useTabSync } from './hooks/useTabSync';
@@ -78,6 +79,8 @@ function App() {
                 return <DataTablePage />;
             case 'settings':
                 return <SettingsPage onBack={() => setCurrentView('home')} />;
+            case 'kit':
+                return <KitPage />;
             case 'welcome':
                 return <WelcomePage onNavigate={setCurrentView} />;
             default:
