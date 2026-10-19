@@ -27,6 +27,11 @@ function fakeModel() {
                 return JSON.stringify({ columns: ['Part', 'Colour'], rows: [{ cells: ['Body', 'Red'], ref: '' }, { cells: ['Lights', 'White'], ref: '' }] });
             }
             if (schema?.type === 'array') return JSON.stringify(['Is it in stock?', 'How long does the battery last?', 'What age is it for?']);
+            // "Does it fit me?": a reason on a real fact, and one made up.
+            if (schema?.properties?.verdict) {
+                const fact = text.match(/\(quote: "([^"]+)"\) \[(b\d+)\]/)!;
+                return JSON.stringify({ verdict: 'partly', reasons: [{ text: 'Within your budget', quote: fact[1], ref: fact[2] }, { text: 'Delivers to Mars', quote: 'free delivery to mars', ref: fact[2] }] });
+            }
             // "As a table": in a clone of the conversation, which holds the page.
             if (schema?.properties?.columns) {
                 const list = blocks(this.page);
@@ -159,6 +164,15 @@ test('a brief made for a product page: points checked on the page, shown with a 
     await expect(imageAnswer.getByTestId('answer-table')).toContainText('Read from the image');
     await expect(imageAnswer.getByTestId('answer-table')).toContainText('Lights');
 
+    // Does it fit me? What matters is asked once and kept on this device; each reason is checked.
+    await ui.bringToFront();
+    await ui.getByRole('button', { name: 'Does it fit me?' }).click();
+    await ui.getByTestId('fit-editor').getByRole('textbox').fill('under $200, for a 5-year-old');
+    await ui.getByRole('button', { name: 'Check this page' }).click();
+    await expect(ui.getByTestId('fit-verdict')).toHaveAttribute('data-verdict', 'partly');
+    expect(await ui.getByTestId('fit-reason').evaluateAll(els => els.map(e => e.getAttribute('data-status')))).toEqual(['verified', 'not_on_page']);
+    expect(await panel.page.evaluate(() => chrome.storage.local.get('assistantNeeds'))).toEqual({ assistantNeeds: 'under $200, for a 5-year-old' });
+
     // Next step for a product: the same details as data, in AI Extract with its product schema.
     await ui.bringToFront();
     // ASSISTANT_SHOT=<file.png>: the side panel as it looks now (for reviewing the UI).
@@ -166,6 +180,17 @@ test('a brief made for a product page: points checked on the page, shown with a 
     await brief.getByRole('button', { name: 'Get these details as data' }).click();
     expect(await ui.evaluate(() => localStorage.getItem('crawlpilot.aiExtract.draft'))).toContain('price:');
     await expect(ui.getByRole('textbox').first()).toHaveValue(/price:/);
+
+    // The price changes; briefed again, the page shows what changed since its brief was saved.
+    await product.evaluate(() => { document.querySelector('.price')!.textContent = 'Now $129.99, a flash deal ending tonight.'; });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=text-summarizer&tabId=${tabId}`);
+    const since = ui.getByTestId('since-saved');
+    await expect(since).toContainText('Since you saved this page on');
+    await expect(since).toContainText('Price');
+    await expect(since).toContainText('$129.99');
+    await ui.getByRole('button', { name: 'Does it fit me?' }).click();
+    await expect(ui.getByTestId('fit-verdict')).toBeVisible();
+    if (process.env.ASSISTANT_SHOT) await ui.screenshot({ path: process.env.ASSISTANT_SHOT.replace(/\.png$/, '-later.png') });
     await ui.close();
     await product.close();
 });

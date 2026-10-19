@@ -7,7 +7,7 @@
  */
 import { modelHost, CALL_ERROR_MESSAGES, type CallError, type CallResult } from './modelHost';
 import { relax } from '../../../shared/ai/constraint';
-import { BRIEFS, BRIEF_SYSTEM, briefColumns, briefPrompt, briefRow, briefSchema, detectKind, mergeBriefs, parseBrief, type AnswerTable, type Brief, type PageKind } from '../../../shared/ai/brief';
+import { BRIEFS, BRIEF_SYSTEM, FIT_SYSTEM, briefColumns, briefPrompt, briefRow, briefSchema, detectKind, fitPrompt, fitSchema, mergeBriefs, parseBrief, parseFit, type AnswerTable, type Brief, type Fit, type PageKind } from '../../../shared/ai/brief';
 import { checkClaims, type ClaimRequest, type ClaimResult } from '../../../shared/ai/cite';
 import { detectLanguage, translateChunk, translationSupported, translatorFor } from './translate';
 import type { PageView } from '../../../shared/ai/page';
@@ -279,4 +279,52 @@ export async function saveTable(table: AnswerTable, name: string, url: string): 
 /** Opens a dataset in the data table (its own tab). */
 export function openTable(id: number) {
     void chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${id}`) });
+}
+
+// ── Later (docs/plans/summarize-ask-plan.md A7) ──
+
+/** The same page for saved briefs: no fragment, no trailing slash. */
+const samePage = (a: string, b: string) => {
+    const norm = (u: string) => u.replace(/#.*$/, '').replace(/\/(\?|$)/, '$1');
+    return norm(a) === norm(b);
+};
+
+/** The latest saved brief of this page, if the user saved one before. */
+export async function savedBrief(url: string): Promise<{ row: Record<string, string>; at: number } | null> {
+    const { db } = await import('../../../shared/db');
+    const table = (await db.tables.list(200)).find(t => t.source === BRIEFS_SOURCE && !t.preview);
+    if (!table?.id) return null;
+    const rows = await db.tables.rowsPage(table.id, 0, 5000);
+    const mine = rows.filter(r => typeof r.data.source_url === 'string' && samePage(r.data.source_url, url)).sort((a, b) => b.createdAt - a.createdAt)[0];
+    return mine ? { row: mine.data, at: mine.createdAt } : null;
+}
+
+/** The brief as it would be saved now (for comparing with a saved one). */
+export function briefNowRow(outcome: BriefOutcome): Record<string, string> {
+    const found = (status?: string) => status === 'verified' || status === 'relocated';
+    return briefRow(outcome.brief, { url: outcome.view.url, title: outcome.view.title }, (section, i) => found(outcome.checks[pointKey(section, i)]?.status));
+}
+
+export interface FitOutcome extends Fit {
+    /** Each reason's check against the page, in order. */
+    checks: ClaimResult[];
+}
+
+/** "Does it fit me?": the verdict for `needs`, from the brief's facts, each reason checked on the page. */
+export async function runFit(outcome: BriefOutcome, needs: string, page: AssistantPage, signal?: AbortSignal): Promise<FitOutcome> {
+    let schema: Record<string, unknown> = fitSchema();
+    const prompt = fitPrompt(needs, outcome.brief, outcome.view.title);
+    const call = (s: Record<string, unknown>) => modelHost.run({ system: FIT_SYSTEM, sampling: 'exact', prompt, schema: s, parse: parseFit, reserve: 500, timeoutMs: 60_000 }, signal);
+    let res = await call(schema);
+    for (let step = 0; !res.ok && (res.code === 'schema_unsupported' || res.code === 'unsatisfiable'); step++) {
+        const next = relax(schema, step);
+        if (!next) break;
+        schema = next;
+        res = await call(schema);
+    }
+    if (!res.ok) throw new AssistantError(res.code, res.detail);
+    const checks = res.value.reasons.length > 0
+        ? await checkedPage(outcome, page).check(res.value.reasons.map((r, i) => ({ key: String(i), text: r.text, quote: r.quote, refs: r.ref ? [r.ref] : [] })))
+        : [];
+    return { ...res.value, checks };
 }

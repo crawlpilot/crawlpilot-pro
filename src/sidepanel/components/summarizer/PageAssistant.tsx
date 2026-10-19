@@ -5,17 +5,18 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { AlertTriangle, ArrowRight, Crosshair, ImagePlus, Languages, Monitor, CheckCircle2, Copy, Database, Download, Lock, MapPin, RotateCcw, Send, Sparkles, Table2 } from 'lucide-react';
-import { Button, Card, Chip, Heading, IconButton, Menu, MenuItem, Notice, Progress, Skeleton, Spinner, Text, ToggleChip, Tooltip, cx } from '../../ui';
+import { AlertTriangle, ArrowRight, Crosshair, History, ImagePlus, Languages, Monitor, UserCheck, CheckCircle2, Copy, Database, Download, Lock, MapPin, RotateCcw, Send, Sparkles, Table2 } from 'lucide-react';
+import { Button, Card, Chip, Heading, IconButton, Menu, MenuItem, Notice, Progress, Skeleton, Spinner, Text, TextArea, ToggleChip, Tooltip, cx, type ChipTone } from '../../ui';
 import { usePageAssistant, type BriefStatus } from '../../hooks/usePageAssistant';
 import { useAskSession, type AskMessage } from '../../hooks/useAskSession';
 import { usePageTab } from '../../hooks/usePageTab';
-import { briefMarkdown, openTable, pointKey, saveBrief, saveTable, type BriefOutcome } from '../../services/ai/assistant';
+import { briefMarkdown, briefNowRow, openTable, pointKey, runFit, saveBrief, savedBrief, saveTable, type BriefOutcome, type FitOutcome } from '../../services/ai/assistant';
+import { storage } from '../../../shared/storage';
 import { setExtractDraft } from '../../services/ai/extractDraft';
 import { languageName } from '../../services/ai/translate';
 import { capturePage, pickOnPage, type PageImage } from '../../services/ai/vision';
 import { SCHEMA_PRESETS } from '../../../shared/ai/schemaIntake';
-import { BRIEFS, EXTRACT_PRESET, tableCsv, type AnswerTable } from '../../../shared/ai/brief';
+import { BRIEFS, EXTRACT_PRESET, briefChanges, tableCsv, type AnswerTable, type BriefChange, type FitVerdict } from '../../../shared/ai/brief';
 import type { CiteStatus } from '../../../shared/ai/cite';
 
 const STATUS: Record<CiteStatus, { icon: ReactNode; label: string; tone: string }> = {
@@ -191,6 +192,118 @@ function TableView({ table, rows, name, url, fromImage }: { table: AnswerTable; 
     );
 }
 
+/** "Since you saved this page": what changed against the latest saved brief of this page. */
+function SinceSaved({ outcome }: { outcome: BriefOutcome }) {
+    const [diff, setDiff] = useState<{ at: number; changes: BriefChange[] } | null>(null);
+    useEffect(() => {
+        let live = true;
+        savedBrief(outcome.view.url).then(saved => {
+            if (live && saved) setDiff({ at: saved.at, changes: briefChanges(saved.row, briefNowRow(outcome), outcome.kind) });
+        }).catch(() => undefined);
+        return () => { live = false; };
+    }, [outcome]);
+    if (!diff) return null;
+    const when = new Date(diff.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    if (diff.changes.length === 0) {
+        return <Text size="caption" tone="muted" className="flex items-center gap-1.5" data-testid="since-saved"><History size={12} /> No change since you saved this page on {when}.</Text>;
+    }
+    return (
+        <Card tone="plain" className="flex flex-col gap-1.5 border-warning/40!" data-testid="since-saved">
+            <Text size="small" weight="semibold" className="flex items-center gap-1.5"><History size={14} /> Since you saved this page on {when}</Text>
+            {diff.changes.map(c => (
+                <div key={c.field} className="flex flex-col gap-0.5">
+                    <Text size="caption" weight="semibold" tone="muted" className="uppercase tracking-wide">{c.label}</Text>
+                    {c.from !== undefined && <Text size="small"><span className="text-ink-3 line-through">{c.from}</span> → <span className="font-semibold">{c.to}</span></Text>}
+                    {c.added?.map(p => <Text key={`+${p}`} size="small">New: {p}</Text>)}
+                    {c.removed?.map(p => <Text key={`-${p}`} size="small" tone="muted">No longer: {p}</Text>)}
+                </div>
+            ))}
+        </Card>
+    );
+}
+
+const VERDICT: Record<FitVerdict, { label: string; tone: ChipTone }> = {
+    fits: { label: 'Fits what matters to you', tone: 'success' },
+    partly: { label: 'Partly fits', tone: 'warning' },
+    no: { label: "Doesn't fit", tone: 'danger' },
+    unclear: { label: "The page doesn't say enough", tone: 'neutral' },
+};
+
+/** "Does it fit me?": the user's needs (kept on this device) against the brief's facts, each reason checked. */
+function FitCheck({ outcome, page, onShow }: { outcome: BriefOutcome; page: ReturnType<typeof usePageAssistant>['page']; onShow: (ref: string, quote?: string) => void }) {
+    const [needs, setNeeds] = useState('');
+    const [draft, setDraft] = useState('');
+    const [editing, setEditing] = useState(false);
+    const [running, setRunning] = useState(false);
+    const [fit, setFit] = useState<FitOutcome | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    useEffect(() => { storage.get('assistantNeeds').then(n => { setNeeds(n ?? ''); setDraft(n ?? ''); }).catch(() => undefined); }, []);
+    useEffect(() => { setFit(null); setError(null); }, [outcome]);
+
+    const check = async (text: string) => {
+        if (!page || !text.trim()) return;
+        setRunning(true);
+        setError(null);
+        try { setFit(await runFit(outcome, text, page)); } catch (e) { setError((e as Error).message); } finally { setRunning(false); }
+    };
+    const saveAndCheck = async () => {
+        const text = draft.trim();
+        if (!text) return;
+        await storage.set('assistantNeeds', text).catch(() => undefined);
+        setNeeds(text);
+        setEditing(false);
+        void check(text);
+    };
+
+    if (editing) {
+        return (
+            <Card className="flex flex-col gap-2" data-testid="fit-editor">
+                <TextArea label="What matters to you?" rows={2} value={draft} onChange={e => setDraft(e.target.value)}
+                    placeholder="For example: under $200, for a 5-year-old, ships to Canada" hint="Saved on this device and used only for this check." />
+                <span className="flex gap-1.5">
+                    <Button size="sm" variant="primary" onClick={saveAndCheck} disabled={!draft.trim()}>Check this page</Button>
+                    <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setDraft(needs); }}>Cancel</Button>
+                </span>
+            </Card>
+        );
+    }
+    return (
+        <div className="flex flex-col gap-2">
+            {!fit && (
+                <span className="flex flex-wrap items-center gap-1.5">
+                    <Button size="sm" variant="secondary" icon={<UserCheck />} loading={running} onClick={() => (needs ? check(needs) : setEditing(true))}>Does it fit me?</Button>
+                    {needs && <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>Edit what matters</Button>}
+                </span>
+            )}
+            {error && <Notice tone="warning">{error}</Notice>}
+            {fit && (
+                <Card className="flex flex-col gap-2" data-testid="fit">
+                    <span className="flex flex-wrap items-center gap-2">
+                        <Chip tone={VERDICT[fit.verdict].tone} size="md" icon={<UserCheck />} data-testid="fit-verdict" data-verdict={fit.verdict}>{VERDICT[fit.verdict].label}</Chip>
+                        <Text size="caption" tone="muted" className="truncate">for: {needs}</Text>
+                    </span>
+                    {fit.reasons.map((r, i) => {
+                        const check = fit.checks[i];
+                        const where = check?.ref && (check.status === 'verified' || check.status === 'relocated') ? check.ref : undefined;
+                        const st = STATUS[check?.status ?? 'unchecked'];
+                        return (
+                            <button key={i} type="button" disabled={!where} onClick={() => where && onShow(where, r.quote)} data-testid="fit-reason" data-status={check?.status ?? 'unchecked'}
+                                className={cx('-mx-1.5 flex items-start gap-2 rounded-lg px-1.5 py-1 text-left', where ? 'cursor-pointer hover:bg-ink/5' : 'cursor-default')} title={st.label}>
+                                <span className={cx('mt-0.5 shrink-0', st.tone)}>{st.icon}</span>
+                                <Text size="small" as="span" className={cx(check?.status === 'not_on_page' && 'text-ink-3 italic')}>{r.text}</Text>
+                            </button>
+                        );
+                    })}
+                    <span className="flex gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>Edit what matters</Button>
+                        <Button size="sm" variant="ghost" icon={<RotateCcw />} loading={running} onClick={() => check(needs)}>Check again</Button>
+                    </span>
+                </Card>
+            )}
+        </div>
+    );
+}
+
 const IMAGE_QUESTIONS = ['What does this show?', 'What are the numbers in it?', 'Read the text in it.'];
 
 function AskPanel({ outcome, page, onShow, userLang, tabId }: { outcome: BriefOutcome; page: ReturnType<typeof usePageAssistant>['page']; onShow: (ref: string) => void; userLang: string; tabId: number | null }) {
@@ -356,7 +469,9 @@ export function PageAssistant({ initialTabId, onSummary, onNavigate }: { initial
 
             {a.phase === 'ready' && a.outcome && (
                 <>
+                    <SinceSaved outcome={a.outcome} />
                     <BriefCard outcome={a.outcome} onShow={a.show} onNavigate={onNavigate} />
+                    <FitCheck outcome={a.outcome} page={a.page} onShow={a.show} />
                     <AskPanel outcome={a.outcome} page={a.page} onShow={ref => a.show(ref)} userLang={a.userLang} tabId={a.tabId} />
                 </>
             )}
