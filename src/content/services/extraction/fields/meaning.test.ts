@@ -46,6 +46,16 @@ describe('meanings (GS4, GS5)', () => {
     });
 });
 
+describe('build-time checks (L6)', () => {
+    it('warns about an ID that repeats and a price that does not read as one', () => {
+        document.body.innerHTML = `<ul>${[1, 2, 3, 4].map(i => `<li class="card" data-product-id="P${i % 2}"><h3>Lamp ${i}</h3>
+            <span class="price">${i === 4 ? 'See price in cart' : `$${i}9.00`}</span><span class="price">${i === 3 ? 'Call us' : `$${i}5.00`}</span></li>`).join('')}</ul>`;
+        const { problems } = inferFields(Array.from(document.querySelectorAll('.card')));
+        expect(problems).toEqual(expect.arrayContaining([expect.stringMatching(/^ID check: “Product ID” repeats; 2 of 4 rows/)]));
+        expect(problems.some(p => /^Number check: “Price.*” reads as a price in only 75% of rows/.test(p))).toBe(true);
+    });
+});
+
 describe('typed and cleaned values (GS4)', () => {
     it('writes numbers and prices plainly, and keeps what does not parse', () => {
         expect(typedValue('1,064', 'number')).toBe('1064');

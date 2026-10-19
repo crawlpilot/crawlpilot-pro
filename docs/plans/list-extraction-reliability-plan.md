@@ -400,4 +400,4 @@ Every row is a pattern, not a site: each appears on at least two of the four, an
 | L3 | Mostly done as GS2 + GS3 (`generic-list-selectors-plan.md` §9); hidden subtrees and button badges not yet |
 | L4 | Done as GS4 + GS5 (`generic-list-selectors-plan.md` §9) |
 | L5 | Not started |
-| L6 | Not started |
+| L6 | Done (most): pick check `content/services/extraction/pickCheck.ts` (the page's stated count, "1–24 of 7,047 results" / "Showing 18 of 120" / a small total, against the list's items: a list under half of it is flagged in the review step); build-time field checks in `inferFields` (an ID that repeats; a number or price column that parses in < 90% of rows); run health per page in `runStats.ts` and Job details: rows read while still loading (`loading`), pages far shorter than the run's typical page, the last excepted (`short`), healed and broken fields (GS7). Not done: one-click fixes in the warnings (re-pick, wait longer); the Runs page and the saved table's notes |

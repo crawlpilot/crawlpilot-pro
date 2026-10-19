@@ -17,6 +17,10 @@ export interface PageStat {
     healed?: string[];
     /** Fields that broke on this page and could not be found again: their cells are empty. */
     broken?: string[];
+    /** Rows read while still loading (a skeleton after three settles): some of their values may be missing. */
+    loading?: number;
+    /** Far fewer items than the run's other pages (not the last one): the list may have been found only in part. */
+    short?: boolean;
 }
 
 export const STOP_REASON_LABELS: Record<string, string> = {
@@ -102,6 +106,14 @@ export class ListingRunTracker {
         this.pages.set(page, stat);
     }
 
+    /** Counts rows of a page read while still loading. */
+    addLoading(page: number, rows = 0): void {
+        if (rows <= 0) return;
+        const stat = this.pages.get(page) ?? { page, rows: 0, duplicates: 0 };
+        stat.loading = (stat.loading ?? 0) + rows;
+        this.pages.set(page, stat);
+    }
+
     /** Records a page's field check. */
     markFields(page: number, healed: string[] = [], broken: string[] = []): void {
         if (healed.length === 0 && broken.length === 0) return;
@@ -112,7 +124,14 @@ export class ListingRunTracker {
     }
 
     get pageStats(): PageStat[] {
-        return Array.from(this.pages.values()).sort((a, b) => a.page - b.page);
+        const pages = Array.from(this.pages.values()).sort((a, b) => a.page - b.page);
+        // A page (but the last, which is often short) with under half the items of a typical page.
+        if (pages.length >= 3) {
+            const sizes = pages.map(p => p.rows + p.duplicates).sort((a, b) => a - b);
+            const median = sizes[Math.floor(sizes.length / 2)];
+            pages.slice(0, -1).forEach(p => { if (p.rows + p.duplicates < median * 0.5) p.short = true; });
+        }
+        return pages;
     }
 }
 

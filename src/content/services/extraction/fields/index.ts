@@ -101,7 +101,14 @@ function infer(sampled: Element[]): FieldInference {
         if (new Set(keys).size === 1) problems.push(`All ${n} rows are identical: the rows selector may match one repeated element.`);
     }
 
-    // Images first, then reading order.
+    // An ID that repeats can't tell rows apart (an export keyed by it loses rows).
+    fields.forEach((f, i) => {
+        if (!/\bID\b|\bSKU\b|\bASIN\b/.test(names[i]) || f.values.size < 3) return;
+        const distinct = new Set(f.values.values()).size;
+        if (distinct < f.values.size) problems.push(`ID check: “${names[i]}” repeats; ${f.values.size - distinct} of ${f.values.size} rows share a value with another row.`);
+    });
+
+        // Images first, then reading order.
     const named = fields.map((f, i) => ({ f, name: names[i] }));
     named.sort((a, b) => (a.f.attr === 'src' ? 0 : 1) - (b.f.attr === 'src' ? 0 : 1) || a.f.order - b.f.order);
 
@@ -129,6 +136,11 @@ function infer(sampled: Element[]): FieldInference {
             },
         };
     });
+    // A number or price column whose values don't read as one (words around it, two amounts).
+    for (const c of columns) {
+        const parse = c.reader?.expect?.parse;
+        if (parse !== undefined && parse < 0.9) problems.push(`Number check: “${c.name}” reads as a ${c.type === 'price' ? 'price' : 'number'} in only ${Math.round(parse * 100)}% of rows.`);
+    }
     return { columns, problems };
 }
 

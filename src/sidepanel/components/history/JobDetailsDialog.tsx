@@ -112,8 +112,10 @@ export function JobDetailsDialog({ detailsJob, onClose, onDelete, onRerun }: Pro
                                                     p.fallback ? 'The list was found through a backup selector: its main selector no longer matches. Re-pick it before the backups stop working too.' : '',
                                                     p.healed?.length ? `Found again by meaning on this page: ${p.healed.join(', ')}` : '',
                                                     p.broken?.length ? `Not found on this page (empty cells): ${p.broken.join(', ')}` : '',
+                                                    p.loading ? `${p.loading} rows were still loading when read: raise the content load delay in the run settings` : '',
+                                                    p.short ? 'Far fewer items than the other pages: the list may have been found only in part. Re-pick it on this page' : '',
                                                 ].filter(Boolean).join('\n') || undefined}>
-                                                    {p.rows}{p.duplicates > 0 ? ` (+${p.duplicates} dup)` : ''}{p.unmapped ? ` · ${p.unmapped} unmapped` : ''}{p.fallback ? ` · ${t('backupSelector', 'backup selector')}` : ''}{p.healed?.length ? ` · ${t('fieldsHealed', '{{n}} healed', { n: p.healed.length })}` : ''}{p.broken?.length ? ` · ${t('fieldsBroken', '{{n}} broken', { n: p.broken.length })}` : ''}
+                                                    {p.rows}{p.duplicates > 0 ? ` (+${p.duplicates} dup)` : ''}{p.unmapped ? ` · ${p.unmapped} unmapped` : ''}{p.fallback ? ` · ${t('backupSelector', 'backup selector')}` : ''}{p.healed?.length ? ` · ${t('fieldsHealed', '{{n}} healed', { n: p.healed.length })}` : ''}{p.broken?.length ? ` · ${t('fieldsBroken', '{{n}} broken', { n: p.broken.length })}` : ''}{p.loading ? ` · ${t('rowsLoading', '{{n}} loading', { n: p.loading })}` : ''}{p.short ? ` · ${t('pageShort', 'short')}` : ''}
                                                 </span>
                                             </Box>
                                         ))}

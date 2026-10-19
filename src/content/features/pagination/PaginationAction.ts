@@ -267,6 +267,7 @@ export class PaginationAction extends BaseAction {
         // Rows go to the side panel in batches, not one message per row.
         let pending: Record<string, string>[] = [];
         let pendingUnmapped = 0;
+        let pendingLoading = 0;
         let lastColumns: ReaderColumn[] | undefined;
         const flush = () => {
             if (pending.length === 0) return;
@@ -275,6 +276,7 @@ export class PaginationAction extends BaseAction {
                 items: pending,
                 columns: lastColumns,
                 unmapped: pendingUnmapped,
+                loading: pendingLoading || undefined,
                 fallback: this.usedFallback || undefined,
                 healedItems: this.healedItems,
                 healedFields: this.fieldHealth?.healed.length ? this.fieldHealth.healed : undefined,
@@ -284,6 +286,7 @@ export class PaginationAction extends BaseAction {
             });
             pending = [];
             pendingUnmapped = 0;
+            pendingLoading = 0;
             this.healedItems = undefined;
             this.fieldHealth = undefined;
         };
@@ -346,7 +349,8 @@ export class PaginationAction extends BaseAction {
                 lastColumns = columns;
                 await refreshNetSourcesFor(columns);
                 // A row still loading is read again after the page settles.
-                const { item: normalizedItem } = await readWhenReady(element, columns, () => settle(element, 300, 1000));
+                const { item: normalizedItem, pending: stillLoading } = await readWhenReady(element, columns, () => settle(element, 300, 1000));
+                if (stillLoading && Object.keys(normalizedItem).length > 0) pendingLoading++;
                 const unmapped = withAtomCache(() => unmappedCount(element, columns));
                 if (Object.keys(normalizedItem).length > 0) {
                     processedInPage.add(scrolledToIndex);

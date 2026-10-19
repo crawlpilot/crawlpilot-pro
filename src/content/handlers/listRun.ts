@@ -156,7 +156,7 @@ async function startPagination(req: PaginationRequest) {
                 // The fields go to the side panel once (they are frozen for the run), so it saves them as the columns.
                 const columns = progress.columns && progress.columns !== sentPaginationColumns ? progress.columns : undefined;
                 if (columns) sentPaginationColumns = columns;
-                void send('PAGINATION_UPDATE', { items: progress.items, page: progress.page, total: progress.cumulativeTotal, columns, unmapped: progress.unmapped, fallback: progress.fallback, healedItems: progress.healedItems, healedFields: progress.healedFields, brokenFields: progress.brokenFields });
+                void send('PAGINATION_UPDATE', { items: progress.items, page: progress.page, total: progress.cumulativeTotal, columns, unmapped: progress.unmapped, fallback: progress.fallback, healedItems: progress.healedItems, healedFields: progress.healedFields, brokenFields: progress.brokenFields, loading: progress.loading });
             } else if (progress.type === 'complete') {
                 void send('PAGINATION_COMPLETE', ok({ reason: progress.reason }));
             } else if (progress.type === 'error') {

@@ -50,4 +50,17 @@ describe('rowKey / stopReasonLabel', () => {
         expect(stopReasonLabel('max_pages_reached')).toBe('Reached the page limit');
         expect(stopReasonLabel('some_new_reason')).toBe('some new reason');
     });
+
+    it('flags a short page (not the last) and rows read while loading', () => {
+        const t = new ListingRunTracker();
+        const rows = (p: number, n: number) => Array.from({ length: n }, (_, i) => ({ t: `${p}-${i}` }));
+        t.add(1, rows(1, 24));
+        t.add(2, rows(2, 6));
+        t.add(3, rows(3, 24));
+        t.add(4, rows(4, 5));
+        t.addLoading(3, 2);
+        const stats = t.pageStats;
+        expect(stats.map(p => !!p.short)).toEqual([false, true, false, false]);
+        expect(stats[2].loading).toBe(2);
+    });
 });

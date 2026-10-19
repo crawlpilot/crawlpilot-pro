@@ -3,6 +3,7 @@ import { withAtomCache } from './atoms';
 import { hashString } from '../../../shared/utils/hash';
 import { inferFields, readRow, hasReaders, structuredColumns, ReaderColumn } from './fields';
 import { findStructuredSource } from './structuredRows';
+import { pickProblems } from './pickCheck';
 
 export interface RowsResult {
     columns: ReaderColumn[];
@@ -39,7 +40,7 @@ export class DataExtractor {
             metadata: {
                 duplicatesRemoved: duplicates,
                 uniqueItems: items.length,
-                fieldProblems: problems
+                fieldProblems: [...pickProblems(siblings.length), ...problems]
             },
             ...(structured ? { structured } : {})
         };
