@@ -28,6 +28,7 @@ import { baseNames, columnType, uniqueNames } from './name';
 import { refineFields } from './meaning';
 import { parses } from './parse';
 import { pruneFields } from './prune';
+import { itemLinkField } from './link';
 import { splitFields } from './split';
 import { tableFields } from './table';
 import { Field, FIELD_SCHEMA_VERSION, FieldInference, FieldReader, fieldId, ReaderColumn } from './types';
@@ -60,6 +61,7 @@ function readerOf(f: Field): Omit<FieldReader, 'alternates'> {
         ...(f.first ? { first: true } : {}),
         ...(f.derive ? { derive: f.derive } : {}),
         ...(f.all ? { all: true } : {}),
+        ...(f.link ? { link: f.link } : {}),
     };
 }
 
@@ -88,6 +90,8 @@ function infer(sampled: Element[], decided: boolean): FieldInference {
 
     // 2–5.
     const pruned = pruneFields(splitFields(mergeFields(collapseComponents(groupFields(rows, rowsAtoms), rows))), n);
+    const link = itemLinkField(rows, pruned);
+    if (link) pruned.unshift(link);
     const refined = refineFields(pruned, baseNames(pruned), n);
     const fields = refined.fields;
     const names = uniqueNames(fields, refined.names);

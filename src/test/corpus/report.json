@@ -200,9 +200,9 @@
           "ASIN ← :scope",
           "Badges ← .a-nowrap",
           "URL ← [data-cy=\"title-recipe\"] > a",
+          "Title ← h2",
           "Links ← div[role=\"listitem\"] > a",
           "Options ← div[role=\"listitem\"] > a",
-          "Title ← h2",
           "Rating ← [data-cy=\"reviews-block\"] > .a-row > span > a",
           "Differentiators ← .title-differentiators",
           "Badge ← .a-row > .s-background-color-platinum",
@@ -210,8 +210,8 @@
           "Sales Volume ← [data-cy=\"reviews-block\"] > .a-row > span",
           "Price ← a > .a-price",
           "Delivery ← .a-column",
-          "Text ← .a-section > div",
           "Was Price ← .a-section > .a-price",
+          "Text ← .a-section > div",
           "More Buying Choices Price ← [data-cy=\"secondary-offer-recipe\"] > .a-row > span",
           "URL 2 ← .a-row > span > a"
         ],
@@ -296,8 +296,8 @@
           "Title ← a > span",
           "Price ← .col-end-4",
           "Badges ← .aspect-square > svg > title",
-          "Product ← button",
-          "Regular ← .label4_regular_uc"
+          "Regular ← .label4_regular_uc",
+          "Product ← button"
         ],
         "fields": [
           {

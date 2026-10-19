@@ -122,7 +122,7 @@ function baseName(f: Field, all: Field[]): string {
     if (f.attr === 'href') return f.many ? 'Links' : 'URL';
     if (f.attr === 'datetime') return 'Date';
     // A value attribute is named by its own name: `data-product-id` → Product ID, `data-asin` → ASIN.
-    if (f.attr.startsWith('data-')) return attributeName(f.attr);
+    if (f.attr.startsWith('data-')) return f.shape === 'url' ? (f.many ? 'Links' : 'URL') : attributeName(f.attr);
     // A component kind is named by its own words: "Pickup today" is pickup, not a date.
     if (f.label) return f.label;
     switch (f.shape) {
@@ -171,6 +171,7 @@ export function columnType(f: Field, name = ''): ColumnType {
         case 'price': return 'price';
         case 'rating': case 'count': case 'number': return 'number';
         case 'date': return 'date';
+        case 'url': return 'url';
         default: return 'text';
     }
 }
@@ -185,7 +186,41 @@ export function baseNames(fields: Field[]): string[] {
         const best = titles.sort((a, b) => b.f.values.size - a.f.values.size || avg(b.f) - avg(a.f))[0];
         titles.forEach(x => { if (x !== best) names[x.i] = 'Text'; });
     }
+    if (titles.length === 0) {
+        const t = untitledTitle(fields, names);
+        if (t >= 0) names[t] = 'Title';
+    }
     return names;
+}
+
+/** Names that say what a value is: never renamed to Title. */
+const MEANINGFUL = /^(Brand|Model|SKU|Sponsored|Delivery|Seller|Date|Phone|URL|Links|Image|Images|Rating|Review Count|Sales Volume|Purchase Limit|Label|Value|Options|Details|.*Price|Savings|Count)$/;
+
+/** Rendered size of a field's text: font size, plus a little for bold. 0 without layout. */
+function prominence(f: Field): number {
+    const sizes = f.atoms.slice(0, 5).map(a => {
+        const cs = getComputedStyle(a.el);
+        return (parseFloat(cs.fontSize) || 0) + (Number(cs.fontWeight) >= 600 ? 0.5 : 0);
+    });
+    return sizes.length ? sizes.reduce((x, y) => x + y, 0) / sizes.length : 0;
+}
+
+/**
+ * The title of cards with no heading and no title link (LinkedIn's job title in a `<p>`, Google
+ * Maps' place name in a `div`): the plain text field in nearly every card, different from card to
+ * card, drawn largest; the earliest in the card on a tie. -1 when none fits.
+ */
+function untitledTitle(fields: Field[], names: string[]): number {
+    const most = Math.max(0, ...fields.map(f => f.values.size));
+    const candidates = fields.map((f, i) => ({ f, i })).filter(({ f, i }) => {
+        if (f.attr !== 'text' || f.many || f.derive || f.shape !== 'text' || MEANINGFUL.test(names[i])) return false;
+        const values = [...f.values.values()];
+        const avg = values.reduce((n, v) => n + v.length, 0) / Math.max(1, values.length);
+        return f.values.size >= most * 0.9 && new Set(values.map(norm)).size >= values.length * 0.5 && avg >= 4 && avg <= 200;
+    });
+    if (candidates.length === 0) return -1;
+    return candidates.map(c => ({ ...c, p: prominence(c.f) }))
+        .sort((a, b) => b.p - a.p || a.f.order - b.f.order)[0].i;
 }
 
 /** A unique name per field, in the fields' order (best first): the first keeps the plain name. */

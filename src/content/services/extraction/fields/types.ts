@@ -3,6 +3,7 @@ import { slug } from '../../../../shared/utils/text';
 import type { JsonSpec } from '../structuredRows';
 import type { Derive } from './split';
 import type { Column } from '../../../../shared/types/database';
+import type { LinkSpec } from './link';
 
 /**
  * 3: a reader also stores its meaning and expectations (`fields/health.ts`). A version 2 reader is a
@@ -58,6 +59,8 @@ export interface FieldReader {
     alternates?: Omit<FieldReader, 'alternates'>[];
     /** A list read from every place: this reader and each alternate, their values joined (badges). */
     all?: boolean;
+    /** The item's link where the card has none: the link around it, or the page URL with its ID (`fields/link.ts`). */
+    link?: LinkSpec;
 }
 
 /**
@@ -107,6 +110,8 @@ export interface Field {
     derive?: Derive;
     /** A list read from this field and every alt (`fields/meaning.ts`). */
     all?: boolean;
+    /** Read with `fields/link.ts`, not the selector. */
+    link?: LinkSpec;
 }
 
 export const TEXTUAL = new Set<AtomAttr>(['text', 'own', 'aria-label', 'title']);

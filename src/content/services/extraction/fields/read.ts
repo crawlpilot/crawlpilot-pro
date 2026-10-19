@@ -2,6 +2,7 @@
 import { alignToTemplate, collectAtoms, isAtomRoot, labelValue, meaningful, readValue, Shape, shapeOf, withAtomCache } from '../atoms';
 import { readJsonField } from '../structuredRows';
 import { kindOf } from './component';
+import { readLink } from './link';
 import { applyDerive } from './split';
 import { typedValue } from './parse';
 import { rowFitsGate } from './gate';
@@ -51,6 +52,10 @@ function baseOf(row: Element, r: Omit<FieldReader, 'alternates'>): Element | nul
 
 function readOne(row: Element, r: Omit<FieldReader, 'alternates'>, onlyShape?: Shape): string | undefined {
     const ofShape = (v: string) => !onlyShape || shapeOf(v, r.attr) === onlyShape;
+    if (r.link) {
+        const v = readLink(row, r.link);
+        return v !== undefined && ofShape(v) ? v : undefined;
+    }
     if (r.json) {
         const v = readJsonField(row, r.json);
         return v !== undefined && ofShape(v) ? v : undefined;

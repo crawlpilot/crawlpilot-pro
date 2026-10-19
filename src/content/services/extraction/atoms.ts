@@ -75,7 +75,7 @@ export function ownText(el: Element): string {
  * visual price next to its screen-reader price), and `$24<sup>99</sup>` read as `$24.99`.
  */
 export function atomText(el: Element): string {
-    const read = (skipAriaHidden: boolean): string => {
+    const read = (skipAriaHidden: boolean, skipScreenReader = false): string => {
         let out = '';
         const walk = (node: Node) => {
             if (node.nodeType === Node.TEXT_NODE) { out += node.textContent; return; }
@@ -83,6 +83,7 @@ export function atomText(el: Element): string {
             const e = node as Element;
             if (SKIP.has(e.tagName)) return;
             if (skipAriaHidden && e.getAttribute('aria-hidden') === 'true') return;
+            if (skipScreenReader && e !== el && isScreenReaderOnly(e)) return;
             if (e.tagName === 'BR') { out += ' '; return; }
             // Cents in their own element after the whole number: `$24<sup>99</sup>`, `<span>519</span><span>99</span>`.
             if (e.tagName === 'SUP' || (e.tagName === 'SPAN' && e.previousElementSibling && /\d$/.test(e.previousElementSibling.textContent || ''))) {
@@ -100,6 +101,12 @@ export function atomText(el: Element): string {
         walk(el);
         return collapse(out);
     };
+    // A value with a screen-reader version and a copy hidden from screen readers reads what is shown:
+    // LinkedIn's "Sales Officer", not the screen reader's "Selected, Sales Officer" or "… (Verified job)".
+    if (el.children.length > 1 && el.querySelector('[aria-hidden="true"]') && Array.from(el.children).some(isScreenReaderOnly)) {
+        const shown = read(false, true);
+        if (shown) return shown.slice(0, MAX_VALUE);
+    }
     const visible = read(true);
     return (visible || read(false)).slice(0, MAX_VALUE);
 }
@@ -177,7 +184,7 @@ export function readValue(el: Element, attr: AtomAttr): string {
         case 'own': return ownText(el);
         case 'href': return absoluteUrl(el.getAttribute('href'));
         case 'src': return imageSrc(el);
-        default: return collapse(el.getAttribute(attr) || '').slice(0, MAX_VALUE);
+        default: return URL_DATA.test(attr) ? absoluteUrl(el.getAttribute(attr)) : collapse(el.getAttribute(attr) || '').slice(0, MAX_VALUE);
     }
 }
 
@@ -223,7 +230,11 @@ function inlineOnly(el: Element): boolean {
     const stack: Element[] = Array.from(el.children);
     while (stack.length > 0) {
         const d = stack.pop()!;
-        if (++seen > 16 || (!INLINE.has(d.tagName) && !SKIP.has(d.tagName))) return false;
+        // SVG elements name themselves in lower case (`svg`, `g`, `path`).
+        const tag = d.tagName.toUpperCase();
+        if (++seen > 16 || (!INLINE.has(tag) && !SKIP.has(tag))) return false;
+        // An icon's drawing (`<svg><g><path>`) is skipped whole, not inline content.
+        if (SKIP.has(tag)) continue;
         for (let c = d.firstElementChild; c; c = c.nextElementSibling) stack.push(c);
     }
     return true;
@@ -239,7 +250,9 @@ function computeTextAtom(el: Element): boolean {
     if (/^H[1-6]$/.test(el.tagName) && !el.querySelector(HOOKED)) return true;
     if (meaningful(ownText(el))) return true;
     const children = Array.from(el.children);
-    const plain = (c: Element) => FORMATTING.has(c.tagName) || c.getAttribute('aria-hidden') === 'true' || SKIP.has(c.tagName);
+    // Screen-reader text beside a copy hidden from screen readers is the same value told twice (LinkedIn's title).
+    const told = children.some(c => c.getAttribute('aria-hidden') === 'true');
+    const plain = (c: Element) => FORMATTING.has(c.tagName) || c.getAttribute('aria-hidden') === 'true' || SKIP.has(c.tagName) || (told && isScreenReaderOnly(c));
     const piece = (c: Element) => NUMBER_PIECE.test((c.textContent || '').trim());
     if (children.every(c => plain(c) || piece(c))) return true;
     // A price opened by a word: "Now" $ 519 99.
@@ -358,6 +371,9 @@ export function labelValue(el: Element, attr: 'aria-label' | 'title'): string {
     return moreDigits || names ? v : '';
 }
 
+/** `data-*` names that hold a link: a card opened by script keeps its URL there (`data-href`, `data-url`). */
+const URL_DATA = /^data-(?:[\w-]*[-_])?(href|url|link|permalink)$/i;
+
 /** `data-*` names that hold a value of the item: an ID, a price, a rating, a count, a brand. */
 const VALUE_DATA = /^data-(?:[\w-]*[-_])?(id|sku|asin|pid|upc|ean|gtin|mpn|price|rating|reviews?|count|value|brand|model|stock)$/i;
 /** ID attributes that name the item, not a tracker: product, item, SKU, … in their name. */
@@ -398,7 +414,8 @@ function scanAtoms(row: Element): Atom[] {
             if (v) { add(el, a, v, path); break; }
         }
         for (const name of el.getAttributeNames()) {
-            if (isValueAttribute(el, name, row)) add(el, name as AtomAttr, readValue(el, name as AtomAttr), path);
+            if (URL_DATA.test(name) && /^(https?:)?\/|^[\w-]+\//i.test(el.getAttribute(name) || '')) add(el, name as AtomAttr, readValue(el, name as AtomAttr), path);
+            else if (isValueAttribute(el, name, row)) add(el, name as AtomAttr, readValue(el, name as AtomAttr), path);
         }
     };
 
