@@ -3,6 +3,7 @@ import { runRecon } from '../services/recon/ReconService';
 import { LabPicker, evaluateSelector, highlightSelector, clearLabHighlights } from '../features/lab/SelectorLab';
 import { requestNetEntries, clearNetEntries } from '../features/network/NetworkRelay';
 import { buildPageView, ground } from '../services/ai-view/pageView';
+import { INTERACTIVE_BUDGET, revealForReading } from '../services/reveal';
 import { RightClickUnlocker } from '../features/utility/RightClickUnlocker';
 import { fail, ok, on, send } from '../../shared/messages';
 import { checkPageClaims, showCitation } from '../services/ai-view/claims';
@@ -37,7 +38,16 @@ export function registerToolkitHandlers() {
     // Non-HttpOnly cookies only: what the page itself can read.
     on('PAGE_COOKIE', () => ok({ cookie: document.cookie }));
 
-    on('AI_PAGE_VIEW', ({ chunkChars, maxChunks }) => ok({ view: buildPageView(chunkChars, maxChunks) }));
+    on('AI_PAGE_VIEW', async ({ chunkChars, maxChunks, reveal }) => {
+        // Closed sections, inactive tabs and "Show more" text are opened first, then the page is put back.
+        const revealed = await revealForReading(reveal ?? 'open', INTERACTIVE_BUDGET);
+        try {
+            const view = buildPageView(chunkChars, maxChunks, { markdown: revealed.markdownOptions });
+            return ok({ view: { ...view, revealed: revealed.report } });
+        } finally {
+            await revealed.restore();
+        }
+    });
     on('AI_GROUND', ({ requests }) => ok({ results: ground(requests) }));
     on('AI_CHECK', ({ claims }) => ok({ results: checkPageClaims(claims) }));
     on('AI_SHOW', ({ ref, quote }) => ok({ shown: showCitation(ref, quote) }));

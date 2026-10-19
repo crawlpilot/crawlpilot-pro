@@ -4,6 +4,7 @@ import { extractMetadata } from '../services/metadata/MetadataExtractionService'
 import { fail, ok, on } from '../../shared/messages';
 import { summarizePage } from '../services/pageSummary';
 import { findNextControl } from '../services/pagination/findNext';
+import { BULK_BUDGET, revealForReading, revealSummary } from '../services/reveal';
 
 /** Resolves once the DOM has been quiet for `stableMs` (SPA hydration, API data), or after `timeoutMs`. */
 function waitForDomStability(stableMs = 1500, timeoutMs = 12000): Promise<void> {
@@ -53,7 +54,15 @@ export function registerPageDataHandlers() {
         try {
             await waitForDomStability();
             await scrollToRevealLazyContent();
-            return ok({ result: extractMetadata(options || {}) });
+            // Closed sections, inactive tabs and "Show more" text are read too (a tighter budget: every
+            // page of a bulk run pays it), then the page is put back.
+            const revealed = await revealForReading(options?.reveal ?? 'open', BULK_BUDGET);
+            try {
+                const result = extractMetadata(options || {}, revealed.markdownOptions);
+                return ok({ result: { ...result, revealed: revealSummary(revealed.report) } });
+            } finally {
+                await revealed.restore();
+            }
         } catch (err: any) {
             return fail(err, 'Metadata extraction failed');
         }

@@ -42,6 +42,8 @@ function toRow(result: MetadataExtractResult, options: MetadataExtractOptions): 
         wordCount: words > 0 ? String(words) : '',
         readingTime: words > 0 ? `${Math.max(1, Math.ceil(words / 200))} min` : '',
         ...(options.outputText ? { text: result.text ?? '' } : {}),
+        // Not a column: what was opened before reading, for the row's details.
+        ...(result.revealed ? { _revealed: result.revealed } : {}),
     };
 }
 

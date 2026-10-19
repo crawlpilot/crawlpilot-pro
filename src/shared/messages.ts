@@ -6,6 +6,7 @@
  * A context answers only the types it registered, so a broadcast (progress, picker results) never
  * gets a stray reply from another context.
  */
+import type { RevealMode } from './types/reveal';
 import type { MetadataExtractOptions, MetadataExtractResult } from './types/metadata';
 import type { ExtractedContent } from './types/summarizer';
 import type { PageVerdict } from './verdict/classifyPage';
@@ -156,7 +157,7 @@ export interface Messages {
     NET_LIST: { reply: Res<{ installed: boolean; entries: NetEntry[] }> };
     NET_CLEAR: { reply: Res };
     PAGE_COOKIE: { reply: Res<{ cookie: string }> };
-    AI_PAGE_VIEW: { payload: { chunkChars: number; maxChunks: number }; reply: Res<{ view: PageView }> };
+    AI_PAGE_VIEW: { payload: { chunkChars: number; maxChunks: number; reveal?: RevealMode }; reply: Res<{ view: PageView }> };
     AI_GROUND: { payload: { requests: GroundRequest[] }; reply: Res<{ results: Grounded[] }> };
     /** Page assistant: checks claims against the last page view's blocks, and shows a cited block. */
     AI_CHECK: { payload: { claims: ClaimRequest[] }; reply: Res<{ results: ClaimResult[] }> };

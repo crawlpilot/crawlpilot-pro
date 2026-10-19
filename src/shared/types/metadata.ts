@@ -1,3 +1,4 @@
+import type { RevealMode } from './reveal';
 export type PageType =
     | 'article'
     | 'forum'
@@ -36,6 +37,8 @@ export interface MetadataExtractResult {
     metadata?: HtmlMetadata;
     stats?: ExtractStats;
     errorReason?: string;
+    /** Hidden sections opened or read before the page was read ("Specifications, Details · 2 tabs"). */
+    revealed?: string;
 }
 
 export interface MetadataExtractOptions {
@@ -47,4 +50,6 @@ export interface MetadataExtractOptions {
     outputText?: boolean;
     favorPrecision?: boolean;
     favorRecall?: boolean;
+    /** Open closed accordions, tabs and "Show more" text before reading (default `open`). */
+    reveal?: RevealMode;
 }

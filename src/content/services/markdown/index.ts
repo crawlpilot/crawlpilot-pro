@@ -32,6 +32,9 @@ export interface MarkdownOptions extends ComposeOptions {
     /** Drop text addressed to an AI model. Default true. */
     dropInjections?: boolean;
     maxChars?: number;
+    /** Content captured while revealing that the page no longer shows (a lazy tab's panel, cloned
+     * when it was open): appended at the end, each under its label. */
+    extra?: { label: string; el: Element }[];
 }
 
 export interface Attempt { mode: MarkdownMode; mainContent: boolean }
@@ -90,6 +93,15 @@ export function toMarkdown(source: Element | Document = document, options: Markd
     }
     for (const selector of options.exclude ?? []) {
         try { base.querySelectorAll(selector).forEach(el => el.remove()); } catch { /* bad selector */ }
+    }
+    for (const { label, el } of options.extra ?? []) {
+        // A detached copy: no layout to read, so only `hidden` and inline styles count.
+        const part = compose(el, { live: false });
+        const section = composed.doc.createElement('section');
+        const heading = composed.doc.createElement('h3');
+        heading.textContent = label;
+        section.append(heading, ...Array.from(part.root.childNodes).map(n => composed.doc.importNode(n, true)));
+        base.appendChild(section);
     }
 
     const chain = fallbackChain(mode, options.mainContent ?? true);

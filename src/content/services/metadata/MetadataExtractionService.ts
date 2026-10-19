@@ -1,4 +1,4 @@
-import { toMarkdown } from '../markdown';
+import { toMarkdown, type MarkdownOptions } from '../markdown';
 import type { MetadataExtractOptions, MetadataExtractResult, HtmlMetadata, PageType, ExtractStats } from '../../../shared/types/metadata';
 
 // ─── Stage 1: Metadata extraction ─────────────────────────────────────────────
@@ -160,7 +160,7 @@ function classifyPageType(url?: string): PageType {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export function extractMetadata(options: MetadataExtractOptions = {}): MetadataExtractResult {
+export function extractMetadata(options: MetadataExtractOptions = {}, revealed: Pick<MarkdownOptions, 'reveal' | 'extra'> = {}): MetadataExtractResult {
     const {
         url,
         includeLinks = true,
@@ -189,6 +189,7 @@ export function extractMetadata(options: MetadataExtractOptions = {}): MetadataE
             mode: favorPrecision ? 'fit' : 'markdown',
             mainContent: !favorRecall,
             includeLinks, includeTables, includeImages,
+            ...revealed,
         });
         const markdown = page.markdown;
         const textChars = page.stats.keptChars;
@@ -220,7 +221,7 @@ export function extractMetadata(options: MetadataExtractOptions = {}): MetadataE
         };
 
         if (outputText) {
-            result.text = toMarkdown(document, { mode: 'text', mainContent: !favorRecall }).markdown;
+            result.text = toMarkdown(document, { mode: 'text', mainContent: !favorRecall, ...revealed }).markdown;
         }
 
         return result;

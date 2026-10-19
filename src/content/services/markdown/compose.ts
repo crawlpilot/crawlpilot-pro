@@ -14,9 +14,14 @@
  *   replaced by what is assigned to it.
  * - **Live values.** Form controls carry their current value.
  *
+ * - **Revealed panels.** Panels hidden behind a visible control (an accordion, an inactive tab: the
+ *   `reveal` map from `reveal/disclosure.ts`) are read as if open; a tab panel under its tab's name.
+ *   Inside one, only what is hidden by its own `display` or `hidden` stays out.
+ *
  * Without layout (`live: false`, jsdom), only `hidden`, `aria-hidden` and inline styles are read.
  */
 import { imageSource } from '../images/source';
+import type { Panel } from '../reveal/disclosure';
 
 export const POSITION_ATTRIBUTE = 'data-cp-pos';
 
@@ -31,6 +36,8 @@ export interface ComposeOptions {
     live?: boolean;
     /** Keep each copy's source element (`sources`, indexed by `data-cp-src`): for block refs. */
     refs?: boolean;
+    /** Hidden panels to read as if open (`reveal/disclosure.ts`). */
+    reveal?: Map<Element, Panel>;
 }
 
 export interface Composed {
@@ -43,6 +50,13 @@ export interface Composed {
 }
 
 export const SOURCE_ATTRIBUTE = 'data-cp-src';
+
+/** Inside a revealed panel: hidden by its own `display` or `hidden` only (the panel's own hiding is undone). */
+function renderedInPanel(el: Element, live: boolean): boolean {
+    if ((el as HTMLElement).hidden) return false;
+    const style = live ? el.ownerDocument.defaultView?.getComputedStyle(el) : (el as HTMLElement).style;
+    return !style || style.display !== 'none';
+}
 
 function rendered(el: Element, inDetails: boolean, live: boolean): boolean {
     if (el.getAttribute('aria-hidden') === 'true') return false;
@@ -74,15 +88,17 @@ export function compose(source: Element | Document, options: ComposeOptions = {}
     let hidden = 0;
     const sources: Element[] = [];
 
-    const copy = (el: Element, inDetails: boolean, inFloating: boolean): Element | null => {
+    const copy = (el: Element, inDetails: boolean, inFloating: boolean, inPanel = false): Element | null => {
         const tag = el.localName;
         if (SKIP.has(tag)) return null;
-        if (el !== start && !rendered(el, inDetails, live)) { hidden++; return null; }
+        const panel = options.reveal?.get(el);
+        const shown = panel ? true : inPanel ? renderedInPanel(el, live) : rendered(el, inDetails, live);
+        if (el !== start && !shown) { hidden++; return null; }
         if (tag === 'slot') {
             // Rendered as what is assigned to it (or its fallback content).
             const wrapper = doc.createElement('span');
             const assigned = (el as HTMLSlotElement).assignedNodes?.({ flatten: true }) ?? [];
-            appendAll(wrapper, assigned.length ? assigned : Array.from(el.childNodes), inDetails, inFloating);
+            appendAll(wrapper, assigned.length ? assigned : Array.from(el.childNodes), inDetails, inFloating, inPanel);
             return wrapper;
         }
         const out = doc.createElement(tag);
@@ -109,15 +125,21 @@ export function compose(source: Element | Document, options: ComposeOptions = {}
             const position = el.ownerDocument.defaultView?.getComputedStyle(el).position;
             if (position === 'fixed' || position === 'sticky') { out.setAttribute(POSITION_ATTRIBUTE, position); floating = true; }
         }
-        appendAll(out, renderedChildren(el), inDetails || (tag === 'details' && !(el as HTMLDetailsElement).open), floating);
+        // A tab panel shows alone on the page, so it is read under its tab's name.
+        if (panel?.tab && panel.label) {
+            const heading = doc.createElement('h4');
+            heading.textContent = panel.label;
+            out.appendChild(heading);
+        }
+        appendAll(out, renderedChildren(el), inDetails || (tag === 'details' && !(el as HTMLDetailsElement).open), floating, inPanel || !!panel);
         return out;
     };
 
-    const appendAll = (parent: Element, nodes: Node[], inDetails: boolean, inFloating: boolean) => {
+    const appendAll = (parent: Element, nodes: Node[], inDetails: boolean, inFloating: boolean, inPanel = false) => {
         for (const node of nodes) {
             if (node.nodeType === Node.TEXT_NODE) parent.appendChild(doc.createTextNode(node.nodeValue ?? ''));
             else if (node.nodeType === Node.ELEMENT_NODE) {
-                const child = copy(node as Element, inDetails, inFloating);
+                const child = copy(node as Element, inDetails, inFloating, inPanel);
                 if (child) parent.appendChild(child);
             }
         }

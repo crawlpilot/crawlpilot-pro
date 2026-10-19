@@ -8,6 +8,7 @@ import { runPageExtract, ExtractStopped, type ExtractOutcome, type ExtractedValu
 import { outcomeDocument, outcomeJson, outcomeTables } from '../services/ai/extractTables';
 import { downloadJson } from '../services/download';
 import { slug } from '../../shared/utils/text';
+import { revealSummary } from '../../shared/types/reveal';
 import { db } from '../../shared/db';
 import { EXTRACT_DRAFT_KEY } from '../services/ai/extractDraft';
 
@@ -156,6 +157,9 @@ export default function AiExtractPage({ onBack }: { onBack: () => void }) {
 
                     {outcome && (
                         <Stack gap={3}>
+                            {revealSummary(outcome.revealed) && (
+                                <Text size="caption" tone="muted">Opened before reading: {revealSummary(outcome.revealed)}</Text>
+                            )}
                             {outcome.warnings.map((w, i) => <Notice key={i} tone="info">{w}</Notice>)}
                             {intake.fields.length > 0 && (
                                 <Card pad="sm">

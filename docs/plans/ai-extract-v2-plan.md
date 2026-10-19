@@ -1,6 +1,6 @@
 # AI Extract v2: JSON Schema in, JSON out, resilient on a small on-device model
 
-Status: plan, not started. Builds on `ai-extract-markdown-plan.md`, where X0 (model host), M1 (markdown
+Status: A1 done. Next: A2 (budget and groups) and A2b (reveal hidden content). Builds on `ai-extract-markdown-plan.md`, where X0 (model host), M1 (markdown
 engine) and X1 (single-page AI Extract) are done; X2 (compile to a recipe) and X3 (many pages) are still open.
 
 ## 1. What the user gets
@@ -355,3 +355,29 @@ closed), as already planned, on top of this.
 - **Revealed hidden text is a prompt-injection channel.** Only panels tied to a visible control are revealed, the injection filter runs on them, and grounding still has the final say on every value.
 - **Decision for you:** should "Page markdown" be saved with every AI Extract row by default (larger
   tables, full evidence), or only when asked? The plan assumes **only when asked**.
+
+## 8. Progress
+
+| Step | State | Notes |
+|---|---|---|
+| A1 | **Done** | See the details below |
+| A2–A6 | Open | |
+
+What A1 built:
+
+- **`schemaNormalize.ts`.** Lines, examples and JSON Schemas all become one normalised JSON Schema.
+  - Lines now take dotted names (`dimensions.width`) and lists of values (`tags[]: …` with no fields under it).
+  - Examples keep nesting, and take list item keys from the first three items.
+  - JSON Schemas get `$ref`s resolved, unions made one type, and `enum`/`format` kept.
+  - Simplifications are reported as problems, and the AI Extract page shows them under the schema.
+- **`schemaPlan.ts`.** Leaves have flat keys, pointers and labels. The schema is split thenos-style, and a root array is one list.
+  - The pipeline's `SchemaField` gains `label`, `enum` and `many`.
+  - The model is told the allowed enum values, the nesting and how to list several values.
+- **`assemble.ts`.** Rebuilds the shape, matches enum spelling, types numbers and splits multiple values. It also validates by pointer (type, enum, required, format, item counts) and keys sources by pointer.
+- **The JSON outputs.**
+  - `outcomeJson` returns the schema's shape.
+  - `outcomeDocument` returns `{ url, data, sources, problems, warnings }`. The page offers "Copy JSON" and "JSON with sources".
+- **Table columns** show `size.width`.
+- **T0** matches a nested field by its own name too.
+
+Tests: `schemaCore.test.ts` (13) and `extractTables.test.ts` (2). The intake tests now go through the new path, and the fake-model corpus run passes unchanged.

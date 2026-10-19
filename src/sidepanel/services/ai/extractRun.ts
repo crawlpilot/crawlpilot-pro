@@ -29,6 +29,7 @@ import type { SchemaField, SchemaList } from '../../../shared/ai/schemaIntake';
 import type { GroundRequest, Grounded, PageView } from '../../../shared/ai/page';
 import type { GradedSelector } from '../../../shared/selectors/grade';
 import { sendToActiveTab } from '../../../shared/messages';
+import type { RevealReport } from '../../../shared/types/reveal';
 
 export interface PageAccess {
     view(chunkChars: number, maxChunks: number): Promise<PageView>;
@@ -67,6 +68,8 @@ export interface ExtractOutcome {
     warnings: string[];
     /** The model was used for at least one value. */
     modelUsed: boolean;
+    /** Hidden sections opened or read before the page was read. */
+    revealed?: RevealReport;
 }
 
 export interface ExtractOptions {
@@ -142,7 +145,7 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
         chunkChars = Math.max(1500, Math.floor(room.tokens * room.charsPerToken * 0.8) - 800);
     }
 
-    opts.onStatus?.('Reading the page…');
+    opts.onStatus?.('Opening hidden sections and reading the page…');
     const view = await page.view(chunkChars, MAX_CHUNKS);
     if (!view.chunks.length) throw new Error('No readable text found on this page.');
     if (view.truncated) warnings.push(`The page is long: only its first ${view.chunks.length} parts were read.`);
@@ -272,7 +275,8 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
 
     const unverified = [...Object.values(single), ...Object.values(lists).flat().flatMap(i => Object.values(i))].filter(v => v.status === 'unverified').length;
     if (unverified) warnings.push(`${unverified} value${unverified !== 1 ? 's' : ''} the model gave ${unverified !== 1 ? 'are' : 'is'} not on the page: shown as unverified.`);
-    return { url: view.url, title: view.title, single, lists, warnings, modelUsed };
+    for (const skip of view.revealed?.skipped.filter(s => s.reason !== 'outside the main content') ?? []) warnings.push(`Didn't click “${skip.label}”: ${skip.reason}.`);
+    return { url: view.url, title: view.title, single, lists, warnings, modelUsed, ...(view.revealed ? { revealed: view.revealed } : {}) };
 }
 
 export { ExtractStopped };

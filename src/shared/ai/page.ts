@@ -2,6 +2,7 @@
 import type { GradedSelector } from '../selectors/grade';
 import type { StructuredData } from './structured';
 import type { SchemaFieldType } from './schemaIntake';
+import type { RevealReport } from '../types/reveal';
 
 export interface PageView {
     url: string;
@@ -11,6 +12,8 @@ export interface PageView {
     /** More chunks than were asked for: the end of the page wasn't read. */
     truncated: boolean;
     structured: StructuredData;
+    /** What was opened or read from hidden sections before the page was read. */
+    revealed?: RevealReport;
 }
 
 export interface GroundRequest {

@@ -9,7 +9,7 @@
  *   and is never shown as verified. Single fields can be compiled to selector chains, so the Page
  *   Extractor reruns them with no model.
  */
-import { toMarkdown } from '../markdown';
+import { toMarkdown, type MarkdownOptions } from '../markdown';
 import { chunkMarkdown } from '../../../shared/markdown/chunks';
 import { elementChain } from '../selectors/element';
 import { collectStructured } from '../../../shared/ai/structured';
@@ -21,8 +21,8 @@ import type { GroundRequest, Grounded, PageView } from '../../../shared/ai/page'
 let refs = new Map<string, Element>();
 let order: string[] = [];
 
-export function buildPageView(chunkChars: number, maxChunks: number, options: { live?: boolean } = {}): PageView {
-    const result = toMarkdown(document, { mode: 'markdown', refs: true, live: options.live ?? true });
+export function buildPageView(chunkChars: number, maxChunks: number, options: { live?: boolean; markdown?: Pick<MarkdownOptions, 'reveal' | 'extra'> } = {}): PageView {
+    const result = toMarkdown(document, { mode: 'markdown', refs: true, live: options.live ?? true, ...options.markdown });
     refs = result.refs ?? new Map();
     order = [...refs.keys()];
     const chunks = chunkMarkdown(result.markdown, Math.max(500, chunkChars));

@@ -108,6 +108,7 @@ export function MetadataStep2Run({
                         <Switch label={t('options.includeLinks')} checked={options.includeLinks ?? true} onChange={v => setOptions({ ...options, includeLinks: v })} />
                         <Switch label={t('options.includeImages')} checked={options.includeImages ?? false} onChange={v => setOptions({ ...options, includeImages: v })} />
                         <Switch label={t('options.outputText')} checked={options.outputText ?? false} onChange={v => setOptions({ ...options, outputText: v })} />
+                        <Switch label={t('options.reveal')} hint={t('options.revealHint')} checked={(options.reveal ?? 'open') !== 'off'} onChange={v => setOptions({ ...options, reveal: v ? 'open' : 'off' })} />
                         <div className="border-t border-line pt-3.5"><Text size="caption" weight="bold" tone="muted">Speed</Text></div>
                         {row(t('options.concurrency'), t('options.concurrencyHint'),
                             <Stepper label={t('options.concurrency')} value={maxConcurrent} onChange={setMaxConcurrent} min={1} max={5} step={1} width={1} />)}
