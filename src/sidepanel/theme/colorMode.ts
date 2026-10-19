@@ -1,11 +1,11 @@
 /**
  * Light or dark: the user's Appearance setting (light by default), applied as `data-theme` on <html>
- * for the CSS variables and returned for the MUI theme. A copy in localStorage lets the panel paint
+ * for the design tokens in index.css. A copy in localStorage lets the panel paint
  * in the right colours before chrome.storage answers.
  */
 import { useEffect, useState } from 'react';
 import { storage, type Appearance } from '@/shared/storage';
-import type { ColorMode } from './muiTheme';
+export type ColorMode = 'light' | 'dark';
 
 const CACHE = 'crawlpilot.appearance';
 const DEFAULT: Appearance = 'light';

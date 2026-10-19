@@ -1,9 +1,7 @@
-import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
-import { ThemeProvider, CssBaseline } from '@mui/material';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Button } from './ui';
 import { Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { createAppTheme } from './theme/muiTheme';
 import { useColorMode } from './theme/colorMode';
 import HomePage from './pages/HomePage';
 import WelcomePage from './pages/WelcomePage';
@@ -31,8 +29,7 @@ function App() {
     const [isGlobalExtracting, setIsGlobalExtracting] = useState(false);
     const { isTabConnected, isConnecting, connectTab } = useTabSync();
     const { t } = useTranslation('common');
-    const { mode } = useColorMode();
-    const theme = useMemo(() => createAppTheme(mode), [mode]);
+    useColorMode();
 
 
     useEffect(() => {
@@ -92,8 +89,6 @@ function App() {
 
 
     return (
-        <ThemeProvider theme={theme}>
-            <CssBaseline />
             <div className="flex h-screen flex-col overflow-hidden">
                 {/* Global Connection Banner */}
                 {!isTabConnected && currentView !== 'data-table' && (
@@ -116,7 +111,6 @@ function App() {
                     <Suspense fallback={null}>{renderView()}</Suspense>
                 </div>
             </div>
-        </ThemeProvider>
     );
 }
 

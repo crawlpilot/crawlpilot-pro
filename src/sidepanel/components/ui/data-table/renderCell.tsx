@@ -5,7 +5,7 @@ const isImageUrl = (v: string) => /\.(jpg|jpeg|png|gif|webp|svg|avif|bmp|ico|tif
 
 /** A cell by its column type: images, image lists, markdown (opens a preview), links, or text. */
 export function renderCell(value: unknown, col: Column, showImages: boolean, onMarkdown: (content: string) => void) {
-    if (value === null || value === undefined || value === '') return <span className="text-text-muted">-</span>;
+    if (value === null || value === undefined || value === '') return <span className="text-ink-3">-</span>;
     if (typeof value === 'boolean') return <span>{value ? 'Yes' : 'No'}</span>;
 
     const strValue = String(value);
@@ -19,7 +19,7 @@ export function renderCell(value: unknown, col: Column, showImages: boolean, onM
         } else {
             try { urls = JSON.parse(strValue); } catch { urls = [strValue]; }
         }
-        if (!showImages) return <span className="text-xs text-text-muted truncate block w-full" title={urls.join(', ')}>{urls.length} images</span>;
+        if (!showImages) return <span className="text-xs text-ink-3 truncate block w-full" title={urls.join(', ')}>{urls.length} images</span>;
         return (
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '100%', height: '100%', overflow: 'hidden' }}>
                 {urls.slice(0, 5).map((url, i) => (
@@ -32,13 +32,13 @@ export function renderCell(value: unknown, col: Column, showImages: boolean, onM
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                 ))}
-                {urls.length > 5 && <span className="text-xs text-text-muted">+{urls.length - 5}</span>}
+                {urls.length > 5 && <span className="text-xs text-ink-3">+{urls.length - 5}</span>}
             </div>
         );
     }
 
     if (looksLikeImage) {
-        if (!showImages) return <span className="text-xs text-text-muted truncate block w-full" title={strValue}>{strValue}</span>;
+        if (!showImages) return <span className="text-xs text-ink-3 truncate block w-full" title={strValue}>{strValue}</span>;
         return (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: 'hidden' }}>
                 <img
@@ -49,7 +49,7 @@ export function renderCell(value: unknown, col: Column, showImages: boolean, onM
                     onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
                         (e.target as HTMLImageElement).insertAdjacentHTML('afterend',
-                            `<span style="font-size:11px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${strValue}</span>`
+                            `<span style="font-size:11px;color:var(--cp-text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${strValue}</span>`
                         );
                     }}
                 />
@@ -63,12 +63,12 @@ export function renderCell(value: unknown, col: Column, showImages: boolean, onM
             <div className="flex items-center gap-1.5 w-full overflow-hidden">
                 <button
                     onClick={(e) => { e.stopPropagation(); onMarkdown(strValue); }}
-                    className="shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] hover:bg-primary/20 transition-colors"
+                    className="shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-brand/30 text-ink text-[10px] font-semibold hover:bg-brand/60 transition-colors"
                 >
                     <FileText size={9} />
                     MD
                 </button>
-                <span className="text-xs text-text-muted truncate flex-1">{preview || '…'}</span>
+                <span className="text-xs text-ink-3 truncate flex-1">{preview || '…'}</span>
             </div>
         );
     }
@@ -79,7 +79,7 @@ export function renderCell(value: unknown, col: Column, showImages: boolean, onM
                 href={strValue}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-accent-ai hover:text-text-primary underline decoration-dotted underline-offset-2 block w-full truncate text-xs"
+                className="text-ink underline decoration-brand decoration-2 underline-offset-2 hover:bg-brand/30 block w-full truncate text-xs"
                 title={strValue}
             >
                 {strValue}
@@ -89,7 +89,7 @@ export function renderCell(value: unknown, col: Column, showImages: boolean, onM
 
     return (
         <div className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" title={String(value || '')}>
-            <span className="text-sm text-text-primary/90 font-medium">
+            <span className="text-sm text-ink font-medium">
                 {String(value ?? '')}
             </span>
         </div>

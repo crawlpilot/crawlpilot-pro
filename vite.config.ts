@@ -67,7 +67,6 @@ export default defineConfig({
                         // extraction script doesn't pull the whole vendor bundle into pages.
                         if (id.includes('@mozilla/readability')) return 'vendor-readability';
                         if (id.includes('ag-grid')) return 'vendor-aggrid';
-                        if (id.includes('@mui/') || id.includes('@emotion/')) return 'vendor-mui';
                         // Keep react, react-dom, and scheduler together to avoid init order issues.
                         // Use path-segment matching so react-i18next, react-query, etc. don't end up
                         // in this chunk (they depend on i18next/other vendor libs, which would create
