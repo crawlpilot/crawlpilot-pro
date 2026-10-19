@@ -12,6 +12,7 @@
  *   1 gate   keep the rows that are items
  *   2 group  values → candidate fields with row-relative selectors (a repeated component read whole)
  *   3 merge  one field per thing
+ *   3b split one value holding several → a field per part (template slots, label/value pairs)
  *   4 prune  drop boilerplate
  *   5 name   evidence-based names
  */
@@ -24,6 +25,7 @@ import { collapseComponents } from './component';
 import { mergeFields } from './merge';
 import { columnType, nameFields } from './name';
 import { pruneFields } from './prune';
+import { splitFields } from './split';
 import { tableFields } from './table';
 import { Field, FIELD_SCHEMA_VERSION, FieldInference, FieldReader, fieldId, ReaderColumn } from './types';
 
@@ -52,6 +54,7 @@ function readerOf(f: Field): Omit<FieldReader, 'alternates'> {
         ...(f.kinds ? { kinds: f.kinds, kind: f.kind } : {}),
         ...(f.many ? { many: true } : {}),
         ...(f.first ? { first: true } : {}),
+        ...(f.derive ? { derive: f.derive } : {}),
     };
 }
 
@@ -79,7 +82,7 @@ function infer(sampled: Element[]): FieldInference {
     const n = rows.length;
 
     // 2–5.
-    const fields = pruneFields(mergeFields(collapseComponents(groupFields(rows, rowsAtoms), rows)), n);
+    const fields = pruneFields(splitFields(mergeFields(collapseComponents(groupFields(rows, rowsAtoms), rows))), n);
     const names = nameFields(fields);
 
     // Checks for the review step.

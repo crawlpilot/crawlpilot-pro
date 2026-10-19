@@ -1,7 +1,8 @@
 /** Reading rows with frozen fields: the same on the preview, every later page and every run. */
-import { alignToTemplate, collectAtoms, isAtomRoot, readValue, Shape, shapeOf, withAtomCache } from '../atoms';
+import { alignToTemplate, collectAtoms, isAtomRoot, labelValue, readValue, Shape, shapeOf, withAtomCache } from '../atoms';
 import { readJsonField } from '../structuredRows';
 import { kindOf } from './component';
+import { applyDerive } from './split';
 import { rowFitsGate } from './gate';
 import { tableHeaders } from './table';
 import { FIELD_SCHEMA_VERSION, FieldReader, query, ReaderColumn } from './types';
@@ -11,13 +12,21 @@ export function hasReaders(columns: unknown): columns is ReaderColumn[] {
 }
 
 function readField(row: Element, r: FieldReader): string | undefined {
-    const main = readOne(row, r, r.onlyShape);
+    const main = readPart(row, r, r.onlyShape);
     if (main !== undefined || !r.alternates) return main;
     for (const alt of r.alternates) {
-        const v = readOne(row, alt, r.onlyShape);
+        const v = readPart(row, alt, r.onlyShape);
         if (v !== undefined) return v;
     }
     return undefined;
+}
+
+/** A reader's value, or the part of it the reader takes (a template slot, the value after a label). */
+function readPart(row: Element, r: Omit<FieldReader, 'alternates'>, onlyShape?: Shape): string | undefined {
+    if (!r.derive) return readOne(row, r, onlyShape);
+    // The part is taken from whichever of the selector's elements fits: all of them are read as one
+    // list ("a; b; c"), which is also how a label/value pair list is held.
+    return applyDerive(readOne(row, { ...r, derive: undefined, many: true }, undefined), r.derive);
 }
 
 /** A table column's cell in this row: under its header when the table has one, else at its position. */
@@ -44,7 +53,9 @@ function readOne(row: Element, r: Omit<FieldReader, 'alternates'>, onlyShape?: S
     const base = baseOf(row, r);
     if (!base) return undefined;
     for (const sel of r.chain) {
-        const values = query(base, sel).filter(el => isAtomRoot(el, row, r.attr)).map(el => readValue(el, r.attr)).filter(Boolean);
+        // Labels are read where inference read them (`labelValue`): not the star link's "4.5 out of 5 stars, rating details".
+        const read = (el: Element) => (r.attr === 'aria-label' || r.attr === 'title' ? labelValue(el, r.attr) : readValue(el, r.attr));
+        const values = query(base, sel).filter(el => isAtomRoot(el, row, r.attr)).map(read).filter(Boolean);
         if (values.length === 0) continue;
         if (r.many) {
             const uniq = [...new Set(values.filter(ofShape))];

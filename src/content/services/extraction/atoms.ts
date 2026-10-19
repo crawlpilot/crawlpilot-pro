@@ -11,7 +11,8 @@ export { shapeOf };
 export type { Shape };
 import { nodeStep, NodeStep, setStepCache } from './nodeName';
 
-export type AtomAttr = 'text' | 'own' | 'cell' | 'href' | 'src' | 'aria-label' | 'title' | 'datetime';
+/** Where a value is read from: text, a link or image URL, a label, or a value-holding `data-*` attribute (`data-product-id`). */
+export type AtomAttr = 'text' | 'own' | 'cell' | 'href' | 'src' | 'aria-label' | 'title' | 'datetime' | `data-${string}`;
 
 export interface Atom {
     el: Element;
@@ -234,12 +235,38 @@ function sigOf(path: Element[], attr: AtomAttr): string {
 /** Text for screen readers only, by the usual class or test-id names (`sr-only`, `visually-hidden`, `a11y-text`). */
 const SCREEN_READER_ONLY = /(^|[\s_-])(sr-only|screen-reader|visually-hidden|visuallyhidden|a11y|offscreen)([\s_-]|$)/i;
 
+/** Whether the page has layout (a live tab, not a detached or jsdom document). */
+function hasLayout(): boolean {
+    return document.documentElement.clientWidth > 0;
+}
+
+/**
+ * Text drawn for screen readers only: clipped to nothing, or 1×1 px, and taken out of the flow.
+ * Told apart by how it renders, so hashed class names (`ld_Ec`, `w_iUH7`) are found too; by the
+ * usual class names where there is no layout (captures without styles).
+ */
 function isScreenReaderOnly(el: Element): boolean {
-    return SCREEN_READER_ONLY.test(el.getAttribute('class') || '') || SCREEN_READER_ONLY.test(el.getAttribute('data-testid') || '');
+    if (SCREEN_READER_ONLY.test(el.getAttribute('class') || '') || SCREEN_READER_ONLY.test(el.getAttribute('data-testid') || '')) return true;
+    if (!hasLayout() || !(el.textContent || '').trim()) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width > 2 || r.height > 2) return false;
+    const cs = getComputedStyle(el);
+    if (cs.position !== 'absolute' && cs.position !== 'fixed') return false;
+    return /rect\(\s*0|inset\(\s*(50|100)%/.test(`${cs.clip} ${cs.clipPath}`) || cs.overflow === 'hidden';
 }
 
 const SCREEN_READER_CANDIDATES = '[class*="sr-only"], [class*="screen-reader"], [class*="isually"], [class*="a11y"], [class*="offscreen"], [data-testid*="a11y"]';
 const digitsOf = (el: Element) => (el.textContent || '').replace(/\D/g, '');
+/** Each run of digits in a text ("$519.99" → 519, 99). */
+const digitRuns = (text: string) => text.match(/\d+/g) ?? [];
+
+/** Elements of a row that are screen-reader-only text: by class name, or (live) by rendering. */
+function screenReaderTexts(row: Element): Element[] {
+    const byClass = Array.from(row.querySelectorAll(SCREEN_READER_CANDIDATES)).filter(isScreenReaderOnly);
+    if (!hasLayout()) return byClass;
+    const leaves = Array.from(row.querySelectorAll('span, p, div, label, small')).filter(e => e.children.length === 0 && !byClass.includes(e));
+    return [...byClass, ...leaves.filter(isScreenReaderOnly)];
+}
 
 /**
  * Pairs of a visual copy and its screen-reader sentence: an `aria-hidden` block (not a piece of one
@@ -249,14 +276,21 @@ const digitsOf = (el: Element) => (el.textContent || '').replace(/\D/g, '');
 function visualCopies(row: Element): { blocks: Set<Element>; sentences: Set<Element> } {
     const blocks = new Set<Element>();
     const sentences = new Set<Element>();
-    const readers = Array.from(row.querySelectorAll(SCREEN_READER_CANDIDATES)).filter(isScreenReaderOnly);
+    const readers = screenReaderTexts(row);
     if (readers.length === 0) return { blocks, sentences };
+    const pairs = new Map<Element, Element[]>();
     for (const h of Array.from(row.querySelectorAll('[aria-hidden="true"]'))) {
         if (h.parentElement && isTextAtom(h.parentElement)) continue;
         const digits = digitsOf(h);
         if (digits.length === 0) continue;
         const sentence = readers.find(r => digitsOf(r).includes(digits));
-        if (sentence) { blocks.add(h); sentences.add(sentence); }
+        if (sentence) { blocks.add(h); pairs.set(sentence, [...(pairs.get(sentence) ?? []), h]); }
+    }
+    // A sentence is skipped only when its visual copies hold all of its numbers. "Rating 4.5 out of
+    // 5 stars with 109 reviews" beside a visual "(109)" still has the rating nowhere else: it is read.
+    for (const [sentence, copies] of pairs) {
+        const shown = copies.map(digitsOf).join(' ');
+        if (digitRuns(sentence.textContent || '').every(d => shown.includes(d))) sentences.add(sentence);
     }
     return { blocks, sentences };
 }
@@ -270,6 +304,50 @@ export function collectAtoms(row: Element): Atom[] {
     return atoms;
 }
 
+/**
+ * A label read as a value of the item: on an element with no text, its label is its value (an icon,
+ * stars); on one with text, only when the label shows numbers the text doesn't ("27,976 ratings" on
+ * a link reading "(27.9K)"). A button's label describes the action ("Add to cart"), never the item.
+ */
+export function labelValue(el: Element, attr: 'aria-label' | 'title'): string {
+    if (el.closest('button, [role="button"]')) return '';
+    const v = readValue(el, attr);
+    if (!v || !meaningful(v)) return '';
+    const text = (el.textContent || '').trim();
+    if (!text) return attr === 'title' && el.hasAttribute('aria-label') ? '' : v;
+    if (attr !== 'aria-label') return '';
+    const shown = text.replace(/\D/g, '');
+    // Numbers the text doesn't show ("27,976 ratings" for "(27.9K)"), or words saying what a bare
+    // number is ("115 ratings" for "(115)").
+    const moreDigits = digitRuns(v).some(d => !shown.includes(d));
+    const names = /\d/.test(v) && /\p{L}{3}/u.test(v) && !/\p{L}/u.test(text);
+    return moreDigits || names ? v : '';
+}
+
+/** `data-*` names that hold a value of the item: an ID, a price, a rating, a count, a brand. */
+const VALUE_DATA = /^data-(?:[\w-]*[-_])?(id|sku|asin|pid|upc|ean|gtin|mpn|price|rating|reviews?|count|value|brand|model|stock)$/i;
+/** ID attributes that name the item, not a tracker: product, item, SKU, … in their name. */
+const ITEM_ID = /(product|item|sku|asin|pid|upc|ean|gtin|mpn|listing|offer|variant)/i;
+
+/**
+ * A `data-*` attribute worth a column: a short value of the item. An ID-like attribute counts when its
+ * name says it identifies the item or its value is in the row's link (a tracking id is neither).
+ */
+function isValueAttribute(el: Element, name: string, row: Element): boolean {
+    const m = VALUE_DATA.exec(name);
+    // Value attributes have short names (`data-product-id`, `data-asin`); trackers namespace theirs
+    // (`data-csa-c-item-id`, `data-dca-…`).
+    if (!m || name.split(/[-_]/).length > 3) return false;
+    const v = (el.getAttribute(name) || '').trim();
+    if (!v || v.length > 60 || /^[[{]/.test(v)) return false;
+    if (/^(id|sku|asin|pid|upc|ean|gtin|mpn)$/i.test(m[1])) {
+        if (ITEM_ID.test(name)) return true;
+        const links = Array.from(row.querySelectorAll('a[href]')).slice(0, 5).map(a => a.getAttribute('href') || '');
+        return v.length >= 4 && links.some(h => h.includes(v));
+    }
+    return /\d/.test(v) || m[1] === 'brand' || m[1] === 'model';
+}
+
 function scanAtoms(row: Element): Atom[] {
     const atoms: Atom[] = [];
     const add = (el: Element, attr: AtomAttr, value: string, path: Element[]) => {
@@ -281,12 +359,12 @@ function scanAtoms(row: Element): Atom[] {
         if (el.tagName === 'A') add(el, 'href', readValue(el, 'href'), path);
         if (el.tagName === 'IMG') add(el, 'src', readValue(el, 'src'), path);
         if (el.tagName === 'TIME') add(el, 'datetime', readValue(el, 'datetime'), path);
-        // A button's label describes the action ("Add to cart", "Save Lamp to list"), not the item.
-        if (!(el.textContent || '').trim() && !el.closest('button, [role="button"]')) {
-            for (const a of ['aria-label', 'title'] as const) {
-                const v = readValue(el, a);
-                if (v && meaningful(v)) { add(el, a, v, path); break; }
-            }
+        for (const a of ['aria-label', 'title'] as const) {
+            const v = labelValue(el, a);
+            if (v) { add(el, a, v, path); break; }
+        }
+        for (const name of el.getAttributeNames()) {
+            if (isValueAttribute(el, name, row)) add(el, name as AtomAttr, readValue(el, name as AtomAttr), path);
         }
     };
 

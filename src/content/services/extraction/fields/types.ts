@@ -1,6 +1,7 @@
 import type { Atom, AtomAttr, Shape } from '../atoms';
 import { slug } from '../../../../shared/utils/text';
 import type { JsonSpec } from '../structuredRows';
+import type { Derive } from './split';
 import type { Column } from '../../../../shared/types/database';
 
 export const FIELD_SCHEMA_VERSION = 2;
@@ -36,6 +37,8 @@ export interface FieldReader {
     cell?: { header?: string; index: number };
     /** Read from the page's JSON item behind the row instead of the DOM (structured data first). */
     json?: JsonSpec;
+    /** One part of the value read: a template slot or the value after a label (`fields/split.ts`). */
+    derive?: Derive;
     /** Readers tried in order when this one finds nothing (fields the user joined into this one). */
     alternates?: Omit<FieldReader, 'alternates'>[];
 }
@@ -83,6 +86,8 @@ export interface Field {
     order: number;
     /** Fields joined into this one (the same thing in another card layout), tried in order. */
     alts?: Field[];
+    /** A part of the element's value (`fields/split.ts`). */
+    derive?: Derive;
 }
 
 export const TEXTUAL = new Set<AtomAttr>(['text', 'own', 'aria-label', 'title']);

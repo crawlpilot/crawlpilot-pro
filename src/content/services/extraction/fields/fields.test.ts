@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { inferFields, readRow, hasReaders, unmappedCount } from '.';
-import { alignToTemplate, atomText, collectAtoms, isAtomRoot, readValue } from '../atoms';
+import { alignToTemplate, atomText, collectAtoms, isAtomRoot, labelValue, readValue } from '../atoms';
+import { applyDerive } from './split';
 import { loadPage } from '../../../../test/corpus/measure';
 
 function rowsOf(html: string, selector = '.card'): Element[] {
@@ -112,7 +113,8 @@ describe('inferFields', () => {
         const rating = columns.find(c => c.name === 'Rating')!;
         expect(rating).toBeTruthy();
         const last = readRow(rows[3], columns);
-        expect(last[rating.id]).toBe('2.0 out of 5 stars');
+        // The rating is the number in "2.0 out of 5 stars" (`fields/split.ts`).
+        expect(last[rating.id]).toBe('2.0');
         expect(Object.values(last)).toEqual(expect.arrayContaining(['Mia L']));
         expect(Object.values(last)).toHaveLength(2);
     });
@@ -211,12 +213,12 @@ describe('Amazon-style search results', () => {
     it('reads only the product cards, with one plain column per field', () => {
         const rows = rowsOf(page, '.s-main-slot > div');
         const { columns, problems } = inferFields(rows);
-        expect(columns.map(c => c.name)).toEqual(['Image', 'URL', 'Badge', 'Title', 'Rating', 'Reviews', 'Sales Volume', 'Price', 'Delivery Price', 'Was Price']);
+        expect(columns.map(c => c.name)).toEqual(['Image', 'ASIN', 'URL', 'Badge', 'Title', 'Rating', 'Reviews', 'Sales Volume', 'Price', 'Delivery Price', 'Was Price']);
         expect(problems[0]).toMatch(/4 of 10 picked elements/);
         const items = rows.map(r => readRow(r, columns));
         expect(items.filter(i => Object.keys(i).length > 0)).toHaveLength(6);
         const id = (n: string) => columns.find(c => c.name === n)!.id;
-        expect(items[2]).toMatchObject({ [id('Title')]: 'Laptop model 2 with 8GB RAM', [id('Price')]: '$299.99', [id('Was Price')]: '$325.99', [id('Reviews')]: '(74)', [id('Rating')]: '4.2 out of 5 stars' });
+        expect(items[2]).toMatchObject({ [id('Title')]: 'Laptop model 2 with 8GB RAM', [id('Price')]: '$299.99', [id('Was Price')]: '$325.99', [id('Reviews')]: '(74)', [id('Rating')]: '4.2' });
         expect(items[1][id('Badge')]).toBe('Top Brand');
         expect(items[3]).toEqual({}); // the video ad
         expect(items[9]).toEqual({}); // "Need help?"
@@ -293,22 +295,28 @@ describe('unique column selectors', { timeout: 30_000 }, () => {
         const rows = rowsOf(list, '.tile');
         const { columns } = inferFields(rows);
         const items = rows.map(r => readRow(r, columns));
-        const summary = columns.find(c => items[0][c.id] === '4.1 out of 5 stars. 7 reviews')!;
-        expect(items.map(i => i[summary.id])).toEqual([1, 2, 3, 4, 5].map(i => `4.${i} out of 5 stars. ${i * 7} reviews`));
+        // "4.1 out of 5 stars. 7 reviews" is two fields (`fields/split.ts`).
+        const rating = columns.find(c => c.name === 'Rating')!;
+        const count = columns.find(c => c.name === 'Review Count')!;
+        expect(items.map(i => i[rating.id])).toEqual([1, 2, 3, 4, 5].map(i => `4.${i}`));
+        expect(items.map(i => i[count.id])).toEqual([1, 2, 3, 4, 5].map(i => `${i * 7}`));
         // On a later page with a sibling hook never seen before, still the same element.
         const later = rowsOf(`<ul><li class="tile"><a href="/p/9"><h3>Thing 9</h3></a><div><span data-qa="promo">Rollback</span><span data-qa="price">$9.99</span><span>4.9 out of 5 stars. 63 reviews</span></div></li></ul>`, '.tile');
-        expect(readRow(later[0], columns)[summary.id]).toBe('4.9 out of 5 stars. 63 reviews');
+        expect(readRow(later[0], columns)).toMatchObject({ [rating.id]: '4.9', [count.id]: '63' });
     });
 
-    it('reads the Walmart rating sentence, not the price, range or count beside it (walmart.com/search?q=cars)', () => {
+    it('reads the rating and review count from the Walmart rating sentence (walmart.com/search?q=cars)', () => {
         loadPage('corpus/walmart-search.html.gz');
         const rows = Array.from(document.querySelector('[data-testid="item-stack"]')!.children);
         const { columns } = inferFields(rows);
         const items = rows.map(r => readRow(r, columns)).filter(i => Object.keys(i).length > 0);
-        const rating2 = columns.find(c => c.name === 'Rating 2')!.id;
-        items.forEach(i => expect(i[rating2]).toMatch(/^\d(\.\d)? out of 5 Stars\. \d+ reviews$/));
-        // No two columns read through the same selector unless they split it by slot or kind.
-        const plain = columns.filter(c => c.reader!.slot === undefined && c.reader!.kind === undefined).map(c => c.reader!.chain[0]);
+        // The sentence "4.3 out of 5 Stars. 9 reviews" gives the rating and the review count of every card.
+        const rating = columns.find(c => c.name === 'Rating')!.id;
+        const count = columns.find(c => c.name === 'Review Count')!.id;
+        items.forEach(i => { expect(i[rating]).toMatch(/^\d(\.\d)?$/); expect(i[count]).toMatch(/^\d+$/); });
+        // No two columns read the same thing through the same selector unless they split it by slot, kind or part.
+        const plain = columns.filter(c => c.reader!.slot === undefined && c.reader!.kind === undefined)
+            .map(c => `${c.reader!.chain[0]}@${c.reader!.attr}${c.reader!.derive ? JSON.stringify(c.reader!.derive) : ''}`);
         expect(new Set(plain).size).toBe(plain.length);
     });
 });
@@ -345,7 +353,7 @@ describe('Amazon category results (amazon.com/s?i=specialty-aps&bbn=16225005011,
         const all = items.flatMap(i => Object.values(i));
         for (const junk of ['See options', 'Add to cart', 'Price, product page']) expect(all).not.toContain(junk);
         expect(columns.map(c => c.name)).toEqual(expect.arrayContaining(['Title', 'Rating', 'Reviews', 'Sales Volume', 'Price', 'Was Price', 'Delivery', 'Options']));
-        expect(values('Rating').every(v => /^\d\.\d out of 5 stars$/.test(v))).toBe(true);
+        expect(values('Rating').every(v => /^\d\.\d$/.test(v))).toBe(true);
         expect(values('Delivery').every(v => /delivery/.test(v))).toBe(true);
         expect(columns.map(c => c.name).join()).not.toMatch(/Nowrap|Platinum|Column|Button/);
     });
@@ -414,10 +422,14 @@ describe('a column reads one element per card', () => {
         expect(items.length).toBeGreaterThan(5);
         for (const c of columns) {
             const r = c.reader!;
-            if (r.many || r.first || r.slot !== undefined || r.kind !== undefined || r.json || r.cell) continue;
+            // Lists, slots, kinds and label/value pairs read several elements on purpose.
+            if (r.many || r.first || r.slot !== undefined || r.kind !== undefined || r.json || r.cell || (r.derive && 'pair' in r.derive)) continue;
+            const raw = (el: Element) => (r.attr === 'aria-label' || r.attr === 'title' ? labelValue(el, r.attr) : readValue(el, r.attr));
+            // A derived part reads the element whose value fits its template.
+            const value = (el: Element) => (r.derive ? applyDerive(raw(el), r.derive) ?? '' : raw(el));
             for (const row of items) {
                 const reads = Array.from(row.querySelectorAll(r.chain[0]))
-                    .filter(el => isAtomRoot(el, row, r.attr) && readValue(el, r.attr) !== '');
+                    .filter(el => isAtomRoot(el, row, r.attr) && value(el) !== '');
                 expect(reads.length, `${c.name} ← ${r.chain[0]}`).toBeLessThanOrEqual(1);
             }
         }

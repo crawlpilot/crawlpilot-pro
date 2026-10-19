@@ -68,14 +68,19 @@
         },
         "columns": [
           "Image ← img",
+          "ASIN ← :scope",
           "URL ← [data-cy=\"title-recipe\"] > a",
           "Title ← h2 > span",
           "Rating ← [data-cy=\"reviews-block\"] > .a-row > span > a",
           "Differentiators ← .title-differentiators",
           "Reviews ← .s-csa-instrumentation-wrapper > a",
+          "Review Count ← .s-csa-instrumentation-wrapper > a",
           "Badge ← .puis-bold-weight-text",
           "Sales Volume ← [data-cy=\"reviews-block\"] > .a-row > span",
-          "Options ← .puisg-col-inner > span"
+          "Display Size ← .puisg-col-inner > span",
+          "Disk Size ← .puisg-col-inner > span",
+          "RAM ← .puisg-col-inner > span",
+          "Operating System ← .puisg-col-inner > span"
         ],
         "fields": [
           {
@@ -193,27 +198,32 @@
         "columns": [
           "Image ← [data-component-type=\"s-product-image\"] > a > .a-section > img",
           "Image 2 ← [data-cy=\"s-pc-faceout-badge\"] > .a-section > img",
+          "ASIN ← :scope",
           "Badge ← .a-nowrap",
           "URL ← [data-cy=\"title-recipe\"] > a",
           "Links ← div[role=\"listitem\"] > a",
           "Options ← div[role=\"listitem\"] > a",
           "Badge 3 ← [data-cy=\"asin-faceout-container\"] > .a-section > .a-section > .a-section > .a-section > div > a",
+          "Badge 5 ← .a-section",
           "Title ← h2 > span",
           "Rating ← [data-cy=\"reviews-block\"] > .a-row > span > a",
           "Differentiators ← .title-differentiators",
           "Badge 2 ← .s-csa-instrumentation-wrapper > .s-background-color-platinum",
           "Badge 4 ← .a-row > .s-background-color-platinum",
           "Reviews ← .s-csa-instrumentation-wrapper > a",
+          "Review Count ← .s-csa-instrumentation-wrapper > a",
           "Text ← .a-truncate-cut",
           "Sales Volume ← [data-cy=\"reviews-block\"] > .a-row > span",
-          "Badge 5 ← [data-cy=\"product-details-recipe\"] > .a-row > span",
+          "Badge 6 ← [data-cy=\"product-details-recipe\"] > .a-row > span",
           "Price ← a > .a-price",
           "Delivery ← .a-column",
-          "Was Price ← .a-section > .a-price",
+          "Was Price ← a > .a-offscreen",
           "Text 2 ← .a-section > div",
-          "Badge 6 ← [data-cy=\"secondary-offer-recipe\"] > .a-row > span",
+          "Text 3 ← .a-section > .a-section > div > a",
+          "Was Price (Price) ← .a-section > .a-price",
+          "Badge 7 ← [data-cy=\"secondary-offer-recipe\"] > .a-row > span",
           "Price 2 ← [data-cy=\"secondary-offer-recipe\"] > .a-row > span",
-          "Badge 7 ← [data-cy=\"secondary-offer-recipe\"] > .a-row > span > a",
+          "Badge 8 ← [data-cy=\"secondary-offer-recipe\"] > .a-row > span > a",
           "URL 2 ← .a-row > span > a"
         ],
         "fields": [
@@ -367,6 +377,8 @@
         },
         "columns": [
           "Image ← [data-testid=\"productTileImage\"]",
+          "Item ID ← [data-test-id=\"gpt-main\"]",
+          "Dca ID ← [data-test-id=\"gpt-main\"]",
           "URL ← a",
           "Badge Tag ← [data-test-id=\"gpt-product-flag-container\"] [data-testid=\"badgeTagComponent\"]",
           "Badge ← [data-test-id=\"gpt-sponsored-tag-container\"] > div > div > div",
@@ -374,7 +386,7 @@
           "Price ← [data-testid=\"ugpp-reduced-price\"] > span:not([data-testid])",
           "Rating ← [data-testid=\"rating-container\"] > span",
           "Was Price ← [data-testid=\"ugpp-was-price\"]",
-          "Rating 2 ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span:not([data-testid])",
+          "Review Count ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span:not([data-testid])",
           "Price (Ugpp Range Price) ← [data-testid=\"ugpp-range-price\"]",
           "Save ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] [data-testid=\"badgeTagComponent\"]",
           "Product Reviews ← [data-testid=\"product-reviews\"]",
@@ -486,13 +498,14 @@
         },
         "columns": [
           "Image ← [data-testid=\"productTileImage\"]",
+          "Item ID ← [data-test-id=\"gpt-main\"]",
           "URL ← a",
           "Deal ← [data-test-id=\"gpt-product-flag-container\"] [data-testid=\"badgeTagComponent\"]",
           "Price ← [data-test-id=\"gpt-price-flex-container\"] > span",
           "Was Price ← [data-test-id=\"gpt-was-price-container\"]",
           "Title ← [data-automation-id=\"product-title\"]",
           "Rating ← [data-testid=\"rating-container\"] > span",
-          "Rating 2 ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span",
+          "Review Count ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span",
           "Shipping ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] [data-testid=\"badgeTagComponent\"]"
         ],
         "fields": [
@@ -649,6 +662,7 @@
           "exact": true
         },
         "columns": [
+          "Product SKU ← :scope",
           "Title ← a",
           "URL ← a",
           "Price ← p"

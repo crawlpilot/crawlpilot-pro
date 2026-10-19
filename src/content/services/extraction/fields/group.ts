@@ -1,5 +1,5 @@
 /** Stage 2: group the rows' values by signature into fields, each with a row-relative selector. */
-import { alignToTemplate, Atom, AtomAttr, isAtomRoot, readValue, Shape, shapeOf } from '../atoms';
+import { labelValue, alignToTemplate, Atom, AtomAttr, isAtomRoot, readValue, Shape, shapeOf } from '../atoms';
 import { nodeStep } from '../nodeName';
 import { AUTHOR_ATTRIBUTES } from '../../../../shared/selectors/stability';
 import { Field, mode, query } from './types';
@@ -44,7 +44,9 @@ function selectorFor(group: Group, rowAtoms: Map<Element, Atom[]>[], rows: Eleme
             const matched = query(row, candidate);
             const own = group.perRow.get(r);
             // A match that reads nothing (an inline piece inside another value, an empty node) is harmless.
-            const reads = (el: Element) => isAtomRoot(el, row, group.attr) && readValue(el, group.attr) !== '';
+            // Labels count as values only where `labelValue` says so (the star link's "4.5 out of 5 stars, rating details" doesn't).
+            const reads = (el: Element) => isAtomRoot(el, row, group.attr)
+                && (group.attr === 'aria-label' || group.attr === 'title' ? labelValue(el, group.attr) !== '' : readValue(el, group.attr) !== '');
             if (own) {
                 const want = new Set(own.map(a => a.el));
                 // A missed own element can't be excluded: it counts as the candidate's own stray.
@@ -201,5 +203,5 @@ export function groupFields(rows: Element[], rowsAtoms: Atom[][]): Field[] {
         }
     }
     return [...byKey.values()].sort((a, b) =>
-        b.values.size - a.values.size || ATTR_RANK[a.attr] - ATTR_RANK[b.attr] || a.order - b.order);
+        b.values.size - a.values.size || (ATTR_RANK[a.attr] ?? 7) - (ATTR_RANK[b.attr] ?? 7) || a.order - b.order);
 }

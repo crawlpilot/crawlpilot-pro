@@ -397,7 +397,7 @@ Every row is a pattern, not a site: each appears on at least two of the four, an
 | L0 | Done for the dev set: `bestbuy-search`, `walmart-search-live`, `homedepot-search` (prepared with `scripts/corpus/prepare-listing.mjs`, stylesheets inlined) + the two Amazon pages; truth in `e2e/listing-truth.ts`; scorecard `e2e/listing.spec.ts` (found vs exact per field), baseline `e2e/listing-baseline.json`, fails on any drop. Not done: a fully loaded BestBuy capture (prices still skeletons), an Amazon capture with buy-box prices, the held-out set (generic plan §6) |
 | L1 | Done as GS1 (`generic-list-selectors-plan.md` §9) |
 | L2 | Not started |
-| L3 | Not started |
+| L3 | Mostly done as GS2 + GS3 (`generic-list-selectors-plan.md` §9); hidden subtrees and button badges not yet |
 | L4 | Not started |
 | L5 | Not started |
 | L6 | Not started |

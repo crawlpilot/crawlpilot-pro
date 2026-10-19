@@ -105,6 +105,13 @@ function inHeading(f: Field): boolean {
     return f.atoms.some(a => /^H[1-6]$/.test(a.el.tagName) || !!a.el.closest('h1,h2,h3,h4,h5,h6'));
 }
 
+const ACRONYMS = new Set(['id', 'sku', 'asin', 'upc', 'ean', 'gtin', 'mpn', 'pid']);
+
+function attributeName(attr: string): string {
+    return attr.replace(/^data-/, '').split(/[-_]/).filter(Boolean)
+        .map(w => (ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1))).join(' ');
+}
+
 /** A name from evidence, in order: what the value is (image, link, price, rating…), schema or test attributes, headings, the class. */
 function baseName(f: Field, all: Field[]): string {
     const anchor = anchorName(f);
@@ -112,6 +119,8 @@ function baseName(f: Field, all: Field[]): string {
     if (f.attr === 'src') return f.many ? 'Images' : 'Image';
     if (f.attr === 'href') return f.many ? 'Links' : 'URL';
     if (f.attr === 'datetime') return 'Date';
+    // A value attribute is named by its own name: `data-product-id` → Product ID, `data-asin` → ASIN.
+    if (f.attr.startsWith('data-')) return attributeName(f.attr);
     // A component kind is named by its own words: "Pickup today" is pickup, not a date.
     if (f.label) return f.label;
     switch (f.shape) {
