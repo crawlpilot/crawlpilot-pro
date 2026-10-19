@@ -8,6 +8,7 @@ import { ElementDefinition, ExtractionConfig, ProcessedElementResult, Extraction
 import { DataExtractor } from '../../extraction/DataExtractor';
 import { readValue } from '../../extraction/atoms';
 import { clickElementRobust } from '../../../utils/click';
+import { settle } from '../../../utils/settle';
 import { resolveOne } from '../../../../shared/selectors/resolve';
 import { extractColumns, collapseTableToJson } from './columnHelpers';
 
@@ -16,7 +17,8 @@ export class ElementProcessor {
 
     constructor(private config: ExtractionConfig) { }
 
-    async processElement(elementDef: ElementDefinition): Promise<ProcessedElementResult> {
+    /** `waitFor`: wait for the element to appear (it follows a click that reveals it). */
+    async processElement(elementDef: ElementDefinition, opts: { waitFor?: boolean } = {}): Promise<ProcessedElementResult> {
         const result: ProcessedElementResult = {
             elementId: elementDef.id,
             elementName: elementDef.name,
@@ -27,8 +29,8 @@ export class ElementProcessor {
         };
 
         try {
-            if (this.config?.waitForElements) {
-                const timeout = this.config.elementTimeout > 0 ? this.config.elementTimeout : 5000;
+            if (this.config?.waitForElements || opts.waitFor) {
+                const timeout = this.config.elementTimeout > 0 ? this.config.elementTimeout : opts.waitFor ? 8000 : 5000;
                 await this.waitForElement(elementDef.selectors, timeout);
             }
 
@@ -44,9 +46,13 @@ export class ElementProcessor {
             window.dispatchEvent(new Event('scroll'));
             document.dispatchEvent(new Event('scroll'));
 
-            const actionResult = elementDef.action === 'click'
-                ? await this.click(element)
-                : this.extract(elementDef, element);
+            if (elementDef.action === 'click') {
+                result.step = await this.click(element);
+                result.success = result.step !== 'no-effect';
+                if (!result.success) result.error = `Clicking "${elementDef.name}" changed nothing on the page`;
+                return result;
+            }
+            const actionResult = this.extract(elementDef, element);
 
             if (actionResult.success) {
                 result.success = true;
@@ -117,6 +123,7 @@ export class ElementProcessor {
                 overlay.appendChild(label);
             }
 
+            overlay.setAttribute('data-crawlpilot-overlay', '');
             document.documentElement.appendChild(overlay);
 
             const duration = Math.max(this.config?.actionSpeed || 0, 1200);
@@ -217,13 +224,30 @@ export class ElementProcessor {
         return { success: true, data: { [elementDef.id]: value ? value.trim() : value } };
     }
 
-    private async click(element: HTMLElement): Promise<ExtractionResult> {
-        try {
-            await clickElementRobust(element);
-            return { success: true, data: { value: 'clicked', action: 'click' } };
-        } catch (e: any) {
-            return { success: false, error: e.message };
-        }
+    /**
+     * Clicks a control and checks that it did something: the page changed (DOM, an `aria-expanded` /
+     * `aria-selected` / `open` state, the URL). A control already open is not clicked (a second
+     * click would close it). A plain click that changes nothing is tried again with the full pointer
+     * sequence, and then the control's own markup is followed: a `<summary>` opens its `<details>`,
+     * `aria-controls` shows its panel.
+     */
+    private async click(element: HTMLElement): Promise<ClickStep> {
+        const control = element.closest<HTMLElement>('[aria-expanded], [aria-selected], summary') ?? element;
+        if (isOpen(control)) return 'already-open';
+        const wait = Math.max(this.config?.clickWaitMs || 0, 1500);
+        const changed = async (act: () => void | Promise<unknown>) => {
+            const before = stateOf(control);
+            let mutations = 0;
+            const observer = new MutationObserver(list => { mutations += list.filter(m => !isOurs(m)).length; });
+            observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });
+            await act();
+            await settle(document.body, 300, wait);
+            observer.disconnect();
+            return mutations > 0 || stateOf(control) !== before;
+        };
+        if (await changed(() => element.click())) return 'clicked';
+        if (await changed(() => clickElementRobust(element))) return 'clicked';
+        return openByMarkup(control) ? 'opened' : 'no-effect';
     }
 
     /** Scrolls the whole page a viewport at a time (so lazy loaders fire), looking for the element at each step. */
@@ -254,4 +278,42 @@ export class ElementProcessor {
         const { columns, items } = this.extractor.extractRows(rowElements, fields);
         return { type, items, columns };
     }
+}
+
+/** How a click step went: done, not needed, done by following the control's markup, or nothing happened. */
+export type ClickStep = 'clicked' | 'already-open' | 'opened' | 'no-effect';
+
+/** A change made by our own highlight (its overlay, its style), not the page's answer to a click. */
+function isOurs(m: MutationRecord): boolean {
+    const ours = (n: Node) => n instanceof Element && (n.hasAttribute('data-crawlpilot-overlay') || n.id === 'crawlpilot-extraction-highlight-styles' || !!n.closest('[data-crawlpilot-overlay]'));
+    if (ours(m.target)) return true;
+    const nodes = [...Array.from(m.addedNodes), ...Array.from(m.removedNodes)];
+    return m.type === 'childList' && nodes.length > 0 && nodes.every(ours);
+}
+
+function isOpen(control: Element): boolean {
+    if (control.tagName === 'SUMMARY') return !!control.parentElement?.hasAttribute('open');
+    return control.getAttribute('aria-expanded') === 'true' || control.getAttribute('aria-selected') === 'true';
+}
+
+function stateOf(control: Element): string {
+    return [control.getAttribute('aria-expanded'), control.getAttribute('aria-selected'), control.parentElement?.hasAttribute('open'), location.href].join('|');
+}
+
+/** Opens what the control says it controls; true when there was something to open. */
+function openByMarkup(control: HTMLElement): boolean {
+    if (control.tagName === 'SUMMARY' && control.parentElement?.tagName === 'DETAILS') {
+        control.parentElement.setAttribute('open', '');
+        return true;
+    }
+    const ids = (control.getAttribute('aria-controls') || '').split(/\s+/).filter(Boolean);
+    const panels = ids.map(id => document.getElementById(id)).filter((p): p is HTMLElement => !!p);
+    panels.forEach(p => {
+        p.hidden = false;
+        p.removeAttribute('aria-hidden');
+        if (getComputedStyle(p).display === 'none') p.style.setProperty('display', 'block', 'important');
+        if (getComputedStyle(p).visibility === 'hidden') p.style.setProperty('visibility', 'visible', 'important');
+    });
+    if (panels.length > 0 && control.hasAttribute('aria-expanded')) control.setAttribute('aria-expanded', 'true');
+    return panels.length > 0;
 }

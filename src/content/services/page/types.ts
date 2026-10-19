@@ -22,6 +22,8 @@ export interface ExtractionResult {
 export interface ProcessedElementResult {
     elementId: string;
     elementName: string;
+    /** For a click step: how it went (`ElementProcessor.click`). */
+    step?: 'clicked' | 'already-open' | 'opened' | 'no-effect';
     success: boolean;
     error?: string | null;
     data?: any;
