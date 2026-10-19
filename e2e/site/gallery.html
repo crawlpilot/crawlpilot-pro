@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gallery fixture</title>
+<meta property="og:image" content="/img/og-1200x630.jpg">
+<style>
+    /* The page itself doesn't scroll: the feed does, like many app layouts. */
+    html, body { height: 100%; margin: 0; overflow: hidden; font-family: sans-serif; }
+    #feed { height: 100vh; overflow-y: auto; }
+    .card { height: 500px; border-bottom: 1px solid #ddd; padding: 8px; }
+    .card img { width: 240px; height: 160px; }
+    .hero { width: 50px; height: 50px; background-image: url("/img/bg-640x480.jpg"); }
+    .retina { width: 60px; height: 60px; background-image: image-set(url("/img/set1-200x200.png") 1x, url("/img/set2-400x400.png") 2x); }
+    .badge::before { content: ''; display: inline-block; width: 20px; height: 20px; background-image: url("/img/badge-64x64.png"); }
+    .carousel .slide { display: none; }
+    .carousel .slide.active { display: block; }
+</style>
+</head>
+<body>
+<div id="feed">
+    <section class="card">
+        <h2>Static</h2>
+        <img id="responsive" src="/img/resp-300x200.jpg" srcset="/img/resp-300x200.jpg 300w, /img/resp-1600x1067.jpg 1600w" sizes="240px" alt="Responsive">
+        <a href="/img/full-2000x1500.jpg"><img src="/img/thumb-200x150.jpg" alt="Thumbnail"></a>
+        <div class="hero"></div>
+        <div class="retina"></div>
+        <span class="badge">New</span>
+        <svg width="120" height="80" viewBox="0 0 120 80"><rect width="120" height="80" fill="teal"/></svg>
+        <img src="/cdn/photo?id=7&w=500&h=500" alt="No extension">
+        <div class="carousel"><img class="slide active" src="/img/slide1-800x600.jpg"><img class="slide" src="/img/slide2-800x600.jpg"></div>
+        <div id="host"></div>
+        <iframe srcdoc="<img src='/img/framed-300x300.png'>" width="320" height="320"></iframe>
+        <img id="blob" alt="Blob">
+    </section>
+    <section class="card"><h2>Lazy 1</h2><img class="lazy" data-later="/img/lazy1-900x600.jpg" alt="Lazy one"></section>
+    <section class="card"><h2>Lazy 2</h2><img class="lazy" data-later="/img/lazy2-900x600.jpg" alt="Lazy two"></section>
+    <section class="card"><h2>Lazy 3</h2><img class="lazy" data-later="/img/lazy3-900x600.jpg" alt="Lazy three"></section>
+    <div id="sentinel" style="height: 10px"></div>
+</div>
+<script>
+    // Open shadow root.
+    document.getElementById('host').attachShadow({ mode: 'open' }).innerHTML = '<img src="/img/shadow-320x240.png">';
+
+    // A blob: image, made in the page.
+    fetch('/img/blobsrc-150x150.png').then(r => r.blob()).then(b => { document.getElementById('blob').src = URL.createObjectURL(b); });
+
+    // Lazy images: the real URL only appears when the image nears the feed's viewport (an attribute
+    // the scanner doesn't know, so only scrolling finds them).
+    const feed = document.getElementById('feed');
+    const lazy = new IntersectionObserver(entries => {
+        for (const e of entries) {
+            if (!e.isIntersecting) continue;
+            e.target.src = e.target.dataset.later;
+            lazy.unobserve(e.target);
+        }
+    }, { root: feed, rootMargin: '100px' });
+    document.querySelectorAll('img.lazy').forEach(img => lazy.observe(img));
+
+    // An infinite feed: two more pages of cards when the end is reached.
+    let pages = 0;
+    new IntersectionObserver(entries => {
+        if (!entries[0].isIntersecting || pages >= 2) return;
+        pages++;
+        setTimeout(() => {
+            for (let i = 1; i <= 2; i++) {
+                const card = document.createElement('section');
+                card.className = 'card';
+                card.innerHTML = `<h2>More ${pages}.${i}</h2><img src="/img/more${pages}${i}-700x700.jpg" alt="More">`;
+                feed.insertBefore(card, document.getElementById('sentinel'));
+            }
+        }, 150);
+    }, { root: feed }).observe(document.getElementById('sentinel'));
+</script>
+</body>
+</html>

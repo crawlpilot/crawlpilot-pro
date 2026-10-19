@@ -17,12 +17,13 @@ import {
     Square,
     Loader,
     Grid,
-    Layers
+    Layers,
+    ArrowDownToLine
 } from 'lucide-react';
-import { ImageMeta } from '../../content/features/universal-images/ImageScanner';
+import type { FoundImage } from '../../shared/images/types';
 import { styled } from '@mui/material/styles';
 import { useImageScan } from '../hooks/useImageScan';
-import { buildSizeGroups, filterImages, getExtension } from '../components/images/imageFilters';
+import { buildSizeGroups, filterImages, imageType } from '../components/images/imageFilters';
 import { downloadImage, downloadZip } from '../components/images/imageDownload';
 
 const ImageCard = styled(Box)<{ selected?: boolean }>(({ selected }) => ({
@@ -47,7 +48,7 @@ interface ImageDownloaderPageProps {
 
 export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps) {
     const { t } = useTranslation('imageDownloader');
-    const { images, scanning, scanPhase, scanProgress, liveWatching, deepScan, cancelScan, toggleLiveWatch } = useImageScan();
+    const { images, scanning, progress, liveWatching, error, quickScan, deepScan, cancelScan, toggleLiveWatch } = useImageScan();
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [downloading, setDownloading] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
@@ -59,26 +60,26 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
     const [maxHeight, setMaxHeight] = useState<number | ''>('');
     const [fileTypes, setFileTypes] = useState<Set<string>>(new Set(['jpg', 'png', 'webp', 'gif', 'svg', 'avif']));
     const [sizeCategories, setSizeCategories] = useState<Set<string>>(new Set(['small', 'medium', 'large']));
-    const [onlyVisible, setOnlyVisible] = useState(true);
+    const [includeHidden, setIncludeHidden] = useState(true);
     const [viewMode, setViewMode] = useState<'grid' | 'grouped'>('grid');
     const [activeGroup, setActiveGroup] = useState<number | null>(null);
 
-    const startDeepScan = () => {
+    const startQuickScan = () => {
         setSelected(new Set());
-        void deepScan();
+        void quickScan();
     };
 
     const scanInitRef = useRef(false);
     useEffect(() => {
         if (scanInitRef.current) return;
         scanInitRef.current = true;
-        startDeepScan();
+        startQuickScan();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const filteredImages = useMemo(
-        () => filterImages(images, { onlyVisible, searchQuery, minWidth, maxWidth, minHeight, maxHeight, fileTypes, sizeCategories }),
-        [images, searchQuery, minWidth, maxWidth, minHeight, maxHeight, fileTypes, sizeCategories, onlyVisible]);
+        () => filterImages(images, { includeHidden, searchQuery, minWidth, maxWidth, minHeight, maxHeight, fileTypes, sizeCategories }),
+        [images, searchQuery, minWidth, maxWidth, minHeight, maxHeight, fileTypes, sizeCategories, includeHidden]);
 
     const sizeGroups = useMemo(() => buildSizeGroups(filteredImages), [filteredImages]);
 
@@ -96,7 +97,7 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
         setSelected(new Set(sizeGroups[idx].images.map(img => img.src)));
     };
 
-    const downloadAsZip = async (imagesToDownload: ImageMeta[], zipName: string) => {
+    const downloadAsZip = async (imagesToDownload: FoundImage[], zipName: string) => {
         setDownloading(true);
         try { await downloadZip(imagesToDownload, zipName); } finally { setDownloading(false); }
     };
@@ -106,9 +107,9 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
         void downloadAsZip(group.images, `images_${group.label.replace('\u00d7', 'x')}.zip`);
     };
 
-    const downloadSingle = (url: string, e?: React.MouseEvent) => {
+    const downloadSingle = (img: FoundImage, e?: React.MouseEvent) => {
         e?.stopPropagation();
-        void downloadImage(url);
+        void downloadImage(img);
     };
 
     const downloadSelected = () => downloadAsZip(filteredImages.filter(img => selected.has(img.src)), 'selected_images.zip');
@@ -124,7 +125,7 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
     const clearSelection = () => setSelected(new Set());
 
     const statusText = scanning
-        ? (scanPhase === 'watching' ? t('watching') : t('scanning', { progress: scanProgress }))
+        ? (scanning === 'quick' ? t('reading') : t('scanning', { progress }))
         : liveWatching
             ? t('liveWatching')
             : t('imagesCount', { filtered: filteredImages.length, total: images.length });
@@ -162,18 +163,24 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                                 <Radio size={18} />
                             </IconButton>
                         </Tooltip>
+                        <Tooltip title={t('deepScan')}>
+                            <IconButton onClick={() => void deepScan()} disabled={!!scanning} size="small" sx={{ color: 'text.secondary', bgcolor: 'rgba(255,255,255,0.03)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: '#06b6d4' } }}>
+                                <ArrowDownToLine size={18} />
+                            </IconButton>
+                        </Tooltip>
                         <Tooltip title={t('rescan')}>
-                            <IconButton onClick={startDeepScan} disabled={scanning} size="small" sx={{ color: 'text.secondary', bgcolor: 'rgba(255,255,255,0.03)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: '#06b6d4' } }}>
-                                <RefreshCw size={18} className={scanning ? 'animate-spin' : ''} />
+                            <IconButton onClick={startQuickScan} disabled={!!scanning} size="small" sx={{ color: 'text.secondary', bgcolor: 'rgba(255,255,255,0.03)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: '#06b6d4' } }}>
+                                <RefreshCw size={18} className={scanning === 'quick' ? 'animate-spin' : ''} />
                             </IconButton>
                         </Tooltip>
                     </Stack>
                 </Box>
 
+                {error && <Typography variant="caption" color="warning.main" sx={{ display: 'block', mb: 1 }}>{error}</Typography>}
                 {scanning && (
                     <LinearProgress
-                        variant={scanPhase === 'watching' ? 'indeterminate' : 'determinate'}
-                        value={scanProgress}
+                        variant={scanning === 'quick' ? 'indeterminate' : 'determinate'}
+                        value={progress}
                         sx={{ height: 3, borderRadius: 2, mb: 1.5, bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: '#06b6d4' } }}
                     />
                 )}
@@ -236,7 +243,7 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                                 </Box>
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <FormControlLabel control={<Switch checked={onlyVisible} onChange={(e) => setOnlyVisible(e.target.checked)} size="small" />} label={<Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>{t('visibleOnly')}</Typography>} sx={{ ml: 0 }} />
+                                <FormControlLabel control={<Switch checked={includeHidden} onChange={(e) => setIncludeHidden(e.target.checked)} size="small" />} label={<Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>{t('includeHidden')}</Typography>} sx={{ ml: 0 }} />
                             </Box>
                         </Stack>
                     </Box>
@@ -255,7 +262,7 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                             </Typography>
                         </Box>
                         {images.length === 0 && (
-                            <Button variant="contained" size="small" onClick={startDeepScan} disabled={scanning} startIcon={<Search size={14} />} sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, mt: 1 }}>
+                            <Button variant="contained" size="small" onClick={startQuickScan} disabled={!!scanning} startIcon={<Search size={14} />} sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, mt: 1 }}>
                                 {t('scanPage')}
                             </Button>
                         )}
@@ -315,10 +322,10 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                                         </Box>
                                     </Box>
                                     <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, px: 0.5, py: 0.25, background: 'linear-gradient(transparent, rgba(0,0,0,0.75))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Typography sx={{ color: 'white', fontWeight: 700, fontSize: '8px' }}>{img.naturalWidth}{'\u00d7'}{img.naturalHeight}</Typography>
-                                        <Box sx={{ px: 0.5, borderRadius: '3px', bgcolor: 'rgba(255,255,255,0.12)', fontSize: '7px', fontWeight: 800, color: 'white', textTransform: 'uppercase' }}>{getExtension(img.src)}</Box>
+                                        <Typography sx={{ color: 'white', fontWeight: 700, fontSize: '8px' }}>{img.width && img.height ? `${img.width}\u00d7${img.height}` : '?'}</Typography>
+                                        <Box sx={{ px: 0.5, borderRadius: '3px', bgcolor: 'rgba(255,255,255,0.12)', fontSize: '7px', fontWeight: 800, color: 'white', textTransform: 'uppercase' }}>{imageType(img) || '?'}</Box>
                                     </Box>
-                                    <IconButton className="download-btn" size="small" onClick={(e) => downloadSingle(img.src, e)} sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', bgcolor: 'rgba(6, 182, 212, 0.9)', color: 'white', opacity: 0, transition: 'opacity 0.15s', width: 28, height: 28, '&:hover': { bgcolor: '#06b6d4' } }}>
+                                    <IconButton className="download-btn" size="small" onClick={(e) => downloadSingle(img, e)} sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', bgcolor: 'rgba(6, 182, 212, 0.9)', color: 'white', opacity: 0, transition: 'opacity 0.15s', width: 28, height: 28, '&:hover': { bgcolor: '#06b6d4' } }}>
                                         <Download size={14} />
                                     </IconButton>
                                 </ImageCard>
@@ -343,7 +350,7 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
             </Box>
 
             {/* Floating Footer */}
-            <Fade in={selected.size > 0 || scanning}>
+            <Fade in={selected.size > 0 || scanning === 'deep'}>
                 <Paper elevation={8} sx={{ position: 'absolute', bottom: 12, left: 12, right: 12, zIndex: 30, p: '10px 16px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 12px 32px -8px rgba(0, 0, 0, 0.6)' }}>
                     {selected.size > 0 ? (
                         <>
@@ -358,11 +365,11 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                                 </Button>
                             </Stack>
                         </>
-                    ) : scanning ? (
+                    ): scanning === 'deep' ? (
                         <>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Loader size={14} className="animate-spin" style={{ color: '#06b6d4' }} />
-                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>{scanPhase === 'watching' ? t('watching') : `${scanProgress}%`}</Typography>
+                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>{`${progress}%`}</Typography>
                             </Box>
                             <Button size="small" onClick={cancelScan} sx={{ color: 'error.main', fontWeight: 600, textTransform: 'none', fontSize: '0.72rem' }}>{t('cancelScan')}</Button>
                         </>

@@ -16,7 +16,7 @@
  *
  * Without layout (`live: false`, jsdom), only `hidden`, `aria-hidden` and inline styles are read.
  */
-import { imageSource } from './images';
+import { imageSource } from '../images/source';
 
 export const POSITION_ATTRIBUTE = 'data-cp-pos';
 

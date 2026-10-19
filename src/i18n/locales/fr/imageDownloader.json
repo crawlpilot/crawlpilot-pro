@@ -1,7 +1,6 @@
 {
   "title": "Téléchargeur d'Images",
   "scanning": "Analyse de page — {{progress}}%",
-  "watching": "Recherche d'images à chargement tardif...",
   "liveWatching": "Surveillance des nouvelles images en direct...",
   "imagesCount": "{{filtered}} sur {{total}} images",
   "liveWatch": "Surveillance en Direct",
@@ -13,7 +12,6 @@
   "format": "Format",
   "size": "Taille",
   "dimensions": "Dimensions",
-  "visibleOnly": "Visible uniquement",
   "minW": "Larg. min.",
   "maxW": "Larg. max.",
   "minH": "Haut. min.",

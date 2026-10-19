@@ -1,7 +1,6 @@
 {
   "title": "画像ダウンローダー",
   "scanning": "ページをスキャン中 — {{progress}}%",
-  "watching": "遅延読み込み画像を待機中...",
   "liveWatching": "新しい画像をリアルタイム監視中...",
   "imagesCount": "{{filtered}} / {{total}} 枚の画像",
   "liveWatch": "ライブ監視",
@@ -13,7 +12,6 @@
   "format": "形式",
   "size": "サイズ",
   "dimensions": "寸法",
-  "visibleOnly": "表示中のみ",
   "minW": "最小幅",
   "maxW": "最大幅",
   "minH": "最小高さ",

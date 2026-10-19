@@ -14,6 +14,7 @@ import type { NetEntry } from './network/types';
 import type { LabEval, LabPick } from '../content/features/lab/SelectorLab';
 import type { GroundRequest, Grounded, PageView } from './ai/page';
 import type { Chain } from './types/database';
+import type { FoundImage, ImageBatch, ImageScanProgress } from './images/types';
 
 type Fail = { success: false; error: string };
 /** A content-script / background reply: its data on success, or an error. */
@@ -123,8 +124,9 @@ export interface Messages {
     STOP_AUTO_SCROLL: { reply: Res };
     EXECUTE_PAGINATION: { payload: PaginationRequest; reply: Res };
     STOP_PAGINATION: { reply: Res };
-    SCAN_IMAGES_DEEP: { payload: { scrollStep?: number; scrollDelay?: number; maxScrollHeight?: number; watchDuration?: number }; reply: Res<{ data?: any[] }> };
-    SCAN_IMAGES_DEEP_CANCEL: { reply: Res };
+    SCAN_IMAGES: { reply: Res<{ images: FoundImage[] }> };
+    SCAN_IMAGES_DEEP: { reply: Res<{ images: FoundImage[] }> };
+    SCAN_IMAGES_CANCEL: { reply: Res };
     SCAN_IMAGES_LIVE_START: { reply: Res };
     SCAN_IMAGES_LIVE_STOP: { reply: Res };
     TOGGLE_RIGHT_CLICK: { payload: { enable: boolean }; reply: Res<{ enabled: boolean }> };
@@ -148,8 +150,8 @@ export interface Messages {
     AUTO_SCROLL_COMPLETE: { payload: { success: boolean; items?: any[]; columns?: any[]; error?: string } };
     PAGINATION_UPDATE: { payload: { items: any[]; page: number; total?: number; columns?: any[]; unmapped?: number; fallback?: boolean; healedItems?: string } };
     PAGINATION_COMPLETE: { payload: { success: boolean; reason?: string; error?: string } };
-    SCAN_IMAGES_PROGRESS: { payload: any };
-    SCAN_IMAGES_BATCH: { payload: any[] };
+    SCAN_IMAGES_PROGRESS: { payload: ImageScanProgress };
+    SCAN_IMAGES_BATCH: { payload: ImageBatch };
     SUMMARIZER_EXTRACTION_RESULT: { payload: ExtractedContent };
 
     // ---- side panel → background

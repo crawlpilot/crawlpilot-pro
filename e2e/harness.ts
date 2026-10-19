@@ -6,11 +6,13 @@
  * - `/corpus/<name>` serves `src/test/fixtures/corpus/<name>.html.gz` with page scripts blocked
  *   (saved retail pages would otherwise try to boot their apps); content scripts are not affected.
  * - `/site/<file>` serves `e2e/site/<file>` as is, scripts allowed.
+ * - `/img/<name>-<w>x<h>.<ext>` and `/cdn/<name>?w=&h=` serve a generated PNG of that size (any
+ *   extension: the bytes are PNG, which browsers sniff), for the Image Downloader.
  */
 import { test as base, chromium, type BrowserContext, type Page, type Worker } from '@playwright/test';
 import { createServer, type Server } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { gunzipSync } from 'node:zlib';
+import { deflateSync, gunzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import os from 'node:os';
@@ -21,6 +23,37 @@ const DIST = path.join(ROOT, 'dist');
 const CORPUS = path.join(ROOT, 'src/test/fixtures/corpus');
 const SITE = path.join(ROOT, 'e2e/site');
 
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+});
+
+function crc32(bytes: Buffer): number {
+    let c = 0xffffffff;
+    for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+}
+
+/** A solid-colour PNG, `width`×`height`. */
+export function png(width: number, height: number, rgb: [number, number, number] = [200, 120, 40]): Buffer {
+    const chunk = (type: string, data: Buffer) => {
+        const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+        const out = Buffer.alloc(body.length + 8);
+        out.writeUInt32BE(data.length, 0);
+        body.copy(out, 4);
+        out.writeUInt32BE(crc32(body), body.length + 4);
+        return out;
+    };
+    const header = Buffer.alloc(13);
+    header.writeUInt32BE(width, 0);
+    header.writeUInt32BE(height, 4);
+    header.set([8, 2, 0, 0, 0], 8); // 8-bit RGB
+    const row = Buffer.concat([Buffer.from([0]), Buffer.from(Array.from({ length: width }, () => rgb).flat())]);
+    const pixels = Buffer.concat(Array.from({ length: height }, () => row));
+    return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', header), chunk('IDAT', deflateSync(pixels)), chunk('IEND', Buffer.alloc(0))]);
+}
+
 function serve(): Promise<{ server: Server; origin: string }> {
     const server = createServer(async (req, res) => {
         const url = new URL(req.url ?? '/', 'http://x');
@@ -30,6 +63,14 @@ function serve(): Promise<{ server: Server; origin: string }> {
                 const html = gunzipSync(await readFile(path.join(CORPUS, `${name}.html.gz`)));
                 res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "script-src 'none'" });
                 res.end(html);
+                return;
+            }
+            const sized = /^\/img\/[\w-]*?-(\d+)x(\d+)\.\w+$/.exec(url.pathname);
+            if (sized || url.pathname.startsWith('/cdn/')) {
+                const w = Number(sized?.[1] ?? url.searchParams.get('w') ?? 100);
+                const h = Number(sized?.[2] ?? url.searchParams.get('h') ?? 100);
+                res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' });
+                res.end(png(Math.min(w, 4000), Math.min(h, 4000)));
                 return;
             }
             if (url.pathname.startsWith('/site/')) {

@@ -1,7 +1,6 @@
 {
   "title": "Scaricatore di Immagini",
   "scanning": "Scansione pagina — {{progress}}%",
-  "watching": "Ricerca immagini a caricamento tardivo...",
   "liveWatching": "Monitoraggio live nuove immagini...",
   "imagesCount": "{{filtered}} di {{total}} immagini",
   "liveWatch": "Monitoraggio Live",
@@ -13,7 +12,6 @@
   "format": "Formato",
   "size": "Dimensione",
   "dimensions": "Dimensioni",
-  "visibleOnly": "Solo visibili",
   "minW": "Larg. min.",
   "maxW": "Larg. max.",
   "minH": "Alt. min.",

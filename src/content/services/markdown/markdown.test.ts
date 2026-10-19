@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { toMarkdown, fallbackChain, type MarkdownOptions } from './index';
 import { looksInjected } from './injection';
-import { largestSrcset } from './images';
+import { largestSrcset } from '../images/source';
 
 function md(html: string, options: MarkdownOptions = {}): string {
     document.body.innerHTML = html;

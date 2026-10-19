@@ -1,7 +1,6 @@
 {
   "title": "图片下载器",
   "scanning": "正在扫描页面 — {{progress}}%",
-  "watching": "正在等待延迟加载的图片...",
   "liveWatching": "实时监控新图片...",
   "imagesCount": "{{filtered}} / {{total}} 张图片",
   "liveWatch": "实时监控",
@@ -13,7 +12,6 @@
   "format": "格式",
   "size": "大小",
   "dimensions": "尺寸",
-  "visibleOnly": "仅可见",
   "minW": "最小宽",
   "maxW": "最大宽",
   "minH": "最小高",

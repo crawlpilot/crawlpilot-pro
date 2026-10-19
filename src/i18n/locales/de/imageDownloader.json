@@ -1,7 +1,6 @@
 {
   "title": "Bild-Downloader",
   "scanning": "Seite wird gescannt — {{progress}}%",
-  "watching": "Suche nach spät geladenen Bildern...",
   "liveWatching": "Live-Überwachung auf neue Bilder...",
   "imagesCount": "{{filtered}} von {{total}} Bildern",
   "liveWatch": "Live-Überwachung",
@@ -13,7 +12,6 @@
   "format": "Format",
   "size": "Größe",
   "dimensions": "Abmessungen",
-  "visibleOnly": "Nur sichtbare",
   "minW": "Min. Breite",
   "maxW": "Max. Breite",
   "minH": "Min. Höhe",

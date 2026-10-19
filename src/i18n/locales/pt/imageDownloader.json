@@ -1,7 +1,6 @@
 {
   "title": "Baixador de imagens",
   "scanning": "Escaneando página — {{progress}}%",
-  "watching": "Monitorando imagens com carregamento tardio...",
   "liveWatching": "Monitoramento ativo de novas imagens...",
   "imagesCount": "{{filtered}} de {{total}} imagens",
   "liveWatch": "Monitoramento ativo",
@@ -13,7 +12,6 @@
   "format": "Formato",
   "size": "Tamanho",
   "dimensions": "Dimensões",
-  "visibleOnly": "Apenas visíveis",
   "minW": "Larg. mín.",
   "maxW": "Larg. máx.",
   "minH": "Alt. mín.",

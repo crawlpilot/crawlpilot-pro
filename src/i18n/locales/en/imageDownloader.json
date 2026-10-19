@@ -1,19 +1,17 @@
 {
   "title": "Image Downloader",
-  "scanning": "Scanning page — {{progress}}%",
-  "watching": "Watching for late-loading images...",
+  "scanning": "Scrolling the page — {{progress}}%",
   "liveWatching": "Live watching for new images...",
   "imagesCount": "{{filtered}} of {{total}} images",
   "liveWatch": "Live Watch",
   "stopWatching": "Stop watching",
-  "rescan": "Re-scan page",
+  "rescan": "Scan again",
   "filters": "Filters",
   "selectAll": "Select All",
   "deselectAll": "Deselect All",
   "format": "Format",
   "size": "Size",
   "dimensions": "Dimensions",
-  "visibleOnly": "Visible only",
   "minW": "Min W",
   "maxW": "Max W",
   "minH": "Min H",
@@ -32,5 +30,8 @@
   "downloadZip": "Download ZIP",
   "packing": "Packing...",
   "cancelScan": "Cancel",
-  "downloadAll": "Download All ({{count}})"
+  "downloadAll": "Download All ({{count}})",
+  "reading": "Reading the page…",
+  "deepScan": "Deep scan: scroll the page to load every image",
+  "includeHidden": "Include hidden (carousels, menus)"
 }
