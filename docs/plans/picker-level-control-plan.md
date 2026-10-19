@@ -1,6 +1,6 @@
 # Picker: the user controls how much is selected
 
-Status: 2026-10-19. **L1–L4 built** for every picker (the Page Extractor's readings, the bar, the side panel mirror in the Page Extractor). L5–L7 to do.
+Status: 2026-10-19. **L1–L4 built** for every picker (the Page Extractor's readings, the bar, the side panel mirror in the Page Extractor). L5–L7 to do: issues #35, #36, #37 (list extraction left for now).
 
 Decided by default (the open questions below): the Page Extractor first; the keys as proposed; no sticky offset across elements; "leave out part" later.
 
@@ -141,9 +141,9 @@ This changes the field spec, so it's a separate phase.
 | L2 | **What it will be:** readings per level (from the existing detectors, no new heuristics), the tooltip line, the click saving the reading shown. Detail's `handleClick` takes the chosen reading instead of re-classifying. | `DetailSelectionStrategy.ts`, `ISelectionStrategy.ts` (`readings(el)`, `handleClick(el, reading)`) |
 | L3 | **The on-page bar:** breadcrumbs, reading chips and buttons, replacing the shortcut bar. | `VisualElementPicker.ts`, `picker/bar.ts` (new) |
 | L4 | **Side panel Selection card** and `PICKER_STATE`; the key forwarding is replaced by the buttons (keys still forwarded). | `messages.ts`, `content/handlers/picker.ts`, `Step2Schema.tsx`, the List Extractor's pick step |
-| L5 | **List picker levels:** sections along the ancestors, and item level (cards vs rows) as a choice. | `ListSelectionStrategy.ts`, `extraction/items.ts` (expose the candidates `findList` already scores) |
-| L6 | **Adjust** an existing pick. | Page Extractor element list, List Extractor `SelectorCard`, `START_PICKER` payload (`adjust: chain`) |
-| L7 | (Optional) **Leave out part:** exclusions on a field. | Field spec, `ElementProcessor`, list field readers |
+| L5 ([#35](https://github.com/crawlpilot/crawlpilot/issues/35)) | **List picker levels:** sections along the ancestors, and item level (cards vs rows) as a choice. | `ListSelectionStrategy.ts`, `extraction/items.ts` (expose the candidates `findList` already scores) |
+| L6 ([#36](https://github.com/crawlpilot/crawlpilot/issues/36)) | **Adjust** an existing pick. | Page Extractor element list, List Extractor `SelectorCard`, `START_PICKER` payload (`adjust: chain`) |
+| L7 ([#37](https://github.com/crawlpilot/crawlpilot/issues/37)) | (Optional) **Leave out part:** exclusions on a field. | Field spec, `ElementProcessor`, list field readers |
 
 ## 5. Tests
 
