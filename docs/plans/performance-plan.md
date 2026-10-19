@@ -176,7 +176,7 @@ Done:
 - **Run memory:** only rows not yet saved stay in memory (`state.rows`; the total is `rowCount`).
 - **Progress messages:** at most one every 250 ms, plus a final one before "complete".
 - **Tests:** `e2e/runs.spec.ts`.
-- **Left:** a line in the Page Extractor review saying "N tabs at a time suit this computer". It goes in the review screen the UX rework is changing, so it's left to that work.
+- **Review screen:** the hint under "Tabs at a time" says "2 tabs at a time suit this computer (max 5)". When more are chosen it adds "More may slow it down; the run eases off if it struggles." (`tabsHint`).
 
 ### P5. Later, if numbers call for it
 
@@ -202,6 +202,6 @@ Done:
 | P1 Faster picks | done (more possible) | pick 5.7 → 1.9 s (Walmart), 4.8 → 2.6 s (Chewy); "Reading N items…" at once |
 | P2 Same hover answer on every machine | done | scorecard passes at 4× and 8× (same sections); hover 22–37 ms at 8× |
 | P3 Light side panel | done (MUI left to the design system) | home 923 → 573 ms; start JS 2,262 → 669 KB |
-| P4 Runs that fit the machine | done (review-screen hint left to the UX rework) | tabs from the machine (2 on 4 GB / 4 cores); eases off under strain |
+| P4 Runs that fit the machine | done | tabs from the machine (2 on 4 GB / 4 cores); eases off under strain |
 | P5 Later | not needed yet | |
 | P6 Limits | done | `BUDGETS` in `perf.spec.ts` at 4× |
