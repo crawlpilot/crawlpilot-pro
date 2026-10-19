@@ -1,6 +1,6 @@
 # Picker: the user controls how much is selected
 
-Status: 2026-10-19. **L1–L4 built** for every picker (the Page Extractor's readings, the bar, the side panel mirror in the Page Extractor). **L5 built** (#35). L6–L7 to do: issues #36, #37.
+Status: 2026-10-19. **L1–L4 built** for every picker (the Page Extractor's readings, the bar, the side panel mirror in the Page Extractor). **L5 and L6 built** (#35, #36). L7 to do: issue #37.
 
 Decided by default (the open questions below): the Page Extractor first; the keys as proposed; no sticky offset across elements; "leave out part" later.
 
@@ -18,6 +18,10 @@ Decided by default (the open questions below): the Page Extractor first; the key
   - `findListCandidates` (`items.ts`) keeps every section the walk scores, nearest first, and the rows of a grid laid out in rows; `findList` still returns the same pick.
   - `ListSelectionStrategy.readings()` offers them, with the old pick suggested; `stepsThroughReadings` makes ↑ / ↓ step through sections (keeping cards or rows), and the click saves the section shown.
   - The bar shows "Sections", and `PickerControls` is in the List Extractor's pick step.
+- **L6, Adjust:**
+  - `START_PICKER { adjust: { chain, items?, type? } }` opens the picker locked on a picked field (read as its saved type) or list (on its section, cards or rows as saved), or fails with "no longer on the page".
+  - The Page Extractor's fields (crosshair button, "Pick again" when missing) and the List Extractor's list cards replace the pick in place: id, name, place and action kept.
+  - In list mode, the chosen section stays while the cursor moves inside it, and ↓ narrows from where the cursor points.
 - Tests:
   - `path.test.ts` (4);
   - `e2e/picker-levels.spec.ts` (4: steps and back, the next row and readings, lock and bar buttons, the side panel protocol).
