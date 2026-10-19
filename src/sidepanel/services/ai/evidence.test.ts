@@ -117,7 +117,7 @@ describe('what each call reads', () => {
 
         outcome = await runPageExtract({ fields, lists: [] }, { page: stubPage(long) });
         expect(outcome.reads?.[0].input).toBe('relevant');
-        expect(prompts.at(-1)).toContain('Weight: 1.2 kg');
+        expect(prompts[prompts.length - 1]).toContain('Weight: 1.2 kg');
         expect(outcome.single.weight.status).toBe('verified');
 
         known = { colour: 'Red' };

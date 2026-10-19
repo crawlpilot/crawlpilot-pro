@@ -138,6 +138,8 @@ export interface PaginationRequest {
     maxPages?: number;
     mode?: string;
     resumeState?: { pageCount: number; totalItems: number; visitedUrls: string[] };
+    /** When the run began (set on its first page, carried to the next): a Stop after it ends the run on any page. */
+    startedAt?: number;
     columns?: unknown;
     navigationDelay?: number;
     contentLoadDelay?: number;

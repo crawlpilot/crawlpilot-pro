@@ -54,6 +54,12 @@ interface StorageSchema {
     contacts_extraction_state: RunRecovery;
     api_extraction_state: RunRecovery;
     pagination_state: PaginationResume;
+    /**
+     * When the user last stopped a list run. A next-button run moves from page to page (a new document
+     * each time), so a Stop message can reach a page that is already gone: the next page checks this
+     * before continuing, and a running page stops when it changes.
+     */
+    pagination_stopped_at: number;
     /** Page assistant, "Does it fit me?": what matters to the user, in their words (kept on this device). */
     assistantNeeds: string;
 }

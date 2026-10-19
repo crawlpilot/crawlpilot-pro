@@ -125,13 +125,18 @@ export function compose(source: Element | Document, options: ComposeOptions = {}
             const position = el.ownerDocument.defaultView?.getComputedStyle(el).position;
             if (position === 'fixed' || position === 'sticky') { out.setAttribute(POSITION_ATTRIBUTE, position); floating = true; }
         }
-        // A tab panel shows alone on the page, so it is read under its tab's name.
+        // A tab panel shows alone on the page, so it is read under its tab's name; its content goes in a
+        // wrapper with the panel's source, so text directly in the panel is still a block with a ref.
+        let into = out;
         if (panel?.tab && panel.label) {
             const heading = doc.createElement('h4');
             heading.textContent = panel.label;
-            out.appendChild(heading);
+            into = doc.createElement('div');
+            const src = out.getAttribute(SOURCE_ATTRIBUTE);
+            if (src !== null) into.setAttribute(SOURCE_ATTRIBUTE, src);
+            out.append(heading, into);
         }
-        appendAll(out, renderedChildren(el), inDetails || (tag === 'details' && !(el as HTMLDetailsElement).open), floating, inPanel || !!panel);
+        appendAll(into, renderedChildren(el), inDetails || (tag === 'details' && !(el as HTMLDetailsElement).open), floating, inPanel || !!panel);
         return out;
     };
 

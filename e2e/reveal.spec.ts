@@ -35,6 +35,11 @@ test('AI page view: every hidden section is read, nothing unsafe clicked, page p
     // A link to another page is never a candidate; the filter panel's "Show more" is skipped.
     expect(r.skipped).toEqual(expect.arrayContaining([{ label: 'Show more', reason: 'in a filter panel' }]));
     expect(r.stopped).toBeUndefined();
+    // Each block read from a hidden section is tagged with it (the evidence's "from Materials"),
+    // the captured lazy tab too: its blocks have refs, so values found there can be checked.
+    expect(Object.values(reply.view.sections)).toEqual(expect.arrayContaining(['Specifications', 'Materials', 'Care', 'Shipping', 'Reviews']));
+    const reviewsRef = text.match(/Lovely sturdy table[^\n]*\[(b\d+)\]/)?.[1];
+    expect(reply.view.sections[reviewsRef!]).toBe('Reviews');
 
     // Nothing bought, no filter touched, still on the page; the warranty closed and Overview selected again.
     expect(await page.evaluate(() => ({ ...document.body.dataset }))).toEqual({});

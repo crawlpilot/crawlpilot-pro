@@ -140,10 +140,16 @@ async function startAutoScroll(req: AutoScrollRequest) {
     }
 }
 
+/** When the running pagination began (`PaginationRequest.startedAt`). */
+let paginationStartedAt = 0;
+
 async function startPagination(req: PaginationRequest) {
     stopPagination();
     sentPaginationColumns = null;
     paginationAbort = new AbortController();
+    // A new run starts its clock here; a resumed one keeps the first page's.
+    req = { ...req, startedAt: req.startedAt ?? Date.now() };
+    paginationStartedAt = req.startedAt!;
 
     const pagination = new PaginationAction({ ...req, columns: hasReaders(req.columns) ? req.columns : undefined });
 
@@ -168,7 +174,13 @@ async function startPagination(req: PaginationRequest) {
 
 /** A pagination run that navigated to the next page continues here (PaginationAction saves its state before navigating). */
 function resumePagination() {
-    void storage.get('pagination_state').then(state => {
+    void Promise.all([storage.get('pagination_state'), storage.get('pagination_stopped_at')]).then(([state, stoppedAt]) => {
+        // Stopped while this page was loading: the Stop went to the page before, which is gone.
+        if (state?.isRunning && stoppedAt && stoppedAt >= (state.config.startedAt ?? state.timestamp)) {
+            void storage.remove('pagination_state');
+            void send('PAGINATION_COMPLETE', ok({ reason: 'cancelled' }));
+            return;
+        }
         if (state?.isRunning) {
             void startPagination({
                 ...state.config,
@@ -186,5 +198,10 @@ export function registerListRunHandlers() {
     on('STOP_AUTO_SCROLL', () => { stopAutoScroll(); stopPagination(); return ok(); });
     on('EXECUTE_PAGINATION', req => { void startPagination(req); return ok(); });
     on('STOP_PAGINATION', () => { stopPagination(); return ok(); });
+    // A Stop recorded while the message couldn't reach this page (or reached the page before it).
+    chrome.storage.onChanged.addListener((changes, area) => {
+        const at = changes.pagination_stopped_at?.newValue;
+        if (area === 'local' && typeof at === 'number' && paginationAbort && at >= paginationStartedAt) stopPagination();
+    });
     resumePagination();
 }

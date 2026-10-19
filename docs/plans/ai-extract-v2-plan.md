@@ -1,6 +1,6 @@
 # AI Extract v2: JSON Schema in, JSON out, resilient on a small on-device model
 
-Status: A1, A2 and A2b done. Next: A3 (markdown input and evidence). Builds on `ai-extract-markdown-plan.md`, where X0 (model host), M1 (markdown
+Status: A1, A2, A2b and A3 done. Next: A4 (resilience). Builds on `ai-extract-markdown-plan.md`, where X0 (model host), M1 (markdown
 engine) and X1 (single-page AI Extract) are done; X2 (compile to a recipe) and X3 (many pages) are still open.
 
 ## 1. What the user gets
@@ -363,7 +363,8 @@ closed), as already planned, on top of this.
 | A1 | **Done** | See the details below |
 | A2b | **Done** | See the details below |
 | A2 | **Done** | See the details below |
-| A3–A6 | Open | |
+| A3 | **Done** | See the details below |
+| A4–A6 | Open | |
 
 What A1 built:
 
@@ -429,3 +430,34 @@ What A2 built (`sidepanel/services/ai/budget.ts`, `extractRun.ts`):
   - Sizing maths, grouping, passes and joining.
   - A fake model in a 3,000-token window: a 20-field schema runs as 3 calls, a 12-field item as 2 joined passes, and every call fits the room it had.
   - The corpus run still finds ≥90% of the listing items. It caught the full-answer loss above.
+
+What A3 built:
+
+- **What each call reads** (`extractRun.ts`, `choose`). The first that fits: the full markdown, the pruned `fit` rendering, the BM25 blocks about the group's fields, else the first part with a warning. Each run records it in `outcome.reads`.
+  - The page view carries `fit` (same refs as the full view, mapped by element) when the full markdown is over 8k characters and pruning saves at least 10%.
+  - On the saved pages, a 6k-token window is smaller than even the pruned Amazon and Uniqlo product pages (84k and 22k characters), so those read the BM25 blocks; `fit` is used on medium pages. None fell back to the first part.
+- **Chunks** (`shared/markdown/chunks.ts`): `trail` starts a chunk with its heading trail (`(Section: Acme X-200 › Specifications)`); `overlap: 1` repeats the previous chunk's last block. List chunks use both.
+- **List region** (`content/services/ai-view/listRegion.ts`). The container of 5+ alike children holding at least 35% of the page's text.
+  - It leaves out navigation, cookie and consent panels, dialogs, and an article's sections or paragraphs.
+  - The view carries the region's blocks. A single list reads only those, and falls back to the whole page when they give nothing.
+  - On the 5 saved listings, the region holds every annotated item. On the article, the docs page and 3 product pages there is none. On the Amazon product page it is the reviews list.
+- **Evidence.** Grounding returns the block it found the value in (`Grounded.ref`). Each value keeps:
+  - `evidence`: that block's markdown with refs removed; a table row comes with its header, and long text is cut to about 300 characters around the value;
+  - `section`: the hidden section it was read from.
+
+  Both go into the rows' `_sources` and into the JSON's sources by pointer. Structured-data values are looked up on the page too, for their evidence.
+- **Evidence report** (`sidepanel/services/ai/evidenceReport.ts`), with an "Evidence (.md)" button on AI Extract. For each pointer it gives:
+  - the value and its status;
+  - the quoted block;
+  - "From the hidden section *Materials* (…)".
+
+  After those come "Not found" (with what an unverified answer said) and the warnings. A value's tooltip shows its evidence.
+- **Fixes to A2b:**
+  - A lazy tab's captured panel had no block refs, so a value found there couldn't be checked. It now has refs.
+  - Text placed directly in an in-page tab panel had no ref either. The panel's content now goes in a wrapper that keeps the panel as its source.
+- **Tests:**
+  - `evidence.test.ts` (6): trail, overlap, the BM25 match flag, `evidenceOf`, the four-step chooser, and a closed accordion's value with its section, sources and report.
+  - `src/test/corpus/listRegion.test.ts` (10).
+  - Corpus AI Extract: every value found on a product page has evidence, and no call fell back to the first part. Listings read only the region, and every title has evidence.
+  - `e2e/reveal.spec.ts`: every hidden block is tagged with its section, the lazy tab included.
+- **Still open:** "Show on page" doesn't re-open a closed section first (A6, with the result views).

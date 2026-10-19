@@ -434,7 +434,13 @@ export class PaginationAction extends BaseAction {
             message: "Clicking 'Next Page' button..."
         });
 
+        // A Stop now must not leave a saved state for the next page to continue from.
+        this.throwIfAborted();
         await this.saveState({ config: this.config, pageCount, totalItems });
+        if (this.isAborted()) {
+            await this.clearState();
+            this.throwIfAborted();
+        }
 
         const clicked = await this.clickElementRobust(nextBtn);
         if (!clicked) {
@@ -466,7 +472,8 @@ export class PaginationAction extends BaseAction {
     }
 
     private async handleError(error: any, pageCount: number, totalItems: number) {
-        if (error.message === 'Action aborted') {
+        // "Action aborted", or "… during wait" when it came while waiting for a page.
+        if (/^Action aborted/.test(error?.message ?? '')) {
             // Clear persisted state so the next page load does NOT auto-resume.
             // Previously this was missing, causing pagination to restart after user stopped.
             await this.clearState();
