@@ -54,7 +54,7 @@ export default function MetadataExtractorPage({ onBack }: MetadataExtractorPageP
     }, [selectedUrls, options, maxConcurrent, requestDelay, startMetadataExtraction]);
 
     const handleViewResults = useCallback((tableId: number) => {
-        const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`);
+        const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${tableId}`);
         chrome.tabs.create({ url });
     }, []);
 

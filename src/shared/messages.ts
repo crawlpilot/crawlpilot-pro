@@ -38,7 +38,7 @@ export interface RunProgress {
 
 export interface RunComplete {
     jobId: number;
-    tableDataId?: number;
+    tableId?: number;
     totalItems: number;
     success: boolean;
     error?: string;

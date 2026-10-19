@@ -79,10 +79,10 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
 
                                     const tableId = await db.tables.save(selector.data, {
                                         name: pageTitle,
-                                        isPreview: true
+                                        preview: true
                                     });
 
-                                    const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`);
+                                    const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${tableId}`);
                                     chrome.windows.create({
                                         url: url,
                                         type: 'popup',

@@ -83,10 +83,10 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
         });
     }, []);
 
-    const startExtraction = useCallback(async (selectors: SelectorState[], pagination: PaginationConfig, options?: { tableDataId?: number; customName?: string; maxPages?: number }) => {
+    const startExtraction = useCallback(async (selectors: SelectorState[], pagination: PaginationConfig, options?: { tableId?: number; customName?: string; maxPages?: number }) => {
         if (selectors.length === 0) return;
 
-        const { tableDataId, customName, maxPages } = options || {};
+        const { tableId: previewTableId, customName, maxPages } = options || {};
         if (maxPages !== undefined) {
             pagination.maxPages = maxPages;
         }
@@ -148,9 +148,9 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             // Final fallback: look up the preview table's name from DB — it was saved with
             // the correct title during element selection, so it's the most reliable source.
             let previewTableName: string | null = null;
-            if (options?.tableDataId) {
+            if (options?.tableId) {
                 try {
-                    const previewRecord = await db.tables.get(options.tableDataId);
+                    const previewRecord = await db.tables.get(options.tableId);
                     // Strip the "Preview: " prefix that saveExtraction prepends
                     previewTableName = previewRecord?.name?.replace(/^Preview:\s*/i, '') || null;
                 } catch { /* ignore */ }
@@ -336,9 +336,9 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             const tableId = await db.tables.save(finalExtraction, {
                 name: pageTitle,
                 jobId: jobId,
-                tableDataId: tableDataId,
-                isPreview: false,
-                clearExisting: true
+                tableId: previewTableId,
+                preview: false,
+                replace: true
             });
 
             // Update Job status

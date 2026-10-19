@@ -22,19 +22,19 @@ describe('db', () => {
         const id = await db.tables.save(result([{ title: 'A' }, { title: 'B' }, { title: 'A' }]), { name: 'Shop' });
         expect(await db.tables.rowCount(id)).toBe(2);
         const table = await db.tables.get(id);
-        expect(table?.metadata?.totalRows).toBe(2);
+        expect(table?.rowCount).toBe(2);
         const rows = await db.tables.rowsPage(id, 0, 10);
         expect(rows.map(r => r.data)).toEqual([{ title: 'A' }, { title: 'B' }]);
         expect(rows[0]).not.toHaveProperty('metadata');
 
         expect(await db.tables.appendRows(id, [{ title: 'B' }, { title: 'C' }])).toBe(1);
-        expect((await db.tables.get(id))?.metadata?.totalRows).toBe(3);
+        expect((await db.tables.get(id))?.rowCount).toBe(3);
         expect((await db.tables.rowsPage(id, 1, 5)).map(r => r.data.title)).toEqual(['B', 'C']);
     });
 
     it('replaces columns instead of merging them, and renames one', async () => {
         const id = await db.tables.save(result([{ title: 'A' }], [{ id: 'old', name: 'Old', type: 'text' }]));
-        await db.tables.save(result([], [{ id: 'title', name: 'Title', type: 'text' }]), { tableDataId: id, isPreview: false });
+        await db.tables.save(result([], [{ id: 'title', name: 'Title', type: 'text' }]), { tableId: id, preview: false });
         expect((await db.tables.get(id))?.columns.map(c => c.id)).toEqual(['title']);
         await db.tables.setColumns(id, [{ id: 'title', name: 'Title', type: 'text' }]);
         await db.tables.renameColumn(id, 'title', 'Name');
@@ -42,20 +42,20 @@ describe('db', () => {
     });
 
     it('overwrites a preview, never another job\'s table', async () => {
-        const preview = await db.tables.save(result([{ title: 'A' }]), { name: 'Shop', isPreview: true });
-        const final = await db.tables.save(result([{ title: 'B' }]), { name: 'Shop', jobId: 7, tableDataId: preview, clearExisting: true });
+        const preview = await db.tables.save(result([{ title: 'A' }]), { name: 'Shop', preview: true });
+        const final = await db.tables.save(result([{ title: 'B' }]), { name: 'Shop', jobId: 7, tableId: preview, replace: true });
         expect(final).toBe(preview);
         expect((await db.tables.get(final))?.name).toBe('Shop');
         expect((await db.tables.rowsPage(final, 0, 5)).map(r => r.data.title)).toEqual(['B']);
 
-        const other = await db.tables.save(result([{ title: 'C' }]), { jobId: 8, tableDataId: final });
+        const other = await db.tables.save(result([{ title: 'C' }]), { jobId: 8, tableId: final });
         expect(other).not.toBe(final);
     });
 
     it('keeps only the latest loose preview', async () => {
-        const first = await db.tables.save(result([{ title: 'A' }]), { isPreview: true });
-        const owned = await db.tables.save(result([{ title: 'B' }]), { isPreview: true, jobId: 3 });
-        const second = await db.tables.save(result([{ title: 'C' }]), { isPreview: true });
+        const first = await db.tables.save(result([{ title: 'A' }]), { preview: true });
+        const owned = await db.tables.save(result([{ title: 'B' }]), { preview: true, jobId: 3 });
+        const second = await db.tables.save(result([{ title: 'C' }]), { preview: true });
         expect(await db.tables.get(first)).toBeNull();
         expect(await db.tables.rowCount(first)).toBe(0);
         expect(await db.tables.get(owned)).not.toBeNull();
@@ -150,8 +150,22 @@ describe('migration v5 → v6', () => {
         jobs.put({ id: 11, recipeId: 2, status: 'paused', sourceUrl: 'https://shop.test/s?k=laptop', stats: { startTime: 2, itemsExtracted: 3, stoppedByUser: true }, createdAt: 11, updatedAt: 11 });
         jobs.put({ id: 12, recipeId: 3, status: 'completed', configSnapshot: bulkConfig, stats: { startTime: 3, itemsExtracted: 2 }, createdAt: 12, updatedAt: 12 });
         jobs.put({ id: 13, recipeId: 99, status: 'pending', sourceUrl: 'https://gone.test', configSnapshot: { type: 'email-extraction' }, stats: { startTime: 4, itemsExtracted: 0 }, createdAt: 13, updatedAt: 13 });
-        tx.objectStore('tableData').put({ id: 50, name: 'Laptops', columns: [], sourceUrl: 'u', createdAt: 1, updatedAt: 1, jobId: 10 });
+        tx.objectStore('tableData').put({
+            id: 50, name: 'Laptops', columns: [{ id: 'title', name: 'Title', type: 'text' }], sourceUrl: 'u', createdAt: 1, updatedAt: 1, jobId: 10,
+            metadata: { extractionType: 'list', totalRows: 99, isPreview: false, columnMerges: [{ id: 'm', name: 'M', sources: ['title'], separator: ' ' }] },
+        });
+        tx.objectStore('tableData').put({ id: 51, name: 'Preview: Lamps', columns: [], sourceUrl: 'v', createdAt: 2, updatedAt: 2, metadata: { isPreview: true } });
+        // The same item read on two pages (only source_url differs): one row from v7 on.
+        const rows = [
+            { tableDataId: 50, data: { title: 'A', source_url: 'p1' }, dataHash: 'h1', createdAt: 1, metadata: { originalData: {} } },
+            { tableDataId: 50, data: { title: 'A', source_url: 'p2' }, dataHash: 'h2', createdAt: 2 },
+            { tableDataId: 50, data: { title: 'B', source_url: 'p2' }, dataHash: 'h3', createdAt: 3 },
+            { tableDataId: 51, data: { title: 'Lamp' }, dataHash: 'h4', createdAt: 4 },
+        ];
         await new Promise(r => { tx.oncomplete = r; });
+        const rowTx = v5.transaction('tableRows', 'readwrite');
+        rows.forEach(r => rowTx.objectStore('tableRows').add(r));
+        await new Promise(r => { rowTx.oncomplete = r; });
         v5.close();
     }
 
@@ -197,5 +211,20 @@ describe('migration v5 → v6', () => {
 
         // Saving the same pick again finds the migrated recipe.
         expect((await db.jobs.saveRecipe('again', spec)).id).toBe(1);
+    });
+
+    it('moves tables and rows to the v7 stores: same ids, view settings apart, one row per item', async () => {
+        await seedV5();
+        const table = await db.tables.get(50);
+        expect(table).toMatchObject({
+            id: 50, name: 'Laptops', jobId: 10, source: 'list', sourceUrl: 'u', rowCount: 2, preview: false,
+            view: { merges: [{ id: 'm', name: 'M', sources: ['title'], separator: ' ' }] },
+        });
+        expect(table).not.toHaveProperty('metadata');
+        expect((await db.tables.rowsPage(50, 0, 10)).map(r => r.data)).toEqual([{ title: 'A', source_url: 'p1' }, { title: 'B', source_url: 'p2' }]);
+        expect((await db.tables.rowsPage(50, 0, 10))[0]).not.toHaveProperty('metadata');
+        expect(await db.tables.get(51)).toMatchObject({ preview: true, rowCount: 1, view: {} });
+        // A job's table id still points at its table.
+        expect((await db.jobs.get(10))?.tableId).toBe(50);
     });
 });

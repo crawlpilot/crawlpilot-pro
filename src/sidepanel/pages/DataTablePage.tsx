@@ -33,9 +33,9 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
         const onProgress = ({ previewTableId }: RunProgress) => {
             if (previewTableId != null && previewTableId === selectedId) refreshTable();
         };
-        const onComplete = ({ tableDataId }: RunComplete) => {
+        const onComplete = ({ tableId }: RunComplete) => {
             refreshAll();
-            if (tableDataId != null && tableDataId === selectedId) refreshTable();
+            if (tableId != null && tableId === selectedId) refreshTable();
         };
         const offs = [
             on('BULK_EXTRACTION_PROGRESS', onProgress),
@@ -71,13 +71,12 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
 
     const handleColumnsMerged = useCallback(async (merge: { id: string; name: string; sources: string[]; separator: string }) => {
         if (!selectedId || !tableData) return;
-        const existing = tableData.metadata?.columnMerges || [];
-        await db.tables.update(selectedId, { metadata: { columnMerges: [...existing, merge] } });
+        await db.tables.update(selectedId, { view: { merges: [...(tableData.view.merges ?? []), merge] } });
     }, [selectedId, tableData]);
 
     const handleTypedColumnsChanged = useCallback(async (defs: TypedColumnDef[]) => {
         if (!selectedId) return;
-        await db.tables.update(selectedId, { metadata: { columnTypes: defs } });
+        await db.tables.update(selectedId, { view: { typed: defs } });
     }, [selectedId]);
 
     const handleExportCSV = () => {
@@ -109,7 +108,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
 
     const handleOutputMapping = useCallback(async (state: OutputMappingState) => {
         if (!selectedId) return;
-        await db.tables.update(selectedId, { metadata: { outputMapping: state } });
+        await db.tables.update(selectedId, { view: { mapping: state } });
     }, [selectedId]);
 
     const handleExportMarkdown = () => {
@@ -152,10 +151,10 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
         }
     }, [tableDatas, selectedId]);
 
-    // Read tableDataId from URL if present
+    // Read tableId from URL if present
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const id = params.get('tableDataId');
+        const id = params.get('tableId');
         if (id) {
             setSelectedId(Number(id));
         }
@@ -358,8 +357,8 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                             columns={tableData.columns}
                             rows={rows}
                             defaultHideMostlyEmptyColumns={false}
-                            initialMergedCols={tableData.metadata?.columnMerges}
-                            initialTypedCols={tableData.metadata?.columnTypes}
+                            initialMergedCols={tableData.view.merges}
+                            initialTypedCols={tableData.view.typed}
                             onTypedColumnsChanged={handleTypedColumnsChanged}
                             onColumnRenamed={handleColumnRenamed}
                             onColumnDeleted={handleColumnDeleted}
@@ -383,7 +382,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                     columns={schemaMap.columns}
                     rows={schemaMap.rows}
                     tableName={tableData?.name || 'export'}
-                    saved={tableData?.metadata?.outputMapping}
+                    saved={tableData?.view.mapping}
                     onSave={handleOutputMapping}
                 />
             )}

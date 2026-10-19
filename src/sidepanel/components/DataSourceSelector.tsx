@@ -202,7 +202,7 @@ export default function DataSourceSelector({ onClose, onSelect }: DataSourceSele
 
                                             <div className="flex items-center gap-3 flex-shrink-0">
                                                 <Badge variant="primary" className="text-[10px] px-1.5 py-0.5 bg-surface-lighter text-text-secondary border-border-subtle">
-                                                    {table.metadata?.totalRows ?? '?'} rows
+                                                    {table.rowCount} rows
                                                 </Badge>
                                                 <ChevronRight className="w-3.5 h-3.5 text-text-muted group-hover:text-text-primary transition-colors" />
                                             </div>

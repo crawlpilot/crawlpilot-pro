@@ -42,39 +42,54 @@ export interface TypedColumnDef {
     dayFirst?: boolean;
 }
 
-// TableData - metadata for extracted datasets
-export interface TableData {
-    id?: number;
+/** A column built from others in the data table ("Merge columns"). */
+export interface ColumnMerge {
+    id: string;
     name: string;
-    columns: Column[];
-    sourceUrl: string;
-    createdAt: number;
-    updatedAt: number;
-    jobId?: number; // Renamed from automationId
-    metadata?: {
-        extractionType?: string;
-        totalRows?: number;
-        source?: string;
-        isPreview?: boolean;
-        columnMerges?: Array<{ id: string; name: string; sources: string[]; separator: string }>;
-        /** Column → output-schema mapping chosen in "JSON to a schema". */
-        outputMapping?: { contractId: string; customText?: string; mapping: Record<string, string | null> };
-        /** Typed columns derived from a source column by a transform chain (shared/transforms). */
-        columnTypes?: TypedColumnDef[];
-        // automationId removed from metadata as it is redundant
-    };
+    sources: string[];
+    separator: string;
 }
 
-// TableRow - individual data rows
-export interface TableRow {
+/** Column → output-schema mapping chosen in "JSON to a schema". */
+export interface OutputMapping {
+    contractId: string;
+    customText?: string;
+    mapping: Record<string, string | null>;
+}
+
+/** A dataset: what a run (or a preview, an API capture) wrote. */
+export interface Table {
     id?: number;
-    tableDataId: number;
-    data: Record<string, any>;
-    createdAt: number;
-    metadata?: {
-        extractionType?: string;
-        sourceUrl?: string;
+    name: string;
+    /** The job that wrote it; none for previews and captures. */
+    jobId?: number;
+    /** What wrote it: `list`, `bulk-page`, `metadata-extraction`, `api`. */
+    source: string;
+    sourceUrl: string;
+    /** The run's columns, replaced as a whole (never merged). */
+    columns: Column[];
+    /** Rows actually stored. */
+    rowCount: number;
+    /** A preview of a pick: replaced by the next one, or promoted when the run writes into it. */
+    preview: boolean;
+    /** How the data table shows it: the user's merged and typed columns and export mapping. */
+    view: {
+        merges?: ColumnMerge[];
+        typed?: TypedColumnDef[];
+        mapping?: OutputMapping;
     };
+    createdAt: number;
+    updatedAt: number;
+}
+
+/** One row of a table, stored once. */
+export interface Row {
+    id?: number;
+    tableId: number;
+    data: Record<string, any>;
+    /** The row's identity in its table (its data without `source_url` / `recordId`): a repeat is skipped. */
+    key: string;
+    createdAt: number;
 }
 
 // Extraction result format

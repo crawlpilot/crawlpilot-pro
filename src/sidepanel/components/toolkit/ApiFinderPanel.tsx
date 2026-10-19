@@ -163,7 +163,7 @@ export default function ApiFinderPanel() {
             timestamp: new Date().toISOString(),
         }, { name: `API · ${host} ${formatPath(arrPath)}` });
         setSavedNote(`Saved ${rows.length} rows.`);
-        chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`) });
+        chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${tableId}`) });
     };
 
     const list = query.trim() ? groups.map(g => g.entry) : [...entries].reverse();

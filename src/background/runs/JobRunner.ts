@@ -51,7 +51,7 @@ export interface RunJob {
     name?: string;
     /** What the run extracts: saved as its recipe (the same spec is the same recipe). */
     spec: RecipeSpec;
-    /** The table's `type` and `metadata.extractionType`. */
+    /** The table's `source`. */
     tableType: string;
     /** The table's columns, from the columns the pages reported so far. */
     columns(found: Column[]): Column[];
@@ -355,7 +355,7 @@ export class JobRunner {
         const done = state.urls.filter(u => u.status === 'done').length;
         const name = buildPreviewName(state.urls.map(u => u.url), done, state.urls.length);
         const id = await db.tables.save(this.tableData(fresh), {
-            name, jobId: state.jobId, isPreview: true, ...(this.previewTableId !== null ? { tableDataId: this.previewTableId } : {}),
+            name, jobId: state.jobId, preview: true, ...(this.previewTableId !== null ? { tableId: this.previewTableId } : {}),
         });
         if (this.previewTableId === null) this.previewTableId = id;
         this.previewSaved = state.rows.length;
@@ -386,7 +386,7 @@ export class JobRunner {
         const { jobId, urls, rows, startTime } = state;
         const done = urls.filter(u => u.status === 'done').length;
         const errors = urls.filter(u => u.status === 'error').length;
-        let tableDataId: number | undefined;
+        let tableId: number | undefined;
 
         try {
             if (rows.length > 0) {
@@ -397,23 +397,24 @@ export class JobRunner {
                     await db.tables.setColumns(this.previewTableId, job.columns(state.columns));
                     await db.tables.update(this.previewTableId, {
                         name,
-                        metadata: { extractionType: job.tableType, isPreview: false },
+                        source: job.tableType,
+                        preview: false,
                     });
-                    tableDataId = this.previewTableId;
+                    tableId = this.previewTableId;
                 } else {
-                    tableDataId = await db.tables.save(this.tableData(rows), { name, jobId });
+                    tableId = await db.tables.save(this.tableData(rows), { name, jobId });
                 }
             }
 
             await db.jobs.update(jobId, {
                 status: stoppedByUser ? 'stopped' : 'completed',
-                tableId: tableDataId,
+                tableId,
                 stats: { startTime, endTime: Date.now(), itemsExtracted: rows.length, pagesVisited: done, errors, stoppedByUser, verdicts: this.verdictCounts() },
             });
-            void send(MESSAGES[this.kind].complete, { jobId, tableDataId, totalItems: rows.length, success: !error && !stoppedByUser, error, stoppedByUser });
+            void send(MESSAGES[this.kind].complete, { jobId, tableId, totalItems: rows.length, success: !error && !stoppedByUser, error, stoppedByUser });
         } catch (e) {
             console.error(`[${this.kind} run] Finishing failed:`, e);
-            void send(MESSAGES[this.kind].complete, { jobId, tableDataId, totalItems: rows.length, success: false, error: String(e), stoppedByUser });
+            void send(MESSAGES[this.kind].complete, { jobId, tableId, totalItems: rows.length, success: false, error: String(e), stoppedByUser });
         } finally {
             chrome.alarms.clear(this.alarmName);
             if (this.tabPool) {

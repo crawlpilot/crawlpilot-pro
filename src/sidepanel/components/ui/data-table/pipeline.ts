@@ -3,7 +3,7 @@
  * add merged and typed columns, drop empty rows, choose and order the visible columns, and build
  * the export.
  */
-import type { Column, TableRow, TypedColumnDef } from '@/shared/types/database';
+import type { Column, Row as TableRow, TypedColumnDef } from '@/shared/types/database';
 import { applyChain, FieldType } from '@/shared/transforms/chain';
 import { hashString } from '@/shared/utils/hash';
 

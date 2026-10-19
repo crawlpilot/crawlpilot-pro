@@ -15,7 +15,7 @@ import {
     TextEditorModule,
     ICellRendererParams
 } from 'ag-grid-community';
-import type { Column, TableRow, TypedColumnDef } from '@/shared/types/database';
+import type { Column, Row, TypedColumnDef } from '@/shared/types/database';
 import { detectType } from '@/shared/transforms/detect';
 import ColumnCleanDialog from './ColumnCleanDialog';
 import { GitMerge, ArrowRight, Filter, Table2, Sparkles } from 'lucide-react';
@@ -46,7 +46,7 @@ export interface DataTableRef {
 
 interface DataTableProps {
     columns: Column[];
-    rows: TableRow[];
+    rows: Row[];
     defaultHideMostlyEmptyColumns?: boolean;
     initialMergedCols?: MergeDefinition[];
     initialTypedCols?: TypedColumnDef[];

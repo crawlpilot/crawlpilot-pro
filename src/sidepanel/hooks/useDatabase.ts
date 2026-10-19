@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { downloadText } from '../services/download';
 import { db } from '@/shared/db';
-import { TableData, TableRow } from '@/shared/types/database';
+import { Table, Row } from '@/shared/types/database';
 import type { JobWithRecipe } from '@/shared/db';
 import { storage } from '@/shared/storage';
 
@@ -14,9 +14,9 @@ const ROW_PAGE_LIMIT = 2000;
  * When the table has more rows than that, `hasMore` is true and `totalRows` reflects
  * the actual count so callers can display an informational notice.
  */
-export function useTableData(tableDataId?: number | null) {
-    const [tableData, setTableData] = useState<TableData | null>(null);
-    const [rows, setRows] = useState<TableRow[]>([]);
+export function useTableData(tableId?: number | null) {
+    const [tableData, setTableData] = useState<Table | null>(null);
+    const [rows, setRows] = useState<Row[]>([]);
     const [totalRows, setTotalRows] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -46,15 +46,15 @@ export function useTableData(tableDataId?: number | null) {
     };
 
     useEffect(() => {
-        if (!tableDataId) {
+        if (!tableId) {
             setLoading(false);
             return;
         }
-        load(tableDataId);
-    }, [tableDataId]);
+        load(tableId);
+    }, [tableId]);
 
     const refresh = () => {
-        if (tableDataId) load(tableDataId);
+        if (tableId) load(tableId);
     };
 
     const hasMore = totalRows > rows.length;
@@ -66,7 +66,7 @@ export function useTableData(tableDataId?: number | null) {
  * Hook for managing all table data entries
  */
 export function useAllTableData() {
-    const [tableDatas, setTableDatas] = useState<TableData[]>([]);
+    const [tableDatas, setTableDatas] = useState<Table[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 

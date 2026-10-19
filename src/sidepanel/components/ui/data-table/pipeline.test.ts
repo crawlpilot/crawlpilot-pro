@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { Column, TableRow } from '@/shared/types/database';
+import type { Column, Row as TableRow } from '@/shared/types/database';
 import { dropEmptyRows, explodeJsonColumns, exportData, visibleColumns, withDerivedColumns } from './pipeline';
 
 const row = (id: number, data: Record<string, any>): TableRow => ({ id, data } as TableRow);

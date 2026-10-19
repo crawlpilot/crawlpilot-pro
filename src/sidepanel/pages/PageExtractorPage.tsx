@@ -122,7 +122,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
     }, [resetStoppedState]);
 
     const handleViewPartialResults = useCallback((tableId: number) => {
-        const targetUrl = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`);
+        const targetUrl = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${tableId}`);
         chrome.tabs.create({ url: targetUrl });
     }, []);
 

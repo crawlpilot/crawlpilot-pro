@@ -61,7 +61,7 @@ function App() {
                 return <HistoryPage
                     onBack={() => setCurrentView('home')}
                     onViewData={(tableId) => {
-                        const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`);
+                        const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${tableId}`);
                         chrome.tabs.create({ url });
                     }}
                 />;

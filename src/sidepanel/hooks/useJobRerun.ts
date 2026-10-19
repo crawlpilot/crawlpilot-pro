@@ -109,7 +109,7 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
                 await startExtraction(
                     selectors.map(s => ({ ...s, sourceTabId: finalActiveTab?.id })),
                     pagination,
-                    { tableDataId: undefined, customName: options.name, maxPages: options.maxPages }
+                    { customName: options.name, maxPages: options.maxPages }
                 );
             } else {
                 alert('Metadata runs are re-run from the Metadata page.');

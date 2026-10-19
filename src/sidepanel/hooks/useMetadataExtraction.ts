@@ -47,16 +47,16 @@ export function useMetadataExtraction() {
                 }
             }),
             on('METADATA_EXTRACTION_COMPLETE', payload => {
-                const { tableDataId, stoppedByUser } = payload;
+                const { tableId, stoppedByUser } = payload;
                 setIsExtracting(false);
                 setIsStopping(false);
                 setActiveTabs(0);
                 if (stoppedByUser) {
                     setHasStopped(true);
-                    setStoppedTableId(tableDataId ?? null);
+                    setStoppedTableId(tableId ?? null);
                 } else {
                     setHasCompleted(true);
-                    setCompletedTableId(tableDataId ?? null);
+                    setCompletedTableId(tableId ?? null);
                 }
             }),
         ];

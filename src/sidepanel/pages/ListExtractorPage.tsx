@@ -128,14 +128,14 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                                 // instead of creating a new one each time the user picks elements.
                                 const tableId = await db.tables.save(previewData, {
                                     name: pageTitle,
-                                    isPreview: true,
-                                    tableDataId: previewTableId || undefined,
-                                    clearExisting: !!previewTableId
+                                    preview: true,
+                                    tableId: previewTableId || undefined,
+                                    replace: !!previewTableId
                                 });
                                 setPreviewTableId(tableId);
 
                                 // Auto-open preview
-                                const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableDataId=${tableId}`);
+                                const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${tableId}`);
                                 chrome.windows.create({
                                     url: url,
                                     type: 'popup',
@@ -184,7 +184,7 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
             nextButtonSelectors,
             speed,
             maxPages
-        }, { tableDataId: previewTableId || undefined });
+        }, { tableId: previewTableId || undefined });
 
         // Reset preview ID so subsequent runs create new datasets
         setPreviewTableId(null);
