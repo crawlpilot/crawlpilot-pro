@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { HighlightSender, sendToActiveTab } from '../../../../shared/messages';
+import { HighlightSender } from '../../../../shared/messages';
+import { PickerControls } from '../../shared/PickerControls';
 import { ArrowRight, Image as ImageIcon, Link2, List, MousePointerClick, Pencil, Sparkles, Type, X, Zap } from 'lucide-react';
 import AiSchemaDialog from '../AiSchemaDialog';
 import { Button, Card, CardButton, Chip, Dialog, Heading, IconButton, Select, Spinner, Stack, Text, TextArea, TextField } from '../../../ui';
@@ -53,26 +54,6 @@ export function Step2Schema({
     onAddElements
 }: Step2SchemaProps) {
     const [aiOpen, setAiOpen] = useState(false);
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (selectionStatus === 'selecting') {
-                const actionKeys: Record<string, string> = {
-                    ArrowUp: 'ArrowUp',
-                    ArrowDown: 'ArrowDown',
-                    Enter: 'Enter'
-                };
-                const action = actionKeys[e.key];
-                if (action) {
-                    e.preventDefault();
-                    sendToActiveTab('PICKER_ACTION', { action }).catch(() => { /* picker not on this page */ });
-                }
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectionStatus]);
-
     // --- Persistent Selection Highlights Sync ---
     useEffect(() => {
         // Show highlights for all already-selected elements when Step 2 mounts
@@ -120,29 +101,7 @@ export function Step2Schema({
                 </Card>
             )}
 
-            {selectionStatus === 'selecting' && (
-                <div className="overflow-hidden rounded-card border-2 border-dashed border-line-strong bg-brand/15">
-                    <div className="p-5 text-center">
-                        <MousePointerClick size={30} className="mx-auto mb-2 animate-pulse text-ink" />
-                        <Text weight="semibold">Hover over the page, then click to select</Text>
-                        <Text size="caption" tone="muted">Move your cursor over any element on the page to highlight it.</Text>
-                    </div>
-                    <div className="border-t border-line bg-surface/60 px-4 py-3">
-                        <Text size="caption" weight="semibold" tone="muted" className="mb-2">Keyboard shortcuts</Text>
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                            {[['↑', 'Expand to parent'], ['↓', 'Narrow to child'], ['Enter', 'Confirm selection'], ['Esc', 'Cancel picker']].map(([key, label]) => (
-                                <div key={key} className="flex items-center gap-1.5">
-                                    <kbd className="inline-flex h-5 min-w-7 items-center justify-center rounded-md border border-line bg-surface px-1 font-mono text-[10.5px] text-ink">{key}</kbd>
-                                    <span className="text-caption text-ink-2">{label}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="border-t border-line px-4 py-2 text-center">
-                        <Button size="sm" variant="ghost" className="underline" onClick={onCancel}>Press Esc or click here to cancel</Button>
-                    </div>
-                </div>
-            )}
+            {selectionStatus === 'selecting' && <PickerControls onCancel={onCancel} />}
 
             {elements.length === 0 && selectionStatus !== 'selecting' ? (
                 <div className="grid grid-cols-2 gap-2">

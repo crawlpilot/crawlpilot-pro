@@ -1,5 +1,5 @@
 import type { ElementSelected } from '../../../../shared/messages';
-import { ISelectionStrategy } from './ISelectionStrategy';
+import { ISelectionStrategy, type Reading } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { findListInside, ListMatch } from '../../../services/extraction/items';
@@ -17,7 +17,20 @@ interface ClassificationResult {
     /** The element to find instead of the picked one (sibling cards → their parent). */
     selectors?: string[];
     count?: number;
+    /** Items like this one: the siblings read with it. */
+    siblings?: HTMLElement[];
 }
+
+const short = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+
+function valueLabel(c: ClassificationResult): string {
+    if (c.extractionType === 'image') return 'Image';
+    if (c.extractionType === 'link') return `Link · ${short(c.previewValue.replace(/^https?:\/\/(www\.)?/, ''), 28)}`;
+    const text = c.previewValue.replace(/\s+/g, ' ').trim();
+    return text ? `Text · “${short(text, 30)}”` : 'Text (empty)';
+}
+
+const ARRAY_NAMES = { image_array: 'Images', link_array: 'Links', text_array: 'Texts' } as const;
 
 export class DetailSelectionStrategy implements ISelectionStrategy {
     private extractor: DataExtractor;
@@ -28,33 +41,55 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
         this.extractor = new DataExtractor();
     }
 
-    handleHover(element: HTMLElement, picker: VisualElementPicker): void {
-        picker.updateHighlightManual(
-            element,
-            'Select Element',
-            'Click to edit & extract',
-            undefined,
-            []
-        );
+    handleHover(element: HTMLElement, picker: VisualElementPicker, reading?: Reading): void {
+        const shown = reading ?? this.readings(element)[0];
+        picker.updateHighlightManual(shown.outline ?? element, shown.label, 'Click to select · ↑↓ wider / narrower', element, shown.outlines ?? []);
     }
 
-    handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {
-        const target = element;
+    /**
+     * The ways a click can read `element` (docs/plans/picker-level-control-plan.md §3.3), suggested
+     * first in the order the detectors always ran: a list or table inside it, an array of like
+     * children, its image or link, the items like it around it, its text.
+     */
+    readings(element: HTMLElement): Reading[] {
+        const out: Reading[] = [];
+        const inside = findListInside(element);
+        if (inside.isContainer && inside.container) {
+            const n = inside.childCount || inside.siblings.length;
+            out.push({ kind: 'list', label: `${inside.containerType === 'table' ? 'Table' : 'List'} · ${n} items`, outlines: inside.siblings });
+        } else {
+            const array = this.detectHomogeneousArray(element);
+            if (array) out.push({ kind: 'array', label: `${ARRAY_NAMES[array.arrayType]} · ${array.count}` });
+        }
+        const strong = this.classifyAsDirectTag(element) ?? this.classifyAsWrapperContent(element);
+        const value: Reading = { kind: 'value', label: valueLabel(strong ?? this.classifyAsText(element)) };
+        const like = this.classifyAsSiblingTable(element);
+        const items: Reading | null = like ? { kind: 'items', label: `Items like this · ${like.count}`, outline: element.parentElement ?? undefined, outlines: like.siblings } : null;
+        if (strong) out.push(value);
+        if (items) out.push(items);
+        if (!strong) out.push(value);
+        return out;
+    }
 
-        // Detect internal container (list/table)
-        const containerInfo = findListInside(target);
+    handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void, reading?: Reading): void {
+        const target = element;
+        const kind = (reading ?? this.readings(element)[0]).kind;
+        const none = { isContainer: false, siblings: [], container: null, childCount: 0 };
+
+        // What the user chose to save, read that way: the click never re-decides it.
+        const containerInfo = kind === 'list' ? findListInside(target) : none;
         const isList = !!(containerInfo.isContainer && containerInfo.container);
 
         // The element is found on every page by its chain: a list's or table's container, else itself
         // (a control by its label too).
         const control = this.preferredAction === 'click';
-        const data = isList
-            ? this.extractor.extract(target, containerInfo)
-            : this.extractor.extract(target, { isContainer: false, siblings: [], container: null, childCount: 0 });
+        const data = this.extractor.extract(target, isList ? containerInfo : none);
 
-        // Classify the element type using ordered detector chain
-        const classification = this.classify(element, target, isList, containerInfo, data);
-        // A classification may retarget (a row of sibling cards: their parent is the table).
+        const classification = (kind === 'list' && this.classifyAsContainer(isList, containerInfo, data))
+            || (kind === 'array' && this.classifyAsHomogeneousArray(target))
+            || (kind === 'items' && this.classifyAsSiblingTable(element))
+            || this.classifyAsDirectTag(element) || this.classifyAsWrapperContent(element) || this.classifyAsText(element);
+        // A reading may retarget (the items like this one: their parent is the table).
         const selectors = classification.selectors
             ?? elementChain(isList ? containerInfo.container! : target, { control }).map(c => c.selector);
 
@@ -88,25 +123,8 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
     }
 
     // =========================================================================
-    // Classification Chain — ordered detectors, first match wins
+    // Detectors — each reading is read by one of these
     // =========================================================================
-
-    private classify(
-        element: HTMLElement,
-        target: HTMLElement,
-        isList: boolean,
-        containerInfo: ListMatch,
-        data: any
-    ): ClassificationResult {
-        return (
-            this.classifyAsContainer(isList, containerInfo, data) ??
-            this.classifyAsHomogeneousArray(target) ??
-            this.classifyAsDirectTag(element) ??
-            this.classifyAsWrapperContent(element) ??
-            this.classifyAsSiblingTable(element) ??
-            this.classifyAsText(element)
-        );
-    }
 
     /** Detected as a list / table container (`findListInside`) */
     private classifyAsContainer(isList: boolean, containerInfo: ListMatch, data: any): ClassificationResult | null {
@@ -204,7 +222,8 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
             previewValue: `Table (${matchingSiblings.length} items)`,
             finalValue: `Table (${matchingSiblings.length} items)`,
             selectors,
-            count: matchingSiblings.length
+            count: matchingSiblings.length,
+            siblings: matchingSiblings
         };
     }
 

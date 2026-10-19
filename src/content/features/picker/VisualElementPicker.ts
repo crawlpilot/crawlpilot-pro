@@ -1,15 +1,50 @@
 /**
- * Handles the visual selection UI (overlay, tooltip, highlighting)
+ * The visual picker: overlay, outline, tooltip and the bar at the bottom of the page.
+ *
+ * The user controls how much is selected (docs/plans/picker-level-control-plan.md):
+ * - Wider / Narrower move along the selection path, one visible step at a time, and Narrower walks back
+ *   toward where the cursor started;
+ * - ← / → move to the previous / next item at the same level;
+ * - the chosen level holds while the cursor stays inside it, and Space locks it;
+ * - a strategy with readings (the Page Extractor's) shows what a click saves; the user can switch it,
+ *   and the click saves the reading shown.
  */
-import { ISelectionStrategy } from './strategies/ISelectionStrategy';
-import { hasRenderedBox, getVisualRect } from '../../utils/rendering';
+import type { ISelectionStrategy, Reading } from './strategies/ISelectionStrategy';
+import { getVisualRect } from '../../utils/rendering';
 import { ElementSelected, send } from '../../../shared/messages';
+import { SelectionPath } from './path';
 
 const reportSelection = (selected: ElementSelected) => { void send('ELEMENT_SELECTED', selected); };
+
+/** Steps shown above the selection in the bar's path (the rest are "…"). */
+const STEPS_ABOVE = 3;
+/** The least time between two state messages to the side panel. */
+const STATE_MS = 120;
+const HASHY = /\d{3,}|^[a-z]{1,3}-?[a-z0-9]{5,}$|^css-|^sc-|__/i;
+
+const readableClass = (el: HTMLElement) =>
+    typeof el.className === 'string' ? el.className.split(/\s+/).find(c => c && c.length <= 20 && !HASHY.test(c)) : undefined;
+
+/**
+ * A short name for a step: its label, or its tag and first readable class. A step that stands for
+ * wrappers with the same box (`twins`) takes the most telling name among them ("price-block", not "wrap").
+ */
+function stepLabel(el: HTMLElement, twins: HTMLElement[] = []): string {
+    for (const node of [el, ...twins]) {
+        const aria = node.getAttribute('aria-label')?.trim();
+        if (aria && aria.length <= 24) return aria;
+    }
+    // The innermost readable class names it best ("price-block" inside "wrap"), with its own tag.
+    const named = [...twins, el].find(n => readableClass(n));
+    return named ? `${named.tagName.toLowerCase()}.${readableClass(named)}` : el.tagName.toLowerCase();
+}
+
+const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+
 export class VisualElementPicker {
     private overlay: HTMLElement | null = null;
     private tooltip: HTMLElement | null = null;
-    private shortcutBar: HTMLElement | null = null;
+    private bar: HTMLElement | null = null;
     private highlightBox: HTMLElement | null = null;
     private siblingHighlights: Array<{ target: HTMLElement; box: HTMLElement }> = []; // Dashed boxes + their tracked elements
     private currentElement: HTMLElement | null = null;
@@ -22,11 +57,22 @@ export class VisualElementPicker {
     /** A pick is being read: the highlight stays put and further clicks wait. */
     private busy = false;
 
+    /** Where the selection is: the hovered element and its visible ancestors. */
+    private path: SelectionPath | null = null;
+    /** The user moved the level (keys, bar): it holds while the cursor stays inside the selection. */
+    private adjusted = false;
+    /** Space: the mouse no longer changes the selection. */
+    private locked = false;
+    private readings: Reading[] = [];
+    private readingIndex = 0;
+    private stateTimer: ReturnType<typeof setTimeout> | null = null;
+
     constructor() {
         this.handleMouseMove = this.handleMouseMove.bind(this);
         this.handleClick = this.handleClick.bind(this);
         this.handleKeyDown = this.handleKeyDown.bind(this);
         this.handleScroll = this.handleScroll.bind(this);
+        this.handleWheel = this.handleWheel.bind(this);
     }
 
     public activate(
@@ -51,38 +97,103 @@ export class VisualElementPicker {
         this.removeUI();
         this.removeEventListeners();
         this.currentElement = null;
+        this.path = null;
+        if (this.stateTimer) { clearTimeout(this.stateTimer); this.stateTimer = null; }
+        void send('PICKER_STATE', null);
         console.log('❌ VisualElementPicker deactivated');
     }
 
+    /**
+     * An action from the side panel or the bar: `wider`, `narrower`, `prev`, `next`, `lock`,
+     * `select`, `reading:<i>`, `step:<i>` (also the keys' names: ArrowUp, ArrowDown, Enter).
+     */
     public handleExternalAction(action: string) {
-        if (!this.isActive || !this.currentElement) return;
-
-        if (action === 'ArrowUp') {
-            const parent = this.currentElement.parentElement;
-            if (parent && parent !== document.body && parent !== document.documentElement) {
-                this.currentElement = parent;
-                if (this.strategy) this.strategy.handleHover(this.currentElement, this);
-            }
-        }
-
-        if (action === 'ArrowDown') {
-            // Navigate into the first meaningful child element
-            const children = Array.from(this.currentElement.children) as HTMLElement[];
-            const firstMeaningful = children.find(c =>
-                hasRenderedBox(c) && (c.innerText || c.textContent || '').trim().length > 0
-            );
-            if (firstMeaningful) {
-                this.currentElement = firstMeaningful;
-                if (this.strategy) this.strategy.handleHover(this.currentElement, this);
-            }
-        }
-
-        if (action === 'Enter') {
-            if (this.strategy && !this.busy) {
-                this.strategy.handleClick(this.currentElement, this, reportSelection);
-            }
+        if (!this.isActive || !this.path) return;
+        const [name, arg] = action.split(':');
+        switch (name) {
+            case 'ArrowUp': case 'wider': this.move(() => this.path!.wider()); break;
+            case 'ArrowDown': case 'narrower': this.move(() => this.path!.narrower()); break;
+            case 'ArrowLeft': case 'prev': this.move(() => this.path!.sibling(-1)); break;
+            case 'ArrowRight': case 'next': this.move(() => this.path!.sibling(1)); break;
+            case 'step': this.move(() => this.path!.at(Number(arg))); break;
+            case 'lock': this.locked = !this.locked; this.render(true); break;
+            case 'reading': this.chooseReading(Number(arg)); break;
+            case 'Enter': case 'select': this.select(); break;
         }
     }
+
+    // ---- Selection ----
+
+    /** A new element under the cursor: a fresh path, unless the user's level holds. */
+    private hover(target: HTMLElement) {
+        if (this.locked) return;
+        if (this.adjusted && this.path?.current.contains(target)) return;
+        if (!this.adjusted && this.path?.start === target) return;
+        this.path = new SelectionPath(target);
+        this.adjusted = false;
+        this.update(false);
+    }
+
+    private move(step: () => boolean) {
+        if (!this.path || !step()) return;
+        this.adjusted = true;
+        this.update(true);
+    }
+
+    /** The selection changed: its readings, its outline, the bar. */
+    private update(redraw: boolean) {
+        if (!this.path || !this.strategy) return;
+        this.currentElement = this.path.current;
+        this.readings = this.strategy.readings?.(this.currentElement) ?? [];
+        this.readingIndex = 0;
+        this.render(redraw);
+    }
+
+    private chooseReading(i: number) {
+        if (i < 0 || i >= this.readings.length) return;
+        this.readingIndex = i;
+        this.render(true);
+    }
+
+    private get reading(): Reading | undefined {
+        return this.readings[this.readingIndex];
+    }
+
+    /**
+     * `redraw`: the user changed the level or the reading, so the outline is drawn again even when
+     * it is the same element. A plain hover keeps the outline while the cursor moves inside it.
+     */
+    private render(redraw: boolean) {
+        if (!this.currentElement || !this.strategy) return;
+        if (redraw) this.lastHighlightedElement = null;
+        this.strategy.handleHover(this.currentElement, this, this.reading);
+        this.renderBar();
+        // The side panel's mirror: the latest state, at most every STATE_MS.
+        this.stateTimer ??= setTimeout(() => {
+            this.stateTimer = null;
+            if (this.isActive && this.path) void send('PICKER_STATE', this.state());
+        }, STATE_MS);
+    }
+
+    private select() {
+        if (!this.strategy || !this.currentElement || this.busy) return;
+        this.strategy.handleClick(this.currentElement, this, reportSelection, this.reading);
+    }
+
+    private state() {
+        const path = this.path!;
+        return {
+            steps: path.steps.map(step => stepLabel(step, path.twins.get(step))).reverse(),
+            index: path.steps.length - 1 - path.index,
+            readings: this.readings.map(r => r.label),
+            reading: this.readingIndex,
+            locked: this.locked,
+            canPrev: !!path.current.previousElementSibling,
+            canNext: !!path.current.nextElementSibling,
+        };
+    }
+
+    // ---- UI ----
 
     private createUI() {
         // 1. Overlay
@@ -136,64 +247,80 @@ export class VisualElementPicker {
             white-space: nowrap !important;
         `;
 
-        // 4. Keyboard shortcut bar (fixed bottom-center, always visible)
-        this.shortcutBar = document.createElement('div');
-        this.shortcutBar.style.cssText = `
+        // 4. The bar (fixed bottom-center): the path, the readings, and a button for every key.
+        this.bar = document.createElement('div');
+        this.bar.setAttribute('data-testid', 'element-picker-bar');
+        this.bar.style.cssText = `
             position: fixed !important;
             bottom: 16px !important;
             left: 50% !important;
             transform: translateX(-50%) !important;
             z-index: 2147483647 !important;
-            background: rgba(17, 24, 39, 0.92) !important;
+            background: rgba(17, 24, 39, 0.94) !important;
             color: #e5e7eb !important;
             border: 1px solid rgba(255,255,255,0.12) !important;
-            border-radius: 8px !important;
-            padding: 8px 14px !important;
-            font-family: system-ui, -apple-system, sans-serif !important;
-            font-size: 11px !important;
+            border-radius: 10px !important;
+            padding: 8px 12px !important;
+            font: 12px system-ui, -apple-system, sans-serif !important;
             display: flex !important;
-            gap: 16px !important;
-            align-items: center !important;
-            pointer-events: none !important;
+            flex-direction: column !important;
+            gap: 6px !important;
+            pointer-events: auto !important;
+            cursor: default !important;
             backdrop-filter: blur(4px) !important;
             box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
-            white-space: nowrap !important;
+            max-width: min(760px, calc(100vw - 32px)) !important;
         `;
-        this.shortcutBar.innerHTML = `
-            <span style="display:flex;align-items:center;gap:5px;">
-                <kbd style="background:rgba(255,255,255,0.15);border-radius:3px;padding:1px 5px;font-weight:600;font-family:inherit;">↑</kbd>
-                <span style="opacity:0.75;">Expand</span>
-            </span>
-            <span style="display:flex;align-items:center;gap:5px;">
-                <kbd style="background:rgba(255,255,255,0.15);border-radius:3px;padding:1px 5px;font-weight:600;font-family:inherit;">↓</kbd>
-                <span style="opacity:0.75;">Narrow</span>
-            </span>
-            <span style="display:flex;align-items:center;gap:5px;">
-                <kbd style="background:rgba(255,255,255,0.15);border-radius:3px;padding:1px 5px;font-weight:600;font-family:inherit;">Enter</kbd>
-                <span style="opacity:0.75;">Select</span>
-            </span>
-            <span style="display:flex;align-items:center;gap:5px;">
-                <kbd style="background:rgba(255,255,255,0.15);border-radius:3px;padding:1px 5px;font-weight:600;font-family:inherit;">Esc</kbd>
-                <span style="opacity:0.75;">Cancel</span>
-            </span>
-        `;
+        this.renderBar();
 
         document.documentElement.appendChild(this.overlay);
         document.documentElement.appendChild(this.highlightBox);
         document.documentElement.appendChild(this.tooltip);
-        document.documentElement.appendChild(this.shortcutBar);
+        document.documentElement.appendChild(this.bar);
+    }
+
+    private renderBar() {
+        if (!this.bar) return;
+        const chip = (action: string, text: string, on = false, title = '') =>
+            `<button type="button" data-action="${action}" title="${esc(title)}" style="all:unset;cursor:pointer;padding:2px 7px;border-radius:999px;white-space:nowrap;${on ? 'background:#22D3EE;color:#000;font-weight:700;' : 'background:rgba(255,255,255,0.1);'}">${esc(text)}</button>`;
+        const key = (action: string, k: string, text: string, on = false) =>
+            `<button type="button" data-action="${action}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;${on ? 'color:#22D3EE;' : ''}"><kbd style="background:rgba(255,255,255,0.15);border-radius:3px;padding:1px 5px;font-weight:600;font-family:inherit;">${k}</kbd><span style="opacity:0.8;">${text}</span></button>`;
+
+        let pathRow = '';
+        if (this.path) {
+            const s = this.state();
+            const from = Math.max(0, s.index - STEPS_ABOVE);
+            const crumbs = s.steps.slice(from).map((label, i) => {
+                const at = from + i;
+                return chip(`step:${this.path!.steps.length - 1 - at}`, label, at === s.index, 'Select this level');
+            });
+            pathRow = `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${from > 0 ? '<span style="opacity:.6">…</span>' : ''}${crumbs.join('<span style="opacity:.5">›</span>')}</div>`;
+        }
+        const readingRow = this.readings.length > 1
+            ? `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;"><span style="opacity:.7;margin-right:2px;">Read as</span>${this.readings.map((r, i) => chip(`reading:${i}`, r.label, i === this.readingIndex)).join('')}</div>`
+            : '';
+        const keys = `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">${[
+            key('wider', '↑', 'Wider'),
+            key('narrower', '↓', 'Narrower'),
+            key('prev', '←', 'Prev'),
+            key('next', '→', 'Next'),
+            key('lock', '␣', this.locked ? 'Locked' : 'Lock', this.locked),
+            key('select', 'Enter', 'Select'),
+            key('cancel', 'Esc', 'Cancel'),
+        ].join('')}</div>`;
+        this.bar.innerHTML = pathRow + readingRow + keys;
     }
 
     private removeUI() {
         this.overlay?.remove();
         this.highlightBox?.remove();
         this.tooltip?.remove();
-        this.shortcutBar?.remove();
+        this.bar?.remove();
         this.clearSiblingHighlights();
         this.overlay = null;
         this.highlightBox = null;
         this.tooltip = null;
-        this.shortcutBar = null;
+        this.bar = null;
     }
 
     private clearSiblingHighlights() {
@@ -206,6 +333,7 @@ export class VisualElementPicker {
         document.addEventListener('click', this.handleClick, true);
         document.addEventListener('keydown', this.handleKeyDown, true);
         document.addEventListener('scroll', this.handleScroll, { passive: true, capture: true });
+        document.addEventListener('wheel', this.handleWheel, { passive: false, capture: true });
     }
 
     private removeEventListeners() {
@@ -213,6 +341,7 @@ export class VisualElementPicker {
         document.removeEventListener('click', this.handleClick, true);
         document.removeEventListener('keydown', this.handleKeyDown, true);
         document.removeEventListener('scroll', this.handleScroll, true);
+        document.removeEventListener('wheel', this.handleWheel, true);
     }
 
     private handleMouseMove(e: MouseEvent) {
@@ -228,12 +357,18 @@ export class VisualElementPicker {
             this.overlay.style.setProperty('pointer-events', 'all', 'important');
 
             if (!target || target === this.overlay || target === document.body || target === document.documentElement) return;
-
-            if (this.currentElement !== target) {
-                this.currentElement = target;
-                this.strategy.handleHover(target, this);
-            }
+            if (this.bar?.contains(target)) return;
+            this.hover(target);
         });
+    }
+
+    /** Alt + scroll: wider / narrower (plain scroll still scrolls the page). */
+    private handleWheel(e: WheelEvent) {
+        if (!this.isActive || !e.altKey || !this.path) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.deltaY < 0) this.move(() => this.path!.wider());
+        else if (e.deltaY > 0) this.move(() => this.path!.narrower());
     }
 
     public updateHighlightManual(
@@ -252,10 +387,7 @@ export class VisualElementPicker {
             siblings.some((s, i) => s !== this.lastSiblings[i])
         ) : (this.lastSiblings.length > 0);
 
-        // CRITICAL DEBOUNCE FIX:
-        // Check if the actual "primary highlighted element" (the container/box) has changed.
-        // Previously we checked 'lastHighlightedElement', but that might refer to the previous *hover* target.
-        // We need to ensure that if the 'element' (container) passed in changes, we update.
+        // The outlined element (a list's container, say) is what matters, not the hovered one.
         if (this.lastHighlightedElement === element && !siblingsChanged) {
             // BUT we still want the tooltip to follow the cursor (anchorElement)
             const anchorRect = anchorElement ? anchorElement.getBoundingClientRect() : element.getBoundingClientRect();
@@ -265,12 +397,6 @@ export class VisualElementPicker {
 
         this.lastHighlightedElement = element;
         this.lastSiblings = siblings || [];
-
-        // DO NOT update currentElement here. 
-        // currentElement tracks the "Hovered" element (the trigger),
-        // whereas 'element' here is the "Highlighted" element (the result).
-        // Updating it causes an infinite loop in handleMouseMove and breaks click targeting.
-        // this.currentElement = element;
 
         // getVisualRect: display:contents items (LinkedIn cards) have a 0x0
         // bounding rect of their own — union their children so boxes stay visible
@@ -320,11 +446,11 @@ export class VisualElementPicker {
             : '';
 
         const mainText = label || `${tag}${id}${className}`;
-        const secondaryText = subLabel || 'Click to select';
+        const secondaryText = this.locked ? 'Locked · Space to unlock · Enter to select' : subLabel || 'Click to select';
 
         this.tooltip.innerHTML = `
-            <div style="font-weight: bold; margin-bottom: 2px;">${mainText}</div>
-            <div style="font-size: 11px; opacity: 0.9;">${secondaryText}</div>
+            <div style="font-weight: bold; margin-bottom: 2px;">${esc(mainText)}</div>
+            <div style="font-size: 11px; opacity: 0.9;">${esc(secondaryText)}</div>
         `;
         this.tooltip.style.display = 'block';
 
@@ -389,11 +515,7 @@ export class VisualElementPicker {
     }
 
     private handleClick(e: MouseEvent) {
-        // IGNORE clicks on the interactions editor
-        // Since we use capture=true, we interpret the event before it reaches the shadow DOM.
-        // We must check if the target is our editor host.
-
-        // Also check composed path for shadow roots
+        // Clicks in the interactions editor (a shadow root) are its own.
         const path = e.composedPath();
         for (const el of path) {
             if (el instanceof HTMLElement && el.id === 'crawl-pilot-editor-host') {
@@ -405,58 +527,49 @@ export class VisualElementPicker {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        if (this.busy) return;
 
-        // Use the currentElement identified by handleMouseMove
-        // because the overlay captures the actual click event target.
-        if (this.currentElement) {
-            this.strategy.handleClick(this.currentElement, this, reportSelection);
+        // The bar's buttons.
+        const button = path.find(el => el instanceof HTMLElement && this.bar?.contains(el) && el.dataset.action) as HTMLElement | undefined;
+        if (button || path.includes(this.bar!)) {
+            const action = button?.dataset.action;
+            if (action === 'cancel') this.cancel();
+            else if (action) this.handleExternalAction(action);
+            return;
         }
+        if (this.busy) return;
+        this.select();
+    }
+
+    private cancel() {
+        if (this.onCancelCallback) this.onCancelCallback();
+        this.deactivate();
     }
 
     private handleKeyDown(e: KeyboardEvent) {
-        // High-priority escape check
+        if (!this.isActive) return;
+        const stop = () => { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); };
         if (e.key === 'Escape') {
             console.log('🛑 [Picker] Escape key detected, cancelling...');
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            if (this.onCancelCallback) this.onCancelCallback();
-            this.deactivate();
+            stop();
+            this.cancel();
             return;
         }
-
-        if (e.key === 'ArrowUp' && this.isActive && this.currentElement) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            const parent = this.currentElement.parentElement;
-            if (parent && parent !== document.body && parent !== document.documentElement) {
-                this.currentElement = parent;
-                if (this.strategy) this.strategy.handleHover(this.currentElement, this);
-            }
+        if (!this.path) return;
+        const keys: Record<string, string> = {
+            ArrowUp: 'wider', '[': 'wider', ArrowDown: 'narrower', ']': 'narrower',
+            ArrowLeft: 'prev', ArrowRight: 'next', ' ': 'lock', Enter: 'select',
+        };
+        let action = keys[e.key];
+        // L / T / V: read as a list, a table (or the items like this), one value.
+        const letter = e.key.toLowerCase();
+        if (!action && ['l', 't', 'v'].includes(letter) && !e.metaKey && !e.ctrlKey) {
+            const want = letter === 'v' ? ['value'] : letter === 'l' ? ['list', 'array'] : ['items', 'list'];
+            const i = this.readings.findIndex(r => want.includes(r.kind) && (letter !== 't' || r.kind === 'items' || r.label.startsWith('Table')));
+            if (i >= 0) action = `reading:${i}`;
         }
-
-        if (e.key === 'ArrowDown' && this.isActive && this.currentElement) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            const children = Array.from(this.currentElement.children) as HTMLElement[];
-            const firstMeaningful = children.find(c =>
-                hasRenderedBox(c) && (c.innerText || c.textContent || '').trim().length > 0
-            );
-            if (firstMeaningful) {
-                this.currentElement = firstMeaningful;
-                if (this.strategy) this.strategy.handleHover(this.currentElement, this);
-            }
-        }
-
-        if (e.key === 'Enter' && this.isActive && this.currentElement && this.strategy) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            this.strategy.handleClick(this.currentElement, this, reportSelection);
-        }
+        if (!action) return;
+        stop();
+        this.handleExternalAction(action);
     }
 
     private handleScroll() {

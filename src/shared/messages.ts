@@ -98,6 +98,20 @@ export interface MetadataStart {
 /** What a picked list is: ordinary results, a sponsored shelf, a carousel. */
 export type ListKind = 'results' | 'sponsored' | 'carousel';
 
+/** Where the picker's selection is (docs/plans/picker-level-control-plan.md §3.5). */
+export interface PickerState {
+    /** The path's steps, widest first. */
+    steps: string[];
+    /** The selected step. */
+    index: number;
+    /** What a click can save, the chosen one at `reading`. */
+    readings: string[];
+    reading: number;
+    locked: boolean;
+    canPrev: boolean;
+    canNext: boolean;
+}
+
 export interface ElementSelected {
     success: boolean;
     id: string;
@@ -199,6 +213,8 @@ export interface Messages {
     // ---- content script → side panel (broadcasts)
     ELEMENT_SELECTED: { payload: ElementSelected };
     PICKER_CANCELLED: {};
+    /** The picker's selection, for the side panel's mirror (null: the picker closed). */
+    PICKER_STATE: { payload: PickerState | null };
     LAB_PICKED: { payload: LabPick | null };
     /** `items`: the rows read since the last update (a stopped run keeps them); `columns` when they change. */
     AUTO_SCROLL_UPDATE: { payload: { count: number; items?: any[]; columns?: any[] } };
