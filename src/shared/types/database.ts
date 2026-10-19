@@ -182,7 +182,10 @@ export interface ContactsSpec {
     options: { follow: number; ownOnly?: boolean };
 }
 
-export type RecipeSpec = ListSpec | PageSpec | MetadataSpec | ContactsSpec;
+/** A site's own JSON API, called again page by page (shared/network/apiRecipe.ts). */
+export type ApiSpec = import('../network/apiRecipe').ApiSpec;
+
+export type RecipeSpec = ListSpec | PageSpec | MetadataSpec | ContactsSpec | ApiSpec;
 
 /** What to extract. One per distinct spec, updated in place (`rev` counts the updates). */
 export interface Recipe {

@@ -5,10 +5,12 @@ import { JobRunner } from './runs/JobRunner';
 import { bulkJob } from './runs/bulkJob';
 import { metadataJob } from './runs/metadataJob';
 import { contactsJob } from './runs/contactsJob';
+import { apiJob } from './runs/apiJob';
 
 const bulkRuns = new JobRunner('bulk');
 const metadataRuns = new JobRunner('metadata');
 const contactsRuns = new JobRunner('contacts');
+const apiRuns = new JobRunner('api');
 
 // MV3 service workers idle out after ~30 s. Periodic alarms (this one, and each run's own while it
 // runs) keep the worker alive: the alarm firing is enough, the listener has nothing to do.
@@ -21,6 +23,7 @@ async function recoverInterruptedExtractions() {
         bulkRuns.recover().catch(e => console.error('[SW] Bulk recovery check failed:', e)),
         metadataRuns.recover().catch(e => console.error('[SW] Metadata recovery check failed:', e)),
         contactsRuns.recover().catch(e => console.error('[SW] Contacts recovery check failed:', e)),
+        apiRuns.recover().catch(e => console.error('[SW] API recovery check failed:', e)),
     ]);
 }
 
@@ -82,5 +85,15 @@ on('CONTACTS_START', async (payload) => {
 });
 
 on('CONTACTS_STOP', async () => ok({ running: await contactsRuns.stop() }));
+
+on('API_START', async (payload) => {
+    try {
+        return ok(await apiRuns.start(apiJob(payload)));
+    } catch (error) {
+        return fail(error);
+    }
+});
+
+on('API_STOP', async () => ok({ running: await apiRuns.stop() }));
 
 // Fetches an image for the side panel, bypassing the page's CORS restrictions.

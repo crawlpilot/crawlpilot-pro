@@ -139,6 +139,30 @@ function serve(): Promise<{ server: Server; origin: string }> {
                 res.writeHead(200).end();
                 return;
             }
+            // A shop's JSON API (API recipes): needs the page's session cookie. `/api/products` pages by
+            // `page` (3 pages of 10 per query); `/api/graphql` by a cursor in the body (25 items, 10 a page).
+            if (url.pathname.startsWith('/api/')) {
+                if (!/(^|;\s*)session=1/.test(req.headers.cookie ?? '')) { res.writeHead(401, { 'content-type': 'application/json' }).end('{"error":"login"}'); return; }
+                res.writeHead(200, { 'content-type': 'application/json' });
+                if (url.pathname === '/api/products') {
+                    const q = url.searchParams.get('q') ?? '';
+                    const page = Number(url.searchParams.get('page') ?? 1);
+                    const products = page > 3 ? [] : Array.from({ length: 10 }, (_, i) => ({ id: `${q}-${(page - 1) * 10 + i + 1}`, title: `${q} ${(page - 1) * 10 + i + 1}`, price: { value: 10 + i, currency: 'USD' } }));
+                    res.end(JSON.stringify({ query: q, page, totalPages: 3, products }));
+                    return;
+                }
+                if (url.pathname === '/api/graphql' && req.method === 'POST') {
+                    let raw = '';
+                    for await (const chunk of req) raw += chunk;
+                    const after = Number(JSON.parse(raw).variables?.after || 0);
+                    const edges = Array.from({ length: Math.max(0, Math.min(10, 25 - after)) }, (_, i) => ({ node: { sku: `G${after + i + 1}`, name: `Gadget ${after + i + 1}` } }));
+                    const end = after + edges.length;
+                    res.end(JSON.stringify({ data: { catalog: { edges, pageInfo: { hasNextPage: end < 25, endCursor: end < 25 ? String(end) : null } } } }));
+                    return;
+                }
+                res.end('{}');
+                return;
+            }
             if (url.pathname.startsWith('/site/')) {
                 // `?delay=ms`: a page slow to arrive (a struggling computer or a slow site).
                 const delay = Number(url.searchParams.get('delay') || 0);

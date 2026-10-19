@@ -10,7 +10,8 @@
  *   Extractor reruns them with no model.
  */
 import { toMarkdown, type MarkdownOptions } from '../markdown';
-import { chunkMarkdown } from '../../../shared/markdown/chunks';
+import { chunkMarkdown, markdownBlocks } from '../../../shared/markdown/chunks';
+import { listRegion } from './listRegion';
 import { elementChain } from '../selectors/element';
 import { collectStructured } from '../../../shared/ai/structured';
 import { isGrounded } from '../../../shared/ai/extractPrompt';
@@ -20,19 +21,75 @@ import type { GroundRequest, Grounded, PageView } from '../../../shared/ai/page'
 
 let refs = new Map<string, Element>();
 let order: string[] = [];
+let refOf = new Map<Element, string>();
 
+/** Past this much full markdown, the view also carries the pruned (`fit`) rendering. */
+const FIT_FROM = 8000;
+
+/**
+ * - `chunks`: the main content as markdown, ` [bN]` after each leaf block.
+ * - `fit`: the pruned rendering (navigation and page furniture gone), with the same refs, when the full
+ *   one is long: the next step down when the full markdown doesn't fit a call (plan §3.3).
+ * - `region`: the list region's blocks (`listRegion`), when the page is a listing.
+ * - `sections`: blocks read from a hidden section, by ref → the section's name ("Specifications").
+ */
 export function buildPageView(chunkChars: number, maxChunks: number, options: { live?: boolean; markdown?: Pick<MarkdownOptions, 'reveal' | 'extra'> } = {}): PageView {
-    const result = toMarkdown(document, { mode: 'markdown', refs: true, live: options.live ?? true, ...options.markdown });
+    const base: MarkdownOptions = { refs: true, live: options.live ?? true, ...options.markdown };
+    const result = toMarkdown(document, { ...base, mode: 'markdown' });
     refs = result.refs ?? new Map();
     order = [...refs.keys()];
-    const chunks = chunkMarkdown(result.markdown, Math.max(500, chunkChars));
+    refOf = new Map([...refs].map(([k, el]) => [el, k]));
+    const size = Math.max(500, chunkChars);
+    const chunks = chunkMarkdown(result.markdown, size);
+
+    let fit: string | undefined;
+    if (result.markdown.length > FIT_FROM) {
+        const pruned = toMarkdown(document, { ...base, mode: 'fit' });
+        // Its own numbering, mapped to the full view's refs (a block only `fit` has gets none).
+        const text = pruned.markdown.replace(/ \[(b\d+)\]/g, (_, k: string) => {
+            const el = pruned.refs?.get(k);
+            const ref = el && refOf.get(el);
+            return ref ? ` [${ref}]` : '';
+        });
+        if (pruned.attempt.mode === 'fit' && text.length < result.markdown.length * 0.9) fit = text.slice(0, size);
+    }
+
+    const sections: Record<string, string> = {};
+    const hiddenParts: [Element, string][] = [
+        ...[...(options.markdown?.reveal ?? [])].map(([el, p]) => [el, p.label] as [Element, string]),
+        ...(options.markdown?.extra ?? []).map(x => [x.el, x.label] as [Element, string]),
+    ].filter(([, label]) => label);
+    if (hiddenParts.length) {
+        for (const [ref, el] of refs) {
+            const part = hiddenParts.find(([panel]) => panel.contains(el));
+            if (part) sections[ref] = part[1];
+        }
+    }
+
     return {
         url: location.href,
         title: result.title,
         chunks: chunks.slice(0, maxChunks),
         truncated: chunks.length > maxChunks,
         structured: collectStructured(document),
+        ...(fit ? { fit } : {}),
+        ...regionView(result.markdown),
+        ...(Object.keys(sections).length ? { sections } : {}),
     };
+}
+
+/** The list region's blocks, in page order, under the heading above the first one. */
+function regionView(markdown: string): Pick<PageView, 'region'> {
+    const region = listRegion(document.body);
+    if (!region) return {};
+    const blocks = markdownBlocks(markdown);
+    const inRegion = (block: string) => [...block.matchAll(/\[(b\d+)\]/g)].some(m => { const el = refs.get(m[1]); return !!el && region.el.contains(el); });
+    const kept = blocks.map((b, i) => (inRegion(b) ? i : -1)).filter(i => i >= 0);
+    if (kept.length < 2) return {};
+    let heading = '';
+    for (let i = kept[0] - 1; i >= 0; i--) if (/^#{1,6} /.test(blocks[i])) { heading = blocks[i]; break; }
+    const text = [heading, ...kept.map(i => blocks[i])].filter(Boolean).join('\n\n');
+    return { region: { markdown: text, items: region.items } };
 }
 
 /** The blocks of the last view, `ref → element`, in page order (the Page assistant's citations). */
@@ -98,6 +155,7 @@ export function ground(requests: GroundRequest[]): Grounded[] {
         if (!req.value.trim()) return base;
         const found = locate(req);
         if (!found) return { ...base, status: 'not_on_page' };
+        const ref = refOf.get(found.el);
 
         let target = found.el as HTMLElement;
         let type: Grounded['type'] = 'text';
@@ -117,9 +175,9 @@ export function ground(requests: GroundRequest[]): Grounded[] {
         const pageValue = type === 'image' ? ((target as HTMLImageElement).currentSrc || (target as HTMLImageElement).src)
             : type === 'link' ? (target as HTMLAnchorElement).href
                 : (target.innerText || target.textContent || '').replace(/\s+/g, ' ').trim();
-        if (!req.compile) return { ...base, status: found.status, type, pageValue };
+        if (!req.compile) return { ...base, status: found.status, type, pageValue, ...(ref ? { ref } : {}) };
         const selectors = elementChain(target).map(c => c.selector);
         const matchCount = selectors[0] ? count(selectors[0]) : 0;
-        return { ...base, status: found.status, type, pageValue, selectors, matchCount, grade: selectors[0] ? gradeSelector(selectors[0], matchCount, 1) : undefined };
+        return { ...base, status: found.status, type, pageValue, ...(ref ? { ref } : {}), selectors, matchCount, grade: selectors[0] ? gradeSelector(selectors[0], matchCount, 1) : undefined };
     });
 }

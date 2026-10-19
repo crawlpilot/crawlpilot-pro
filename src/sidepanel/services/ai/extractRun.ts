@@ -6,14 +6,18 @@
  *    can, with no model.
  * 2. **T2, the on-device model** (through `modelHost`) for what is left, every call sized to the
  *    measured window (`budget.ts`, docs/plans/ai-extract-v2-plan.md §3.2):
- *    - single answers: in groups of at most 8 fields, each over the whole page when it fits, else over
- *      the blocks most about that group's fields; one targeted retry for required fields still empty;
- *    - lists: one call per chunk, items per chunk from the item's width; a wide item is read in passes
- *      (its identifying fields + up to 8 others each), joined on the identifying fields;
+ *    - single answers: in groups of at most 8 fields. Each reads the first that fits (§3.3): the full
+ *      markdown, the pruned (`fit`) one, the blocks most about that group's fields (BM25), else the
+ *      first part with a warning. One targeted retry for required fields still empty;
+ *    - lists: from the list region on a listing page (the whole page when it gives nothing), one call
+ *      per chunk; chunks carry their heading trail and overlap by a block. Items per chunk from the
+ *      item's width; a wide item is read in passes (its identifying fields + up to 8 others each),
+ *      joined on the identifying fields;
  *    - at most 40 calls per page; reaching it is a warning.
  * 3. **Grounding** (content script): every model answer is checked against the block it cites, its
  *    item's blocks, or the whole page. A value the page doesn't contain is `unverified` and never
- *    shown as verified.
+ *    shown as verified. The block it was found in is kept as its **evidence** (markdown), with the
+ *    hidden section it was read from.
  * 4. **Types**: numbers, booleans and URLs are parsed; a value that won't parse is `invalid`.
  *
  * With the model unavailable, T0 still runs and the rest is reported as needing the model. The page is
@@ -26,8 +30,8 @@ import {
 } from '../../../shared/ai/extractPrompt';
 import { compileConstraint, relax } from '../../../shared/ai/constraint';
 import { structuredAnswers, structuredList } from '../../../shared/ai/structured';
-import { mergeItems, selectBlocks, type MergeItem } from '../../../shared/ai/merge';
-import { chunkMarkdown } from '../../../shared/markdown/chunks';
+import { mergeItems, relevantBlocks, type MergeItem } from '../../../shared/ai/merge';
+import { chunkMarkdown, markdownBlocks } from '../../../shared/markdown/chunks';
 import {
     groupFields, identityFields, inputChars, itemsPerChunk, listPasses, listReserve, singleReserve,
     MAX_CALLS, MAX_LIST_CHUNKS,
@@ -60,6 +64,10 @@ export interface ExtractedValue {
     tier: 't0' | 't2';
     /** `Product.offers.price`, `meta og:title`, or the block ref `b12`. */
     source?: string;
+    /** The page block the value was found in, as markdown (at most ~300 characters). */
+    evidence?: string;
+    /** The hidden section that block was read from ("Specifications"). */
+    section?: string;
     /** Single fields compiled for the Page Extractor. */
     selectors?: string[];
     elementType?: Grounded['type'];
@@ -67,6 +75,15 @@ export interface ExtractedValue {
 }
 
 export type ExtractedItem = Record<string, ExtractedValue>;
+
+/** What a call read: the full markdown, the pruned one, the blocks about its fields, the first part, or the list region. */
+export type InputKind = 'full' | 'fit' | 'relevant' | 'truncated' | 'region';
+
+export interface Read {
+    /** The fields of a group, or a list's name. */
+    for: string[];
+    input: InputKind;
+}
 
 export interface ExtractOutcome {
     url: string;
@@ -78,6 +95,8 @@ export interface ExtractOutcome {
     modelUsed: boolean;
     /** Hidden sections opened or read before the page was read. */
     revealed?: RevealReport;
+    /** What each group or list read. */
+    reads?: Read[];
 }
 
 export interface ExtractOptions {
@@ -155,6 +174,16 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
     const sizeFor = (reserve: number, prompt: string, schema: Record<string, unknown>) =>
         inputChars(room, reserve, prompt.length, JSON.stringify(compileConstraint(schema)).length);
 
+    /** The input for a call of `size` characters about `terms`: full → fit → BM25 blocks → first part. */
+    const choose = (size: number, terms: string): { text: string; input: InputKind } => {
+        if (markdown.length <= size) return { text: markdown, input: 'full' };
+        if (view.fit && view.fit.length <= size) return { text: view.fit, input: 'fit' };
+        const relevant = relevantBlocks([markdown], terms, size);
+        if (relevant.matched) return { text: relevant.text, input: 'relevant' };
+        return { text: chunkMarkdown(view.fit ?? markdown, size)[0] ?? '', input: 'truncated' };
+    };
+    const reads: Read[] = [];
+
     const single: Record<string, ExtractedValue> = {};
     const lists: Record<string, ExtractedItem[]> = {};
     let modelUsed = false;
@@ -173,7 +202,8 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
         const hit = t0[f.name];
         if (!hit) continue;
         single[f.name] = finish(f, hit.value, 'structured', 't0', view.url, { source: hit.source });
-        if (opts.compileSingle) groundT0.push({ key: f.name, value: hit.value, type: f.type, compile: true });
+        // Looked up on the page too: for its evidence, and a selector when compiling.
+        groundT0.push({ key: f.name, value: hit.value, type: f.type, compile: opts.compileSingle });
     }
 
     const run = async <T>(prompt: string, schema: Record<string, unknown>, reserve: number, parse: (raw: string) => T): Promise<CallResult<T>> => {
@@ -206,11 +236,16 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
             let size = sizeFor(reserve, buildExtractPrompt('', fields, opts.instructions), schema);
             if (narrow) size = Math.floor(size * 0.6);
             for (let attempt = 0; attempt < 2; attempt++) {
-                const fits = markdown.length <= size;
-                if (!fits) pageCut = true;
-                const text = fits ? markdown : selectBlocks([markdown], terms, size);
+                const { text, input } = choose(size, terms);
+                if (input !== 'full') pageCut = true;
                 const res = await run(buildExtractPrompt(text, fields, opts.instructions), schema, reserve, raw => parseModelOutput(raw, fields));
-                if (res.ok) { modelUsed = true; Object.assign(answers, res.value); return; }
+                if (res.ok) {
+                    modelUsed = true;
+                    Object.assign(answers, res.value);
+                    reads.push({ for: fields.map(f => f.name), input });
+                    if (input === 'truncated') warnings.push(`${fields.map(f => f.label ?? f.name).join(', ')}: the page is too long and nothing on it names these fields, so only its first part was read.`);
+                    return;
+                }
                 // Too big after all (the estimate was off): the same fields over less of the page.
                 if (res.code === 'too_large' && attempt === 0 && budgetLeft()) { size = Math.floor(size * 0.6); continue; }
                 warnings.push(`${fields.map(f => f.label ?? f.name).join(', ')}: ${message(res.code, res.detail)}`);
@@ -246,35 +281,48 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
         if (!model) { lists[list.name] = []; warnings.push(`${list.name}: needs the on-device model (no structured data lists them).`); continue; }
         const passes = listPasses(list);
         const results: MergeItem[][] = [];
+        // A listing page: its list region alone (one list asked for; the region can't tell two apart).
+        let source = view.region && intake.lists.length === 1 ? view.region.markdown : markdown;
         for (let p = 0; p < passes.length; p++) {
             const pass = passes[p];
             const max = itemsPerChunk(pass.fields);
             const schema = buildListSchema(pass, max);
             const reserve = listReserve(pass.fields);
             const size = sizeFor(reserve, buildListPrompt('', pass, max, opts.instructions), schema);
-            let chunks = chunkMarkdown(markdown, size);
-            if (chunks.length > MAX_LIST_CHUNKS) {
-                warnings.push(`${list.name}: only the first ${MAX_LIST_CHUNKS} parts of the page were read for this list.`);
-                chunks = chunks.slice(0, MAX_LIST_CHUNKS);
-            }
-            const found: MergeItem[] = [];
-            let continued = 0;
-            for (let i = 0; i < chunks.length; i++) {
-                stopped();
-                if (!budgetLeft()) break;
-                const part = passes.length > 1 ? ` (fields ${p + 1} of ${passes.length})` : '';
-                opts.onStatus?.(`Reading ${list.name}${part}: part ${i + 1} of ${chunks.length}…`);
-                const res = await run<ItemAnswer[]>(buildListPrompt(chunks[i], pass, max, opts.instructions), schema, reserve, raw => parseListOutput(raw, pass));
-                if (!res.ok) { warnings.push(`${list.name}, part ${i + 1}: ${message(res.code, res.detail)}`); continue; }
-                modelUsed = true;
-                found.push(...res.value.map(it => ({ values: it.values, ref: it.ref, chunk: i })));
-                // A full answer may have left items out: read the rest of this part, after the last item given.
-                const rest = res.value.length >= max ? after(chunks[i], res.value[res.value.length - 1].ref) : '';
-                if (rest && continued < MAX_LIST_CHUNKS) { chunks.splice(i + 1, 0, rest); continued++; }
+            const found = await readPass(list, pass, p, passes.length, source, size, max, schema, reserve);
+            // Nothing in the region: the list is elsewhere, so the whole page is read (fail open).
+            if (!found.length && p === 0 && source !== markdown) {
+                source = markdown;
+                found.push(...await readPass(list, pass, p, passes.length, source, size, max, schema, reserve));
             }
             results.push(mergeItems(found));
         }
+        reads.push({ for: [list.name], input: source === markdown ? 'full' : 'region' });
         listAnswers[list.name] = joinPasses(results, identityFields(list.fields).map(f => f.name));
+    }
+
+    async function readPass(list: SchemaList, pass: SchemaList, p: number, passCount: number, source: string, size: number, max: number, schema: Record<string, unknown>, reserve: number): Promise<MergeItem[]> {
+        let chunks = chunkMarkdown(source, size, { trail: true, overlap: 1 });
+        if (chunks.length > MAX_LIST_CHUNKS) {
+            warnings.push(`${list.name}: only the first ${MAX_LIST_CHUNKS} parts of the page were read for this list.`);
+            chunks = chunks.slice(0, MAX_LIST_CHUNKS);
+        }
+        const found: MergeItem[] = [];
+        let continued = 0;
+        for (let i = 0; i < chunks.length; i++) {
+            stopped();
+            if (!budgetLeft()) break;
+            const part = passCount > 1 ? ` (fields ${p + 1} of ${passCount})` : '';
+            opts.onStatus?.(`Reading ${list.name}${part}: part ${i + 1} of ${chunks.length}…`);
+            const res = await run<ItemAnswer[]>(buildListPrompt(chunks[i], pass, max, opts.instructions), schema, reserve, raw => parseListOutput(raw, pass));
+            if (!res.ok) { warnings.push(`${list.name}, part ${i + 1}: ${message(res.code, res.detail)}`); continue; }
+            modelUsed = true;
+            found.push(...res.value.map(it => ({ values: it.values, ref: it.ref, chunk: i })));
+            // A full answer may have left items out: read the rest of this part, after the last item given.
+            const rest = res.value.length >= max ? after(chunks[i], res.value[res.value.length - 1].ref) : '';
+            if (rest && continued < MAX_LIST_CHUNKS) { chunks.splice(i + 1, 0, rest); continued++; }
+        }
+        return found;
     }
 
     // ── Grounding ──
@@ -298,16 +346,23 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
     const byKey = new Map(grounded.map(g => [g.key, g]));
     stopped();
 
+    /** Where a grounded value was found: its block's markdown and the hidden section it was in. */
+    const proof = (g: Grounded | undefined, value: string): Partial<ExtractedValue> => {
+        if (!g?.ref || g.status === 'not_on_page') return {};
+        const evidence = evidenceOf(markdown, g.ref, value);
+        const section = view.sections?.[g.ref];
+        return { ...(evidence ? { evidence } : {}), ...(section ? { section } : {}) };
+    };
     for (const f of intake.fields) {
         const g = byKey.get(f.name);
         const compiled = g && opts.compileSingle ? { selectors: g.selectors, elementType: g.type, grade: g.grade } : {};
-        if (single[f.name]) { Object.assign(single[f.name], compiled); continue; }
+        if (single[f.name]) { Object.assign(single[f.name], compiled, proof(g, single[f.name].text)); continue; }
         const a = answers[f.name];
         if (!model) { single[f.name] = finish(f, '', 'needs_model', 't2', view.url); continue; }
         if (!a?.value || !g) { single[f.name] = finish(f, '', 'empty', 't2', view.url); continue; }
         // Links and images take the page's URL; text keeps what the model copied.
         const text = (f.type === 'url' || f.type === 'image') && g.pageValue ? g.pageValue : a.value;
-        single[f.name] = finish(f, text, groundStatus[g.status], 't2', view.url, { source: a.ref || undefined, ...compiled });
+        single[f.name] = finish(f, text, groundStatus[g.status], 't2', view.url, { source: g.ref || a.ref || undefined, ...compiled, ...proof(g, a.value) });
     }
     for (const list of intake.lists) {
         if (lists[list.name]) continue;
@@ -316,14 +371,37 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
             const g = byKey.get(`${list.name}\u0000${i}\u0000${f.name}`);
             if (!v || !g) return [f.name, finish(f, '', 'empty', 't2', view.url)];
             const text = (f.type === 'url' || f.type === 'image') && g.pageValue ? g.pageValue : v;
-            return [f.name, finish(f, text, groundStatus[g.status], 't2', view.url, { source: item.ref || undefined })];
+            return [f.name, finish(f, text, groundStatus[g.status], 't2', view.url, { source: g.ref || item.ref || undefined, ...proof(g, v) })];
         })));
     }
 
     const unverified = [...Object.values(single), ...Object.values(lists).flat().flatMap(i => Object.values(i))].filter(v => v.status === 'unverified').length;
     if (unverified) warnings.push(`${unverified} value${unverified !== 1 ? 's' : ''} the model gave ${unverified !== 1 ? 'are' : 'is'} not on the page: shown as unverified.`);
     for (const skip of view.revealed?.skipped.filter(s => s.reason !== 'outside the main content') ?? []) warnings.push(`Didn't click “${skip.label}”: ${skip.reason}.`);
-    return { url: view.url, title: view.title, single, lists, warnings, modelUsed, ...(view.revealed ? { revealed: view.revealed } : {}) };
+    return { url: view.url, title: view.title, single, lists, warnings, modelUsed, reads, ...(view.revealed ? { revealed: view.revealed } : {}) };
+}
+
+/** Evidence longer than this is cut around the value. */
+const EVIDENCE_CHARS = 300;
+const stripRefs = (text: string) => text.replace(/ ?\[b\d+\]/g, '');
+
+/**
+ * The markdown of the block `ref`, refs removed: its line (a table row with the table's header, so the
+ * columns are named), cut to about 300 characters around `value`.
+ */
+export function evidenceOf(markdown: string, ref: string, value: string): string {
+    const tag = `[${ref}]`;
+    const block = markdownBlocks(markdown).find(b => b.includes(tag));
+    if (!block) return '';
+    const lines = block.split('\n');
+    const at = lines.findIndex(l => l.includes(tag));
+    let text = lines[at];
+    if (text.startsWith('|') && at >= 2 && /^\|( ?-{3,} ?\|)+/.test(lines[1])) text = [lines[0], lines[1], text].join('\n');
+    text = stripRefs(text).trim();
+    if (text.length <= EVIDENCE_CHARS) return text;
+    const i = Math.max(0, text.toLowerCase().indexOf(value.toLowerCase().slice(0, 40)));
+    const from = Math.max(0, Math.min(i - EVIDENCE_CHARS / 3, text.length - EVIDENCE_CHARS));
+    return `${from > 0 ? '…' : ''}${text.slice(from, from + EVIDENCE_CHARS).trim()}${from + EVIDENCE_CHARS < text.length ? '…' : ''}`;
 }
 
 /** The part of `chunk` after the block `ref` (the next line on), or '' when little is left. */

@@ -115,6 +115,10 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
                 const res = await send('CONTACTS_START', { urls, follow: spec.options.follow, ownOnly: spec.options.ownOnly, maxConcurrent: options.concurrent, customName: options.name });
                 if (!res?.success) alert('Re-run failed: ' + (res && !res.success ? res.error : 'the background is not reachable'));
                 else onStarted(res.jobId);
+            } else if (spec.kind === 'api') {
+                const res = await send('API_START', { spec, units: urls, maxConcurrent: options.concurrent, customName: options.name });
+                if (!res?.success) alert('Re-run failed: ' + (res && !res.success ? res.error : 'the background is not reachable'));
+                else onStarted(res.jobId);
             } else {
                 alert('Metadata runs are re-run from the Metadata page.');
             }

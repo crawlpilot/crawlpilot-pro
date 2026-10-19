@@ -45,6 +45,11 @@ const B = 0.75;
 const tokens = (text: string) => text.toLowerCase().replace(/\[b\d+\]/g, ' ').match(/[\p{L}\p{N}]+/gu) ?? [];
 
 export function selectBlocks(chunks: string[], terms: string, maxChars: number): string {
+    return relevantBlocks(chunks, terms, maxChars).text;
+}
+
+/** `selectBlocks`, and whether any block matched the terms at all (none: the caller falls back). */
+export function relevantBlocks(chunks: string[], terms: string, maxChars: number): { text: string; matched: boolean } {
     const blocks = chunks.flatMap(c => markdownBlocks(c));
     const query = new Set(tokens(terms.replace(/_/g, ' ')).filter(t => t.length > 1));
     const docs = blocks.map(b => tokens(b));
@@ -77,5 +82,5 @@ export function selectBlocks(chunks: string[], terms: string, maxChars: number):
         if (!add(i)) continue;
         for (let h = i - 1; h >= 0; h--) if (/^#{1,6} /.test(blocks[h])) { add(h); break; }
     }
-    return [...keep].sort((a, b) => a - b).map(i => blocks[i]).join('\n\n');
+    return { text: [...keep].sort((a, b) => a - b).map(i => blocks[i]).join('\n\n'), matched: scores.some(x => x > 0) };
 }

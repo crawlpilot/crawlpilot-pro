@@ -96,7 +96,13 @@ export function toMarkdown(source: Element | Document = document, options: Markd
     }
     for (const { label, el } of options.extra ?? []) {
         // A detached copy: no layout to read, so only `hidden` and inline styles count.
-        const part = compose(el, { live: false });
+        const part = compose(el, { live: false, refs: options.refs });
+        // Its refs point at the captured copy, numbered after the page's own.
+        part.root.querySelectorAll(`[${SOURCE_ATTRIBUTE}]`).forEach(n => {
+            const own = part.sources[Number(n.getAttribute(SOURCE_ATTRIBUTE))];
+            n.setAttribute(SOURCE_ATTRIBUTE, String(composed.sources.length));
+            composed.sources.push(own);
+        });
         const section = composed.doc.createElement('section');
         const heading = composed.doc.createElement('h3');
         heading.textContent = label;

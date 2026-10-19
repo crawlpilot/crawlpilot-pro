@@ -106,9 +106,12 @@ describe('AI Extract on corpus pages (fake model)', () => {
                 const v = outcome.single[n];
                 expect(FOUND, `${name}.${n} = ${JSON.stringify(v)}`).toContain(v.status);
                 if (v.status !== 'structured') expect(flat(v.text)).toBe(flat(values[n]));
-                // Found on the page, so the Page Extractor gets a selector for it.
+                // Found on the page, so the Page Extractor gets a selector for it, and it has evidence.
                 if (v.status !== 'structured') expect(v.selectors?.length).toBeGreaterThan(0);
+                if (v.status !== 'structured') expect(v.evidence, `${name}.${n} evidence`).toBeTruthy();
             }
+            // Every call found text about its fields: none fell back to the first part of the page.
+            expect(outcome.reads?.map(r => r.input)).not.toContain('truncated');
             expect(calls).toBeGreaterThan(0);
         }, 60_000);
     }
@@ -137,6 +140,9 @@ describe('AI Extract on corpus pages (fake model)', () => {
             const statuses = items.flatMap(i => [i.title.status, i.price.status]);
             expect(statuses).not.toContain('unverified');
             expect(items.every(i => FOUND.includes(i.title.status))).toBe(true);
+            // A listing: only its list region was read, and every title has its block as evidence.
+            expect(outcome.reads).toEqual([{ for: ['products'], input: 'region' }]);
+            expect(items.every(i => i.title.evidence)).toBe(true);
 
             const [table] = outcomeTables(outcome, { fields: [], lists: [list] });
             expect(table.result.items).toHaveLength(items.length);

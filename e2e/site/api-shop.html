@@ -1,0 +1,18 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>API shop</title></head>
+<body>
+<h1>Lamps</h1>
+<ul id="products"></ul>
+<h2>Gadgets</h2>
+<ul id="gadgets"></ul>
+<script>
+document.cookie = 'session=1; path=/';
+fetch('/api/products?q=lamp', { headers: { accept: 'application/json' } }).then(r => r.json()).then(d => {
+    document.getElementById('products').innerHTML = d.products.map(p => `<li>${p.title} · $${p.price.value}</li>`).join('');
+});
+fetch('/api/graphql', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: '{catalog}', variables: { first: 10, after: '' } }) })
+    .then(r => r.json()).then(d => {
+        document.getElementById('gadgets').innerHTML = d.data.catalog.edges.map(e => `<li>${e.node.name}</li>`).join('');
+    });
+</script>
+</body></html>

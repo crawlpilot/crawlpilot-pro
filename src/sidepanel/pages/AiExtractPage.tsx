@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, Notice, Progress, Stack, Text, TextArea, TextField, ToggleChip, Tooltip, cx, type ChipTone } from '../ui';
-import { Copy, Database, Download, Sparkles } from 'lucide-react';
+import { Copy, Database, Download, FileText, Sparkles } from 'lucide-react';
 import ToolHeader from '../components/ui/ToolHeader';
 import { parseSchemaInput, SCHEMA_PRESETS } from '../../shared/ai/schemaIntake';
 import { modelStatus, type ModelStatus } from '../services/ai/modelHost';
 import { runPageExtract, ExtractStopped, type ExtractOutcome, type ExtractedValue, type ValueStatus } from '../services/ai/extractRun';
 import { outcomeDocument, outcomeJson, outcomeTables } from '../services/ai/extractTables';
-import { downloadJson } from '../services/download';
+import { downloadJson, downloadText } from '../services/download';
+import { evidenceReport } from '../services/ai/evidenceReport';
 import { slug } from '../../shared/utils/text';
 import { revealSummary } from '../../shared/types/reveal';
 import { db } from '../../shared/db';
@@ -40,7 +41,7 @@ function Value({ v }: { v: ExtractedValue | undefined }) {
     const s = STATUS[v.status];
     const text = shown(v);
     return (
-        <Tooltip title={`${s.label}${v.source ? ` · ${v.source}` : ''}`}>
+        <Tooltip title={[s.label, v.section && `from the hidden section “${v.section}”`, v.evidence].filter(Boolean).join(' · ')}>
             <span className={cx('border-b-2 break-words', UNDERLINE[s.color], v.status === 'unverified' && 'line-through', text ? 'text-ink' : 'text-ink-3')}>
                 {text || '—'}
             </span>
@@ -97,6 +98,8 @@ export default function AiExtractPage({ onBack }: { onBack: () => void }) {
     const copyJson = () => { if (outcome) void navigator.clipboard.writeText(JSON.stringify(outcomeJson(outcome, intake), null, 2)); };
     /** The data in the schema's shape, with sources per value, problems and warnings. */
     const downloadResult = () => { if (outcome) downloadJson(outcomeDocument(outcome, intake), `${slug(outcome.title || 'extract', '-', 'extract')}.json`); };
+    /** Each value with the page block it came from, as markdown anyone can check. */
+    const downloadEvidence = () => { if (outcome) downloadText(evidenceReport(outcome, intake), `${slug(outcome.title || 'extract', '-', 'extract')}-evidence.md`, 'text/markdown'); };
 
     const unavailable = model?.availability === 'unavailable';
     const [whyOpen, setWhyOpen] = useState(false);
@@ -143,6 +146,7 @@ export default function AiExtractPage({ onBack }: { onBack: () => void }) {
                                 <Button onClick={save} icon={<Database />} disabled={saved.length > 0}>{saved.length ? 'Saved' : 'Save to Data'}</Button>
                                 <Button variant="ghost" onClick={copyJson} icon={<Copy />}>Copy JSON</Button>
                                 <Button variant="ghost" onClick={downloadResult} icon={<Download />}>JSON with sources</Button>
+                                <Button variant="ghost" onClick={downloadEvidence} icon={<FileText />}>Evidence (.md)</Button>
                             </>
                         )}
                     </div>

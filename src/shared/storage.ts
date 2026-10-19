@@ -52,6 +52,7 @@ interface StorageSchema {
     bulk_extraction_state: RunRecovery;
     metadata_extraction_state: RunRecovery;
     contacts_extraction_state: RunRecovery;
+    api_extraction_state: RunRecovery;
     pagination_state: PaginationResume;
     /** Page assistant, "Does it fit me?": what matters to the user, in their words (kept on this device). */
     assistantNeeds: string;

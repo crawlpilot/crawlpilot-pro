@@ -14,6 +14,12 @@ export interface PageView {
     structured: StructuredData;
     /** What was opened or read from hidden sections before the page was read. */
     revealed?: RevealReport;
+    /** The pruned rendering (navigation and page furniture gone), same refs; only for long pages. */
+    fit?: string;
+    /** A listing page's list region: its blocks only, and how many items the container has. */
+    region?: { markdown: string; items: number };
+    /** Blocks read from a hidden section: ref → the section's name. */
+    sections?: Record<string, string>;
 }
 
 export interface GroundRequest {
@@ -34,6 +40,8 @@ export type GroundStatus = 'verified' | 'relocated' | 'not_on_page' | 'empty';
 export interface Grounded {
     key: string;
     status: GroundStatus;
+    /** The block the value was found in (the evidence). */
+    ref?: string;
     /** The value as the page has it: a link's URL, an image's source, else the element's text. */
     pageValue?: string;
     /** Page Extractor element type. */

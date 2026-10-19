@@ -6,6 +6,11 @@
  *    between rows with its header repeated in each part.
  * 2. **Greedy packing:** blocks join a chunk until the next would pass `maxChars`; a single block over
  *    the budget gets a chunk of its own (a soft limit).
+ * 3. **Heading trail** (`trail`): a chunk that starts under a heading starts with the headings above it
+ *    (`(Section: Acme X-200 › Specifications)`, refs dropped), so a chunk that starts mid-section still
+ *    knows what it is about (docs/plans/ai-extract-v2-plan.md §3.3).
+ * 4. **Overlap** (`overlap`, lists): each chunk starts with the previous chunk's last block, so an item
+ *    cut at a chunk edge is seen whole once; the list merge drops the duplicate.
  */
 
 const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
@@ -55,16 +60,38 @@ function splitTable(table: string, maxChars: number): string[] {
     return parts;
 }
 
-export function chunkMarkdown(markdown: string, maxChars: number): string[] {
+export interface ChunkOptions {
+    trail?: boolean;
+    /** Blocks repeated from the end of the previous chunk (0 or 1). */
+    overlap?: number;
+}
+
+const HEADING = /^(#{1,6}) (.*)$/;
+const plainHeading = (text: string) => text.replace(/\s*\[b\d+\]/g, '').replace(/[*_`]/g, '').trim();
+
+/** The trail line for the headings `stack` (outermost first), or '' when there are none. */
+export function trailLine(stack: string[]): string {
+    return stack.length ? `(Section: ${stack.join(' › ')})` : '';
+}
+
+export function chunkMarkdown(markdown: string, maxChars: number, options: ChunkOptions = {}): string[] {
     const blocks = markdownBlocks(markdown).flatMap(b => (b.length > maxChars && b.startsWith('|') ? splitTable(b, maxChars) : [b]));
     const chunks: string[] = [];
+    // The headings above the block being placed, by level.
+    const stack: (string | undefined)[] = [];
     let current = '';
+    let last = '';
     for (const block of blocks) {
         if (current && current.length + 2 + block.length > maxChars) {
             chunks.push(current);
-            current = '';
+            const trail = options.trail && !HEADING.test(block) ? trailLine(stack.filter((h): h is string => !!h)) : '';
+            const carry = options.overlap && last && !HEADING.test(last) && trail.length + last.length + block.length + 4 <= maxChars ? last : '';
+            current = [trail, carry].filter(Boolean).join('\n\n');
         }
         current = current ? `${current}\n\n${block}` : block;
+        last = block;
+        const h = HEADING.exec(block.split('\n')[0]);
+        if (h) { stack.length = h[1].length - 1; stack[h[1].length - 1] = plainHeading(h[2]); }
     }
     if (current) chunks.push(current);
     return chunks;

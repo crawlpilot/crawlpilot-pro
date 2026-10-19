@@ -17,7 +17,7 @@ import { buildFinalName, buildInitialName, buildPreviewName } from './naming';
 import { storage } from '../../shared/storage';
 import { stepStats, StepResult } from '../../shared/listing/stepStats';
 
-export type RunKind = 'bulk' | 'metadata' | 'contacts';
+export type RunKind = 'bulk' | 'metadata' | 'contacts' | 'api';
 type Row = Record<string, any>;
 
 /** Pacing, tab and verdict settings shared by every job. */
@@ -39,6 +39,8 @@ export interface RunContext {
     stopped(): boolean;
     /** Sends to the page's content script, retrying while it connects. */
     message: TabPool['sendMessage'];
+    /** Rows read so far on a long unit (an API run's pages): saved and shown before the unit ends. */
+    emit(rows: Row[], columns?: Column[]): void;
 }
 
 export interface RunJob {
@@ -51,6 +53,11 @@ export interface RunJob {
      * and a page whose clicks had no effect there is read again in a parked window.
      */
     interactive?: boolean;
+    /**
+     * Every unit is read through one tab at this page, opened once and kept to the end (an API run:
+     * its units are calls sent from the site's page, not pages to open). No page verdicts.
+     */
+    via?: string;
     /** Continue an existing job instead of creating one. */
     jobId?: number;
     name?: string;
@@ -112,6 +119,7 @@ const MESSAGES = {
     bulk: { progress: 'BULK_EXTRACTION_PROGRESS', complete: 'BULK_EXTRACTION_COMPLETE' },
     metadata: { progress: 'METADATA_EXTRACTION_PROGRESS', complete: 'METADATA_EXTRACTION_COMPLETE' },
     contacts: { progress: 'CONTACTS_PROGRESS', complete: 'CONTACTS_COMPLETE' },
+    api: { progress: 'API_PROGRESS', complete: 'API_COMPLETE' },
 } as const;
 
 /** How long to leave a host alone after it rate-limits or queues us (doubles per attempt). */
@@ -161,6 +169,8 @@ export class JobRunner {
     private previewChain: Promise<void> = Promise.resolve();
     /** Earliest time the next page of a host may start (per-host gap and backoff). */
     private hostNextAllowed = new Map<string, number>();
+    /** The one tab a `via` run sends everything from (opened on first use). */
+    private viaTab: Promise<number> | null = null;
 
     constructor(private kind: RunKind) { }
 
@@ -186,6 +196,7 @@ export class JobRunner {
             this.previewTableId = null;
             this.previewChain = Promise.resolve();
             this.hostNextAllowed.clear();
+            this.viaTab = null;
             this.state = { jobId, urls: urls.map(url => ({ url, status: 'queued' })), rows: [], rowCount: 0, columns: [], startTime: Date.now() };
             await this.persist();
             chrome.alarms.create(this.alarmName, { periodInMinutes: 0.4 });
@@ -378,6 +389,50 @@ export class JobRunner {
         status.status = 'extracting';
         this.broadcast();
         let tabId: number | null = null;
+        let emitted = 0;
+        const ctx: RunContext = {
+            stopped: () => this.stopping,
+            message: tabPool.sendMessage.bind(tabPool),
+            emit: (rows, columns) => {
+                if (rows.length === 0) return;
+                columns?.forEach(c => { if (!state.columns.some(k => k.id === c.id)) state.columns.push(c); });
+                state.rows.push(...rows.map(r => ({ ...r, source_url: url })));
+                state.rowCount += rows.length;
+                emitted += rows.length;
+                this.broadcast();
+                this.previewChain = this.previewChain
+                    .then(() => this.savePreview())
+                    .catch(e => console.warn(`[${this.kind} run] Preview save failed:`, e));
+            },
+        };
+
+        if (job.via) {
+            try {
+                const via = await this.sharedTab(job.via);
+                // Kept on the status so a restarted worker closes it (`recover`).
+                status.tabId = via;
+                const page = await job.extract(via, url, ctx);
+                page?.columns?.forEach(c => { if (!state.columns.some(k => k.id === c.id)) state.columns.push(c); });
+                if (page?.rows.length) ctx.emit(page.rows);
+                if (emitted === 0) {
+                    status.status = 'error';
+                    status.error = 'No data extracted';
+                } else {
+                    status.status = 'done';
+                }
+            } catch (err: any) {
+                console.error(`[${this.kind} run] ${url}:`, err?.message);
+                status.status = this.stopping ? 'queued' : 'error';
+                status.error = this.stopping ? undefined : err?.message;
+            } finally {
+                this.broadcast();
+                await this.persist();
+                this.previewChain = this.previewChain
+                    .then(() => this.savePreview())
+                    .catch(e => console.warn(`[${this.kind} run] Preview save failed:`, e));
+            }
+            return;
+        }
 
         try {
             const mode = status.window || this.windowPages >= WINDOW_AFTER ? 'window' : 'background';
@@ -406,7 +461,7 @@ export class JobRunner {
                 return;
             }
 
-            const page = await job.extract(tabId, url, { stopped: () => this.stopping, message: tabPool.sendMessage.bind(tabPool) });
+            const page = await job.extract(tabId, url, ctx);
             // Its clicks did nothing in a hidden tab: read it again in a parked window (once).
             if (page?.needsWindow && mode === 'background' && job.interactive) {
                 status.window = true;
@@ -415,7 +470,7 @@ export class JobRunner {
                 return 'retry';
             }
             if (page?.steps) status.steps = page.steps;
-            if (!page || page.rows.length === 0) {
+            if (!page || page.rows.length + emitted === 0) {
                 status.status = 'error';
                 status.error = 'No data extracted';
                 return;
@@ -441,6 +496,18 @@ export class JobRunner {
             if (job.settings.enableRandomization && delay > 0) delay += Math.floor(Math.random() * delay * 0.5);
             if (delay > 0 && !this.stopping) await sleep(delay);
         }
+    }
+
+    /** The `via` run's tab, opened at its page once; opened again if it was closed. */
+    private sharedTab(page: string): Promise<number> {
+        this.viaTab ??= (async () => {
+            const tabId = await this.tabPool!.acquireTab(page, 'background');
+            if (tabId === null) throw new Error(`Could not open ${page}: ${this.tabPool!.lastFailure || 'unknown reason'}`);
+            this.tabPool!.markExtracting(tabId);
+            return tabId;
+        })();
+        this.viaTab.catch(() => { this.viaTab = null; });
+        return this.viaTab;
     }
 
     private tableData(rows: Row[]) {
@@ -476,6 +543,7 @@ export class JobRunner {
     }
 
     private tabClosed(tabId: number) {
+        void this.viaTab?.then(id => { if (id === tabId) this.viaTab = null; }, () => undefined);
         const status = this.state?.urls.find(u => u.tabId === tabId && (u.status === 'extracting' || u.status === 'waiting'));
         if (!status) return;
         // Closed by a stop: not read, not failed.
@@ -581,6 +649,7 @@ export class JobRunner {
             urlStatuses: state.urls.map(({ url, status, error, verdict }) => ({ url, status, error, verdict })),
             verdicts: this.verdictCounts(),
             previewTableId: this.previewTableId,
+            rows: state.rowCount,
         });
     }
 

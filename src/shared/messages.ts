@@ -41,6 +41,8 @@ export interface RunProgress {
     urlStatuses: UrlStatus[];
     verdicts?: Record<string, number>;
     previewTableId?: number | null;
+    /** Rows read so far. */
+    rows?: number;
 }
 
 export interface RunComplete {
@@ -70,6 +72,17 @@ export interface ContactsStart {
     maxConcurrent?: number;
     requestDelay?: number;
     customName?: string;
+}
+
+export interface ApiStart {
+    spec: import('./network/apiRecipe').ApiSpec;
+    /** Values for the spec's input (one series of pages each); none: the call as recorded. */
+    values?: string[];
+    /** A re-run: the units of the earlier run as they were. */
+    units?: string[];
+    maxConcurrent?: number;
+    customName?: string;
+    jobId?: number;
 }
 
 export interface MetadataStart {
@@ -176,6 +189,8 @@ export interface Messages {
     AI_SHOW: { payload: { ref: string; quote?: string }; reply: Res<{ shown: boolean }> };
     /** Contacts from websites: this page's, and up to `follow` of the site's contact pages. */
     CMD_FIND_CONTACTS: { payload: { follow: number }; reply: Res<SiteContacts> };
+    /** An API recipe's call, sent from the page (its origin, its cookies). */
+    CMD_API_FETCH: { payload: import('./network/apiRecipe').ApiRequest; reply: Res<{ status: number; text: string }> };
     /** Page assistant: the user points at something on the page; where it is on screen, or null (Esc). */
     AI_PICK_REGION: { reply: Res<{ region: PickedRegion | null }> };
 
@@ -200,6 +215,9 @@ export interface Messages {
     /** Contacts from websites (one row per site). */
     CONTACTS_START: { payload: ContactsStart; reply: Res<{ jobId: number; uniqueCount: number }> };
     CONTACTS_STOP: { reply: Res<{ running: boolean }> };
+    /** An API recipe: the site's JSON call sent again page by page, from one tab of the site. */
+    API_START: { payload: ApiStart; reply: Res<{ jobId: number; uniqueCount: number }> };
+    API_STOP: { reply: Res<{ running: boolean }> };
 
     // ---- background → side panel (broadcasts)
     BULK_EXTRACTION_PROGRESS: { payload: RunProgress };
@@ -208,6 +226,8 @@ export interface Messages {
     METADATA_EXTRACTION_COMPLETE: { payload: RunComplete };
     CONTACTS_PROGRESS: { payload: RunProgress };
     CONTACTS_COMPLETE: { payload: RunComplete };
+    API_PROGRESS: { payload: RunProgress };
+    API_COMPLETE: { payload: RunComplete };
 }
 
 /** A successful reply carrying `data`. */

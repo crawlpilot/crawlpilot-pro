@@ -55,6 +55,12 @@ export function registerToolkitHandlers() {
     on('AI_PICK_REGION', async () => ok({ region: await pickRegion() }));
     on('CMD_FIND_CONTACTS', async ({ follow }) => ok(await siteContacts(follow)));
 
+    // Sent from the page, as the page's own call would be: its origin, its cookies, its CORS.
+    on('CMD_API_FETCH', async ({ url, method, headers, body }) => {
+        const res = await fetch(url, { method, headers, body, credentials: 'include', cache: 'no-store' });
+        return ok({ status: res.status, text: await res.text() });
+    });
+
     on('TOGGLE_RIGHT_CLICK', ({ enable }) => {
         if (enable) RightClickUnlocker.enable();
         else RightClickUnlocker.disable();

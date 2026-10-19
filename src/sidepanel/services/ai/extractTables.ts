@@ -2,7 +2,7 @@
  * An AI Extract outcome as tables for the data viewer: each list becomes a table (the page's single
  * answers added to every row); a schema with no lists becomes one row. Values are typed (numbers stay
  * numbers, so exports keep the schema's types). Each row keeps `_sources`: per field, its status, tier
- * and where it came from (hidden from the columns, outside the row's identity).
+ * where it came from and its evidence (hidden from the columns, outside the row's identity).
  */
 import type { Column, ColumnType, ExtractionResult } from '../../../shared/types/database';
 import type { IntakeResult, SchemaField, SchemaList } from '../../../shared/ai/schemaIntake';
@@ -22,7 +22,12 @@ function columnType(f: SchemaField): ColumnType {
 
 const columns = (fields: SchemaField[]): Column[] => fields.map((f, order) => ({ id: f.name, name: f.label || f.name, type: columnType(f), order }));
 const cell = (v: ExtractedValue | undefined) => (v && v.status !== 'empty' && v.status !== 'needs_model' ? v.value : null);
-const source = (v: ExtractedValue) => ({ status: v.status, tier: v.tier, ...(v.source ? { source: v.source } : {}) });
+const source = (v: ExtractedValue) => ({
+    status: v.status, tier: v.tier,
+    ...(v.source ? { source: v.source } : {}),
+    ...(v.evidence ? { evidence: v.evidence } : {}),
+    ...(v.section ? { section: v.section } : {}),
+});
 
 export function outcomeTables(outcome: ExtractOutcome, intake: { fields: SchemaField[]; lists: SchemaList[] }): { name: string; result: ExtractionResult }[] {
     const singleRow: Record<string, unknown> = {};
@@ -71,7 +76,7 @@ export interface OutcomeDocument {
     url: string;
     /** In the schema's shape. */
     data: unknown;
-    /** Per JSON pointer of a value in `data`: its status, tier and where it came from. */
+    /** Per JSON pointer of a value in `data`: its status, tier, where it came from and its evidence. */
     sources: Record<string, ReturnType<typeof source>>;
     /** Where `data` doesn't meet the schema (a required value not found, a value not in the enum). */
     problems: Problem[];

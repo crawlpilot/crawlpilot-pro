@@ -4,6 +4,8 @@ import { Circle, RotateCw, Square, Crosshair, Copy, Table2, Search, Trash2, Netw
 import type { NetEntry } from '../../../shared/network/types';
 import { findValuePaths, formatPath, generalisePath, resolvePath, arrayPathOf, ValueHit } from '../../../shared/network/jsonSearch';
 import { tableFromArray } from '../../../shared/network/arrayTable';
+import { mainList } from '../../../shared/network/apiRecipe';
+import ApiRunSection from './ApiRunSection';
 import { REQUEST_TARGET_LABELS, RequestTarget, toRequestSnippet, detectPagingParams, hasSensitiveHeaders } from '../../../shared/network/requestSnippets';
 import { db } from '../../../shared/db';
 import { on } from '../../../shared/messages';
@@ -197,6 +199,10 @@ export default function ApiFinderPanel() {
     const captured = entries.length > 0;
     const snippet = selectedEntry ? toRequestSnippet(target, selectedEntry, { includeAuth, cookie: cookie || undefined }) : '';
     const paging = selectedEntry ? detectPagingParams(selectedEntry) : [];
+    // The list to page through: the one the searched value belongs to, else the response's longest.
+    const selectedJson = selectedEntry ? parsed(selectedEntry) : undefined;
+    const hitGen = selectedHits[0] ? generalisePath(selectedHits[0].path) : null;
+    const listPath = selectedEntry && selectedJson !== undefined ? (hitGen ? arrayPathOf(hitGen) : null) ?? mainList(selectedJson) : null;
 
     return (
         <Stack gap={4}>
@@ -318,6 +324,10 @@ export default function ApiFinderPanel() {
                                     </Stack>
                                     {savedNote && <Text size="caption" tone="success" className="mt-1.5">{savedNote}</Text>}
                                 </DetailSection>
+                            )}
+
+                            {selectedEntry && listPath && page.tab?.url && (
+                                <ApiRunSection key={`${selectedEntry.seq}:${listPath.join('.')}`} entry={selectedEntry} json={selectedJson} items={listPath} page={page.tab.url} />
                             )}
 
                             <DetailSection icon={<Code2 />} title="Call it from code" summary={REQUEST_TARGET_LABELS[target]} defaultOpen>
