@@ -258,6 +258,7 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
                 chunks = chunks.slice(0, MAX_LIST_CHUNKS);
             }
             const found: MergeItem[] = [];
+            let continued = 0;
             for (let i = 0; i < chunks.length; i++) {
                 stopped();
                 if (!budgetLeft()) break;
@@ -267,6 +268,9 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
                 if (!res.ok) { warnings.push(`${list.name}, part ${i + 1}: ${message(res.code, res.detail)}`); continue; }
                 modelUsed = true;
                 found.push(...res.value.map(it => ({ values: it.values, ref: it.ref, chunk: i })));
+                // A full answer may have left items out: read the rest of this part, after the last item given.
+                const rest = res.value.length >= max ? after(chunks[i], res.value[res.value.length - 1].ref) : '';
+                if (rest && continued < MAX_LIST_CHUNKS) { chunks.splice(i + 1, 0, rest); continued++; }
             }
             results.push(mergeItems(found));
         }
@@ -320,6 +324,16 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
     if (unverified) warnings.push(`${unverified} value${unverified !== 1 ? 's' : ''} the model gave ${unverified !== 1 ? 'are' : 'is'} not on the page: shown as unverified.`);
     for (const skip of view.revealed?.skipped.filter(s => s.reason !== 'outside the main content') ?? []) warnings.push(`Didn't click “${skip.label}”: ${skip.reason}.`);
     return { url: view.url, title: view.title, single, lists, warnings, modelUsed, ...(view.revealed ? { revealed: view.revealed } : {}) };
+}
+
+/** The part of `chunk` after the block `ref` (the next line on), or '' when little is left. */
+function after(chunk: string, ref: string): string {
+    if (!ref) return '';
+    const at = chunk.indexOf(`[${ref}]`);
+    if (at < 0) return '';
+    const line = chunk.indexOf('\n', at);
+    const rest = line < 0 ? '' : chunk.slice(line + 1).trim();
+    return rest.length > 200 ? rest : '';
 }
 
 const key = (v: string) => v.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
