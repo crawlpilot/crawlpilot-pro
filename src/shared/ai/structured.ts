@@ -81,12 +81,16 @@ function asText(v: unknown): string | null {
     return text.replace(/^https?:\/\/schema\.org\//i, '');
 }
 
+/** The value at a dotted path (an array: its first item); a key that isn't there exactly is matched ignoring case. */
 function at(entity: Record<string, any>, path: string): unknown {
     let cur: any = entity;
     for (const key of path.split('.')) {
         if (Array.isArray(cur)) cur = cur[0];
         if (cur === null || typeof cur !== 'object') return undefined;
-        cur = cur[key];
+        if (key in cur) { cur = cur[key]; continue; }
+        const lower = key.toLowerCase();
+        const match = Object.keys(cur).find(k => k.toLowerCase() === lower);
+        cur = match === undefined ? undefined : cur[match];
     }
     return cur;
 }
@@ -94,12 +98,14 @@ function at(entity: Record<string, any>, path: string): unknown {
 const typeOf = (e: Record<string, any>) => (Array.isArray(e['@type']) ? e['@type'][0] : e['@type']) as string | undefined;
 
 /** Paths to try for a field: its synonyms, then the field itself as a property. A nested field
- * (`dimensions__width`) is also tried by its own name (`width`). */
+ * (`dimensions__width`) is tried as its path (`dimensions.width`, any case: `aggregaterating__ratingvalue`
+ * finds `aggregateRating.ratingValue`) and by its own name (`width`). */
 function pathsFor(field: SchemaField): string[] {
-    const own = field.name.includes('__') ? field.name.split('__').pop()! : field.name;
+    const nested = field.name.includes('__');
+    const own = nested ? field.name.split('__').pop()! : field.name;
     const names = own === field.name ? [field.name] : [field.name, own];
     const paths = names.flatMap(n => SYNONYMS.filter(([re]) => re.test(norm(n))).flatMap(([, p]) => p));
-    return [...new Set([...paths, ...names.flatMap(n => [camel(n), n])])];
+    return [...new Set([...(nested ? [field.name.split('__').join('.')] : []), ...paths, ...names.flatMap(n => [camel(n), n])])];
 }
 
 function answer(entity: Record<string, any>, field: SchemaField): StructuredHit | null {
@@ -160,6 +166,21 @@ export function structuredList(list: SchemaList, data: StructuredData): Record<s
     return items.length >= 2 && answered >= items.length * list.fields.length * 0.5 ? items : [];
 }
 
+/** A microdata `itemscope` as an object of its itemprops (nested scopes as objects). */
+export function microdataItem(scope: Element): Record<string, any> {
+    const out: Record<string, any> = {};
+    const type = scope.getAttribute('itemtype');
+    if (type) out['@type'] = type.split('/').pop();
+    scope.querySelectorAll('[itemprop]').forEach(el => {
+        if (el.parentElement?.closest('[itemscope]') !== scope) return;
+        const name = el.getAttribute('itemprop')!;
+        const value = el.hasAttribute('itemscope') ? microdataItem(el)
+            : el.getAttribute('content') ?? el.getAttribute('href') ?? el.getAttribute('src') ?? el.getAttribute('datetime') ?? (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+        if (!(name in out)) out[name] = value;
+    });
+    return out;
+}
+
 /** Reads a document's structured data (runs in the page). */
 export function collectStructured(doc: Document): StructuredData {
     const entities: Record<string, any>[] = [];
@@ -175,22 +196,8 @@ export function collectStructured(doc: Document): StructuredData {
         try { visit(JSON.parse(s.textContent || ''), 0); } catch { /* malformed JSON-LD */ }
     });
 
-    // Microdata: each itemscope as an object of its itemprops (nested scopes as objects).
-    const readScope = (scope: Element): Record<string, any> => {
-        const out: Record<string, any> = {};
-        const type = scope.getAttribute('itemtype');
-        if (type) out['@type'] = type.split('/').pop();
-        scope.querySelectorAll('[itemprop]').forEach(el => {
-            if (el.parentElement?.closest('[itemscope]') !== scope) return;
-            const name = el.getAttribute('itemprop')!;
-            const value = el.hasAttribute('itemscope') ? readScope(el)
-                : el.getAttribute('content') ?? el.getAttribute('href') ?? el.getAttribute('src') ?? el.getAttribute('datetime') ?? (el.textContent ?? '').replace(/\s+/g, ' ').trim();
-            if (!(name in out)) out[name] = value;
-        });
-        return out;
-    };
     doc.querySelectorAll('[itemscope]').forEach(scope => {
-        const o = readScope(scope);
+        const o = microdataItem(scope);
         if (o['@type']) entities.push(o);
     });
 
