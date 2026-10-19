@@ -66,6 +66,18 @@ export const CORPUS: Record<string, PageTargets> = {
         },
         elements: [{ name: 'title', at: '[data-component-type="s-search-result"] h2 span' }],
     },
+    'cos-search': {
+        file: 'corpus/cos-search.html.gz',
+        list: {
+            container: ':has(> div > [data-testid="product-card-wrapper"])',
+            items: ':scope > div',
+            fields: [
+                { name: 'image', at: '[data-testid="default-product-card-slider-image-0"]', attr: 'src' },
+                { name: 'url', at: '[data-testid="product-card-image-wrapper"] a', attr: 'href' },
+            ],
+        },
+        elements: [{ name: 'image', at: '[data-testid="default-product-card-slider-image-0"]' }],
+    },
     'walmart-search': {
         file: 'corpus/walmart-search.html.gz',
         list: {

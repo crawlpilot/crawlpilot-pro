@@ -51,6 +51,7 @@ function readerOf(f: Field): Omit<FieldReader, 'alternates'> {
         ...(f.slot !== undefined ? { slot: f.slot, template: f.template } : {}),
         ...(f.kinds ? { kinds: f.kinds, kind: f.kind } : {}),
         ...(f.many ? { many: true } : {}),
+        ...(f.first ? { first: true } : {}),
     };
 }
 

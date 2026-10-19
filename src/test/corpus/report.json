@@ -1,17 +1,17 @@
 {
   "summary": {
     "lists": {
-      "pages": 7,
-      "itemFirstExact": 7,
-      "itemPersistedFirstExact": 7,
-      "containerFirstNamed": 7,
-      "elementSelectors": 18,
-      "elementNamesTarget": 18,
+      "pages": 8,
+      "itemFirstExact": 8,
+      "itemPersistedFirstExact": 8,
+      "containerFirstNamed": 8,
+      "elementSelectors": 20,
+      "elementNamesTarget": 20,
       "elementStrong": 5,
-      "elementPositional": 16,
+      "elementPositional": 18,
       "elementInstanceValue": 0,
-      "fields": 21,
-      "fieldsRead": 20
+      "fields": 23,
+      "fieldsRead": 22
     },
     "products": {
       "targets": 30,
@@ -195,6 +195,7 @@
           "Image 2 ← [data-cy=\"s-pc-faceout-badge\"] > .a-section > img",
           "Badge ← .a-nowrap",
           "URL ← [data-cy=\"title-recipe\"] > a",
+          "Links ← div[role=\"listitem\"] > a",
           "Options ← div[role=\"listitem\"] > a",
           "Badge 3 ← [data-cy=\"asin-faceout-container\"] > .a-section > .a-section > .a-section > .a-section > div > a",
           "Title ← h2 > span",
@@ -243,6 +244,86 @@
           },
           "xpath": {
             "selector": "//*[@data-component-type=\"s-search-results\"]/div[1]/div[2]/div/div/span/div/div/div[3]/div[1]/a/h2/span",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        }
+      }
+    },
+    "cos-search": {
+      "list": {
+        "items": 40,
+        "children": 40,
+        "keptAsItems": 40,
+        "container": [
+          {
+            "selector": "[data-testid=\"product-grid\"]",
+            "unique": true
+          },
+          {
+            "selector": "//div[@data-testid=\"product-grid\"]",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": ":scope > div:has(> [data-testid=\"product-card-wrapper\"])",
+            "matches": 40,
+            "exact": true
+          },
+          {
+            "selector": "div.col-span-12",
+            "matches": 40,
+            "exact": true
+          },
+          {
+            "selector": "./div[*[@data-testid=\"product-card-wrapper\"]]",
+            "matches": 40,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 3,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": ":scope > div:has(> [data-testid=\"product-card-wrapper\"])",
+          "matches": 40,
+          "exact": true
+        },
+        "columns": [
+          "Image ← [data-testid^=\"default-product-card-slider-image-\"]",
+          "Images ← [data-testid^=\"default-product-card-slider-image-\"]",
+          "URL ← [data-testid=\"product-card-image-wrapper\"] > div > a",
+          "Title ← a > span",
+          "Price ← .col-end-4",
+          "Text ← .aspect-square > svg > title",
+          "Text 2 ← .aspect-square > svg > title",
+          "Product ← button",
+          "Regular ← .label4_regular_uc"
+        ],
+        "fields": [
+          {
+            "field": "image",
+            "rowsWithValue": 40,
+            "readBy": "Image ← [data-testid^=\"default-product-card-slider-image-\"] (40/40)"
+          },
+          {
+            "field": "url",
+            "rowsWithValue": 40,
+            "readBy": "URL ← [data-testid=\"product-card-image-wrapper\"] > div > a (40/40)"
+          }
+        ]
+      },
+      "elements": {
+        "image": {
+          "css": {
+            "selector": "[data-testid=\"product-grid\"] > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > a > div > div:nth-of-type(2) > div:nth-of-type(1) > figure > img",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          "xpath": {
+            "selector": "//*[@data-testid=\"product-grid\"]/div[1]/div[2]/div[1]/div[1]/a/div/div[2]/div[1]/figure/img",
             "namesTarget": true,
             "grade": "fragile",
             "positional": true

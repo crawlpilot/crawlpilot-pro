@@ -136,11 +136,22 @@ function fieldsOf(group: Group, selector: string, docOrder: Map<Element, number>
         const atoms: Atom[] = [];
         group.perRow.forEach((list, r) => {
             atoms.push(...list);
-            values.set(r, many ? list.map(a => a.value).join('; ') : list[0].value);
+            // As a run reads it (`read.ts`): links and images a JSON array, text joined.
+            const uniq = [...new Set(list.map(a => a.value))];
+            values.set(r, !many ? list[0].value : group.attr === 'src' || group.attr === 'href' ? JSON.stringify(uniq) : uniq.join('; '));
         });
-        return [{
+        const field: Field = {
             key: `${selector}@${group.attr}`, attr: group.attr, selector, many: many || undefined,
             values, atoms, shape: mode(atoms.map(a => shapeOf(a.value, a.attr))), order: firstOrder(atoms),
+        };
+        if (!many || group.attr !== 'src') return [field];
+        // A gallery also gives the card's main image, its first: most exports want one per row. A
+        // single image field elsewhere in the card that reads the same is merged into it later.
+        const first = new Map<number, string>();
+        group.perRow.forEach((list, r) => first.set(r, list[0].value));
+        return [field, {
+            key: `${selector}@src#first`, attr: 'src', selector, first: true, values: first,
+            atoms: [...group.perRow.values()].map(l => l[0]), shape: field.shape, order: field.order - 0.5,
         }];
     }
 

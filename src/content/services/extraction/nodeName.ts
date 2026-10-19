@@ -32,10 +32,18 @@ export function setStepCache(cache: WeakMap<Element, NodeStep> | null) {
     stepCache = cache;
 }
 
+/** A hook that ends in a position: `slider-image-3`, `item_12`, `slide2`. */
+const INDEXED = /^(.*[a-z][-_]?)(\d{1,3})$/i;
+
 function computeStep(t: Element): NodeStep {
     for (const attr of AUTHOR_ATTRIBUTES) {
         const val = t.getAttribute(attr);
-        if (val && isStableAttributeValue(attr, val)) return { label: val, css: attrSelector(attr, val) };
+        if (!val || !isStableAttributeValue(attr, val)) continue;
+        // The position is not part of what the node is: gallery slides `…-image-0` to `…-image-12`
+        // are one kind of node, read as one field (a list), not a field per position.
+        const indexed = INDEXED.exec(val);
+        if (indexed) return { label: `${indexed[1]}#`, css: `[${attr}^="${indexed[1].replace(/["\\]/g, '\\$&')}"]` };
+        return { label: val, css: attrSelector(attr, val) };
     }
 
     const tag = t.tagName.toLowerCase();

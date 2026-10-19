@@ -8,6 +8,7 @@ served. Gzipped to keep the repository small.
 |---|---|---|---|
 | `amazon-search.html.gz` | `https://www.amazon.com/s?k=laptop` | 2026-10-17, Chrome | 27 children of `.s-main-slot`, 16 products; sponsored, video and widget blocks between them |
 | `amazon-category.html.gz` | `https://www.amazon.com/s?i=specialty-aps&bbn=16225005011&rh=n%3A%252116225005011%2Cn%3A239225011` | 2026-10-19, headless Chromium (Playwright), after scrolling | 28 children of `.s-main-slot`, 24 products; colour swatches of varying count, "See options" and "Add to cart" cards, rating popover triggers. Elements the page didn't render are marked `hidden` before styles are removed |
+| `cos-search.html.gz` | `https://www.cos.com/en-us/search?search=shirts` | 2026-10-19, headed Chrome (Playwright; headless gets "Access Denied") | 40 tiles, each with a gallery of 2–16 images hooked `default-product-card-slider-image-<n>`. The page mounts images only near the viewport, so the capture scrolls in steps and keeps each tile from when it had its images |
 | `walmart-search.html.gz` | `https://www.walmart.com/search?q=cars` | 2026-10-17, `curl` (desktop Chrome user agent) | 9 server-rendered tiles in `[data-testid="item-stack"]`; the rest of the ~140 items are in `__NEXT_DATA__`. Sale, range and plain price variants |
 
 The synthetic and trimmed pages one level up (`bootstrap-grid.html`, `tailwind-grid.html`, `emotion-hashed.html`,

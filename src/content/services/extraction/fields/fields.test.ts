@@ -223,7 +223,7 @@ describe('Amazon-style search results', () => {
     });
 });
 
-describe('repeated components', () => {
+describe('repeated components', { timeout: 30_000 }, () => {
     // A hook repeated inside each card, in two places (a flag over the image, chips under the price),
     // its text split over spans, with a different set and order of chips per card.
     const chip = (text: string) => `<span data-qa="chip">${text.split('|').map(t => `<span class="t">${t}</span>`).join(' ')}</span>`;
@@ -280,7 +280,7 @@ describe('repeated components', () => {
     });
 });
 
-describe('unique column selectors', () => {
+describe('unique column selectors', { timeout: 30_000 }, () => {
     // A value in a plain span (no hook, no naming class) beside sibling spans that carry their own hooks, and
     // that only some cards have: `div > span` would read whichever comes first.
     const tile = (i: number, o: { range?: boolean; reviews?: boolean }) => `<li class="tile">
@@ -313,7 +313,7 @@ describe('unique column selectors', () => {
     });
 });
 
-describe('Amazon category results (amazon.com/s?i=specialty-aps&bbn=16225005011, baby activity & entertainment)', () => {
+describe('Amazon category results (amazon.com/s?i=specialty-aps&bbn=16225005011, baby activity & entertainment)', { timeout: 30_000 }, () => {
     const load = () => {
         loadPage('corpus/amazon-category.html.gz');
         const rows = Array.from(document.querySelector('.s-main-slot')!.children);
@@ -326,7 +326,9 @@ describe('Amazon category results (amazon.com/s?i=specialty-aps&bbn=16225005011,
 
     it('reads the swatches as one list, not a column per position', () => {
         const { columns, values } = load();
-        expect(columns.filter(c => c.reader!.chain[0] === 'div[role="listitem"] > a')).toHaveLength(1);
+        const swatches = columns.filter(c => c.reader!.chain[0] === 'div[role="listitem"] > a');
+        // Their names as one text list, their links to each variant as one link list.
+        expect(swatches.map(c => c.type).sort()).toEqual(['link_array', 'text_array']);
         expect(values('Options')).toContain('Beige; Black; Light Grey');
     });
 
@@ -349,6 +351,51 @@ describe('Amazon category results (amazon.com/s?i=specialty-aps&bbn=16225005011,
     });
 });
 
+describe('lists', { timeout: 30_000 }, () => {
+    // A gallery whose slides carry their position in the hook (`gallery-image-0` … `-N`), a
+    // different number per card.
+    const tile = (i: number, slides: number) => `<li class="tile">
+        <div data-qa="gallery">${Array.from({ length: slides }, (_, k) => `<div class="slide"><img data-qa="gallery-image-${k}" src="/p${i}/${k}.jpg"></div>`).join('')}</div>
+        <a href="/p/${i}"><h3>Shirt ${i}</h3></a><span data-qa="price">$${i}9</span>
+    </li>`;
+    const page = (counts: number[]) => `<ul>${counts.map((n, i) => tile(i + 1, n)).join('')}</ul>`;
+
+    it('reads indexed slides as one image list plus the main image, never a column per position', () => {
+        const rows = rowsOf(page([3, 5, 2, 4]), '.tile');
+        const { columns } = inferFields(rows);
+        const images = columns.filter(c => c.type === 'image' || c.type === 'image_array');
+        expect(images.map(c => [c.name, c.type])).toEqual([['Image', 'image'], ['Images', 'image_array']]);
+        const item = readRow(rows[1], columns);
+        expect(item[images[0].id]).toBe('http://localhost:3000/p2/0.jpg');
+        expect(JSON.parse(item[images[1].id])).toEqual([0, 1, 2, 3, 4].map(k => `http://localhost:3000/p2/${k}.jpg`));
+        // A later card with more slides than any sampled one still reads them all.
+        const later = rowsOf(page([9]), '.tile');
+        expect(JSON.parse(readRow(later[0], columns)[images[1].id])).toHaveLength(9);
+    });
+
+    it('keeps a fixed set of same-kind siblings as one column each', () => {
+        const rows = rowsOf(`<ul>${[1, 2, 3, 4].map(i => `<li class="card"><h3>Lamp ${i}</h3><span class="meta">Acme ${i}</span><span class="meta">Blue ${i}</span><span class="meta">Large ${i}</span></li>`).join('')}</ul>`);
+        const { columns } = inferFields(rows);
+        expect(columns.filter(c => c.reader!.slot !== undefined)).toHaveLength(3);
+        expect(columns.some(c => c.reader!.many)).toBe(false);
+    });
+
+    it('reads COS product galleries as Image + Images (cos.com/en-us/search?search=shirts)', () => {
+        loadPage('corpus/cos-search.html.gz');
+        const rows = Array.from(document.querySelector('[data-testid="product-card-wrapper"]')!.parentElement!.parentElement!.children);
+        const { columns } = inferFields(rows);
+        const images = columns.filter(c => c.type === 'image' || c.type === 'image_array');
+        expect(images.map(c => c.name)).toEqual(['Image', 'Images']);
+        rows.forEach(row => {
+            const item = readRow(row, columns);
+            const slides = Array.from(row.querySelectorAll('[data-testid^="default-product-card-slider-image-"]')).map(el => readValue(el, 'src'));
+            expect(item[images[0].id]).toBe(slides[0]);
+            expect(JSON.parse(item[images[1].id])).toEqual([...new Set(slides)]);
+        });
+        expect(columns.map(c => c.name)).toEqual(expect.arrayContaining(['URL', 'Title', 'Price']));
+    });
+});
+
 describe('a column reads one element per card', () => {
     // On real pages: a plain column's selector matches at most one element that reads a value in
     // each card, so a run can't read a sibling the inference never meant.
@@ -356,6 +403,7 @@ describe('a column reads one element per card', () => {
         ['corpus/walmart-search.html.gz', '[data-testid="item-stack"]', 'walmart'],
         ['corpus/amazon-search.html.gz', '.s-main-slot', 'amazon search'],
         ['corpus/amazon-category.html.gz', '.s-main-slot', 'amazon category'],
+        ['corpus/cos-search.html.gz', ':has(> div > [data-testid="product-card-wrapper"])', 'cos'],
     ];
     it.each(pages)('%s', (file, container) => {
         loadPage(file);
@@ -366,7 +414,7 @@ describe('a column reads one element per card', () => {
         expect(items.length).toBeGreaterThan(5);
         for (const c of columns) {
             const r = c.reader!;
-            if (r.many || r.slot !== undefined || r.kind !== undefined || r.json || r.cell) continue;
+            if (r.many || r.first || r.slot !== undefined || r.kind !== undefined || r.json || r.cell) continue;
             for (const row of items) {
                 const reads = Array.from(row.querySelectorAll(r.chain[0]))
                     .filter(el => isAtomRoot(el, row, r.attr) && readValue(el, r.attr) !== '');

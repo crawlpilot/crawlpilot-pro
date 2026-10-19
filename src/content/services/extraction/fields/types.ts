@@ -22,6 +22,8 @@ export interface FieldReader {
     kind?: number;
     /** Every match is a value: images → JSON array, links → JSON array, text → joined. */
     many?: boolean;
+    /** The first of a list's members (a gallery's main image), where `chain` matches the whole list. */
+    first?: boolean;
     shape: Shape;
     /** Which elements are items of the list (the same on every column); others read as empty rows. */
     rowGate?: RowGate;
@@ -69,6 +71,7 @@ export interface Field {
     slot?: number;
     template?: Shape[];
     many?: boolean;
+    first?: boolean;
     kinds?: string[][];
     kind?: number;
     /** A name the stage that made the field found for it (a component kind's words). */
