@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, FormHelperText, Stack, Switch, TextField, Typography } from '@mui/material';
+import { Button, Dialog, Stack, Switch, TextField } from '../../ui';
 import { Play } from 'lucide-react';
 import { isBulkJob, type JobWithRecipe } from './jobFilters';
 import { defaultConcurrency } from '@/shared/utils/concurrency';
@@ -30,90 +30,30 @@ export function RerunDialog({ job, onClose, onStart }: { job: JobWithRecipe | nu
     }, [job, t, tc]);
 
     return (
-        <Dialog
-            open={!!job}
-            onClose={onClose}
-            fullWidth
-            maxWidth="xs"
-            PaperProps={{
-                sx: { borderRadius: 3, bgcolor: 'background.paper', backgroundImage: 'none' }
-            }}
-        >
-            <DialogTitle sx={{ pb: 1 }}>{t('configureRerun')}</DialogTitle>
-            <DialogContent>
-                <Stack spacing={3} sx={{ mt: 1 }}>
-                    <TextField
-                        label={t('runName')}
-                        fullWidth
-                        size="small"
-                        value={rerunName}
-                        onChange={(e) => setRerunName(e.target.value)}
-                        placeholder={t('runNamePlaceholder')}
-                    />
-                    {job?.recipe?.spec.kind === 'list' && job.recipe.spec.pagination.mode === 'pagination' && (
-                        <Box>
-                            <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={1}>
-                                {t('maxPages')}
-                            </Typography>
-                            <TextField
-                                type="number"
-                                fullWidth
-                                size="small"
-                                value={rerunMaxPages}
-                                onChange={(e) => setRerunMaxPages(parseInt(e.target.value) || 1)}
-                                InputProps={{ inputProps: { min: 1 } }}
-                                helperText={t('maxPagesHelper')}
-                            />
-                        </Box>
-                    )}
-
-                    {job && isBulkJob(job) && (
-                        <>
-                            <Box>
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={rerunParallel}
-                                            onChange={(e) => setRerunParallel(e.target.checked)}
-                                            color="secondary"
-                                        />
-                                    }
-                                    label={<Typography variant="body2">{t('parallelMode')}</Typography>}
-                                />
-                                <FormHelperText>{t('parallelModeHelper')}</FormHelperText>
-                            </Box>
-
-                            {rerunParallel && (
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={1}>
-                                        {t('concurrencyLimit')}
-                                    </Typography>
-                                    <TextField
-                                        type="number"
-                                        fullWidth
-                                        size="small"
-                                        value={rerunConcurrent}
-                                        onChange={(e) => setRerunConcurrent(parseInt(e.target.value) || 1)}
-                                        InputProps={{ inputProps: { min: 1, max: 10 } }}
-                                        helperText={t('concurrencyHelper')}
-                                    />
-                                </Box>
-                            )}
-                        </>
-                    )}
-                </Stack>
-            </DialogContent>
-            <DialogActions sx={{ p: 2, pt: 0 }}>
-                <Button onClick={onClose} color="inherit">{tc('cancel')}</Button>
-                <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={() => job && onStart(job, { name: rerunName, maxPages: rerunMaxPages, parallel: rerunParallel, concurrent: rerunConcurrent })}
-                    startIcon={<Play size={16} />}
-                >
+        <Dialog open={!!job} onClose={onClose} size="sm" title={t('configureRerun')}
+            actions={<>
+                <Button variant="ghost" onClick={onClose}>{tc('cancel')}</Button>
+                <Button variant="primary" icon={<Play />}
+                    onClick={() => job && onStart(job, { name: rerunName, maxPages: rerunMaxPages, parallel: rerunParallel, concurrent: rerunConcurrent })}>
                     {t('startNow')}
                 </Button>
-            </DialogActions>
+            </>}>
+            <Stack gap={4} className="pt-1">
+                <TextField label={t('runName')} value={rerunName} onChange={e => setRerunName(e.target.value)} placeholder={t('runNamePlaceholder')} />
+                {job?.recipe?.spec.kind === 'list' && job.recipe.spec.pagination.mode === 'pagination' && (
+                    <TextField type="number" min={1} label={t('maxPages')} hint={t('maxPagesHelper')} value={rerunMaxPages}
+                        onChange={e => setRerunMaxPages(parseInt(e.target.value) || 1)} />
+                )}
+                {job && isBulkJob(job) && (
+                    <>
+                        <Switch checked={rerunParallel} onChange={setRerunParallel} label={t('parallelMode')} hint={t('parallelModeHelper')} />
+                        {rerunParallel && (
+                            <TextField type="number" min={1} max={10} label={t('concurrencyLimit')} hint={t('concurrencyHelper')} value={rerunConcurrent}
+                                onChange={e => setRerunConcurrent(parseInt(e.target.value) || 1)} />
+                        )}
+                    </>
+                )}
+            </Stack>
         </Dialog>
     );
 }

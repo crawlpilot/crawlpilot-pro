@@ -5,9 +5,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Database, RefreshCcw, Search, Table2, X } from 'lucide-react';
-import { Box, Button, CircularProgress, IconButton, InputAdornment, Stack, TextField, Tooltip } from '@mui/material';
 import ToolHeader from '../components/ui/ToolHeader';
-import EmptyState from '../components/ui/EmptyState';
+import { Button, EmptyState, IconButton, Spinner, Stack, TextField } from '../ui';
 import { useJobHistory } from '../hooks/useDatabase';
 import { useJobRerun } from '../hooks/useJobRerun';
 import type { JobWithRecipe } from '../components/history/jobFilters';
@@ -58,34 +57,28 @@ export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
     };
 
     if (jobsLoading || tables === null) return (
-        <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CircularProgress size={32} />
-        </Box>
+        <div className="flex h-full items-center justify-center text-ink-2"><Spinner size={28} label={t('title')} /></div>
     );
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden' }}>
+        <div className="flex h-full flex-col overflow-hidden bg-bg">
             <ToolHeader title={t('title')} subtitle={entries.length ? t('jobsFound', { count: entries.length }) : undefined} onBack={onBack}
                 actions={<>
-                    <Button size="small" startIcon={<Table2 size={14} />} onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html?view=data-table') })}>
+                    <Button size="sm" variant="ghost" icon={<Table2 />} onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html?view=data-table') })}>
                         {t('allTables')}
                     </Button>
-                    <Tooltip title={t('refresh')}>
-                        <IconButton onClick={refresh} size="small" aria-label={t('refresh')}><RefreshCcw size={16} /></IconButton>
-                    </Tooltip>
+                    <IconButton label={t('refresh')} onClick={refresh}><RefreshCcw /></IconButton>
                 </>}>
                 {entries.length >= SEARCH_FROM && (
-                    <TextField fullWidth size="small" placeholder={t('searchPlaceholder')} value={query} onChange={e => setQuery(e.target.value)} sx={{ mt: 1.25 }}
-                        InputProps={{
-                            startAdornment: <InputAdornment position="start"><Search size={15} /></InputAdornment>,
-                            endAdornment: query && <InputAdornment position="end"><IconButton size="small" onClick={() => setQuery('')} aria-label="Clear"><X size={14} /></IconButton></InputAdornment>,
-                        }} />
+                    <TextField size="sm" className="mt-3" placeholder={t('searchPlaceholder')} value={query} onChange={e => setQuery(e.target.value)}
+                        start={<Search />}
+                        end={query && <IconButton size="sm" label="Clear" noTooltip onClick={() => setQuery('')}><X /></IconButton>} />
                 )}
             </ToolHeader>
 
-            <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
+            <div className="flex-1 overflow-y-auto p-4">
                 {shown.length > 0 ? (
-                    <Stack spacing={1}>
+                    <Stack gap={2.5}>
                         {shown.map(entry => (
                             <DataCard key={entry.key} entry={entry} busy={busy}
                                 onOpen={() => entry.table?.id !== undefined && onViewData(entry.table.id)}
@@ -96,24 +89,19 @@ export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
                                 onRemove={() => void remove(entry)} />
                         ))}
                     </Stack>
+                ) : entries.length === 0 ? (
+                    <EmptyState className="mt-10" icon={<Database />} title={t('noJobsFound')}
+                        action={<Button variant="primary" onClick={onBack}>{t('startFirst')}</Button>}>{t('noJobsYet')}</EmptyState>
                 ) : (
-                    <Box sx={{ mt: 8 }}>
-                        {entries.length === 0 ? (
-                            <EmptyState title={t('noJobsFound')} description={t('noJobsYet')}
-                                icon={<Database size={40} style={{ opacity: 0.4 }} />}
-                                action={<Button variant="contained" onClick={onBack}>{t('startFirst')}</Button>} />
-                        ) : (
-                            <EmptyState title={t('noMatches')} description={t('noSearchResults')} icon={<Search size={40} style={{ opacity: 0.4 }} />} />
-                        )}
-                    </Box>
+                    <EmptyState className="mt-10" icon={<Search />} title={t('noMatches')}>{t('noSearchResults')}</EmptyState>
                 )}
-            </Box>
+            </div>
 
             <RerunDialog job={rerunTarget} onClose={() => setRerunTarget(null)}
                 onStart={(job, options) => { setRerunTarget(null); void rerun(job, options); }} />
             <JobDetailsDialog detailsJob={detailsJob} onClose={() => setDetailsJob(null)}
                 onDelete={id => { void Promise.resolve(deleteJob(id)).then(refresh); }}
                 onRerun={job => setRerunTarget(job)} />
-        </Box>
+        </div>
     );
 }

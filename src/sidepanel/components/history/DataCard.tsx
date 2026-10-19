@@ -2,16 +2,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { Box, Button, Chip, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Stack, Tooltip, Typography } from '@mui/material';
+import { Button, Chip, IconButton, Menu, MenuItem, Text, Tooltip, type ChipTone } from '../../ui';
 import { Download, Info, MoreVertical, RefreshCcw, Square, Table2, Trash2 } from 'lucide-react';
 import type { DataEntry, DataStatus } from './myData';
 
-const STATUS: Record<DataStatus, { color: string; bg: string }> = {
-    ready: { color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
-    running: { color: 'var(--cp-accent)', bg: 'rgb(var(--cp-accent-rgb) / 0.12)' },
-    stopped: { color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-    failed: { color: '#F43F5E', bg: 'rgba(244,63,94,0.12)' },
-};
+const STATUS: Record<DataStatus, ChipTone> = { ready: 'success', running: 'info', stopped: 'warning', failed: 'danger' };
 
 function ago(ms: number, tc: TFunction<'common'>): string {
     const min = Math.floor((Date.now() - ms) / 60000);
@@ -40,60 +35,46 @@ export function DataCard({ entry, busy, onOpen, onDownload, onRerun, onStop, onD
     const { t: tc } = useTranslation('common');
     const [menu, setMenu] = useState<HTMLElement | null>(null);
     const [downloading, setDownloading] = useState(false);
-    const s = STATUS[entry.status];
     const hasTable = !!entry.table && entry.rows > 0;
 
     return (
-        <Box sx={{ border: 1, borderColor: 'divider', borderRadius: '12px', bgcolor: 'background.paper', p: 1.5, '&:hover': { borderColor: 'rgb(var(--cp-ink-rgb) / 0.14)' } }}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
-                <Box sx={{ mt: 0.25, color: 'text.secondary', display: 'flex' }}><Table2 size={18} /></Box>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography noWrap sx={{ fontWeight: 600, fontSize: '0.82rem', color: 'text.primary' }} title={entry.name}>{entry.name || t('untitledJob')}</Typography>
-                    <Typography variant="caption" noWrap sx={{ display: 'block', fontSize: '0.7rem' }}>
+        <div className="rounded-card border border-line bg-surface p-3.5 transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-press">
+            <div className="flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-tile-butter text-ink"><Table2 size={17} /></span>
+                <div className="min-w-0 flex-1">
+                    <Text weight="semibold" truncate title={entry.name}>{entry.name || t('untitledJob')}</Text>
+                    <Text size="caption" tone="faint" truncate>
                         {entry.site || t('unknownSite')} · {entry.status === 'running' ? t('runningRows', { count: entry.rows }) : t('rows', { count: entry.rows })} · {ago(entry.when, tc)}
-                    </Typography>
-                </Box>
-                {entry.status !== 'ready' && (
-                    <Chip size="small" label={t(`status.${entry.status}`)} sx={{ height: 20, fontSize: '0.64rem', fontWeight: 700, color: s.color, bgcolor: s.bg }} />
-                )}
-                <IconButton size="small" aria-label={t('more')} onClick={e => setMenu(e.currentTarget)} sx={{ mt: -0.5, mr: -0.75, color: 'text.secondary' }}>
-                    <MoreVertical size={16} />
-                </IconButton>
-            </Box>
+                    </Text>
+                </div>
+                {entry.status !== 'ready' && <Chip tone={STATUS[entry.status]}>{t(`status.${entry.status}`)}</Chip>}
+                <IconButton size="sm" label={t('more')} onClick={e => setMenu(e.currentTarget)} className="-mt-0.5 -mr-1.5"><MoreVertical /></IconButton>
+            </div>
 
             {entry.status === 'failed' && !hasTable && (
-                <Typography variant="caption" sx={{ display: 'block', mt: 0.75, ml: 3.75, color: 'error.light', fontSize: '0.7rem' }}>{t('failedHint')}</Typography>
+                <Text size="caption" tone="danger" className="mt-2 ml-12">{t('failedHint')}</Text>
             )}
 
-            <Stack direction="row" spacing={0.75} sx={{ mt: 1.25, ml: 3.75 }}>
-                {hasTable && <Button size="small" variant="contained" onClick={onOpen} sx={{ px: 1.5 }}>{t('open')}</Button>}
+            <div className="mt-3 ml-12 flex flex-wrap gap-1.5">
+                {hasTable && <Button size="sm" variant="primary" onClick={onOpen}>{t('open')}</Button>}
                 {hasTable && (
-                    <Button size="small" variant="outlined" color="inherit" disabled={downloading} startIcon={<Download size={13} />}
-                        onClick={async () => { setDownloading(true); try { await onDownload(); } finally { setDownloading(false); } }}
-                        sx={{ borderColor: 'divider', color: 'text.secondary' }}>{t('download')}</Button>
+                    <Button size="sm" icon={<Download />} loading={downloading}
+                        onClick={async () => { setDownloading(true); try { await onDownload(); } finally { setDownloading(false); } }}>
+                        {t('download')}
+                    </Button>
                 )}
-                {entry.status === 'running' && onStop && (
-                    <Button size="small" variant="outlined" color="error" startIcon={<Square size={12} />} onClick={onStop}>{tc('stop')}</Button>
-                )}
+                {entry.status === 'running' && onStop && <Button size="sm" variant="danger" icon={<Square />} onClick={onStop}>{tc('stop')}</Button>}
                 {entry.status !== 'running' && onRerun && (
                     <Tooltip title={busy ? tc('loading') : ''}>
-                        <span>
-                            <Button size="small" variant="text" color="inherit" disabled={busy} startIcon={<RefreshCcw size={13} />} onClick={onRerun} sx={{ color: 'text.secondary' }}>{t('rerun')}</Button>
-                        </span>
+                        <span><Button size="sm" variant="ghost" disabled={busy} icon={<RefreshCcw />} onClick={onRerun}>{t('rerun')}</Button></span>
                     </Tooltip>
                 )}
-            </Stack>
+            </div>
 
-            <Menu anchorEl={menu} open={!!menu} onClose={() => setMenu(null)}>
-                {onDetails && (
-                    <MenuItem onClick={() => { setMenu(null); onDetails(); }}>
-                        <ListItemIcon><Info size={15} /></ListItemIcon><ListItemText>{t('details')}</ListItemText>
-                    </MenuItem>
-                )}
-                <MenuItem onClick={() => { setMenu(null); onRemove(); }} sx={{ color: 'error.main' }}>
-                    <ListItemIcon sx={{ color: 'inherit' }}><Trash2 size={15} /></ListItemIcon><ListItemText>{t('remove')}</ListItemText>
-                </MenuItem>
+            <Menu anchor={menu} onClose={() => setMenu(null)} align="end">
+                {onDetails && <MenuItem icon={<Info />} onClick={() => { setMenu(null); onDetails(); }}>{t('details')}</MenuItem>}
+                <MenuItem icon={<Trash2 />} danger onClick={() => { setMenu(null); onRemove(); }}>{t('remove')}</MenuItem>
             </Menu>
-        </Box>
+        </div>
     );
 }

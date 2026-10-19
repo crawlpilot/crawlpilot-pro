@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, LinearProgress, Stack, Typography, alpha, useTheme } from '@mui/material';
-import { Activity, Copy, ExternalLink, Settings, Trash2, X } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Activity, Copy, ExternalLink, Settings, Trash2 } from 'lucide-react';
+import { Button, Chip, Dialog, Divider, IconButton, Progress, Stack, Text } from '../../ui';
 import { PageStat, stopReasonLabel } from '@/shared/listing/runStats';
 import { STEP_STATUS_LABELS, StepStat, StepStatus } from '@/shared/listing/stepStats';
 import { VERDICT_LABELS, PageVerdict } from '@/shared/verdict/classifyPage';
@@ -15,237 +16,163 @@ interface Props {
 
 /** A job's stats (per page, per field, page checks) and configuration. */
 export function JobDetailsDialog({ detailsJob, onClose, onDelete, onRerun }: Props) {
-    const theme = useTheme();
     const { t } = useTranslation('history');
     const { t: tc } = useTranslation('common');
 
+    const job = detailsJob;
     return (
-        <Dialog
-            open={!!detailsJob}
-            onClose={() => onClose()}
-            fullWidth
-            maxWidth="sm"
-            PaperProps={{
-                sx: { borderRadius: 3, bgcolor: 'background.paper', backgroundImage: 'none' }
-            }}
-        >
-            <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, borderBottom: 1, borderColor: 'divider' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box sx={{ p: 1, bgcolor: alpha(theme.palette.secondary.main, 0.1), borderRadius: 1.5, color: 'secondary.main' }}>
-                        <Settings size={20} />
-                    </Box>
-                    <Box>
-                        <Typography variant="h6" lineHeight={1.2}>{t('details')}</Typography>
-                        <Typography variant="caption" color="text.secondary">{t('idLabel', { id: detailsJob?.id })}</Typography>
-                    </Box>
-                </Box>
-                <IconButton onClick={() => onClose()} size="small">
-                    <X size={20} />
-                </IconButton>
-            </DialogTitle>
-
-            <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {detailsJob && (
-                    <>
-                        <Box>
-                            <Typography variant="overline" color="secondary" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                <Activity size={14} /> {t('performance')}
-                            </Typography>
-                            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                                <DetailItem label={t('statusLabel')} value={detailsJob.stats?.stoppedByUser ? tc('status.stopped').toUpperCase() : detailsJob.status} capitalize />
-                                <DetailItem label={t('itemsExtracted')} value={detailsJob.stats?.itemsExtracted || 0} />
-                                <DetailItem label={t('pagesVisited')} value={detailsJob.stats?.pagesVisited || 1} />
-                                <DetailItem label={t('duration')} value={detailsJob.stats?.endTime
-                                    ? `${Math.round((detailsJob.stats.endTime - detailsJob.stats.startTime) / 1000)}s`
-                                    : tc('na')}
-                                />
-                                {detailsJob.stats?.stopReason && (
-                                    <DetailItem label={t('stopReason', 'Stopped because')} value={stopReasonLabel(detailsJob.stats.stopReason)} />
-                                )}
-                                {detailsJob.stats?.eased && (
-                                    <DetailItem label={t('eased', 'Tabs at a time')} value={`${detailsJob.stats.eased.to}, because ${detailsJob.stats.eased.reason}`} />
-                                )}
-                                {!!detailsJob.stats?.duplicatesRemoved && (
-                                    <DetailItem label={t('duplicatesSkipped', 'Duplicates skipped')} value={detailsJob.stats.duplicatesRemoved} />
-                                )}
-                                {jobKind(detailsJob) === 'page' && (
-                                    <DetailItem label={t('concurrency')} value={detailsJob.input?.concurrency || 1} />
-                                )}
-                            </Box>
-                            {detailsJob.stats?.verdicts && Object.keys(detailsJob.stats.verdicts).length > 0 && (
-                                <Box sx={{ mt: 2 }}>
-                                    <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>
-                                        {t('pageChecks', 'Page checks')}
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                                        {Object.entries(detailsJob.stats.verdicts).map(([v, n]) => (
-                                            <Chip key={v} size="small" label={`${VERDICT_LABELS[v as PageVerdict] ?? v} · ${n}`}
-                                                color={v === 'ok' ? 'success' : v === 'challenge' || v === 'rate_limited' ? 'warning' : 'error'}
-                                                variant="outlined" />
-                                        ))}
-                                    </Box>
-                                </Box>
-                            )}
-                            {detailsJob.stats?.coverage && detailsJob.stats.coverage.length > 0 && (
-                                <Box sx={{ mt: 2 }}>
-                                    <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>
-                                        {t('fieldCoverage', 'Rows filled per field')}
-                                    </Typography>
-                                    <Box sx={{ maxHeight: 160, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 2, px: 1.5, py: 0.5 }}>
-                                        {detailsJob.stats.coverage.map((c: { name: string; fill: number }) => (
-                                            <Box key={c.name} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.25, fontSize: 12 }}>
-                                                <Box component="span" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</Box>
-                                                <LinearProgress variant="determinate" value={c.fill * 100} color={c.fill < 0.5 ? 'warning' : 'success'} sx={{ width: 60, height: 4, borderRadius: 2 }} />
-                                                <Box component="span" sx={{ width: 36, textAlign: 'right', fontFamily: 'monospace' }}>{Math.round(c.fill * 100)}%</Box>
-                                            </Box>
-                                        ))}
-                                    </Box>
-                                </Box>
-                            )}
-                            {detailsJob.stats?.steps && detailsJob.stats.steps.length > 0 && (
-                                <Box sx={{ mt: 2 }}>
-                                    <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>
-                                        {t('stepCoverage', 'Pages each step worked on')}
-                                    </Typography>
-                                    <Box sx={{ maxHeight: 220, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 2, px: 1.5, py: 0.5 }}>
-                                        {detailsJob.stats.steps.map((s: StepStat) => {
-                                            const how = (Object.entries(s.counts) as [StepStatus, number][]).map(([k, n]) => `${n} ${STEP_STATUS_LABELS[k]}`).join(' · ');
-                                            return (
-                                                <Box key={s.name + s.action} sx={{ py: 0.5, fontSize: 12 }} title={s.failing.length ? `Failed on:\n${s.failing.join('\n')}` : undefined}>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <Box component="span" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                            {s.action === 'click' ? `${t('clickStep', 'Click')}: ` : ''}{s.name}
-                                                        </Box>
-                                                        <LinearProgress variant="determinate" value={s.fill * 100} color={s.fill < 0.8 ? 'warning' : 'success'} sx={{ width: 60, height: 4, borderRadius: 2 }} />
-                                                        <Box component="span" sx={{ width: 36, textAlign: 'right', fontFamily: 'monospace' }}>{Math.round(s.fill * 100)}%</Box>
-                                                    </Box>
-                                                    <Box sx={{ color: 'text.secondary', fontSize: 11 }}>{how}</Box>
-                                                </Box>
-                                            );
-                                        })}
-                                    </Box>
-                                </Box>
-                            )}
-                            {detailsJob.stats?.pageStats && detailsJob.stats.pageStats.length > 0 && (
-                                <Box sx={{ mt: 2 }}>
-                                    <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>
-                                        {t('perPage', 'Rows per page')}
-                                    </Typography>
-                                    <Box sx={{ maxHeight: 160, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 2 }}>
-                                        {detailsJob.stats.pageStats.map((p: PageStat) => (
-                                            <Box key={p.page} sx={{ display: 'flex', justifyContent: 'space-between', px: 1.5, py: 0.5, fontSize: 12, fontFamily: 'monospace' }}>
-                                                <span>{t('pageN', 'Page {{n}}', { n: p.page })}</span>
-                                                <span title={[
-                                                    p.unmapped ? `${p.unmapped} rows had content no field reads: the layout may have changed` : '',
-                                                    p.fallback ? 'The list was found through a backup selector: its main selector no longer matches. Re-pick it before the backups stop working too.' : '',
-                                                    p.healed?.length ? `Found again by meaning on this page: ${p.healed.join(', ')}` : '',
-                                                    p.broken?.length ? `Not found on this page (empty cells): ${p.broken.join(', ')}` : '',
-                                                    p.loading ? `${p.loading} rows were still loading when read: raise the content load delay in the run settings` : '',
-                                                    p.short ? 'Far fewer items than the other pages: the list may have been found only in part. Re-pick it on this page' : '',
-                                                ].filter(Boolean).join('\n') || undefined}>
-                                                    {p.rows}{p.duplicates > 0 ? ` (+${p.duplicates} dup)` : ''}{p.unmapped ? ` · ${p.unmapped} unmapped` : ''}{p.fallback ? ` · ${t('backupSelector', 'backup selector')}` : ''}{p.healed?.length ? ` · ${t('fieldsHealed', '{{n}} healed', { n: p.healed.length })}` : ''}{p.broken?.length ? ` · ${t('fieldsBroken', '{{n}} broken', { n: p.broken.length })}` : ''}{p.loading ? ` · ${t('rowsLoading', '{{n}} loading', { n: p.loading })}` : ''}{p.short ? ` · ${t('pageShort', 'short')}` : ''}
-                                                </span>
-                                            </Box>
-                                        ))}
-                                    </Box>
-                                </Box>
-                            )}
-                        </Box>
-
-                        <Divider />
-
-                        <Box>
-                            <Typography variant="overline" color="secondary" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                <Settings size={14} /> {t('configuration')}
-                            </Typography>
-
-                            <Box sx={{ p: 2, bgcolor: alpha(theme.palette.background.default, 0.5), borderRadius: 2, border: 1, borderColor: 'divider', mb: 2 }}>
-                                <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>{t('sourceUrl')}</Typography>
-                                <Typography variant="body2" fontFamily="monospace" sx={{ wordBreak: 'break-all', display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    {jobUrl(detailsJob) || tc('na')}
-                                    {jobUrl(detailsJob) && (
-                                        <IconButton size="small" onClick={() => window.open(jobUrl(detailsJob), '_blank')}>
-                                            <ExternalLink size={12} />
-                                        </IconButton>
-                                    )}
-                                </Typography>
-                            </Box>
-
-                            <Stack spacing={1}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography variant="caption" color="text.secondary">{t('recipeType')}</Typography>
-                                    <Typography variant="caption" fontFamily="monospace">{jobKind(detailsJob) || tc('na')}</Typography>
-                                </Box>
-                                {detailsJob.recipe?.spec.kind === 'list' && (
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <Typography variant="caption" color="text.secondary">{t('paginationMode')}</Typography>
-                                        <Typography variant="caption" fontFamily="monospace">{detailsJob.recipe.spec.pagination.mode}</Typography>
-                                    </Box>
-                                )}
-                                {detailsJob.recipe && detailsJob.recipe.rev > detailsJob.recipeRev && (
-                                    <Typography variant="caption" color="text.secondary">
-                                        {t('recipeChanged', 'The recipe has changed since this run (revision {{ran}} → {{now}}); a rerun uses the current one.', { ran: detailsJob.recipeRev, now: detailsJob.recipe.rev })}
-                                    </Typography>
-                                )}
-                            </Stack>
-                        </Box>
-                    </>
-                )}
-            </DialogContent>
-
-            <DialogActions sx={{ p: 2, borderTop: 1, borderColor: 'divider', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                        startIcon={<Copy size={16} />}
-                        color="inherit"
-                        onClick={() => {
-                            navigator.clipboard.writeText(JSON.stringify(detailsJob, null, 2));
-                            alert(t('copiedToClipboard'));
-                        }}
-                    >
+        <Dialog open={!!job} onClose={onClose} size="lg" title={t('details')} description={t('idLabel', { id: job?.id })}
+            actions={<>
+                <div className="mr-auto flex gap-1">
+                    <Button variant="ghost" icon={<Copy />} onClick={() => { navigator.clipboard.writeText(JSON.stringify(job, null, 2)); alert(t('copiedToClipboard')); }}>
                         {tc('export')}
                     </Button>
-                    <Button
-                        startIcon={<Trash2 size={16} />}
-                        color="error"
-                        onClick={() => {
-                            if (detailsJob?.id) {
-                                    onDelete(detailsJob.id);
-                                onClose();
-                            }
-                        }}
-                    >
+                    <Button variant="ghost" className="text-danger" icon={<Trash2 />} onClick={() => { if (job?.id) { onDelete(job.id); onClose(); } }}>
                         {tc('delete')}
                     </Button>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button onClick={() => onClose()} color="inherit">{tc('close')}</Button>
-                    <Button
-                        variant="contained"
-                        color="secondary"
-                        onClick={() => {
-                            const job = detailsJob;
-                                onClose();
-                                if (job) onRerun(job);
-                        }}
-                    >
-                        {t('rerun')}
-                    </Button>
-                </Box>
-            </DialogActions>
+                </div>
+                <Button variant="ghost" onClick={onClose}>{tc('close')}</Button>
+                <Button variant="primary" onClick={() => { onClose(); if (job) onRerun(job); }}>{t('rerun')}</Button>
+            </>}>
+            {job && (
+                <Stack gap={5}>
+                    <section>
+                        <SectionTitle icon={<Activity />}>{t('performance')}</SectionTitle>
+                        <div className="grid grid-cols-2 gap-2">
+                            <DetailItem label={t('statusLabel')} value={job.stats?.stoppedByUser ? tc('status.stopped') : job.status} capitalize />
+                            <DetailItem label={t('itemsExtracted')} value={job.stats?.itemsExtracted || 0} />
+                            <DetailItem label={t('pagesVisited')} value={job.stats?.pagesVisited || 1} />
+                            <DetailItem label={t('duration')} value={job.stats?.endTime ? `${Math.round((job.stats.endTime - job.stats.startTime) / 1000)}s` : tc('na')} />
+                            {job.stats?.stopReason && <DetailItem label={t('stopReason', 'Stopped because')} value={stopReasonLabel(job.stats.stopReason)} />}
+                            {job.stats?.eased && <DetailItem label={t('eased', 'Tabs at a time')} value={`${job.stats.eased.to}, because ${job.stats.eased.reason}`} />}
+                            {!!job.stats?.duplicatesRemoved && <DetailItem label={t('duplicatesSkipped', 'Duplicates skipped')} value={job.stats.duplicatesRemoved} />}
+                            {jobKind(job) === 'page' && <DetailItem label={t('concurrency')} value={job.input?.concurrency || 1} />}
+                        </div>
+
+                        {job.stats?.verdicts && Object.keys(job.stats.verdicts).length > 0 && (
+                            <SubBlock title={t('pageChecks', 'Page checks')}>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {Object.entries(job.stats.verdicts).map(([v, n]) => (
+                                        <Chip key={v} tone={v === 'ok' ? 'success' : v === 'challenge' || v === 'rate_limited' ? 'warning' : 'danger'}>
+                                            {`${VERDICT_LABELS[v as PageVerdict] ?? v} · ${n}`}
+                                        </Chip>
+                                    ))}
+                                </div>
+                            </SubBlock>
+                        )}
+
+                        {job.stats?.coverage && job.stats.coverage.length > 0 && (
+                            <SubBlock title={t('fieldCoverage', 'Rows filled per field')}>
+                                <div className="max-h-40 overflow-y-auto rounded-field border border-line px-3 py-1.5">
+                                    {job.stats.coverage.map((c: { name: string; fill: number }) => (
+                                        <Meter key={c.name} name={c.name} fill={c.fill} low={c.fill < 0.5} />
+                                    ))}
+                                </div>
+                            </SubBlock>
+                        )}
+
+                        {job.stats?.steps && job.stats.steps.length > 0 && (
+                            <SubBlock title={t('stepCoverage', 'Pages each step worked on')}>
+                                <div className="max-h-56 overflow-y-auto rounded-field border border-line px-3 py-1.5">
+                                    {job.stats.steps.map((s: StepStat) => {
+                                        const how = (Object.entries(s.counts) as [StepStatus, number][]).map(([k, n]) => `${n} ${STEP_STATUS_LABELS[k]}`).join(' · ');
+                                        return (
+                                            <div key={s.name + s.action} className="py-1" title={s.failing.length ? `Failed on:\n${s.failing.join('\n')}` : undefined}>
+                                                <Meter name={`${s.action === 'click' ? `${t('clickStep', 'Click')}: ` : ''}${s.name}`} fill={s.fill} low={s.fill < 0.8} />
+                                                <Text size="caption" tone="faint">{how}</Text>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </SubBlock>
+                        )}
+
+                        {job.stats?.pageStats && job.stats.pageStats.length > 0 && (
+                            <SubBlock title={t('perPage', 'Rows per page')}>
+                                <div className="max-h-40 overflow-y-auto rounded-field border border-line py-1 font-mono text-caption">
+                                    {job.stats.pageStats.map((p: PageStat) => (
+                                        <div key={p.page} className="flex justify-between gap-3 px-3 py-1 text-ink">
+                                            <span>{t('pageN', 'Page {{n}}', { n: p.page })}</span>
+                                            <span className="text-right" title={[
+                                                p.unmapped ? `${p.unmapped} rows had content no field reads: the layout may have changed` : '',
+                                                p.fallback ? 'The list was found through a backup selector: its main selector no longer matches. Re-pick it before the backups stop working too.' : '',
+                                                p.healed?.length ? `Found again by meaning on this page: ${p.healed.join(', ')}` : '',
+                                                p.broken?.length ? `Not found on this page (empty cells): ${p.broken.join(', ')}` : '',
+                                                p.loading ? `${p.loading} rows were still loading when read: raise the content load delay in the run settings` : '',
+                                                p.short ? 'Far fewer items than the other pages: the list may have been found only in part. Re-pick it on this page' : '',
+                                            ].filter(Boolean).join('\n') || undefined}>
+                                                {p.rows}{p.duplicates > 0 ? ` (+${p.duplicates} dup)` : ''}{p.unmapped ? ` · ${p.unmapped} unmapped` : ''}{p.fallback ? ` · ${t('backupSelector', 'backup selector')}` : ''}{p.healed?.length ? ` · ${t('fieldsHealed', '{{n}} healed', { n: p.healed.length })}` : ''}{p.broken?.length ? ` · ${t('fieldsBroken', '{{n}} broken', { n: p.broken.length })}` : ''}{p.loading ? ` · ${t('rowsLoading', '{{n}} loading', { n: p.loading })}` : ''}{p.short ? ` · ${t('pageShort', 'short')}` : ''}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </SubBlock>
+                        )}
+                    </section>
+
+                    <Divider />
+
+                    <section>
+                        <SectionTitle icon={<Settings />}>{t('configuration')}</SectionTitle>
+                        <div className="mb-3 rounded-field bg-surface-2 p-3">
+                            <Text size="caption" weight="semibold" tone="muted">{t('sourceUrl')}</Text>
+                            <div className="mt-0.5 flex items-center gap-1">
+                                <Text size="small" mono className="min-w-0 flex-1 break-all">{jobUrl(job) || tc('na')}</Text>
+                                {jobUrl(job) && <IconButton size="sm" label="Open" onClick={() => window.open(jobUrl(job), '_blank')}><ExternalLink /></IconButton>}
+                            </div>
+                        </div>
+                        <Stack gap={1.5}>
+                            <div className="flex justify-between">
+                                <Text size="caption" tone="muted">{t('recipeType')}</Text>
+                                <Text size="caption" mono>{jobKind(job) || tc('na')}</Text>
+                            </div>
+                            {job.recipe?.spec.kind === 'list' && (
+                                <div className="flex justify-between">
+                                    <Text size="caption" tone="muted">{t('paginationMode')}</Text>
+                                    <Text size="caption" mono>{job.recipe.spec.pagination.mode}</Text>
+                                </div>
+                            )}
+                            {job.recipe && job.recipe.rev > job.recipeRev && (
+                                <Text size="caption" tone="muted">
+                                    {t('recipeChanged', 'The recipe has changed since this run (revision {{ran}} → {{now}}); a rerun uses the current one.', { ran: job.recipeRev, now: job.recipe.rev })}
+                                </Text>
+                            )}
+                        </Stack>
+                    </section>
+                </Stack>
+            )}
         </Dialog>
     );
 }
 
-function DetailItem({ label, value, capitalize }: any) {
+function SectionTitle({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+    return <h3 className="m-0 mb-2.5 flex items-center gap-1.5 text-small font-bold text-ink [&_svg]:size-3.5">{icon}{children}</h3>;
+}
+
+function SubBlock({ title, children }: { title: string; children: ReactNode }) {
     return (
-        <Box sx={{ p: 1.5, border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'rgb(var(--cp-ink-rgb) / 0.02)' }}>
-            <Typography variant="caption" fontWeight={700} color="text.disabled" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                {label}
-            </Typography>
-            <Typography variant="body2" fontWeight={600} sx={{ mt: 0.5, textTransform: capitalize ? 'capitalize' : 'none' }}>
-                {value}
-            </Typography>
-        </Box>
+        <div className="mt-4">
+            <Text size="caption" weight="semibold" tone="muted" className="mb-1.5">{title}</Text>
+            {children}
+        </div>
+    );
+}
+
+function Meter({ name, fill, low }: { name: string; fill: number; low: boolean }) {
+    return (
+        <div className="flex items-center gap-2 py-0.5 text-caption text-ink">
+            <span className="min-w-0 flex-1 truncate">{name}</span>
+            <Progress size="sm" value={fill * 100} tone={low ? 'danger' : 'success'} className="w-16 shrink-0" />
+            <span className="w-9 text-right font-mono">{Math.round(fill * 100)}%</span>
+        </div>
+    );
+}
+
+function DetailItem({ label, value, capitalize }: { label: string; value: ReactNode; capitalize?: boolean }) {
+    return (
+        <div className="rounded-field bg-surface-2 px-3 py-2.5">
+            <Text size="caption" tone="muted">{label}</Text>
+            <Text weight="semibold" className={capitalize ? 'capitalize' : undefined}>{value}</Text>
+        </div>
     );
 }
