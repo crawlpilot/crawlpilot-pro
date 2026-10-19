@@ -10,7 +10,9 @@
  * - **Side panel**: opening it (until the home screen shows) and how much of its JS runs.
  * - **Data table**: opening a 2,000-row Page Extractor table with two list columns.
  *
- * Measures with a limit (`BUDGETS`) fail the run when over it: run before each release.
+ * Measures with a limit (`BUDGETS`) fail the run when over it: run before each release, on a quiet
+ * machine (file sync, VMs or other test runs push throttled figures up by half). Re-measure a
+ * figure over its limit before calling it a regression.
  */
 import { chromium, type Page, type CDPSession } from '@playwright/test';
 import fs from 'node:fs';
