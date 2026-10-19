@@ -19,16 +19,17 @@ export interface RowsResult {
  * its rows (`fields/`) and every row is read with them, so every row has the same columns.
  */
 export class DataExtractor {
-    public extract(element: HTMLElement, containerInfo: ListMatch) {
+    /** `decided`: the rows are the cards the picker chose, all items (`fields/gate.ts`). */
+    public extract(element: HTMLElement, containerInfo: ListMatch, opts: { decided?: boolean } = {}) {
         if (containerInfo.isContainer) {
-            return this.extractList(containerInfo);
+            return this.extractList(containerInfo, !!opts.decided);
         } else {
             return this.extractSingle(element);
         }
     }
 
-    private extractList({ siblings }: ListMatch) {
-        const first = this.extractRows(siblings);
+    private extractList({ siblings }: ListMatch, decided: boolean) {
+        const first = this.extractRows(siblings, undefined, decided);
         const structured = this.structuredAlternative(siblings);
         // The page's data backs up the fields that mean the same (a price block that never rendered).
         const backed = structured ? withAtomCache(() => backfill(first.columns, structured.columns, siblings)) : first.columns;
@@ -87,18 +88,18 @@ export class DataExtractor {
      * Reads rows with `columns` when they carry readers (a saved recipe, an earlier page), otherwise
      * infers the fields once from these rows first.
      */
-    public extractRows(rowEls: Element[], columns?: unknown): RowsResult {
+    public extractRows(rowEls: Element[], columns?: unknown, decided = false): RowsResult {
         // Inference and the reads scan the same rows: share one scan of each.
-        return withAtomCache(() => this.extractRowsCached(rowEls, columns));
+        return withAtomCache(() => this.extractRowsCached(rowEls, columns, decided));
     }
 
-    private extractRowsCached(rowEls: Element[], columns?: unknown): RowsResult {
+    private extractRowsCached(rowEls: Element[], columns: unknown, decided: boolean): RowsResult {
         let cols: ReaderColumn[];
         let problems: string[] = [];
         if (hasReaders(columns)) {
             cols = columns;
         } else {
-            const inferred = inferFields(rowEls);
+            const inferred = inferFields(rowEls, { decided });
             cols = inferred.columns;
             problems = inferred.problems;
         }

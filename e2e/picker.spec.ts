@@ -9,12 +9,15 @@ import { test, expect, type Panel } from './harness';
 
 interface Case { page: string; cards: string; count: number; points: string[] }
 
-// `count` is the section's cards alike to the hovered one, not a products-only count: BestBuy's grid
-// has 3 ad cells shaped like products, Walmart's 4 and Amazon's 7 (picker-container-bound-plan.md).
+// `count` is the section's cards alike to the hovered one (picker-container-bound-plan.md): same size,
+// structure and named parts. Ad tiles in grid cells are left out; BestBuy's 3 ad cells share the
+// product cards' parts and count, Amazon's 2 sponsored results too. Walmart cars: the 21 grid cards,
+// not the video tile.
 const CASES: Case[] = [
     { page: '/corpus/bestbuy-search', cards: 'li.product-list-item', count: 21, points: ['h3.product-title', 'img', '[data-testid="price-block-customer-price"]', '.variations-wrapper-grid', ':scope'] },
-    { page: '/corpus/walmart-search-live', cards: '[data-testid="item-stack"] [data-item-id]', count: 49, points: ['[data-automation-id="product-title"]', 'img', '[data-testid="ugpp-main-price"], [data-testid="ugpp-reduced-price"]', '[data-test-id="gpt-variant-link"]', '[data-testid="product-ratings"]'] },
-    { page: '/corpus/amazon-search', cards: '[data-component-type="s-search-result"]', count: 23, points: ['h2', 'img', '[data-cy="reviews-block"]'] },
+    { page: '/corpus/walmart-search-live', cards: '[data-testid="item-stack"] [data-item-id]', count: 45, points: ['[data-automation-id="product-title"]', 'img', '[data-testid="ugpp-main-price"], [data-testid="ugpp-reduced-price"]', '[data-test-id="gpt-variant-link"]', '[data-testid="product-ratings"]'] },
+    { page: '/corpus/walmart-cars', cards: '[data-testid="item-stack"] > div:has([data-automation-id="heart-item"])', count: 21, points: ['[data-automation-id="product-title"]', 'img', '[data-automation-id="product-price"]'] },
+    { page: '/corpus/amazon-search', cards: '[data-component-type="s-search-result"]', count: 18, points: ['h2', 'img', '[data-cy="reviews-block"]'] },
     { page: '/corpus/homedepot-search', cards: '.browse-search__pod', count: 12, points: ['[data-testid="attribute-product-label"]', 'img', '[data-testid="price-simple"]'] },
     { page: '/site/app-pane.html', cards: '.x3', count: 20, points: ['.x7', '.x8', ':scope'] },
     { page: '/site/rows-grid.html', cards: 'a.p', count: 12, points: ['img'] },

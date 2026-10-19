@@ -76,8 +76,8 @@ function headingOf(container: HTMLElement): string | undefined {
 }
 
 /** "Results · 18 items", "Sponsored · 3 items", "Customers also viewed · 6 items". */
-export function sectionLabel(container: HTMLElement, items: HTMLElement[]): { label: string; kind: ListKind } {
+export function sectionLabel(container: HTMLElement, items: HTMLElement[], count = items.length): { label: string; kind: ListKind } {
     const kind = kindOf({ container, items });
     const name = kind === 'results' ? (headingOf(container) || 'Results') : kind === 'sponsored' ? 'Sponsored' : 'Carousel';
-    return { kind, label: `${name} · ${items.length} item${items.length === 1 ? '' : 's'}` };
+    return { kind, label: `${name} · ${count} item${count === 1 ? '' : 's'}` };
 }

@@ -7,6 +7,7 @@
  * extraction agree on what a row is.
  */
 import { getVisualRect, hasRenderedBox } from '../../utils/rendering';
+import { AUTHOR_ATTRIBUTES, isStableAttributeValue } from '../../../shared/selectors/stability';
 import { collectAtoms, withAtomCache } from './atoms';
 import { gateRows } from './fields/gate';
 
@@ -116,7 +117,45 @@ function alike(s: HTMLElement, ref: HTMLElement): boolean {
     if (s.tagName !== ref.tagName) return false;
     if (isEmpty(s) || isEmpty(ref)) return isEmpty(s) && placeholderOf(s, ref);
     if (!sized(s, ref, [0.5, 2], [0.33, 3])) return false;
-    return similarity(shapeOf(s), shapeOf(ref)) >= (contentOf(s) === contentOf(ref) ? 0.6 : 0.85);
+    if (similarity(shapeOf(s), shapeOf(ref)) < (contentOf(s) === contentOf(ref) ? 0.6 : 0.85)) return false;
+    // The same named parts (the tile, its image, its price hooks): an ad tile in a grid cell has the
+    // card's size and tags but not its parts. Without names (atomic CSS), a similar amount of content.
+    const named = partsOf(ref);
+    if (named.size >= 3) {
+        const own = partsOf(s);
+        let shared = 0;
+        named.forEach(p => { if (own.has(p)) shared++; });
+        // Half of the hovered card's parts, or most of its own (a card with fewer parts: no badge,
+        // one price); an ad tile has almost none.
+        return shared >= named.size * 0.5 || (own.size >= 3 && shared >= own.size * 0.7);
+    }
+    const a = nodesOf(s);
+    const b = nodesOf(ref);
+    return a >= b * 0.4 && a <= b * 2.5;
+}
+
+/** The author hooks (`data-testid`, `data-test-id`, `itemprop`…) in a card, as `attr=value`. */
+let parts = new WeakMap<Element, Set<string>>();
+function partsOf(el: Element): Set<string> {
+    let set = parts.get(el);
+    if (set) return set;
+    set = new Set<string>();
+    const all = [el, ...Array.from(el.querySelectorAll('*')).slice(0, 300)];
+    for (const e of all) {
+        for (const attr of AUTHOR_ATTRIBUTES) {
+            const v = e.getAttribute(attr);
+            if (v && isStableAttributeValue(attr, v)) set.add(`${attr}=${v}`);
+        }
+    }
+    parts.set(el, set);
+    return set;
+}
+
+/** Elements in a card (capped). */
+function nodesOf(el: Element): number {
+    let n = 0;
+    shapeOf(el).forEach(v => { n += v; });
+    return n;
 }
 
 /** A placeholder for a card like `ref`: the same tag and most of its classes (a "shell" class added). */
@@ -275,6 +314,7 @@ export function findList(element: HTMLElement): ListMatch {
     shapes = new WeakMap();
     contents = new WeakMap();
     boxes = new WeakMap();
+    parts = new WeakMap();
     const started = performance.now();
     // The sections considered, when the page has `data-cp-debug` on <html>.
     const debug: string[] | null = document.documentElement.hasAttribute('data-cp-debug') ? [] : null;

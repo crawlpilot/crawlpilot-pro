@@ -7,8 +7,17 @@ import { findList, itemOf, ListMatch } from '../../../services/extraction/items'
 import { sectionLabel } from '../../../services/extraction/section';
 import { withAtomCache } from '../../../services/extraction/atoms';
 import { listLocators } from '../../../services/selectors/list';
+import { collectAtoms } from '../../../services/extraction/atoms';
+import { rowFitsGate } from '../../../services/extraction/fields/gate';
+import type { ReaderColumn } from '../../../services/extraction/fields';
 import { elementChain } from '../../../services/selectors/element';
 import { resolveContainer, resolveItems } from '../../../../shared/selectors/resolve';
+
+/** The list's items among the rows the chains find: the ones the fields' gate keeps, and placeholders still loading. */
+function itemCount(rows: HTMLElement[], columns: ReaderColumn[]): number {
+    const gate = columns.find(c => c.reader?.rowGate)?.reader?.rowGate;
+    return withAtomCache(() => rows.filter(r => !gate || collectAtoms(r).length === 0 || rowFitsGate(r, gate)).length);
+}
 
 /**
  * The List Extractor's picker: the section under the cursor (`docs/plans/picker-container-bound-plan.md`).
@@ -52,12 +61,18 @@ export class ListSelectionStrategy implements ISelectionStrategy {
             const container = locators.container.map(c => c.selector);
             const items = locators.items.map(c => c.selector);
 
-            // The preview reads the rows the run will read: found through the stored chains.
+            // The fields are learned from the cards the picker chose (all of them items); the preview
+            // then reads the rows the run will read, found through the stored chains, with them.
+            const data = this.extractor.extract(targetItem, found, { decided: true });
             const root = resolveContainer(container, items).result ?? found.container;
             const rows = resolveItems(items, root).result as HTMLElement[];
-            const match: ListMatch = rows.length > 0 ? { ...found, siblings: rows, childCount: rows.length } : found;
-            const data = this.extractor.extract(targetItem, match);
-            const { label, kind } = sectionLabel(found.container, match.siblings);
+            if (rows.length > 0) {
+                const read = this.extractor.extractRows(rows, data.columns);
+                Object.assign(data, { items: read.items, count: read.items.length });
+            }
+            const count = rows.length > 0 ? itemCount(rows, data.columns) : found.childCount;
+            // Labelled with what was picked: the rows its selectors find.
+            const { label, kind } = sectionLabel(found.container, found.siblings, count);
 
             report({
                 success: true,
@@ -66,7 +81,7 @@ export class ListSelectionStrategy implements ISelectionStrategy {
                 container,
                 items,
                 patternFound: true,
-                count: match.childCount,
+                count,
                 label,
                 kind,
                 selectionMode: 'list',

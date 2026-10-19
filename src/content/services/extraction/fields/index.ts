@@ -67,18 +67,18 @@ function readerOf(f: Field): Omit<FieldReader, 'alternates'> {
  * Infers the fields of a list from its rows. The result's columns carry their readers; read every
  * row (this page's and later pages') with `readRow(row, columns)`.
  */
-export function inferFields(rowEls: Element[]): FieldInference {
-    return withAtomCache(() => infer(sampleRows(rowEls)));
+export function inferFields(rowEls: Element[], opts: { decided?: boolean } = {}): FieldInference {
+    return withAtomCache(() => infer(sampleRows(rowEls), !!opts.decided));
 }
 
-function infer(sampled: Element[]): FieldInference {
+function infer(sampled: Element[], decided: boolean): FieldInference {
     const problems: string[] = [];
     if (sampled.length === 0) return { columns: [], problems: ['The rows selector matched nothing.'] };
     if (sampled[0].tagName === 'TR') return { columns: tableFields(sampled), problems };
 
     // 1. Items only.
     const sampledAtoms = sampled.map(collectAtoms);
-    const { gate, keep } = gateRows(sampled, sampledAtoms);
+    const { gate, keep } = gateRows(sampled, sampledAtoms, decided);
     const rows = sampled.filter((_, i) => keep[i]);
     const rowsAtoms = sampledAtoms.filter((_, i) => keep[i]);
     const skipped = sampled.length - rows.length;

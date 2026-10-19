@@ -45,3 +45,18 @@ test('Walmart: the sponsored shelf and the results are two sections, each picked
     expect([...titles(results)].some(t => shelfTitles.has(t))).toBe(false);
     await page.close();
 });
+
+test('Walmart cars: the top section is its 21 product cards, every one read (not the video tile, not ad tiles)', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(`${origin}/corpus/walmart-cars`);
+    const picked = await pickList(panel, page, '[data-testid="item-stack"] >> nth=0 >> [data-automation-id="product-title"] >> nth=0');
+    expect(picked.count).toBe(21);
+    expect(picked.data.items).toHaveLength(21);
+    // Every grid card's title is in a row.
+    const titles: string[] = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid="item-stack"]')[0].querySelectorAll(':scope > div:has([data-automation-id="heart-item"]) [data-automation-id="product-title"]')).map(t => (t.textContent || '').trim()));
+    expect(titles).toHaveLength(21);
+    const rows = picked.data.items as Record<string, string>[];
+    expect(titles.filter(t => !rows.some(r => Object.values(r).includes(t)))).toEqual([]);
+    await page.close();
+});

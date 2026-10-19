@@ -52,10 +52,30 @@ export function rowFitsGate(row: Element, gate: RowGate): boolean {
     return passesGate(profileOf(row, collectAtoms(row)), gate, new Set(gate.core));
 }
 
-/** The gate for the sampled rows (null when there are too few to tell), and which of them pass it. */
-export function gateRows(rows: Element[], rowsAtoms: Atom[][]): { gate: RowGate | null; keep: boolean[] } {
+/**
+ * The gate for the sampled rows (null when there are too few to tell), and which of them pass it.
+ *
+ * `decided`: the rows are the cards the picker chose (`docs/plans/picker-container-bound-plan.md`).
+ * They are all items: the gate is set so every one with content passes (a card missing its rating or
+ * its price is still a card), and on a later page it keeps cells like them and leaves out the
+ * different ones (a video tile, an empty ad slot).
+ */
+export function gateRows(rows: Element[], rowsAtoms: Atom[][], decided = false): { gate: RowGate | null; keep: boolean[] } {
     const profiles = rowsAtoms.map((atoms, i) => profileOf(rows[i], atoms));
-    const gate = buildGate(profiles);
+    let gate = buildGate(profiles);
+    if (gate && decided) {
+        const core = new Set(gate.core);
+        let cover = gate.cover;
+        let own = gate.own;
+        profiles.filter(p => p.size > 0).forEach(p => {
+            let inter = 0;
+            p.forEach(x => { if (core.has(x)) inter++; });
+            cover = Math.min(cover, inter / core.size);
+            own = Math.min(own, inter / p.size);
+        });
+        // Just under the least typical chosen card.
+        gate = { ...gate, cover: Math.max(0, cover - 0.01), own: Math.max(0, own - 0.01) };
+    }
     const core = new Set(gate?.core ?? []);
-    return { gate, keep: profiles.map(p => !gate || passesGate(p, gate, core)) };
+    return { gate, keep: profiles.map(p => !gate || (decided ? p.size > 0 : passesGate(p, gate, core))) };
 }
