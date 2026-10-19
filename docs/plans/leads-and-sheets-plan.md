@@ -1,6 +1,6 @@
 # Lead enrichment and live Google Sheets sync
 
-Status: plan, 2026-10-19.
+Status: 2026-10-19. Sheets **built** (S1 + S2) the user's-own-script way; lead enrichment planned.
 
 ## 1. Lead enrichment ("Contacts from websites")
 
@@ -61,6 +61,23 @@ The Email Extractor becomes **"Contacts from websites"**:
 | L3 | Ranking the best email, normalising and deduplicating social profiles, the "own domain only" filter, and the column order in My data. |
 
 ## 2. Live Google Sheets sync
+
+**Decided (2026-10-19): no CrawlPilot Google account.** Each user connects their own spreadsheet with an Apps Script that CrawlPilot generates (option c below). There is no OAuth client and no Google Cloud project. The OAuth sections below were the alternatives considered.
+
+**Built:**
+- **The script and the connection** (`shared/integrations/sheets.ts`):
+  - the generated script, with a secret key only this user's CrawlPilot knows;
+  - the script writes a tab per dataset, adds new columns to the right, and uses a lock against overlapping writes;
+  - the connection test and sending in batches of 500, with plain-words errors (for example "Deploy it with Who has access: Anyone").
+- **Sync** (`shared/integrations/sheetsSync.ts`):
+  - **Send to Google Sheets** from the data table's export menu writes every row and switches on syncing;
+  - after that, `tables.appendRows` queues a sync, so rows any tool adds follow;
+  - rows sent are counted on the dataset after each batch, so a cut-short sync resumes;
+  - failures are kept on the dataset and shown with "Try again".
+- **Screens:**
+  - Settings → Integrations → Google Sheets: setup steps, "Copy script", Connect (asks Chrome for access to Google's script addresses), and once connected Open, Disconnect and "Use another spreadsheet";
+  - the data table: a bar with the rows in the sheet, its tab, Open, and Stop or Sync again.
+- **Tests:** unit tests in `sheetsSync.test.ts`; e2e in `e2e/sheets.spec.ts`, with a fake web app served by `harness.ts`.
 
 ### Today
 

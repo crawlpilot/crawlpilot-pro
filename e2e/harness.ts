@@ -75,6 +75,9 @@ export function png(width: number, height: number, seed = 0): Buffer {
     return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', header), chunk('IDAT', deflateSync(pixels)), chunk('IEND', Buffer.alloc(0))]);
 }
 
+/** The fake Apps Script's secret (set by a test from the one CrawlPilot generated) and its tabs. */
+const sheetScript: { secret: string; tabs: Record<string, { header: string[]; rows: unknown[][] }> } = { secret: '', tabs: {} };
+
 function serve(): Promise<{ server: Server; origin: string }> {
     const server = createServer(async (req, res) => {
         const url = new URL(req.url ?? '/', 'http://x');
@@ -108,6 +111,32 @@ function serve(): Promise<{ server: Server; origin: string }> {
                 // The picture: `?pic=` when given (one picture under unrelated URLs), else the name without its size.
                 const picture = url.searchParams.get('pic') ?? (url.pathname.startsWith('/cdn/') ? url.pathname + (url.searchParams.get('id') ?? '') : name.replace(/-\d+x\d+\.\w+$/, ''));
                 res.end(png(Math.min(w, 4000), Math.min(h, 4000), seedOf(picture)));
+                return;
+            }
+            // A Google Sheet's Apps Script web app (shared/integrations/sheets.ts), as the real script
+            // writes: tabs of a header and rows. `/log` shows them.
+            if (url.pathname === '/macros/s/test/exec' && req.method === 'POST') {
+                let raw = '';
+                for await (const chunk of req) raw += chunk;
+                const body = JSON.parse(raw);
+                res.writeHead(200, { 'content-type': 'application/json' });
+                if (body.secret !== sheetScript.secret) { res.end(JSON.stringify({ ok: false, error: 'Wrong key' })); return; }
+                if (body.test) { res.end(JSON.stringify({ ok: true, name: 'Test sheet', url: 'https://docs.google.com/spreadsheets/d/test' })); return; }
+                const tab = (sheetScript.tabs[body.sheet] ??= { header: [], rows: [] });
+                for (const c of body.columns) if (!tab.header.includes(c)) tab.header.push(c);
+                for (const r of body.rows) tab.rows.push(tab.header.map((h: string) => r[h] ?? ''));
+                res.end(JSON.stringify({ ok: true, added: body.rows.length, url: `https://docs.google.com/spreadsheets/d/test#gid=${encodeURIComponent(body.sheet)}` }));
+                return;
+            }
+            if (url.pathname === '/macros/s/test/log') {
+                res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(sheetScript.tabs));
+                return;
+            }
+            if (url.pathname === '/macros/s/test/key' && req.method === 'POST') {
+                let raw = '';
+                for await (const chunk of req) raw += chunk;
+                sheetScript.secret = raw;
+                res.writeHead(200).end();
                 return;
             }
             if (url.pathname.startsWith('/site/')) {

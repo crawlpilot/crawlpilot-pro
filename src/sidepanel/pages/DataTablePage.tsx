@@ -6,7 +6,9 @@ import { db } from '@/shared/db';
 import type { TypedColumnDef } from '@/shared/types/database';
 import DataTable from '../components/ui/DataTable';
 import SchemaMapDialog, { OutputMappingState } from '../components/ui/SchemaMapDialog';
-import { Calendar, ChevronDown, Database, Download, ExternalLink, FileJson, FileText, Table2, Webhook, Zap } from 'lucide-react';
+import { Calendar, ChevronDown, Database, Download, ExternalLink, FileJson, FileText, Sheet, Table2, Webhook, Zap } from 'lucide-react';
+import { sendTable, stopSync, syncTable } from '@/shared/integrations/sheetsSync';
+import { storage } from '@/shared/storage';
 import { Button, Chip, EmptyState, Menu, MenuDivider, MenuItem, Notice, Select, Spinner, Text } from '../ui';
 
 interface DataTablePageProps {
@@ -21,6 +23,20 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
     const { exportToCSV, exportToJSON, exportToWebhook, exportToAirtable, exportToMarkdown } = useExportData();
     const tableRef = useRef<any>(null);
     const [exportMenu, setExportMenu] = useState<HTMLElement | null>(null);
+    const [sheetBusy, setSheetBusy] = useState(false);
+    const [sheetError, setSheetError] = useState<string | null>(null);
+
+    /** Google Sheets: the dataset to the user's spreadsheet (its own tab), its new rows following. */
+    const sheetAction = async (action: () => Promise<unknown>) => {
+        if (!selectedId) return;
+        setSheetError(null);
+        if (!(await storage.get('integrations'))?.sheets) {
+            setSheetError('Connect your Google Sheet first: Settings → Integrations → Google Sheets.');
+            return;
+        }
+        setSheetBusy(true);
+        try { await action(); } catch (e) { setSheetError((e as Error).message); } finally { setSheetBusy(false); refreshTable(); }
+    };
 
     // Real-time refresh: listen for extraction progress and completion messages.
     // When the currently-viewed table is a live preview, reload its rows as new
@@ -209,6 +225,9 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                             {hasMarkdownColumns && <MenuItem icon={<FileText />} onClick={exportItem(handleExportMarkdown)}>{t('page.exportMarkdown')}</MenuItem>}
                             <MenuDivider />
                             <div className="px-2.5 pt-1 pb-1 text-caption font-semibold text-ink-3">{t('page.integrations')}</div>
+                            <MenuItem icon={<Sheet />} onClick={exportItem(() => void sheetAction(() => sendTable(selectedId!)))}>
+                                {tableData.view.sheet?.sync ? 'Synced to Google Sheets' : 'Send to Google Sheets'}
+                            </MenuItem>
                             <MenuItem icon={<Webhook />} onClick={exportItem(() => handlePremiumExport('webhook'))}>{t('page.exportWebhook')}</MenuItem>
                             <MenuItem icon={<Database />} onClick={exportItem(() => handlePremiumExport('airtable'))}>{t('page.exportAirtable')}</MenuItem>
                             <MenuItem icon={<Zap />} onClick={exportItem(() => handlePremiumExport('zapier'))}>{t('page.exportZapier')}</MenuItem>
@@ -216,6 +235,31 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                     </div>
                 )}
             </header>
+
+            {tableData && (tableData.view.sheet || sheetError || sheetBusy) && (
+                <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-surface-2/50 px-5 py-2" data-testid="sheet-bar">
+                    <Sheet size={15} className="text-success" />
+                    {sheetBusy ? <Text size="small" className="flex items-center gap-2"><Spinner size={12} /> Sending to Google Sheets…</Text> : tableData.view.sheet && (
+                        <Text size="small">
+                            {tableData.view.sheet.synced.toLocaleString()} rows in Google Sheets, tab “{tableData.view.sheet.tab}”
+                            {tableData.view.sheet.sync ? ' · new rows are added as they come' : ' · not syncing'}
+                        </Text>
+                    )}
+                    <span className="ml-auto flex gap-1">
+                        {tableData.view.sheet?.url && <Button size="sm" variant="ghost" icon={<ExternalLink />} onClick={() => chrome.tabs.create({ url: tableData.view.sheet!.url! })}>Open</Button>}
+                        {tableData.view.sheet?.sync && <Button size="sm" variant="ghost" onClick={() => void sheetAction(() => stopSync(selectedId!))}>Stop syncing</Button>}
+                        {tableData.view.sheet && !tableData.view.sheet.sync && <Button size="sm" variant="ghost" onClick={() => void sheetAction(() => sendTable(selectedId!))}>Sync again</Button>}
+                    </span>
+                    {(sheetError || tableData.view.sheet?.error) && (
+                        <Notice tone="warning" className="w-full">
+                            <span className="flex flex-wrap items-center justify-between gap-2">
+                                <span>{sheetError || tableData.view.sheet?.error}</span>
+                                {tableData.view.sheet?.sync && <Button size="sm" onClick={() => void sheetAction(() => syncTable(selectedId!))}>Try again</Button>}
+                            </span>
+                        </Notice>
+                    )}
+                </div>
+            )}
 
             <div className="flex-1 overflow-hidden p-4">
                 {loading ? (

@@ -56,6 +56,15 @@ describe('Google Sheets sync', () => {
         expect((await db.tables.get(id))?.view.sheet).toMatchObject({ synced: 3, sync: false });
     });
 
+    it('rows added to a synced dataset reach the sheet by themselves', async () => {
+        const id = await db.tables.save(result([{ title: 'A', tags: '[]' }]), { name: 'Auto' });
+        await sendTable(id);
+        await db.tables.appendRows(id, [{ title: 'B', tags: '[]' }, { title: 'C', tags: '[]' }]);
+        await new Promise(r => setTimeout(r, 1800));
+        await syncTable(id);
+        expect(sheet.Auto.rows.map(r => r[0])).toEqual(['A', 'B', 'C']);
+    });
+
     it('a failure is kept on the dataset and the rows are sent next time', async () => {
         const id = await db.tables.save(result([{ title: 'A', tags: '[]' }]), { name: 'Shop' });
         fail = true;
