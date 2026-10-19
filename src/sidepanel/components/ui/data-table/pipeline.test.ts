@@ -55,4 +55,14 @@ describe('data table pipeline', () => {
         expect(out.columns).toEqual([{ id: 'images', name: 'Photos', type: 'image_array' }]);
         expect(out.rows).toEqual([{ images: ['a.jpg', 'b.jpg'] }]);
     });
+
+    it('gives columns with the same name distinct names, so a JSON export keeps both', () => {
+        const columns: Column[] = [
+            { id: 'about', name: 'div', type: 'json' },
+            { id: 'specs', name: 'div', type: 'json' },
+        ];
+        const out = exportData(columns, [row(1, { about: '["Fun"]', specs: '[["Color","Black"]]' })], {}, [], []);
+        expect(out.columns.map(c => c.name)).toEqual(['div', 'div 2']);
+        expect(out.rows).toEqual([{ about: ['Fun'], specs: [['Color', 'Black']] }]);
+    });
 });

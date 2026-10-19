@@ -175,17 +175,28 @@ export function visibleColumns(columns: Column[], rows: Row[], f: ColumnFilters)
     return cols.sort((a, b) => columnPriority(a) - columnPriority(b) || (density.get(b.id) ?? 0) - (density.get(a.id) ?? 0));
 }
 
+/** Names made distinct ("div", "div 2"): JSON and the integrations key rows by name, so a repeat would overwrite a column. */
+function distinctNames<T extends { name: string }>(cols: T[]): T[] {
+    const taken = new Set<string>();
+    return cols.map(col => {
+        let name = col.name;
+        for (let n = 2; taken.has(name); n++) name = `${col.name} ${n}`;
+        taken.add(name);
+        return name === col.name ? col : { ...col, name };
+    });
+}
+
 /** The table as exported: the stored (unexploded) rows, list columns as arrays, with merged and typed columns. */
 export function exportData(columns: Column[], rows: TableRow[], renames: Record<string, string>, merged: MergeDefinition[], typed: TypedColumnDef[]) {
     const cols = columns.filter(c => !c.hidden && c.type !== 'tabledata');
     const typedCols = typedColumnsOf(typed);
     const arrayTypes = new Set<string>(['json', 'image_array', 'link_array', 'text_array']);
     return {
-        columns: [
+        columns: distinctNames([
             ...cols.map(col => ({ id: col.id, name: renames[col.id] || col.name, type: col.type as string })),
             ...merged.map(m => ({ id: m.id, name: m.name, type: 'text' })),
             ...typedCols.map(c => ({ id: c.id, name: c.name, type: c.type as string })),
-        ],
+        ]),
         rows: rows.map(r => {
             const out: Row = {};
             cols.forEach(col => {
