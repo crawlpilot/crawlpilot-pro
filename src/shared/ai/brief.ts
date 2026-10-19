@@ -321,3 +321,102 @@ export function tableCsv(table: AnswerTable): string {
     const cell = (v: string) => (/[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
     return [table.columns, ...table.rows.map(r => r.cells)].map(r => r.map(cell).join(',')).join('\n');
 }
+
+// ── Later (docs/plans/summarize-ask-plan.md A7): what changed since a saved brief, and "does it fit me?" ──
+
+const MODEL_READING = " (the model's reading)";
+const pointsOf = (cell?: string) => (cell ?? '').replace(MODEL_READING, '').split('; ').map(p => p.trim()).filter(Boolean);
+const numbersIn = (s: string) => (s.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map(n => n.replace(/,/g, ''));
+const wordsIn = (s: string) => new Set(s.toLowerCase().match(/\p{L}{4,}/gu) ?? []);
+
+/** Two points say the same thing: the same numbers and most of the same words (a rephrasing). */
+function samePoint(a: string, b: string): boolean {
+    const na = numbersIn(a).sort().join(' '), nb = numbersIn(b).sort().join(' ');
+    if (na !== nb) return false;
+    const wa = wordsIn(a), wb = wordsIn(b);
+    if (wa.size === 0 || wb.size === 0) return na.length > 0;
+    const shared = [...wa].filter(w => wb.has(w)).length;
+    return shared / Math.min(wa.size, wb.size) >= 0.5;
+}
+
+export interface BriefChange {
+    field: string;
+    label: string;
+    /** The field's value then and now, when its numbers changed (a price, a count, a date). */
+    from?: string;
+    to?: string;
+    added?: string[];
+    removed?: string[];
+}
+
+/**
+ * What changed between a saved brief (a "Briefs" row) and today's, field by field. Numbers that
+ * changed always count; otherwise only points with no rephrasing on the other side. The gist and the
+ * model's own readings aren't compared (they are worded anew each time).
+ */
+export function briefChanges(saved: Record<string, string>, now: Record<string, string>, kind: PageKind): BriefChange[] {
+    const changes: BriefChange[] = [];
+    for (const f of BRIEFS[kind].fields) {
+        if (f.key === 'gist' || f.inferred) continue;
+        const then = pointsOf(saved[f.key]), today = pointsOf(now[f.key]);
+        if (then.length === 0 && today.length === 0) continue;
+        const thenNumbers = numbersIn(then.join(' ')).sort().join(' '), nowNumbers = numbersIn(today.join(' ')).sort().join(' ');
+        if (f.max === 1 && then.length > 0 && today.length > 0) {
+            if (thenNumbers !== nowNumbers) changes.push({ field: f.key, label: f.label, from: then[0], to: today[0] });
+            continue;
+        }
+        const added = today.filter(p => !then.some(q => samePoint(p, q)));
+        const removed = then.filter(p => !today.some(q => samePoint(p, q)));
+        if (added.length || removed.length) changes.push({ field: f.key, label: f.label, ...(added.length ? { added } : {}), ...(removed.length ? { removed } : {}) });
+    }
+    return changes;
+}
+
+export type FitVerdict = 'fits' | 'partly' | 'no' | 'unclear';
+
+export interface FitReason {
+    text: string;
+    quote: string;
+    ref: string;
+}
+
+export interface Fit {
+    verdict: FitVerdict;
+    reasons: FitReason[];
+}
+
+export const FIT_SYSTEM =
+    'You check whether something on a web page fits a person\'s needs. You get their needs and facts from the page, each with a quote and its block reference. ' +
+    'Give a verdict: "fits", "partly", "no", or "unclear" when the page doesn\'t say enough. ' +
+    'Give up to 4 reasons, each in plain words (at most 20 words) about one need, with the quote and reference of the fact it rests on. Never invent facts.';
+
+export function fitSchema(): Record<string, unknown> {
+    return {
+        type: 'object',
+        properties: {
+            verdict: { type: 'string', enum: ['fits', 'partly', 'no', 'unclear'] },
+            reasons: {
+                type: 'array', maxItems: 4,
+                items: { type: 'object', properties: { text: { type: 'string' }, quote: { type: 'string' }, ref: { ...REF } }, required: ['text', 'quote', 'ref'], additionalProperties: false },
+            },
+        },
+        required: ['verdict', 'reasons'],
+        additionalProperties: false,
+    };
+}
+
+/** The prompt: the needs, then the brief's points as facts (each with its quote and block). */
+export function fitPrompt(needs: string, brief: Brief, title: string): string {
+    const facts = brief.sections.filter(s => !s.inferred).flatMap(s => s.points.filter(p => p.ref).map(p => `- ${s.label}: ${p.text} (quote: "${p.quote}") [${p.ref}]`));
+    return `My needs: ${needs.trim()}\n\nFacts from the ${BRIEFS[brief.kind].label.toLowerCase()} page "${title}":\n${facts.join('\n')}\n\nDoes it fit my needs?`;
+}
+
+export function parseFit(raw: string): Fit {
+    const data = JSON.parse(raw);
+    const verdict: FitVerdict = ['fits', 'partly', 'no', 'unclear'].includes(data?.verdict) ? data.verdict : 'unclear';
+    const reasons = (Array.isArray(data?.reasons) ? data.reasons : [])
+        .map((r: any) => ({ text: String(r?.text ?? '').trim(), quote: String(r?.quote ?? '').trim(), ref: /^b\d+$/.test(String(r?.ref ?? '')) ? String(r.ref) : '' }))
+        .filter((r: FitReason) => r.text)
+        .slice(0, 4);
+    return { verdict, reasons };
+}

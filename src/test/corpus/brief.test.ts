@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { loadPage } from './measure';
 import { buildPageView, viewBlocks } from '../../content/services/ai-view/pageView';
 import { checkPageClaims, rangeOf } from '../../content/services/ai-view/claims';
-import { BRIEFS, briefColumns, briefRow, briefSchema, detectKind, mergeBriefs, parseBrief, parseTable, tableCsv, type PageKind } from '../../shared/ai/brief';
+import { BRIEFS, briefChanges, briefColumns, briefRow, briefSchema, detectKind, fitPrompt, mergeBriefs, parseBrief, parseFit, parseTable, tableCsv, type PageKind } from '../../shared/ai/brief';
 import { checkClaims, citedSentences, claimSupport, quoteIn, stripMarkers } from '../../shared/ai/cite';
 
 const PAGES: [string, string, PageKind][] = [
@@ -154,5 +154,26 @@ describe('answers become data', () => {
         expect(table).toEqual({ columns: ['Spec', 'Value'], rows: [{ cells: ['Speed', '3 mph'], ref: 'b4' }, { cells: ['Load, max', ''], ref: '' }] });
         expect(tableCsv(table)).toBe('Spec,Value\nSpeed,3 mph\n"Load, max",');
         expect(() => parseTable('{"columns":[],"rows":[]}')).toThrow();
+    });
+});
+
+describe('what changed, and does it fit', () => {
+    it('reports changed numbers and new or gone points, not rephrasings', () => {
+        const saved = { gist: 'A kids ATV', price: '$129.00, on sale', specs: 'Top speed 3 mph; Carries up to 66 lb', likes: 'Easy assembly', watch: 'Third-party seller' };
+        const now = { gist: 'An electric ATV for kids', price: '$99.00, flash deal', specs: 'Reaches a top speed of 3 mph; Carries up to 66 lb; Battery lasts 45 minutes', likes: 'Easy assembly', watch: '' };
+        expect(briefChanges(saved, now, 'product')).toEqual([
+            { field: 'price', label: 'Price', from: '$129.00, on sale', to: '$99.00, flash deal' },
+            { field: 'specs', label: 'Key specs', added: ['Battery lasts 45 minutes'] },
+            { field: 'watch', label: 'Watch out', removed: ['Third-party seller'] },
+        ]);
+        expect(briefChanges(saved, saved, 'product')).toEqual([]);
+    });
+
+    it('a fit verdict with its reasons; anything else is unclear', () => {
+        expect(parseFit(JSON.stringify({ verdict: 'partly', reasons: [{ text: 'Under budget', quote: 'Now $158.89', ref: 'b3' }, { text: '' }] })))
+            .toEqual({ verdict: 'partly', reasons: [{ text: 'Under budget', quote: 'Now $158.89', ref: 'b3' }] });
+        expect(parseFit('{"verdict":"maybe","reasons":[]}').verdict).toBe('unclear');
+        const brief = parseBrief(JSON.stringify({ gist: [{ text: 'A kids ATV', quote: 'Kids ATV', ref: 'b1' }], price: [{ text: '$158.89', quote: 'Now $158.89', ref: 'b3' }], specs: [], likes: [], dislikes: [], watch: [] }), 'product');
+        expect(fitPrompt('under $200', brief, 'ATV')).toContain('- Price: $158.89 (quote: "Now $158.89") [b3]');
     });
 });
