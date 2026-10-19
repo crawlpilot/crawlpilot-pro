@@ -11,6 +11,19 @@ served. Gzipped to keep the repository small.
 | `cos-search.html.gz` | `https://www.cos.com/en-us/search?search=shirts` | 2026-10-19, headed Chrome (Playwright; headless gets "Access Denied") | 40 tiles, each with a gallery of 2–16 images hooked `default-product-card-slider-image-<n>`. The page mounts images only near the viewport, so the capture scrolls in steps and keeps each tile from when it had its images |
 | `walmart-search.html.gz` | `https://www.walmart.com/search?q=cars` | 2026-10-17, `curl` (desktop Chrome user agent) | 9 server-rendered tiles in `[data-testid="item-stack"]`; the rest of the ~140 items are in `__NEXT_DATA__`. Sale, range and plain price variants |
 
+## Listing scorecard pages
+
+Used by `e2e/listing.spec.ts` with the ground truth in `e2e/listing-truth.ts`, together with `amazon-search` and
+`amazon-category` above. Prepared with `scripts/corpus/prepare-listing.mjs`. Unlike the pages above, these **keep
+their stylesheets** (inlined), because hidden text is told apart by how it renders and the picker needs real layout.
+Scripts other than JSON data, iframes and preloads are removed, and a `<base>` points at the site.
+
+| File | Source | Captured | Notes |
+|---|---|---|---|
+| `bestbuy-search.html.gz` | `https://www.bestbuy.com/site/searchpage.jsp?st=laptop` | 2026-10-19, headless Chromium (Playwright), no scrolling | The grid is 6 sibling `ul.product-grid-view-container` rows (2–4 cards each); 18 cards, 9 still placeholders; price blocks mostly still loading skeletons. Sponsored carousel (3 visible) above the grid. Ratings only in `.visually-hidden` sentences |
+| `walmart-search-live.html.gz` | `https://www.walmart.com/search?q=laptop` | 2026-10-19, headed Chrome after scrolling (headless gets "Robot or human?") | 45 products in `[data-testid="item-stack"]`; a 3-item sponsored brand shelf above them. Screen-reader text in hashed classes (`ld_Ec`, `w_iUH7`); click-tracker URLs on sponsored tiles; 4 price layouts |
+| `homedepot-search.html.gz` | `https://www.homedepot.com/b/N-5yc1v/Ntk-elasticplus/Ntt-tools?NCNI-5` | 2026-10-19, saved by hand in Chrome (automated browsers get "Oops!! Something went wrong" unless automation flags are off) | 12 products; rating and review count only as `(4.4 / 1949)`, rounded star `aria-label`s; `Model# …`, store stock and delivery as label/value text; `data-product-id` |
+
 The synthetic and trimmed pages one level up (`bootstrap-grid.html`, `tailwind-grid.html`, `emotion-hashed.html`,
 `walmart-carousel.html`) are part of the corpus too.
 
