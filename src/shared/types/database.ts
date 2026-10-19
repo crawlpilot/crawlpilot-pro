@@ -77,6 +77,8 @@ export interface Table {
         merges?: ColumnMerge[];
         typed?: TypedColumnDef[];
         mapping?: OutputMapping;
+        /** Sent to the user's Google Sheet: its tab, rows sent so far, and whether new rows follow (`shared/integrations/sheetsSync.ts`). */
+        sheet?: { tab: string; synced: number; sync: boolean; url?: string; error?: string };
     };
     createdAt: number;
     updatedAt: number;

@@ -110,12 +110,14 @@ export function candidates(doc: Document = document, live = true): Candidate[] {
         if (el.getAttribute('aria-expanded') === 'true') continue;
         const text = textOf(el);
         if (!text || text.length > MAX_TEXT || !EXPANDER.test(text)) continue;
+        const panels = controlled(doc, el);
+        if (panels.length && panels.every(filled)) continue;
         push(el, 'expander');
     }
     return out;
 }
 
-export async function expandHidden(budget: RevealBudget, doc: Document = document): Promise<ExpandResult> {
+export async function expandHidden(budget: RevealBudget, doc: Document = document, live = true): Promise<ExpandResult> {
     const startedAt = Date.now();
     const startUrl = doc.location?.href ?? '';
     const opened: string[] = [];
@@ -129,7 +131,7 @@ export async function expandHidden(budget: RevealBudget, doc: Document = documen
 
     // Candidates are found again after each click: opening a section can reveal another "Show more".
     for (let round = 0; round < 3 && !stopped; round++) {
-        const list = candidates(doc).filter(c => !tried.has(c.el));
+        const list = candidates(doc, live).filter(c => !tried.has(c.el));
         if (!list.length) break;
         for (const { el, kind } of list) {
             tried.add(el);

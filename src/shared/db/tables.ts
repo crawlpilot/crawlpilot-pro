@@ -121,6 +121,8 @@ async function appendRows(id: number, items: Record<string, any>[]): Promise<num
     }
     await done(tx);
     await update(id, { rowCount: await rowCount(id) });
+    // A dataset kept in sync with the user's Google Sheet gets its new rows there too.
+    if (stored > 0) void get(id).then(t => { if (t?.view.sheet?.sync) void import('../integrations/sheetsSync').then(m => m.queueSync(id)); });
     return stored;
 }
 

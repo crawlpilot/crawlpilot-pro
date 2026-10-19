@@ -32,10 +32,9 @@ test('AI page view: every hidden section is read, nothing unsafe clicked, page p
     expect(r.read).toEqual(expect.arrayContaining(['Specifications', 'Materials', 'Care', 'Shipping']));
     expect(r.opened).toEqual(expect.arrayContaining(['Warranty', 'Show more']));
     expect(r.tabs).toEqual(['Reviews']);
-    expect(r.skipped).toEqual(expect.arrayContaining([
-        { label: 'Read the full care guide', reason: 'opens another page' },
-        { label: 'Show more', reason: 'in a filter panel' },
-    ]));
+    // A link to another page is never a candidate; the filter panel's "Show more" is skipped.
+    expect(r.skipped).toEqual(expect.arrayContaining([{ label: 'Show more', reason: 'in a filter panel' }]));
+    expect(r.stopped).toBeUndefined();
 
     // Nothing bought, no filter touched, still on the page; the warranty closed and Overview selected again.
     expect(await page.evaluate(() => ({ ...document.body.dataset }))).toEqual({});

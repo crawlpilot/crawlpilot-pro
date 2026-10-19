@@ -12,7 +12,8 @@ export interface Integrations {
     airtableApiKey: string;
     airtableBaseId: string;
     airtableTableName: string;
-    googleSheetsConnected: boolean;
+    /** The user's own spreadsheet, connected through its Apps Script web app (`shared/integrations/sheets.ts`). */
+    sheets?: import('./integrations/sheets').SheetsConnection;
 }
 
 export const DEFAULT_INTEGRATIONS: Integrations = {
@@ -21,7 +22,6 @@ export const DEFAULT_INTEGRATIONS: Integrations = {
     airtableApiKey: '',
     airtableBaseId: '',
     airtableTableName: '',
-    googleSheetsConnected: false,
 };
 
 /** A background run in progress, so a restarted service worker can close its tabs and fail its job. */

@@ -34,7 +34,7 @@ export async function revealForReading(mode: RevealMode = 'open', budget: Reveal
     if (mode === 'off') return { report: empty, markdownOptions: {}, restore: nothing };
     let opened: Awaited<ReturnType<typeof expandHidden>> | null = null;
     if (mode === 'open') {
-        try { opened = await expandHidden(budget, doc); } catch { opened = null; }
+        try { opened = await expandHidden(budget, doc, live); } catch { opened = null; }
     }
     // After the clicks: a panel opened by a click is simply rendered now, the rest are read as if open.
     const panels = disclosurePanels(doc, live);
