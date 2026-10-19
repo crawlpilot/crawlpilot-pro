@@ -275,6 +275,14 @@ export function sendToTab<T extends MessageType>(tabId: number, type: T, ...[pay
 /** Sends to the active tab's content script; rejects with a readable message, including on `success: false`. */
 export async function sendToActiveTab<T extends MessageType>(type: T, ...[payload]: PayloadArg<T>): Promise<Exclude<Reply<T>, Fail>> {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    return sendToPage(tab, type, ...([payload] as PayloadArg<T>));
+}
+
+/**
+ * Like `sendToActiveTab`, to a given tab: a tool that tracks the page it works on (the Scraper
+ * Toolkit, or a tool opened in its own tab with `?tabId=`) sends there. Same errors, in plain words.
+ */
+export async function sendToPage<T extends MessageType>(tab: chrome.tabs.Tab | undefined, type: T, ...[payload]: PayloadArg<T>): Promise<Exclude<Reply<T>, Fail>> {
     if (!tab?.id) throw new Error('No active tab.');
     if (!tab.url || !/^https?:/.test(tab.url)) throw new Error('Open a web page (http or https) to use this tool.');
     try {

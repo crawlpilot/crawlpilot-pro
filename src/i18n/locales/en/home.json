@@ -39,7 +39,7 @@
   },
   "scraperToolkit": {
     "title": "Scraper Toolkit",
-    "description": "Page recon and selector lab",
-    "tooltip": "Page Recon and Selector Lab: see where the data lives, what protects it, and test selectors"
+    "description": "Page recon, selector lab and API finder",
+    "tooltip": "Page Recon, Selector Lab and API Finder: learn how to scrape a page, find selectors that last, and the API behind its data"
   }
 }

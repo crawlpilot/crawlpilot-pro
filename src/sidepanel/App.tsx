@@ -59,7 +59,7 @@ function App() {
             case 'utilities':
                 return <UtilitiesPage onBack={() => setCurrentView('home')} />;
             case 'toolkit':
-                return <ToolkitPage onBack={() => setCurrentView('home')} />;
+                return <ToolkitPage onBack={() => setCurrentView('home')} onNavigate={setCurrentView} />;
             case 'history':
                 return <HistoryPage
                     onBack={() => setCurrentView('home')}

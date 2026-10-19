@@ -98,7 +98,7 @@ export default function HomePage({ onNavigate, isTabConnected = true }: HomePage
                     </Tooltip>
 
                     {/* Scraper Toolkit */}
-                    <Tooltip title={t('scraperToolkit.tooltip', 'Page Recon and Selector Lab: see where the data lives, what protects it, and test selectors')} placement="left" arrow>
+                    <Tooltip title={t('scraperToolkit.tooltip', 'Page Recon, Selector Lab and API Finder: learn how to scrape a page, find selectors that last, and the API behind its data')} placement="left" arrow>
                     <Card
                         elevation={0}
                         sx={{
@@ -134,7 +134,7 @@ export default function HomePage({ onNavigate, isTabConnected = true }: HomePage
                                             {t('scraperToolkit.title', 'Scraper Toolkit')}
                                         </Typography>
                                         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                            {t('scraperToolkit.description', 'Page recon and selector lab')}
+                                            {t('scraperToolkit.description', 'Page recon, selector lab and API finder')}
                                         </Typography>
                                     </Box>
                                 </Box>

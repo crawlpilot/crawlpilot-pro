@@ -15,8 +15,9 @@ async function ensureAccess(): Promise<void> {
     if (result !== 'granted') throw new Error('CrawlPilot needs access to this site to record its API calls.');
 }
 
-async function activeTab(): Promise<chrome.tabs.Tab> {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+/** The page to record: the toolkit's page when given, else the active tab. */
+async function pageTab(given?: chrome.tabs.Tab): Promise<chrome.tabs.Tab> {
+    const tab = given ?? (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
     if (!tab?.id || !tab.url || !/^https?:/.test(tab.url)) throw new Error('Open a web page (http or https) to record its API calls.');
     return tab;
 }
@@ -37,9 +38,9 @@ export async function isRecordingRegistered(): Promise<boolean> {
 }
 
 /** @param reload true to reload the page and catch the calls made while it loads. */
-export async function startRecording(reload: boolean): Promise<void> {
+export async function startRecording(reload: boolean, given?: chrome.tabs.Tab): Promise<void> {
     await ensureAccess();
-    const tab = await activeTab();
+    const tab = await pageTab(given);
     if (reload) {
         const origin = new URL(tab.url!).origin;
         await stopRecording();
