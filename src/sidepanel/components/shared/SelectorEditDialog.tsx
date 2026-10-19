@@ -148,7 +148,7 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
                         <SelectorItemRow key={sel.id} elevation={0}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <GripVertical size={14} className="text-slate-600" />
+                                    <GripVertical size={14} className="text-text-muted" />
                                     <Typography variant="caption" sx={{ color: 'rgb(var(--cp-ink-rgb) / 0.3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                         Selector {index + 1}
                                     </Typography>

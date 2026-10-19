@@ -35,8 +35,8 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
             variant="outlined"
             sx={{
                 p: 2,
-                borderRadius: 3,
-                borderColor: 'primary.main',
+                borderRadius: '12px',
+                borderColor: 'divider',
                 bgcolor: 'background.paper',
                 position: 'relative',
                 overflow: 'visible'

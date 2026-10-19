@@ -142,7 +142,12 @@ All strings go through i18n (`src/i18n/locales/en/*.json`). Other locales keep f
 
 U0 and U1 make the panel feel simpler at once. U2 and U3 deliver the "self-navigable" part.
 
-**Status (2026-10-19):** U0, U1, U2 and U3 done. U3: after the first pick the list's Next / "Load more" control is found on the page (`src/content/services/pagination/findNext.ts`, `FIND_NEXT`; carousel arrows and disabled controls ignored), the pick shows a 3-row preview, the pages as a sentence and one button (`components/list-extractor/QuickRun.tsx`); the preview no longer opens a pop-up window; a finished run says what it got and opens its own table (e2e `e2e/list-quick.spec.ts`). The page check is `src/content/services/pageSummary.ts` (`PAGE_SUMMARY`), 1–60 ms on the corpus pages in jsdom; e2e in `e2e/home.spec.ts`; screenshots with `UX_SHOTS=<dir> npx playwright test e2e/ux-shots.spec.ts`. Known miss: the Amazon product capture (no buy box) reads as a list of its related items.
+**Status (2026-10-19):** U0–U6 done.
+- U0–U3: words, one header, Home "This page" (`PAGE_SUMMARY`), a list in two clicks (`FIND_NEXT`, `QuickRun`).
+- U4 My data: one card per saved table (with its latest run's status) or run without a table, Open / Download (CSV as the data table exports it) / Run again / Stop; `components/history/myData.ts`, `DataCard.tsx`.
+- U5: Page and Metadata Extractor are one tool, "Same details from many pages": Pages (now with "This page") → Details (article text, or pick fields) → Run; the old metadata route opens it with the article preset and this page.
+- U6 (D1 taken as recommended): light by default (Daylight: white surfaces, near-black ink and buttons, amber accent), dark as a setting (Settings → Appearance: Light / Dark / Match system). Colours are `--cp-*` variables in `index.css` (with the Tailwind tokens and the grid on them) and `createAppTheme(mode)`; no raw hex in components.
+- Checks: `e2e/home.spec.ts`, `e2e/list-quick.spec.ts`, `e2e/many-pages.spec.ts`; screenshots `UX_SHOTS=<dir> UX_MODES=light,dark npx playwright test e2e/ux-shots.spec.ts`. U7 (a usability check with first-time users) is left.
 
 ## 6. How we'll know
 

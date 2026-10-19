@@ -1,22 +1,25 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { ThemeProvider, CssBaseline, Box, Button, Typography } from '@mui/material';
 import { Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { createAppTheme } from './theme/muiTheme';
 import { useColorMode } from './theme/colorMode';
 import HomePage from './pages/HomePage';
-import ListExtractorPage from './pages/ListExtractorPage';
-import PageExtractorPage from './pages/PageExtractorPage';
-import HistoryPage from './pages/HistoryPage';
-import ImageDownloaderPage from './pages/ImageDownloaderPage';
-import EmailExtractorPage from './pages/EmailExtractorPage';
-import UtilitiesPage from './pages/UtilitiesPage';
-import DataTablePage from './pages/DataTablePage';
-import SettingsPage from './pages/SettingsPage';
-import TextSummarizerPage from './pages/TextSummarizerPage';
-import AiExtractPage from './pages/AiExtractPage';
 import WelcomePage from './pages/WelcomePage';
-import ToolkitPage from './pages/ToolkitPage';
+
+// Every other view loads when it is opened: the data table's grid alone is ~1 MB the home screen
+// never runs (docs/plans/performance-plan.md P3).
+const ListExtractorPage = lazy(() => import('./pages/ListExtractorPage'));
+const PageExtractorPage = lazy(() => import('./pages/PageExtractorPage'));
+const HistoryPage = lazy(() => import('./pages/HistoryPage'));
+const ImageDownloaderPage = lazy(() => import('./pages/ImageDownloaderPage'));
+const EmailExtractorPage = lazy(() => import('./pages/EmailExtractorPage'));
+const UtilitiesPage = lazy(() => import('./pages/UtilitiesPage'));
+const DataTablePage = lazy(() => import('./pages/DataTablePage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const TextSummarizerPage = lazy(() => import('./pages/TextSummarizerPage'));
+const AiExtractPage = lazy(() => import('./pages/AiExtractPage'));
+const ToolkitPage = lazy(() => import('./pages/ToolkitPage'));
 
 import Header from './components/ui/Header';
 import { useTabSync } from './hooks/useTabSync';
@@ -151,7 +154,7 @@ function App() {
                 {/* Home and Welcome have the brand header; every other view has its own header with back. */}
                 {(currentView === 'home' || currentView === 'welcome') && <Header onNavigate={setCurrentView} activeView={currentView} disabled={isGlobalExtracting} />}
                 <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-                    {renderView()}
+                    <Suspense fallback={null}>{renderView()}</Suspense>
                 </Box>
             </Box>
         </ThemeProvider>

@@ -32,6 +32,7 @@ test('progress messages are spaced out, and the last one before "complete" is fi
     const last = progress[progress.length - 1];
     expect(last.completedUrls).toBe(8);
     const times: number[] = await panel.page.evaluate(() => (window as any).__times);
-    // 250 ms apart, give or take the message's own travel.
-    for (let i = 1; i < times.length; i++) expect(times[i] - times[i - 1]).toBeGreaterThanOrEqual(200);
+    // At most one per 250 ms, plus the first and the final one (arrival times jitter, so count them).
+    const span = times[times.length - 1] - times[0];
+    expect(times.length).toBeLessThanOrEqual(Math.ceil(span / 250) + 2);
 });

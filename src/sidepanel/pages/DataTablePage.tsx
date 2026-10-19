@@ -206,7 +206,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                             <Select
                                 value={selectedId || ''}
                                 onChange={(value) => setSelectedId(Number(value))}
-                                className="flex-1 text-sm h-10 bg-slate-900/50 border-slate-700/50 hover:border-primary/50 transition-all font-medium"
+                                className="flex-1 text-sm h-10 bg-ink/[0.06] border-border-subtle hover:border-primary/50 transition-all font-medium"
                                 aria-label={t('page.selectDataset')}
                             >
                                 <option value="">{t('page.selectPlaceholder')}</option>

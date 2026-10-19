@@ -77,7 +77,9 @@ export default defineConfig({
                             id.includes('/node_modules/react-dom/') ||
                             id.includes('/node_modules/scheduler/')
                         ) return 'vendor-react';
-                        return 'vendor';
+                        // Other libraries go where they are used: one only a lazy view needs
+                        // (react-markdown, …) loads with that view, not at start.
+                        return undefined;
                     }
                 }
             }

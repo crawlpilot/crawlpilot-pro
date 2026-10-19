@@ -34,7 +34,7 @@ export function ColumnHeader(props: any) {
                         type="text"
                         value={tempName}
                         onChange={(e) => setTempName(e.target.value)}
-                        className="w-full text-xs px-2 py-1 border rounded bg-white text-gray-900"
+                        className="w-full text-xs px-2 py-1 border rounded bg-background-card text-text-primary"
                         autoFocus
                         aria-label={`${t('header.rename')} ${props.displayName}`}
                         onKeyDown={(e) => {
@@ -69,7 +69,7 @@ export function ColumnHeader(props: any) {
                 </div>
             ) : (
                 <div className="flex items-center justify-between w-full">
-                    <span className="truncate font-semibold text-gray-700 dark:text-text-primary" title={props.displayName}>{props.displayName}</span>
+                    <span className="truncate font-semibold text-text-primary" title={props.displayName}>{props.displayName}</span>
                     <div className="flex items-center opacity-30 group-hover:opacity-100 transition-opacity ml-1">
                         <Tooltip title="Clean / set type">
                             <IconButton

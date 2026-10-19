@@ -48,5 +48,13 @@ test('point at one card, then one click gets all three pages', async ({ panel, e
     const file = await download;
     const csv = await (await import('node:fs/promises')).readFile((await file.path())!, 'utf8');
     expect(csv.trim().split('\n')).toHaveLength(13);
-    if (SHOTS) await ui.screenshot({ path: `${SHOTS}/my-data.png` });
+    if (SHOTS) {
+        await ui.screenshot({ path: `${SHOTS}/my-data.png` });
+        const opened = ext.waitForEvent('page');
+        await saved.getByRole('button', { name: 'Open' }).click();
+        const table = await opened;
+        await table.setViewportSize({ width: 1100, height: 700 });
+        await table.waitForTimeout(1500);
+        await table.screenshot({ path: `${SHOTS}/data-table.png` });
+    }
 });
