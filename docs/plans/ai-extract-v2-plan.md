@@ -3,7 +3,27 @@
 Status: plan, not started. Builds on `ai-extract-markdown-plan.md`, where X0 (model host), M1 (markdown
 engine) and X1 (single-page AI Extract) are done; X2 (compile to a recipe) and X3 (many pages) are still open.
 
-## 1. Goal
+## 1. What the user gets
+
+A user gives a schema (fields, a JSON Schema or an example) and gets back **their data from the page,
+in their shape, with the proof**. For example:
+
+- **A product page.** They ask for `title, price, brand, materials, dimensions{width,height,depth}, care[]`. They get JSON in exactly that shape.
+  - The materials and dimensions sat in closed "Specifications" and "Details" accordions; CrawlPilot opened them before reading.
+  - Every value carries its evidence: the markdown of the block it came from (`| Width | 120 cm |`), and a click shows it on the page.
+- **A job post.** They ask for `title, company, location, salary{min,max,currency}, requirements[]`. The requirements were under a "Show more" button, which was opened first.
+- **A listing page.** They ask for `products[]: {name, price, url, rating}` and get every product on the page, merged across chunks, each with its evidence block.
+- **When something can't be found or checked,** the result says so. A guess is never presented as a fact.
+
+What they take away:
+
+- the **JSON** (schema shape, with a `sources` object);
+- a **table** (in My data, exportable);
+- an **evidence report** in markdown: each value, the page block quoted as markdown, and a link to the page (§3.3).
+
+Each value is easy to trust or correct, because its evidence is right there.
+
+## 1a. Goals
 
 1. **JSON Schema extraction like thenos.** The user's JSON Schema is the contract. The result is JSON in
    exactly that shape (nested objects, arrays, enums, required fields). Every value carries where it came
@@ -88,6 +108,58 @@ against the enum. A new status, `mapped`, means "the page says X, read as Y".
 
 The JSON export is the assembled document, exactly in the schema's shape.
 
+### 3.1a Reveal hidden content before reading
+
+Today the markdown engine reads only what is rendered. That keeps hidden text and hidden prompt
+injections away from the model, but it also drops collapsed accordions, inactive tabs and clamped
+"Read more" text: on product and job pages, often the very fields asked for. A closed `<details>` is
+the one case already kept.
+
+Before the view is built, `content/services/reveal/` opens what the user could open themselves. It works
+in two layers, safest first.
+
+**1. Read it without clicking (no side effects).**
+- **What counts:** content that is in the DOM but hidden by a **disclosure pattern** tied to a visible control:
+  - the panel an `aria-expanded="false"` control points at (`aria-controls`);
+  - inactive `role="tabpanel"`s of a `role="tablist"`;
+  - `[data-state="closed"]` panels (Radix, shadcn);
+  - Bootstrap `.collapse:not(.show)`;
+  - `<details>` (exists);
+  - text clamped by `line-clamp` or a `max-height` with overflow hidden.
+- **How it is read:** these subtrees are composed as if open, each under its control's label ("Specifications").
+- **What stays out:** generic `display: none` content with no visible control (still excluded: that is where hidden injections live). The injection filter runs on everything revealed.
+
+**2. Click to open, when the content isn't in the DOM until clicked.** This covers lazy accordions, "Show more", "Read full description" and "See all specs".
+- **Candidates**, in the main content only (never `nav`, `header`, `footer` or an overlay):
+  - `<summary>`;
+  - `[aria-expanded="false"]`;
+  - unselected `role="tab"`;
+  - buttons whose text reads like an expander ("show more", "read more", "see more", "view all", "more details", "specifications", "expand", in the bundled languages).
+- **Never clicked:**
+  - a link that navigates (an `href` that isn't `#` or javascript), unless it is `role="button"` with an `aria-controls`;
+  - submit buttons, or anything in a form;
+  - anything whose text or label matches the deny list: add to cart, buy, checkout, subscribe, sign in, log in, delete, remove, accept, follow, like, share, vote, report;
+  - anything that opened a dialog or changed the URL earlier in this reveal.
+- **How it clicks:**
+  1. Click one candidate, then wait for the DOM to settle (no mutations for 300 ms, at most 1.5 s).
+  2. Keep what appeared.
+  3. Stop at **20 clicks or 6 seconds**.
+  4. If the URL changes or a new tab opens, stop at once and report it.
+- **Tabs:** each tab is selected in turn, and its panel is captured right after (only one is visible at a time). Every panel lands in the view under its tab's name.
+- **Putting the page back:** the page is restored afterwards. What was opened is closed, and the tab that was selected is selected again, so the user's page looks as it did. A "Leave opened" option skips this.
+
+**What the rest of the pipeline sees.**
+- **Refs:** revealed blocks get refs like any other block, so grounding, evidence and highlighting work.
+- **Show on page:** for a revealed block, this first re-opens its section (the reveal remembers which control opened it).
+- **Evidence:** it records the path, "opened *Specifications* → `| Width | 120 cm |`".
+- **Recipes:** compiling to a recipe (X2) adds the same opens as the Page Extractor's click steps, which it already supports, so reruns open them too.
+
+**The report** is shown above the result: "Opened 3 sections (Specifications, Details, Shipping) and read 2
+tabs before reading the page." Anything skipped as unsafe is listed under the warnings.
+
+**Shared.** The reveal is used by AI Extract, the Page assistant and "Article text & details", so all three
+read the same full page.
+
 ### 3.2 Fitting Gemini Nano: smaller asks, narrower input
 
 All sizes are **measured** with `modelHost.room` / `measureContextUsage`, never guessed. The rules:
@@ -129,6 +201,13 @@ All sizes are **measured** with `modelHost.room` / `measureContextUsage`, never 
   - The data viewer shows it as "Why this value" on a cell.
   - The JSON view shows it beside each pointer. This is thenos CT4's "evidence per page".
 - **Markdown as an output.** A "Page markdown" option saves the page's `fit` markdown in the row (one column), so the text the values came from goes with the data.
+- **The evidence report (markdown).** One document per run, downloadable as `.md` and copyable. For each JSON pointer it gives:
+  - the value;
+  - its status (verified, from page data, mapped, not on page);
+  - the evidence block quoted as markdown, with "opened *Specifications*" when it was revealed;
+  - a link to the page.
+
+  Values with no evidence are listed at the end, with why. The user can paste it into a ticket, a doc or a review, and anyone can check every value without CrawlPilot.
 
 ### 3.4 Resilience: every failure has a next step
 
@@ -195,7 +274,9 @@ Retrying after a failure, changing one field, or rerunning the same page re-asks
    - Clicking a value highlights it on the page and shows its evidence block.
    - Warnings are listed in plain words, grouped.
    - **Fill the gaps** re-asks only the empty or invalid leaves.
-4. **Save:** the table (with `_sources` and `_evidence` hidden from exports by default) and a **JSON** download in the schema's shape, with sources as a sibling `sources` object, as thenos returns them.
+4. **Evidence:** an **Evidence** tab renders the evidence report (§3.3): every value next to the markdown block it came from. It has Copy and Download `.md`.
+5. **Revealed:** a line above the result says what was opened before reading, with a "Show what was opened" toggle on the page.
+6. **Save:** the table (with `_sources` and `_evidence` hidden from exports by default) and a **JSON** download in the schema's shape, with sources as a sibling `sources` object, as thenos returns them.
 
 ## 4. Code layout
 
@@ -207,7 +288,9 @@ shared/ai/extractPrompt.ts     prompts and constraints per group / list chunk / 
 shared/ai/merge.ts             identity-aware list merge (changed)
 shared/ai/structured.ts        + embedded app state (T0)
 shared/markdown/chunks.ts      + heading trail, + one-block overlap option
+content/services/reveal/       read disclosure panels without clicking; safe expander clicks; tabs; restore
 content/services/ai-view/      view carries full + fit renderings with refs; list-region view
+shared/ai/evidenceReport.ts    the run as a markdown evidence report
 sidepanel/services/ai/
   extractRun.ts                orchestration: plan → T0 → groups/chunks with the recovery ladder → validate → repair → ground → assemble
   callCache.ts                 memory + IndexedDB cache of call answers
@@ -222,10 +305,11 @@ Each step ships on its own, keeps the e2e suite green and adds its tests.
 |---|---|---|
 | **A1 Schema core** | `schemaNormalize`, `schemaPlan`, `assemble`, validator; lines, example and presets compile to JSON Schema; JSON export in the schema's shape with per-pointer sources | Nested object, array of scalars, enum and required round-trip on 12 unit schemas; the existing intake tests still pass through the new path |
 | **A2 Budget and groups** | Output reserve from the plan; leaf groups of ≤ 8; list items per chunk from item cost; column passes for wide items; per-page chars-per-token | With a fake model, a 20-field schema runs as 3 calls each within budget; a 12-leaf list item runs in 2 passes; no call exceeds the measured room |
+| **A2b Reveal** | §3.1a: no-click disclosure reading, safe expander with deny list and caps, tab capture, restore, report; used by AI Extract, Page assistant and Article text | New fixtures for: Bootstrap collapse, ARIA accordion, Radix `data-state`, tabs, a line-clamped description, a lazy "Show more" that fetches its content on click, an "Add to cart" button and a navigating link. Every hidden field is read; the cart button and the link are never clicked; the page is restored (e2e in Chromium) |
 | **A3 Markdown input** | Full → fit → BM25 → truncate chooser; heading trail; list overlap; list-region view; evidence stored | On the corpus, single answers read `fit` on every page where full overflows; listing pages read only the list region; every value has evidence |
 | **A4 Resilience** | Recovery ladder, partial runs, validate-then-repair, identity-aware merge, call cache, progress saved to `jobs` | A fault-injecting fake model (`too_large`, `invalid_output`, `session_lost` at chosen calls) ends every run `ok` or `partial` with the right warnings and no lost values; a rerun of the same page makes 0 model calls |
 | **A5 No-model path** | Embedded state in T0; T1 by name from the List Extractor | On the 4 product pages with the model off, price, title and availability fill from page data; on 2 listings, a list comes back matched by name |
-| **A6 Screen** | Schema tabs and intake problems, cost summary, Table / JSON result with statuses and evidence, Fill the gaps, JSON download | Kit view and screenshots in light and dark; e2e: JSON Schema in → JSON out in the same shape on a product fixture (with the fake model) |
+| **A6 Screen** | Schema tabs and intake problems, cost summary, Table / JSON / Evidence results with statuses, the revealed line, Fill the gaps, JSON and `.md` evidence downloads | Kit view and screenshots in light and dark; e2e: JSON Schema in → JSON out in the same shape on a product fixture (with the fake model) |
 
 Then **X2** (compile the run to a recipe that reruns with no model) and **X3** (many pages, panel
 closed), as already planned, on top of this.
@@ -251,5 +335,7 @@ closed), as already planned, on top of this.
   schemas never need them.
 - **The cache must not serve a stale page.** The key includes the model's input text, so a changed page
   misses the cache. The day-long IndexedDB entry is a speed-up, never a source of truth.
+- **Clicking on someone's page has risks.** The deny list, the caps, the main-content-only rule, the URL-change stop and restore keep it safe. A site whose "expand" button does something else is the case the deny list can't know; the report lists every click, and the user can turn the clicks off ("Read only what's shown").
+- **Revealed hidden text is a prompt-injection channel.** Only panels tied to a visible control are revealed, the injection filter runs on them, and grounding still has the final say on every value.
 - **Decision for you:** should "Page markdown" be saved with every AI Extract row by default (larger
   tables, full evidence), or only when asked? The plan assumes **only when asked**.
