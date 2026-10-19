@@ -43,7 +43,10 @@ export interface ExpandResult {
 }
 
 const OUTSIDE = 'nav, header, footer, form, dialog, [role="navigation"], [role="banner"], [role="contentinfo"], [role="dialog"], [aria-modal="true"], [role="menu"], [role="menubar"], [role="listbox"], [role="search"]';
-const EXPANDER = /^(show|read|see|view)\s+(more|all|full|the full|entire|details|description|specs|specifications)\b|^more( details| info(rmation)?)?$|^expand( all)?\b|^(full|see all|all) (description|details|specs|specifications)\b|^(product )?(details|specifications|specs|description)$/i;
+// "View all reviews", "See all items": usually another page (or a single-page app's other view), so
+// "all" counts only for the page's own details.
+const ALL_OF = '(item |product )?(details|description|specs|specifications|features)';
+const EXPANDER = new RegExp(`^(show|read|see|view)\\s+(more|full|the full|entire|details|description|specs|specifications)\\b|^(show|see|view) all ${ALL_OF}\\b|^more( details| info(rmation)?)?$|^expand( all)?\\b|^(full|see all|all) ${ALL_OF}\\b|^${ALL_OF}$`, 'i');
 const DENY = /\b(sort|filters?|refine|options?|sellers?|offers?|variants?|add to|cart|bag|basket|wish ?list|buy|checkout|check out|pay|order|book|reserve|subscribe|sign ?in|log ?in|sign ?up|register|join|delete|remove|accept|agree|allow|decline|reject|follow|like|share|vote|report|unsubscribe|close|dismiss|download|print|apply|contact|call|chat|compare|notify|less)\b/i;
 const MAX_TEXT = 40;
 /** A label on this many controls is a per-item control (each card's), not a section of the page. */
@@ -175,7 +178,9 @@ export async function expandHidden(budget: RevealBudget, doc: Document = documen
                 (el as HTMLElement).click();
                 clicks++;
                 await settle(doc);
-                if (blocked > blockedBefore) { skipped.push({ label, reason: 'tried to open another page' }); continue; }
+                // A single-page app may have started showing its other view before it changed the URL:
+            // nothing more is clicked on this page.
+            if (blocked > blockedBefore) { stopped = 'navigated'; skipped.push({ label, reason: 'tried to open another page' }); break; }
 
                 if ((doc.location?.href ?? '') !== startUrl) { stopped = 'navigated'; skipped.push({ label, reason: 'opened another page' }); break; }
                 if (dialogs(doc) > dialogsBefore) {

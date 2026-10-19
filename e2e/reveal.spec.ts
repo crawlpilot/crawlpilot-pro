@@ -76,3 +76,18 @@ test('metadata extractor (the bulk runs\' handler): hidden sections are in the m
     expect(off.result.revealed).toBe('');
     await page.close();
 });
+
+test('reading a page never leaves it: a router push or a script navigation from a clicked button is cancelled', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    const url = `${origin}/site/reveal-navigates.html`;
+    await page.goto(url);
+    const tabId = await panel.tabId(page.url());
+    const reply = await panel.toTab(tabId, 'AI_PAGE_VIEW', { chunkChars: 50_000, maxChunks: 4 });
+    expect(reply.success).toBe(true);
+    expect(reply.view.chunks.join('\n')).toContain('Battery: 2 x AAA');
+    expect(reply.view.revealed.skipped).toContainEqual({ label: 'Show more', reason: 'tried to open another page' });
+    await page.waitForTimeout(1500);
+    expect(page.url()).toBe(url);
+    expect(await page.title()).toBe('Reveal must not navigate');
+    await page.close();
+});

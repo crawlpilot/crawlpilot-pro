@@ -142,6 +142,7 @@ describe('clicking only what is safe', () => {
             expect(navigated).toBe(false);
             expect(r.skipped.filter(s => s.reason === 'repeats on every item')).toHaveLength(4);
             expect(r.skipped).toContainEqual({ label: 'Details', reason: 'tried to open another page' });
+            expect(r.stopped).toBe('navigated');
             expect(r.opened).toEqual([]);
         } finally {
             delete (window as any).navigation;
