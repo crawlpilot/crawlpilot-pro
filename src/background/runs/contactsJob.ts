@@ -12,7 +12,7 @@ import { CONTACT_COLUMNS, contactRow } from '../../shared/contacts/row';
 function loaded(tabId: number, ms = 20_000): Promise<void> {
     return new Promise(resolve => {
         const done = () => { clearTimeout(timer); chrome.tabs.onUpdated.removeListener(listener); resolve(); };
-        const listener = (id: number, info: chrome.tabs.TabChangeInfo) => { if (id === tabId && info.status === 'complete') done(); };
+        const listener = (id: number, info: { status?: string }) => { if (id === tabId && info.status === 'complete') done(); };
         const timer = setTimeout(done, ms);
         chrome.tabs.onUpdated.addListener(listener);
     });

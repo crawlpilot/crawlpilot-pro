@@ -4,10 +4,13 @@
  *
  * 1. **T0, structured data** (`shared/ai/structured.ts`): JSON-LD, microdata and meta answer what they
  *    can, with no model.
- * 2. **T2, the on-device model** (through `modelHost`) for what is left:
- *    - single answers: one call over the page, or over the blocks most about the fields when the page
- *      doesn't fit; one targeted retry for required fields still empty;
- *    - lists: one call per chunk of the page, items merged across chunks.
+ * 2. **T2, the on-device model** (through `modelHost`) for what is left, every call sized to the
+ *    measured window (`budget.ts`, docs/plans/ai-extract-v2-plan.md §3.2):
+ *    - single answers: in groups of at most 8 fields, each over the whole page when it fits, else over
+ *      the blocks most about that group's fields; one targeted retry for required fields still empty;
+ *    - lists: one call per chunk, items per chunk from the item's width; a wide item is read in passes
+ *      (its identifying fields + up to 8 others each), joined on the identifying fields;
+ *    - at most 40 calls per page; reaching it is a warning.
  * 3. **Grounding** (content script): every model answer is checked against the block it cites, its
  *    item's blocks, or the whole page. A value the page doesn't contain is `unverified` and never
  *    shown as verified.
@@ -24,6 +27,11 @@ import {
 import { compileConstraint, relax } from '../../../shared/ai/constraint';
 import { structuredAnswers, structuredList } from '../../../shared/ai/structured';
 import { mergeItems, selectBlocks, type MergeItem } from '../../../shared/ai/merge';
+import { chunkMarkdown } from '../../../shared/markdown/chunks';
+import {
+    groupFields, identityFields, inputChars, itemsPerChunk, listPasses, listReserve, singleReserve,
+    MAX_CALLS, MAX_LIST_CHUNKS,
+} from './budget';
 import { cleanUrl, parseBoolean, parseNumber } from '../../../shared/transforms/parsers';
 import type { SchemaField, SchemaList } from '../../../shared/ai/schemaIntake';
 import type { GroundRequest, Grounded, PageView } from '../../../shared/ai/page';
@@ -83,15 +91,8 @@ export interface ExtractOptions {
     signal?: AbortSignal;
 }
 
-const MAX_CHUNKS = 8;
-const MAX_LIST_CHUNKS = 6;
-const ITEMS_PER_CHUNK = 20;
-/** Tokens a list item's answer takes, per field. */
-const ITEM_FIELD_TOKENS = 14;
-const NO_MODEL_CHUNK_CHARS = 12_000;
-
-const reserveSingle = (fields: SchemaField[]) => 200 + fields.length * 40;
-const reserveList = (list: SchemaList) => 100 + ITEMS_PER_CHUNK * (8 + list.fields.length * ITEM_FIELD_TOKENS);
+/** The page is read once, whole (up to this much); calls cut it to their own size. */
+const VIEW_CHARS = 400_000;
 
 class ExtractStopped extends Error {}
 
@@ -136,24 +137,34 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
     } else warnings.push(message('model_unavailable', (await modelStatus()).reason));
     stopped();
 
-    // Chunk size from the room a call has (the larger of the two kinds of call this run makes).
-    let chunkChars = NO_MODEL_CHUNK_CHARS;
-    if (model) {
-        const reserve = Math.max(intake.fields.length ? reserveSingle(intake.fields) : 0, ...intake.lists.map(reserveList));
-        const room = await modelHost.room(EXTRACT_SYSTEM_PROMPT, 'exact', 'The quick brown fox jumps over the lazy dog. '.repeat(40), reserve);
-        if ('code' in room) throw new Error(message(room.code));
-        chunkChars = Math.max(1500, Math.floor(room.tokens * room.charsPerToken * 0.8) - 800);
-    }
-
     opts.onStatus?.('Opening hidden sections and reading the page…');
-    const view = await page.view(chunkChars, MAX_CHUNKS);
+    const view = await page.view(VIEW_CHARS, 1);
     if (!view.chunks.length) throw new Error('No readable text found on this page.');
-    if (view.truncated) warnings.push(`The page is long: only its first ${view.chunks.length} parts were read.`);
+    if (view.truncated) warnings.push('The page is very long: only its first part was read.');
+    const markdown = view.chunks.join('\n\n');
     stopped();
+
+    // Characters per token measured on this page's own text (a Japanese page is not an English one).
+    let room = { tokens: 0, charsPerToken: 4 };
+    if (model) {
+        const r = await modelHost.room(EXTRACT_SYSTEM_PROMPT, 'exact', markdown.slice(0, 4000), 0);
+        if ('code' in r) throw new Error(message(r.code));
+        room = r;
+    }
+    /** Page characters a call can take, after its answer, its own text and its constraint. */
+    const sizeFor = (reserve: number, prompt: string, schema: Record<string, unknown>) =>
+        inputChars(room, reserve, prompt.length, JSON.stringify(compileConstraint(schema)).length);
 
     const single: Record<string, ExtractedValue> = {};
     const lists: Record<string, ExtractedItem[]> = {};
     let modelUsed = false;
+    let calls = 0;
+    let capped = false;
+    const budgetLeft = () => {
+        if (calls < MAX_CALLS) return true;
+        if (!capped) { capped = true; warnings.push(`Stopped after ${MAX_CALLS} model calls on this page: some fields or items were not read.`); }
+        return false;
+    };
 
     // ── T0: structured data ──
     const t0 = structuredAnswers(intake.fields, view.structured);
@@ -167,12 +178,14 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
 
     const run = async <T>(prompt: string, schema: Record<string, unknown>, reserve: number, parse: (raw: string) => T): Promise<CallResult<T>> => {
         let constraint = compileConstraint(schema);
+        calls++;
         let res = await modelHost.run({ system: EXTRACT_SYSTEM_PROMPT, sampling: 'exact', prompt, schema: constraint, reserve, parse }, opts.signal);
         // A constraint Chrome can't enforce, or can't satisfy: relaxed a step at a time, never dropped.
         for (let step = 0; !res.ok && (res.code === 'schema_unsupported' || res.code === 'unsatisfiable'); step++) {
             const next = relax(constraint, step);
             if (!next) break;
             constraint = next;
+            calls++;
             res = await modelHost.run({ system: EXTRACT_SYSTEM_PROMPT, sampling: 'exact', prompt, schema: constraint, reserve, parse }, opts.signal);
         }
         if (!res.ok && res.code === 'aborted') throw new ExtractStopped('Stopped.');
@@ -180,32 +193,47 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
         return res;
     };
 
-    // ── T2: single answers ──
+    // ── T2: single answers, a group of fields per call ──
     const missing = intake.fields.filter(f => !single[f.name]);
     const answers: Record<string, FieldAnswer> = {};
+    let pageCut = false;
     if (missing.length && model) {
-        const ask = async (fields: SchemaField[]) => {
-            const terms = fields.map(f => `${f.name} ${f.description ?? ''}`).join(' ');
-            let text = view.chunks.length === 1 ? view.chunks[0] : selectBlocks(view.chunks, terms, chunkChars);
+        const ask = async (fields: SchemaField[], narrow: boolean) => {
+            if (!budgetLeft()) return;
+            const terms = fields.map(f => `${f.label ?? f.name} ${f.description ?? ''}`).join(' ');
+            const schema = buildResponseSchema(fields);
+            const reserve = singleReserve(fields);
+            let size = sizeFor(reserve, buildExtractPrompt('', fields, opts.instructions), schema);
+            if (narrow) size = Math.floor(size * 0.6);
             for (let attempt = 0; attempt < 2; attempt++) {
-                const res = await run(buildExtractPrompt(text, fields, opts.instructions), buildResponseSchema(fields), reserveSingle(fields), raw => parseModelOutput(raw, fields));
+                const fits = markdown.length <= size;
+                if (!fits) pageCut = true;
+                const text = fits ? markdown : selectBlocks([markdown], terms, size);
+                const res = await run(buildExtractPrompt(text, fields, opts.instructions), schema, reserve, raw => parseModelOutput(raw, fields));
                 if (res.ok) { modelUsed = true; Object.assign(answers, res.value); return; }
-                if (res.code === 'too_large' && attempt === 0) { text = selectBlocks(view.chunks, terms, Math.floor(chunkChars * 0.6)); continue; }
-                warnings.push(`${fields.map(f => f.name).join(', ')}: ${message(res.code, res.detail)}`);
+                // Too big after all (the estimate was off): the same fields over less of the page.
+                if (res.code === 'too_large' && attempt === 0 && budgetLeft()) { size = Math.floor(size * 0.6); continue; }
+                warnings.push(`${fields.map(f => f.label ?? f.name).join(', ')}: ${message(res.code, res.detail)}`);
                 return;
             }
         };
-        opts.onStatus?.(`Asking the model for ${missing.length} field${missing.length !== 1 ? 's' : ''}…`);
-        await ask(missing);
+        const groups = groupFields(missing);
+        for (let g = 0; g < groups.length; g++) {
+            stopped();
+            opts.onStatus?.(groups.length > 1
+                ? `Asking the model for fields, part ${g + 1} of ${groups.length}…`
+                : `Asking the model for ${missing.length} field${missing.length !== 1 ? 's' : ''}…`);
+            await ask(groups[g], false);
+        }
         // One targeted retry for required fields still empty, over the blocks most about them.
         const retry = missing.filter(f => f.required && !answers[f.name]?.value);
-        if (retry.length && view.chunks.length > 1) {
-            opts.onStatus?.(`Looking again for ${retry.map(f => f.name).join(', ')}…`);
-            await ask(retry);
+        if (retry.length && pageCut) {
+            opts.onStatus?.(`Looking again for ${retry.map(f => f.label ?? f.name).join(', ')}…`);
+            for (const group of groupFields(retry)) await ask(group, true);
         }
     }
 
-    // ── Lists: T0, else T2 chunk by chunk ──
+    // ── Lists: T0, else T2 pass by pass, chunk by chunk ──
     const listAnswers: Record<string, MergeItem[]> = {};
     for (const list of intake.lists) {
         const fromData = structuredList(list, view.structured);
@@ -216,18 +244,33 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
             continue;
         }
         if (!model) { lists[list.name] = []; warnings.push(`${list.name}: needs the on-device model (no structured data lists them).`); continue; }
-        const found: MergeItem[] = [];
-        const chunks = view.chunks.slice(0, MAX_LIST_CHUNKS);
-        if (view.chunks.length > MAX_LIST_CHUNKS) warnings.push(`${list.name}: only the first ${MAX_LIST_CHUNKS} parts of the page were read for this list.`);
-        for (let i = 0; i < chunks.length; i++) {
-            stopped();
-            opts.onStatus?.(`Reading ${list.name}: part ${i + 1} of ${chunks.length}…`);
-            const res = await run<ItemAnswer[]>(buildListPrompt(chunks[i], list, ITEMS_PER_CHUNK, opts.instructions), buildListSchema(list, ITEMS_PER_CHUNK), reserveList(list), raw => parseListOutput(raw, list));
-            if (!res.ok) { warnings.push(`${list.name}, part ${i + 1}: ${message(res.code, res.detail)}`); continue; }
-            modelUsed = true;
-            found.push(...res.value.map(it => ({ values: it.values, ref: it.ref, chunk: i })));
+        const passes = listPasses(list);
+        const results: MergeItem[][] = [];
+        for (let p = 0; p < passes.length; p++) {
+            const pass = passes[p];
+            const max = itemsPerChunk(pass.fields);
+            const schema = buildListSchema(pass, max);
+            const reserve = listReserve(pass.fields);
+            const size = sizeFor(reserve, buildListPrompt('', pass, max, opts.instructions), schema);
+            let chunks = chunkMarkdown(markdown, size);
+            if (chunks.length > MAX_LIST_CHUNKS) {
+                warnings.push(`${list.name}: only the first ${MAX_LIST_CHUNKS} parts of the page were read for this list.`);
+                chunks = chunks.slice(0, MAX_LIST_CHUNKS);
+            }
+            const found: MergeItem[] = [];
+            for (let i = 0; i < chunks.length; i++) {
+                stopped();
+                if (!budgetLeft()) break;
+                const part = passes.length > 1 ? ` (fields ${p + 1} of ${passes.length})` : '';
+                opts.onStatus?.(`Reading ${list.name}${part}: part ${i + 1} of ${chunks.length}…`);
+                const res = await run<ItemAnswer[]>(buildListPrompt(chunks[i], pass, max, opts.instructions), schema, reserve, raw => parseListOutput(raw, pass));
+                if (!res.ok) { warnings.push(`${list.name}, part ${i + 1}: ${message(res.code, res.detail)}`); continue; }
+                modelUsed = true;
+                found.push(...res.value.map(it => ({ values: it.values, ref: it.ref, chunk: i })));
+            }
+            results.push(mergeItems(found));
         }
-        listAnswers[list.name] = mergeItems(found);
+        listAnswers[list.name] = joinPasses(results, identityFields(list.fields).map(f => f.name));
     }
 
     // ── Grounding ──
@@ -277,6 +320,30 @@ export async function runPageExtract(intake: { fields: SchemaField[]; lists: Sch
     if (unverified) warnings.push(`${unverified} value${unverified !== 1 ? 's' : ''} the model gave ${unverified !== 1 ? 'are' : 'is'} not on the page: shown as unverified.`);
     for (const skip of view.revealed?.skipped.filter(s => s.reason !== 'outside the main content') ?? []) warnings.push(`Didn't click “${skip.label}”: ${skip.reason}.`);
     return { url: view.url, title: view.title, single, lists, warnings, modelUsed, ...(view.revealed ? { revealed: view.revealed } : {}) };
+}
+
+const key = (v: string) => v.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+
+/**
+ * A wide list's passes into one list of items: each later pass's items join the first pass's item with
+ * the same identifying values (or, without any, the same ref); an item no earlier pass had is added.
+ */
+export function joinPasses(passes: MergeItem[][], ids: string[]): MergeItem[] {
+    const [first = [], ...rest] = passes;
+    const out = first.map(item => ({ ...item, values: { ...item.values } }));
+    const identity = (item: MergeItem) => {
+        const parts = ids.map(id => key(item.values[id] ?? '')).filter(Boolean);
+        return parts.length ? parts.join('\u0000') : null;
+    };
+    for (const pass of rest) {
+        for (const item of pass) {
+            const id = identity(item);
+            const match = out.find(o => (id !== null && identity(o) === id) || (id === null && item.ref && o.ref === item.ref));
+            if (match) { for (const [k, v] of Object.entries(item.values)) if (v && !match.values[k]) match.values[k] = v; }
+            else out.push({ ...item, values: { ...item.values } });
+        }
+    }
+    return out;
 }
 
 export { ExtractStopped };

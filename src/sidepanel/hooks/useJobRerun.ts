@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { sendToTab } from '../../shared/messages';
+import { send, sendToTab } from '../../shared/messages';
 import { useExtractionProcess } from './useExtractionProcess';
 import { useBulkExtraction } from './useBulkExtraction';
 import contentScriptPath from '../../content/element-selector?script';
@@ -114,7 +114,7 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
             } else if (spec.kind === 'contacts') {
                 const res = await send('CONTACTS_START', { urls, follow: spec.options.follow, ownOnly: spec.options.ownOnly, maxConcurrent: options.concurrent, customName: options.name });
                 if (!res?.success) alert('Re-run failed: ' + (res && !res.success ? res.error : 'the background is not reachable'));
-                else onStarted?.();
+                else onStarted(res.jobId);
             } else {
                 alert('Metadata runs are re-run from the Metadata page.');
             }

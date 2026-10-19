@@ -93,5 +93,9 @@
   "ai": {
     "title": "With Chrome's built-in AI",
     "needsAi": "Needs Chrome's built-in AI, which this computer doesn't have"
+  },
+  "contacts": {
+    "title": "Contacts from websites",
+    "description": "Emails, phones and social profiles of a list of companies"
   }
 }

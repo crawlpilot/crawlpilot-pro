@@ -8,7 +8,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import {
     ArrowRight, ChevronRight, FileText, Files, Image as ImageIcon, Layers, List, MessageSquareText, MousePointerClick,
     Radar, ShoppingBag, Sparkles, Table2, Unlock,
-} from 'lucide-react';
+ Mail } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { usePageTab } from '../hooks/usePageTab';
@@ -212,6 +212,7 @@ export default function HomePage({ onNavigate, isTabConnected = true }: HomePage
 
                 <Disclosure variant="plain" icon={<Layers />} summary={t('moreTools')} open={more} onToggle={setMore}>
                     <Stack gap={0.5}>
+                        <ToolRow icon={<Mail />} title={t('contacts.title')} hint={t('contacts.description')} onClick={() => onNavigate('email-extractor')} />
                         <ToolRow icon={<Unlock />} title={t('browserUtilities.title')} hint={t('browserUtilities.description')} onClick={() => onNavigate('utilities')} />
                         {ai === false && aiTools(t('ai.needsAi'))}
                     </Stack>
