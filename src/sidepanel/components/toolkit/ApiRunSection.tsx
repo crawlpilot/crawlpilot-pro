@@ -104,7 +104,7 @@ export default function ApiRunSection({ entry, json, items, page }: { entry: Net
                 )}
                 <Button variant="primary" icon={<Play />} disabled={!!input && values.length === 0}
                     onClick={() => run.start({ spec, values, customName: `API · ${hostOf(request.url)} ${formatPath(items)}${input ? ` · ${values.length} values` : ''}` })}>
-                    {input ? `Run for ${units.length} value${units.length > 1 ? 's' : ''}` : 'Get every page'}
+                    {input ? `Run for ${units.length} value${units.length > 1 ? 's' : ''}` : 'Start'}
                 </Button>
             </div>
         </DetailSection>

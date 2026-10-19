@@ -209,7 +209,7 @@ export default function ApiFinderPanel() {
             {!captured && !recording && (
                 <ToolIntro icon={<Network />} title="Skip the page, call its API"
                     text="Many sites load their data from a JSON API. Record the calls this page makes, point at a value you can see, and get the request that returns it."
-                    points={['Works for infinite scroll and "Load more" lists', 'Finds the exact JSON path of a value, and the whole list it belongs to', 'Copy the call as cURL, fetch, Python… or save the list as a table']} />
+                    points={['Works for infinite scroll and "Load more" lists', 'Finds the exact JSON path of a value, and the whole list it belongs to', 'Get every page of it in the background, with your session: no tabs, no layout to break', 'Copy the call as cURL, fetch, Python… or save the list as a table']} />
             )}
 
             <Step n={1} title="Record the page's calls" done={captured}
