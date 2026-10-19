@@ -217,6 +217,17 @@ The assistant works on the current tab only (decided 2026-10-19).
 - **Fixes along the way:** a citation's outline could stay on the page after two quick "show on page" clicks. A hidden tab now jumps to the citation instead of scrolling smoothly (the animation would otherwise finish later).
 - **Not checked by e2e:** whether the crop is pixel-accurate. Playwright emulates the viewport, so its tab capture is a different size from the page, which never happens in real Chrome. The crop maths is unit-tested.
 
+**P5, built (2026-10-19):**
+- **What changed:** briefing a page whose brief was saved before shows "Since you saved this page on …" (`briefChanges`):
+  - numbers that changed are shown old → new ("Price: $129.00 → $99.00");
+  - new or gone points are listed;
+  - rephrasings aren't counted (same numbers and most of the same words);
+  - the gist and the model's readings aren't compared.
+- **Does it fit me?** The user writes once what matters to them. It's kept on this device (`assistantNeeds` in storage) and editable from the result.
+  - The model checks it against the brief's facts and gives a verdict: fits / partly / doesn't fit / the page doesn't say enough.
+  - Up to 4 reasons, each with a quote that is checked and can be shown on the page like the brief's points.
+- **Tests:** `e2e/assistant.spec.ts`, where the price changes and the page is briefed again, plus a fit check with one reason the page doesn't support.
+
 ## Phases
 
 Each phase is committed on its own and can be used by itself.
@@ -227,7 +238,7 @@ Each phase is committed on its own and can be used by itself.
 | **P2** | **A3 answers become data** (table, save, copy, open in AI Extract / List / Page Extractor) | Medium |
 | **P3** | **A4 any language** (detect, translate in, answer in the user's language) | Medium |
 | **P4** | **A5 images** (pick an image, capture the screen, image to table) | Medium |
-| **P5** | **A7** (what changed, "does it fit me") | Later |
+| **P5** | **A7** (what changed, "does it fit me") | Built |
 
 ## Testing
 

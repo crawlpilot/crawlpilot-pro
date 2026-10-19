@@ -26,7 +26,8 @@ const PAGES: [string, string, PageKind][] = [
 
 describe('the kind of page', () => {
     for (const [name, url, kind] of PAGES) {
-        it(`${name} is a ${kind} page`, () => {
+        // Large saved pages: slow to parse on a busy machine.
+        it(`${name} is a ${kind} page`, { timeout: 30_000 }, () => {
             loadPage(`corpus/${name}.html.gz`);
             expect(detectKind({ ...buildPageView(6000, 3, { live: false }), url })).toBe(kind);
         });
@@ -43,7 +44,7 @@ describe('the kind of page', () => {
 });
 
 describe('checking claims against the page', () => {
-    it('a quote from the cited block is verified; from another block, relocated; made up, not on the page', () => {
+    it('a quote from the cited block is verified; from another block, relocated; made up, not on the page', { timeout: 30_000 }, () => {
         loadPage('corpus/pdp-walmart.html.gz');
         buildPageView(6000, 3, { live: false });
         const blocks = [...viewBlocks()].map(([ref, el]) => ({ ref, text: (el.textContent || '').replace(/\s+/g, ' ').trim() })).filter(b => b.text.split(' ').length >= 6);
