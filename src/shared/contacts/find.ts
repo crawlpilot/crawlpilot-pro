@@ -23,7 +23,7 @@ const EMAIL = /[a-z0-9][a-z0-9._%+-]{0,63}@[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(
 /** One whole address. */
 const EMAIL_ONE = new RegExp(`^${EMAIL.source}$`, 'i');
 /** "name [at] domain [dot] com", "name(at)domain.com", "name at domain dot com". */
-const WRITTEN = /([a-z0-9._%+-]{1,64})\s*(?:\[at\]|\(at\)|\{at\}|\s+at\s+)\s*([a-z0-9-]+(?:\s*(?:\[dot\]|\(dot\)|\{dot\}|\s+dot\s+|\.)\s*[a-z0-9-]+)+)/gi;
+const WRITTEN = /([a-z0-9._%+-]{1,64})\s*(?:\[at\]|\(at\)|\{at\}|\s+at\s+)\s*([a-z0-9-]+(?:(?:\s*(?:\[dot\]|\(dot\)|\{dot\})\s*|\s+dot\s+|\.(?=[a-z0-9]))[a-z0-9-]+)+)/gi;
 const JUNK_DOMAIN = /(^|\.)(example\.(com|org|net)|domain\.com|email\.com|yourdomain\.\w+|yoursite\.\w+|company\.com|sentry\.io|sentry-next\.wixpress\.com|wixpress\.com|sentry\.wixpress\.com|test\.com|placeholder\.\w+)$/i;
 const JUNK_LOCAL = /^(no-?reply|do-?not-?reply|mailer-daemon|postmaster|abuse|example|test|user|name|email|you|your\.?name)$/i;
 const FILE_LIKE = /\.(png|jpe?g|gif|webp|svg|avif|ico|css|js)$/i;

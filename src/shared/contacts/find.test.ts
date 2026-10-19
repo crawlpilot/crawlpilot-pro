@@ -9,7 +9,7 @@ describe('finding contacts on a page', () => {
         const cf = '42' + [...'info@acme.co'].map(c => (c.charCodeAt(0) ^ 0x42).toString(16).padStart(2, '0')).join('');
         const doc = page(`
             <a href="mailto:Sales@Acme.co?subject=Hi">Email sales</a>
-            <p>Write to jane.doe@acme.co or press [at] acme [dot] co.</p>
+            <p>Write to jane.doe@acme.co or press [at] acme [dot] co. Our office is in London.</p>
             <a href="/cdn-cgi/l/email-protection#${cf}">[email protected]</a>
             <img src="logo@2x.png"><p>logo@2x.png you@example.com noreply@acme.co</p>
             <script>var dsn = "https://0123456789abcdef0123456789abcdef@o1.ingest.sentry.io/1"; var x = "hidden@script.com";</script>
