@@ -12,10 +12,8 @@ import {
     ShieldCheck,
     Globe,
     AlertTriangle,
-    Share2,
     Webhook,
     Link2,
-    CheckCircle2,
     Database,
     MessageSquare,
     ChevronRight,
@@ -28,6 +26,7 @@ const FEEDBACK_FORM_URL = 'https://forms.gle/REPLACE_ME';
 import { db } from '../../shared/db';
 import { useJobHistory } from '../hooks/useDatabase';
 import { DEFAULT_INTEGRATIONS, Integrations, storage } from '../../shared/storage';
+import { SheetsConnect } from '../components/integrations/SheetsConnect';
 
 interface SettingsPageProps {
     onBack: () => void;
@@ -176,6 +175,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                 </Section>
 
                 <Section title={t('integrations.title')} icon={<Link2 />}>
+                    <SheetsConnect />
                     <Card className="flex flex-col gap-4">
                         <Notice tone="warning" title={t('integrations.proFeature')}>{t('integrations.proDescription')}</Notice>
                         <div className="flex flex-col gap-2.5">
@@ -196,14 +196,6 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                                 <TextField size="sm" className="flex-1" label={t('integrations.tableName')} value={integrations.airtableTableName} placeholder="Records" disabled
                                     onChange={e => updateIntegration({ airtableTableName: e.target.value })} />
                             </div>
-                        </div>
-                        <Divider />
-                        <div className="flex flex-col gap-2.5">
-                            <Text weight="semibold" className="flex items-center gap-2"><Share2 size={16} /> {t('integrations.googleSheets')}</Text>
-                            <Button size="sm" fullWidth disabled icon={integrations.googleSheetsConnected ? <CheckCircle2 /> : <Share2 />}
-                                onClick={() => alert('Google Sheets Authentication is coming soon.')}>
-                                {integrations.googleSheetsConnected ? t('integrations.connectedSheets') : t('integrations.connectSheets')}
-                            </Button>
                         </div>
                     </Card>
                 </Section>
