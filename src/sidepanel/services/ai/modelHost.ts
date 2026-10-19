@@ -24,6 +24,12 @@ export const MODEL_OPTIONS = {
     expectedOutputs: [{ type: 'text' as const, languages: ['en'] }],
 };
 
+/** Sessions that also read images (the Page assistant's questions about what is on screen). */
+export const IMAGE_OPTIONS = {
+    expectedInputs: [{ type: 'text' as const, languages: ['en'] }, { type: 'image' as const }],
+    expectedOutputs: [{ type: 'text' as const, languages: ['en'] }],
+};
+
 export type CallError =
     | 'aborted' | 'timeout' | 'too_large' | 'schema_unsupported' | 'unsatisfiable' | 'invalid_output'
     | 'unsupported_language' | 'model_unavailable' | 'needs_activation' | 'session_lost' | 'failed';
@@ -61,6 +67,8 @@ export interface ModelCall<T = string> {
     reserve?: number;
     /** Streams the answer as it is written (the full text so far). */
     onText?: (text: string) => void;
+    /** An image the prompt is about: the call runs in a session that reads images. */
+    image?: Blob;
 }
 
 export type CallResult<T> =
@@ -97,12 +105,12 @@ export function progressFraction(e: ProgressEvent): number {
     return typeof e?.loaded === 'number' ? e.loaded : 0;
 }
 
-export async function modelStatus(): Promise<ModelStatus> {
+export async function modelStatus(options: typeof MODEL_OPTIONS | typeof IMAGE_OPTIONS = MODEL_OPTIONS): Promise<ModelStatus> {
     const LM = api();
     if (!LM) return { availability: 'unavailable', reason: UNAVAILABLE_REASON };
     if (!modelSupported()) return { availability: 'unavailable', reason: 'Update Chrome to use the on-device model with CrawlPilot.' };
     try {
-        const availability = await LM.availability(MODEL_OPTIONS);
+        const availability = await LM.availability(options);
         return availability === 'unavailable' ? { availability, reason: UNAVAILABLE_REASON } : { availability };
     } catch (e) {
         return { availability: 'unavailable', reason: `${UNAVAILABLE_REASON} (${(e as Error)?.message ?? e})` };
@@ -144,21 +152,22 @@ class ModelHost {
     private queue: Promise<unknown> = Promise.resolve();
     private idle: ReturnType<typeof setTimeout> | null = null;
 
-    private key(system: string, sampling: Sampling) {
-        return `${sampling}\u0000${system}`;
+    private key(system: string, sampling: Sampling, image = false) {
+        return `${sampling}\u0000${image ? 'image\u0000' : ''}${system}`;
     }
 
     /** The warm base session for this system prompt, created (and the model downloaded) if needed. */
-    private base(system: string, sampling: Sampling, onProgress?: (fraction: number) => void): Promise<LanguageModel> {
-        const key = this.key(system, sampling);
+    private base(system: string, sampling: Sampling, onProgress?: (fraction: number) => void, image = false): Promise<LanguageModel> {
+        const key = this.key(system, sampling, image);
+        const options = image ? IMAGE_OPTIONS : MODEL_OPTIONS;
         let base = this.bases.get(key);
         if (!base) {
             base = (async () => {
-                const status = await modelStatus();
+                const status = await modelStatus(options);
                 if (status.availability === 'unavailable') throw new HostError('model_unavailable', status.reason);
                 if (status.availability !== 'available' && !navigator.userActivation?.isActive) throw new HostError('needs_activation');
                 return api()!.create({
-                    ...MODEL_OPTIONS,
+                    ...options,
                     ...samplingOptions(sampling),
                     initialPrompts: [{ role: 'system', content: system }],
                     monitor(m) { m.addEventListener('downloadprogress', e => onProgress?.(progressFraction(e))); },
@@ -224,7 +233,7 @@ class ModelHost {
 
     /** Runs one call in a clone of its base session, after the calls before it. */
     run<T = string>(call: ModelCall<T>, signal?: AbortSignal): Promise<CallResult<T>> {
-        const result = this.queue.then(() => this.runNow(call, signal, () => this.base(call.system, call.sampling ?? 'default'), true));
+        const result = this.queue.then(() => this.runNow(call, signal, () => this.base(call.system, call.sampling ?? 'default', undefined, !!call.image), true));
         this.queue = result.catch(() => undefined);
         return result;
     }
@@ -270,13 +279,16 @@ class ModelHost {
             const base = await getBase();
             clone = await base.clone({ signal: combined });
             const options = this.promptOptions(call);
-            const need = await clone.measureContextUsage(call.prompt, { ...options, signal: combined });
+            const input: LanguageModelPrompt = call.image
+                ? [{ role: 'user', content: [{ type: 'image', value: call.image }, { type: 'text', value: call.prompt }] }]
+                : call.prompt;
+            const need = await clone.measureContextUsage(input, { ...options, signal: combined });
             const available = clone.contextWindow - clone.contextUsage - (call.reserve ?? DEFAULT_RESERVE);
             if (need > available) return { ok: false, code: 'too_large', need, available };
 
             let raw = '';
             if (call.onText) {
-                const reader = clone.promptStreaming(call.prompt, { ...options, signal: combined }).getReader();
+                const reader = clone.promptStreaming(input, { ...options, signal: combined }).getReader();
                 for (;;) {
                     const { done, value } = await reader.read();
                     if (done) break;
@@ -284,7 +296,7 @@ class ModelHost {
                     call.onText(raw);
                 }
             } else {
-                raw = await clone.prompt(call.prompt, { ...options, signal: combined });
+                raw = await clone.prompt(input, { ...options, signal: combined });
             }
             const usage = clone.contextUsage;
             try {
@@ -300,7 +312,7 @@ class ModelHost {
             if (code) return { ok: false, code, detail: (e as Error)?.message };
             // Undocumented: the session may be gone (model unloaded or removed). Recreate it once.
             if (canRecover && (await modelStatus()).availability === 'available') {
-                this.bases.delete(this.key(call.system, call.sampling ?? 'default'));
+                this.bases.delete(this.key(call.system, call.sampling ?? 'default', !!call.image));
                 const again = await this.runNow(call, signal, getBase, false);
                 return again.ok ? again : { ...again, code: again.code === 'failed' ? 'session_lost' : again.code };
             }

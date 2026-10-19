@@ -14,7 +14,7 @@ import type { PageSummary } from './types/pageSummary';
 import type { NextControl } from '../content/services/pagination/findNext';
 import type { NetEntry } from './network/types';
 import type { LabEval, LabPick } from '../content/features/lab/SelectorLab';
-import type { GroundRequest, Grounded, PageView } from './ai/page';
+import type { GroundRequest, Grounded, PageView, PickedRegion } from './ai/page';
 import type { ClaimRequest, ClaimResult } from './ai/cite';
 import type { Chain } from './types/database';
 import type { FoundImage, ImageBatch, ImageScanProgress } from './images/types';
@@ -161,6 +161,8 @@ export interface Messages {
     /** Page assistant: checks claims against the last page view's blocks, and shows a cited block. */
     AI_CHECK: { payload: { claims: ClaimRequest[] }; reply: Res<{ results: ClaimResult[] }> };
     AI_SHOW: { payload: { ref: string; quote?: string }; reply: Res<{ shown: boolean }> };
+    /** Page assistant: the user points at something on the page; where it is on screen, or null (Esc). */
+    AI_PICK_REGION: { reply: Res<{ region: PickedRegion | null }> };
 
     // ---- content script → side panel (broadcasts)
     ELEMENT_SELECTED: { payload: ElementSelected };

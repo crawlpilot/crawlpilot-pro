@@ -39,3 +39,16 @@ export interface Grounded {
     matchCount: number;
     grade?: GradedSelector;
 }
+
+/** Where something the user picked on the page is on screen (Page assistant: asking about an image). */
+export interface PickedRegion {
+    /** In CSS pixels of the viewport, clipped to it. */
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    viewportWidth: number;
+    viewportHeight: number;
+    /** What was picked, for the conversation ("Image: Red leather sofa", "Chart"). */
+    label: string;
+}
