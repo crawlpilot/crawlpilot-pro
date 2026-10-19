@@ -1,6 +1,9 @@
-# Summarize & ask: from a generic summary to a page assistant you can trust
+# Page assistant (was "Summarize & ask"): a brief and answers you can trust
 
-Status: plan, 2026-10-19. Nothing built yet.
+Status: plan, 2026-10-19. Decided:
+- **Name:** "Page assistant".
+- **Saved briefs:** one "Briefs" table for every kind of page.
+- **Pages:** the current tab only. Comparing tabs (A6) is dropped.
 
 ## Today
 
@@ -48,7 +51,7 @@ A **page assistant** that knows what kind of page it is on, says what matters fo
 1. **A brief, not a summary.** It answers the questions people have on that kind of page.
 2. **Every claim cites the page.** Click a claim and the page scrolls to the sentence, highlighted. Claims the page doesn't support are marked, never presented as fact.
 3. **Answers become data.** "Make it a table", "Save", "Run this on 50 pages" link into CrawlPilot's own tools.
-4. **Any language, images, several tabs.**
+4. **Any language, and images.** Always the current tab.
 
 ## The features
 
@@ -114,12 +117,9 @@ The kind of page comes from `classifyPageType` (article, forum, product, listing
 - **Model setup:** a session with `expectedInputs: [{ type: 'image' }, { type: 'text' }]`. The image is `append()`ed before the question, so the model starts reading it at once.
 - **The check:** answers about an image can't be checked against the page text. They are marked "from the image".
 
-### A6. Compare tabs
+### A6. Compare tabs: dropped
 
-- **Choose tabs:** the user picks open tabs (pre-selected: tabs of the same kind as this one, such as three product pages). Each gets its A1 brief, kept for the session.
-- **The comparison:** a table with one row per page and the kind's fields as columns. Differences are highlighted, every cell is cited (clicking one opens that tab at the block), and it can be saved as a dataset (A3).
-- **"Which one for me?"** The user states a need ("for travel, under $200"). The model picks one and gives its reasons, citing the briefs. It may answer "none fits".
-- **Why it fits the model:** the briefs are small, so several pages fit in its context where whole pages wouldn't.
+The assistant works on the current tab only (decided 2026-10-19).
 
 ### A7. Later
 
@@ -129,7 +129,7 @@ The kind of page comes from `classifyPageType` (article, forum, product, listing
 ## How it looks
 
 ```
-┌ Summarize & ask ─────────────────────────────┐
+┌ Page assistant ──────────────────────────────┐
 │ Product · walmart.com · read on this device  │
 │ ┌ Brief ────────────────────────────────────┐ │
 │ │ 24V kids' ATV with music and LED lights   │ │
@@ -142,7 +142,7 @@ The kind of page comes from `classifyPageType` (article, forum, product, listing
 │ Ask: [Is it in stock?] [What's in the box?]  │
 │      [What do 1-star reviews say?]           │
 │ ┌─────────────────────────────────────────┐   │
-│ │ Ask about this page…      [🖼] [⧉ tabs]  │   │
+│ │ Ask about this page…             [🖼]   │   │
 │ └─────────────────────────────────────────┘   │
 └───────────────────────────────────────────────┘
 ```
@@ -150,7 +150,6 @@ The kind of page comes from `classifyPageType` (article, forum, product, listing
 - **✓** checked on the page.
 - **↗** show on the page.
 - **🖼** ask about an image or the screen.
-- **⧉** compare with other tabs.
 
 ## How it's built
 
@@ -166,11 +165,11 @@ The kind of page comes from `classifyPageType` (article, forum, product, listing
   - `AI_PAGE_VIEW` and `AI_GROUND` are reused;
   - new: `AI_SHOW` (scroll to a block and highlight it with the CSS Custom Highlight API) and `AI_PICK_IMAGE` (the picker in image mode).
 - **Side panel:**
-  - `TextSummarizerPage` becomes the assistant, built from the shared UI kit (`../ui`), not one-off styles;
-  - the brief card, citation chips, the image and tabs buttons in the input box, and the table result with its actions.
+  - `TextSummarizerPage` becomes the Page assistant, built from the shared UI kit (`../ui`), not one-off styles;
+  - the brief card, citation chips, the image button in the input box, and the table result with its actions.
 - **Data:**
   - **tables:** `db.tables.save` with source `ai`;
-  - **saved briefs:** one table "Briefs", one row per URL and kind, with fields as columns.
+  - **saved briefs:** one table "Briefs" for every kind of page. Each row has URL, kind, title and gist, plus the kind's fields; a field another kind doesn't have stays empty.
 
 ## Phases
 
@@ -182,8 +181,7 @@ Each phase is committed on its own and can be used by itself.
 | **P2** | **A3 answers become data** (table, save, copy, open in AI Extract / List / Page Extractor) | Medium |
 | **P3** | **A4 any language** (detect, translate in, answer in the user's language) | Medium |
 | **P4** | **A5 images** (pick an image, capture the screen, image to table) | Medium |
-| **P5** | **A6 compare tabs** (briefs of several tabs, comparison table, "which one for me") | Medium |
-| **P6** | **A7** (what changed, "does it fit me") | Later |
+| **P5** | **A7** (what changed, "does it fit me") | Later |
 
 ## Testing
 
@@ -196,8 +194,7 @@ Each phase is committed on its own and can be used by itself.
   - the brief card;
   - citations and show on page, where the page scrolls and the highlight is set;
   - saving a table to My data;
-  - image attach;
-  - comparing tabs.
+  - image attach.
 - **Manual, in real Chrome with Gemini Nano:** the same saved pages plus a few live ones (asking before any live capture). Score each brief:
   - how many of its claims are checked on the page;
   - whether it has the kind's main fields (for example the price on a product page);
@@ -205,8 +202,8 @@ Each phase is committed on its own and can be used by itself.
 
   P1 is done when, on the saved pages, at least 90% of the brief's claims are checked on the page and none says "not on the page" when the page does say it.
 
-## Open questions
+## Decided
 
-1. **Name:** keep "Summarize & ask", or rename to "Page assistant" or "Brief & ask" now that it does more than summarize?
-2. **Where saved briefs go:** one "Briefs" table for all kinds, or one per kind (columns differ by kind)?
-3. **Comparing tabs reads other tabs' content.** It needs the host permission CrawlPilot already asks for (the Connect banner). Is that enough, or should comparing ask again for each tab?
+1. **Name:** "Page assistant". The home screen tile and the view title change; the view id stays `text-summarizer`, so links keep working.
+2. **Saved briefs:** one "Briefs" table for every kind of page.
+3. **Pages:** the current tab only; no comparing tabs.
