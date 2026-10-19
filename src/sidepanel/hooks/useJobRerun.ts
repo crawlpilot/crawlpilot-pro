@@ -111,6 +111,10 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
                     pagination,
                     { customName: options.name, maxPages: options.maxPages }
                 );
+            } else if (spec.kind === 'contacts') {
+                const res = await send('CONTACTS_START', { urls, follow: spec.options.follow, ownOnly: spec.options.ownOnly, maxConcurrent: options.concurrent, customName: options.name });
+                if (!res?.success) alert('Re-run failed: ' + (res && !res.success ? res.error : 'the background is not reachable'));
+                else onStarted?.();
             } else {
                 alert('Metadata runs are re-run from the Metadata page.');
             }

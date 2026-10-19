@@ -1,6 +1,6 @@
 # AI Extract v2: JSON Schema in, JSON out, resilient on a small on-device model
 
-Status: A1 done. Next: A2 (budget and groups) and A2b (reveal hidden content). Builds on `ai-extract-markdown-plan.md`, where X0 (model host), M1 (markdown
+Status: A1 and A2b done. Next: A2 (budget and groups). Builds on `ai-extract-markdown-plan.md`, where X0 (model host), M1 (markdown
 engine) and X1 (single-page AI Extract) are done; X2 (compile to a recipe) and X3 (many pages) are still open.
 
 ## 1. What the user gets
@@ -361,7 +361,8 @@ closed), as already planned, on top of this.
 | Step | State | Notes |
 |---|---|---|
 | A1 | **Done** | See the details below |
-| A2–A6 | Open | |
+| A2b | **Done** | See the details below |
+| A2, A3–A6 | Open | |
 
 What A1 built:
 
@@ -381,3 +382,27 @@ What A1 built:
 - **T0** matches a nested field by its own name too.
 
 Tests: `schemaCore.test.ts` (13) and `extractTables.test.ts` (2). The intake tests now go through the new path, and the fake-model corpus run passes unchanged.
+
+What A2b built (`content/services/reveal/`):
+
+- **`disclosure.ts`, reading with no click.**
+  - It reads panels behind a visible control: `aria-controls`, tabs (both directions), labelled regions and Bootstrap collapses.
+  - Navigation, header and footer menus stay closed. Hidden text with no control, and empty panels, stay out.
+  - `compose` reads the panels as if open. Inside a panel, only what hides itself (`display`, `hidden`) stays out. A tab panel is read under its tab's name.
+- **`expand.ts`, clicking.**
+  - What it clicks: lazy toggles, lazy tabs (cloned while open, appended through `toMarkdown`'s new `extra` option) and expander buttons ("Show more", "Read full description", "Specifications"…).
+  - What it skips: a panel already in the page; anything outside the main content, in a filter sidebar, or in a form; menus (`aria-haspopup`); links to other pages; and action words (cart, buy, sign in, subscribe, accept, delete…). "Load more" is pagination and is never clicked.
+  - How it clicks: one click at a time, waiting for the page to settle, up to 3 rounds.
+  - When it stops: when the click or time budget runs out, or the URL changes. A dialog that opens is closed with Escape and that control is skipped.
+  - Afterwards, `restore` closes the toggles and reselects the original tab.
+- **`index.ts`.** `revealForReading('off' | 'read' | 'open', budget)` returns the markdown options, a report (`read`, `opened`, `tabs`, `skipped`, `clicks`, `stopped`) and `restore`. Budgets: 20 clicks / 6 s in the panel, 10 / 4 s per page in bulk.
+- **Wired in.**
+  - `AI_PAGE_VIEW` (AI Extract and the Page assistant): optional `reveal`, default `open`, and `view.revealed`.
+  - `CMD_EXTRACT_METADATA` (one page and every page of a bulk run): `MetadataExtractOptions.reveal` (default `open`) and `result.revealed`, kept as `_revealed` on the row.
+  - The "many pages" article step has the "Open hidden sections first" switch.
+  - AI Extract shows "Opened before reading: …" and lists the controls it didn't click.
+- **Tests:**
+  - `reveal.test.ts` (7, jsdom).
+  - `e2e/reveal.spec.ts` (3) on `e2e/site/hidden-sections.html`. That page has a Bootstrap collapse, an ARIA accordion, a Radix region, a lazy accordion, an inactive tab, a lazy tab, "Show more", clamped text, an "Add to cart" button, a link away, a filter sidebar, and hidden text with no control.
+  - Results: every hidden fact is read; nothing unsafe is clicked; the hidden text stays out; the page is restored; `reveal: 'off'` reads only what is shown.
+- **Not done yet:** "Show on page" for a value read from a closed section doesn't re-open the section first. The evidence path ("opened *Specifications*") comes with A3's evidence.

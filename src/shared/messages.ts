@@ -17,6 +17,7 @@ import type { NetEntry } from './network/types';
 import type { LabEval, LabPick } from '../content/features/lab/SelectorLab';
 import type { GroundRequest, Grounded, PageView, PickedRegion } from './ai/page';
 import type { ClaimRequest, ClaimResult } from './ai/cite';
+import type { SiteContacts } from './contacts/find';
 import type { Chain } from './types/database';
 import type { FoundImage, ImageBatch, ImageScanProgress } from './images/types';
 
@@ -58,6 +59,17 @@ export interface BulkStart {
     jobId?: number;
     customName?: string;
     maxConcurrent?: number;
+}
+
+export interface ContactsStart {
+    urls: string[];
+    /** Contact pages read per site besides the one opened. */
+    follow?: number;
+    /** Only addresses on each company's own domain. */
+    ownOnly?: boolean;
+    maxConcurrent?: number;
+    requestDelay?: number;
+    customName?: string;
 }
 
 export interface MetadataStart {
@@ -162,6 +174,8 @@ export interface Messages {
     /** Page assistant: checks claims against the last page view's blocks, and shows a cited block. */
     AI_CHECK: { payload: { claims: ClaimRequest[] }; reply: Res<{ results: ClaimResult[] }> };
     AI_SHOW: { payload: { ref: string; quote?: string }; reply: Res<{ shown: boolean }> };
+    /** Contacts from websites: this page's, and up to `follow` of the site's contact pages. */
+    CMD_FIND_CONTACTS: { payload: { follow: number }; reply: Res<SiteContacts> };
     /** Page assistant: the user points at something on the page; where it is on screen, or null (Esc). */
     AI_PICK_REGION: { reply: Res<{ region: PickedRegion | null }> };
 
@@ -183,12 +197,17 @@ export interface Messages {
     BULK_EXTRACTION_STOP: { reply: Res<{ running: boolean }> };
     METADATA_EXTRACTION_START: { payload: MetadataStart; reply: Res<{ jobId: number; uniqueCount: number }> };
     METADATA_EXTRACTION_STOP: { reply: Res<{ running: boolean }> };
+    /** Contacts from websites (one row per site). */
+    CONTACTS_START: { payload: ContactsStart; reply: Res<{ jobId: number; uniqueCount: number }> };
+    CONTACTS_STOP: { reply: Res<{ running: boolean }> };
 
     // ---- background → side panel (broadcasts)
     BULK_EXTRACTION_PROGRESS: { payload: RunProgress };
     BULK_EXTRACTION_COMPLETE: { payload: RunComplete };
     METADATA_EXTRACTION_PROGRESS: { payload: RunProgress };
     METADATA_EXTRACTION_COMPLETE: { payload: RunComplete };
+    CONTACTS_PROGRESS: { payload: RunProgress };
+    CONTACTS_COMPLETE: { payload: RunComplete };
 }
 
 /** A successful reply carrying `data`. */

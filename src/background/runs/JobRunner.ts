@@ -17,7 +17,7 @@ import { buildFinalName, buildInitialName, buildPreviewName } from './naming';
 import { storage } from '../../shared/storage';
 import { stepStats, StepResult } from '../../shared/listing/stepStats';
 
-export type RunKind = 'bulk' | 'metadata';
+export type RunKind = 'bulk' | 'metadata' | 'contacts';
 type Row = Record<string, any>;
 
 /** Pacing, tab and verdict settings shared by every job. */
@@ -111,6 +111,7 @@ interface RunState {
 const MESSAGES = {
     bulk: { progress: 'BULK_EXTRACTION_PROGRESS', complete: 'BULK_EXTRACTION_COMPLETE' },
     metadata: { progress: 'METADATA_EXTRACTION_PROGRESS', complete: 'METADATA_EXTRACTION_COMPLETE' },
+    contacts: { progress: 'CONTACTS_PROGRESS', complete: 'CONTACTS_COMPLETE' },
 } as const;
 
 /** How long to leave a host alone after it rate-limits or queues us (doubles per attempt). */

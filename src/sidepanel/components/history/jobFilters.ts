@@ -1,4 +1,4 @@
-import type { Job } from '@/shared/types/database';
+import type { Job, RecipeSpec } from '@/shared/types/database';
 import type { JobWithRecipe } from '@/shared/db';
 
 export type { JobWithRecipe };
@@ -9,7 +9,7 @@ export function jobUrl(job: Job): string | undefined {
 }
 
 /** What kind of run it was, from its recipe. */
-export function jobKind(job: JobWithRecipe): 'list' | 'page' | 'metadata' | undefined {
+export function jobKind(job: JobWithRecipe): RecipeSpec['kind'] | undefined {
     return job.recipe?.spec.kind;
 }
 

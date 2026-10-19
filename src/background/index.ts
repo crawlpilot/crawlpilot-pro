@@ -4,9 +4,11 @@ import { injectContentScriptIntoOpenTabs } from '../shared/utils/hostPermissions
 import { JobRunner } from './runs/JobRunner';
 import { bulkJob } from './runs/bulkJob';
 import { metadataJob } from './runs/metadataJob';
+import { contactsJob } from './runs/contactsJob';
 
 const bulkRuns = new JobRunner('bulk');
 const metadataRuns = new JobRunner('metadata');
+const contactsRuns = new JobRunner('contacts');
 
 // MV3 service workers idle out after ~30 s. Periodic alarms (this one, and each run's own while it
 // runs) keep the worker alive: the alarm firing is enough, the listener has nothing to do.
@@ -18,6 +20,7 @@ async function recoverInterruptedExtractions() {
     await Promise.all([
         bulkRuns.recover().catch(e => console.error('[SW] Bulk recovery check failed:', e)),
         metadataRuns.recover().catch(e => console.error('[SW] Metadata recovery check failed:', e)),
+        contactsRuns.recover().catch(e => console.error('[SW] Contacts recovery check failed:', e)),
     ]);
 }
 
@@ -69,5 +72,15 @@ on('METADATA_EXTRACTION_START', async (payload) => {
 });
 
 on('METADATA_EXTRACTION_STOP', async () => ok({ running: await metadataRuns.stop() }));
+
+on('CONTACTS_START', async (payload) => {
+    try {
+        return ok(await contactsRuns.start(contactsJob(payload)));
+    } catch (error) {
+        return fail(error);
+    }
+});
+
+on('CONTACTS_STOP', async () => ok({ running: await contactsRuns.stop() }));
 
 // Fetches an image for the side panel, bypassing the page's CORS restrictions.

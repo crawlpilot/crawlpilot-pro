@@ -176,7 +176,13 @@ export interface MetadataSpec {
     options: import('./metadata').MetadataExtractOptions;
 }
 
-export type RecipeSpec = ListSpec | PageSpec | MetadataSpec;
+/** Contacts from websites: each URL a company site, its contact pages followed. */
+export interface ContactsSpec {
+    kind: 'contacts';
+    options: { follow: number; ownOnly?: boolean };
+}
+
+export type RecipeSpec = ListSpec | PageSpec | MetadataSpec | ContactsSpec;
 
 /** What to extract. One per distinct spec, updated in place (`rev` counts the updates). */
 export interface Recipe {

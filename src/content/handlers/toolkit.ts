@@ -8,6 +8,7 @@ import { RightClickUnlocker } from '../features/utility/RightClickUnlocker';
 import { fail, ok, on, send } from '../../shared/messages';
 import { checkPageClaims, showCitation } from '../services/ai-view/claims';
 import { pickRegion } from '../services/ai-view/pickRegion';
+import { siteContacts } from '../services/contacts/site';
 
 const labPicker = new LabPicker();
 
@@ -52,6 +53,7 @@ export function registerToolkitHandlers() {
     on('AI_CHECK', ({ claims }) => ok({ results: checkPageClaims(claims) }));
     on('AI_SHOW', ({ ref, quote }) => ok({ shown: showCitation(ref, quote) }));
     on('AI_PICK_REGION', async () => ok({ region: await pickRegion() }));
+    on('CMD_FIND_CONTACTS', async ({ follow }) => ok(await siteContacts(follow)));
 
     on('TOGGLE_RIGHT_CLICK', ({ enable }) => {
         if (enable) RightClickUnlocker.enable();
