@@ -256,8 +256,9 @@ export function send<T extends MessageType>(type: T, ...[payload]: PayloadArg<T>
         if (!chrome.runtime?.id) { resolve(undefined); return; }
         try {
             chrome.runtime.sendMessage({ type, payload }, res => {
-                void chrome.runtime.lastError; // nobody listening: expected
-                resolve(res);
+                // Nobody listening (side panel closed) is expected. Reading lastError marks it handled;
+                // the read is part of the result so the minifier can't drop it as a no-op (it did).
+                resolve(chrome.runtime.lastError ? undefined : res);
             });
         } catch {
             resolve(undefined);
