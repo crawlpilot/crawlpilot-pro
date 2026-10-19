@@ -1,6 +1,6 @@
 /**
  * No console errors from CrawlPilot in the pages it works on, its side panel or its service worker,
- * during a click pick and a bulk run with a click step. (A minified \`void chrome.runtime.lastError\`
+ * during a click pick and a bulk run with a click step. (A minified `void chrome.runtime.lastError`
  * was dropped as a no-op, and every broadcast nobody listened to logged "Unchecked runtime.lastError".)
  */
 import { test, expect, pickElement } from './harness';
