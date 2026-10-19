@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import ToolHeader from '../components/ui/ToolHeader';
+import { Badge, Button, Chip, Collapse, IconButton, Menu, MenuItem, Progress, Select, Spinner, Stack, Switch, Text, TextField } from '../ui';
 import {
-    Box, Button, Chip, Collapse, Fade, FormControlLabel, IconButton, InputAdornment, LinearProgress, ListItemText, Menu, MenuItem,
-    Paper, Select, Slider, Stack, Switch, TextField, Tooltip, Typography,
-} from '@mui/material';
-import { alpha } from '@mui/material/styles';
-import {
-    ArrowDownToLine, CheckSquare, Copy, Database, Download, Filter, Image as ImageIcon, Loader,
+    ArrowDownToLine, CheckSquare, Copy, Database, Download, Filter, Image as ImageIcon,
     Maximize2, MoreVertical, Radio, RefreshCw, Search, Square,
 } from 'lucide-react';
 import type { FoundImage } from '../../shared/images/types';
@@ -32,7 +28,6 @@ import { imageTable } from '../services/images/imageTable';
 const PAGE_SIZE = 200;
 const CARD_KEY = 'crawlpilot.images.cardSize';
 const FOLD_KEY = 'crawlpilot.images.fold';
-const iconButton = { color: 'text.secondary', bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.selected', color: 'primary.main' } } as const;
 
 function siteOf(url: string): string {
     try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
@@ -151,207 +146,189 @@ export default function ImageDownloaderPage({ onBack }: { onBack: () => void }) 
                 : lookalikes.progress ? t('comparing', { done: lookalikes.progress.done, total: lookalikes.progress.total })
                     : t('imagesCount', { filtered: filtered.length, total: images.length }) + (foldedAway > 0 ? ` · ${t('duplicatesFolded', { count: foldedAway })}` : '');
 
+    const bar = selected.size > 0 || scanning === 'deep' || downloading || !!notice;
+
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden', position: 'relative' }}>
+        <div className="relative flex h-full flex-col overflow-hidden bg-bg">
             <ToolHeader title={t('title')} subtitle={statusText} onBack={onBack} actions={<>
-                    <Stack direction="row" spacing={0.5}>
-                        <Tooltip title={t('deepScan')}>
-                            <span><IconButton onClick={() => void deepScan()} disabled={!!scanning} size="small" sx={iconButton}><ArrowDownToLine size={18} /></IconButton></span>
-                        </Tooltip>
-                        <Tooltip title={liveWatching ? t('stopWatching') : t('liveWatch')}>
-                            <IconButton onClick={toggleLiveWatch} size="small" sx={{ ...iconButton, ...(liveWatching ? { color: 'primary.main', bgcolor: 'action.selected' } : {}) }}><Radio size={18} /></IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('rescan')}>
-                            <span><IconButton onClick={() => { clearSelection(); void quickScan(); }} disabled={!!scanning} size="small" sx={iconButton}><RefreshCw size={18} className={scanning === 'quick' ? 'animate-spin' : ''} /></IconButton></span>
-                        </Tooltip>
-                        <IconButton size="small" sx={iconButton} onClick={e => setMenu(e.currentTarget)} aria-label={t('more')}><MoreVertical size={18} /></IconButton>
-                    </Stack>
-                    <Menu anchorEl={menu} open={!!menu} onClose={() => setMenu(null)}>
-                        <MenuItem disabled={!filtered.length} onClick={() => { setMenu(null); void copyUrls(filtered); }}><ListItemText>{t('copyAllUrls', { count: filtered.length })}</ListItemText></MenuItem>
-                        <MenuItem disabled={!filtered.length} onClick={() => { setMenu(null); void saveToData(filtered); }}><ListItemText>{t('saveAllToData', { count: filtered.length })}</ListItemText></MenuItem>
+                    <IconButton label={t('deepScan')} onClick={() => void deepScan()} disabled={!!scanning}><ArrowDownToLine /></IconButton>
+                    <IconButton label={liveWatching ? t('stopWatching') : t('liveWatch')} active={liveWatching} onClick={toggleLiveWatch}><Radio /></IconButton>
+                    <IconButton label={t('rescan')} onClick={() => { clearSelection(); void quickScan(); }} disabled={!!scanning}>
+                        <RefreshCw className={scanning === 'quick' ? 'animate-spin' : ''} />
+                    </IconButton>
+                    <IconButton label={t('more')} onClick={e => setMenu(e.currentTarget)}><MoreVertical /></IconButton>
+                    <Menu anchor={menu} onClose={() => setMenu(null)} align="end">
+                        <MenuItem disabled={!filtered.length} onClick={() => { setMenu(null); void copyUrls(filtered); }}>{t('copyAllUrls', { count: filtered.length })}</MenuItem>
+                        <MenuItem disabled={!filtered.length} onClick={() => { setMenu(null); void saveToData(filtered); }}>{t('saveAllToData', { count: filtered.length })}</MenuItem>
                         <MenuItem disabled={!sized.length || !!lookalikes.progress} onClick={() => { setMenu(null); setFold(true); void lookalikes.run(sized); }}>
-                            <ListItemText primary={t('findLookalikes')} secondary={t('findLookalikesHint')} secondaryTypographyProps={{ fontSize: '0.65rem' }} />
+                            <span className="block">{t('findLookalikes')}</span>
+                            <span className="block text-caption whitespace-normal text-ink-3">{t('findLookalikesHint')}</span>
                         </MenuItem>
                         {page.tabId !== null && !new URLSearchParams(window.location.search).get('tabId') && (
                             <MenuItem onClick={() => { setMenu(null); chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=image-downloader&tabId=${page.tabId}`) }); }}>
-                                <ListItemText>{t('openInTab')}</ListItemText>
+                                {t('openInTab')}
                             </MenuItem>
                         )}
                     </Menu>
                 </>}>
-                <Box sx={{ mt: 1.25 }} />
-                {error && <Typography variant="caption" color="warning.main" sx={{ display: 'block', mb: 1 }}>{error}</Typography>}
-                {lookalikes.progress && <LinearProgress variant="determinate" value={lookalikes.progress.done / lookalikes.progress.total * 100} sx={{ height: 3, borderRadius: 2, mb: 1.5 }} />}
-                {scanning && <LinearProgress variant={scanning === 'quick' ? 'indeterminate' : 'determinate'} value={progress} sx={{ height: 3, borderRadius: 2, mb: 1.5 }} />}
+                <div className="mt-3 flex flex-col gap-2">
+                    {error && <Text size="caption" tone="warning">{error}</Text>}
+                    {lookalikes.progress && <Progress size="sm" value={lookalikes.progress.done / lookalikes.progress.total * 100} label={t('findLookalikes')} />}
+                    {scanning && <Progress size="sm" value={scanning === 'quick' ? undefined : progress} label={statusText} />}
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                    <TextField size="small" placeholder={t('search')} value={filters.searchQuery} onChange={e => update('searchQuery', e.target.value)} sx={{ flex: 1 }}
-                        InputProps={{ startAdornment: <InputAdornment position="start"><Search size={14} /></InputAdornment>, sx: { fontSize: '0.78rem', height: 32 } }} />
-                    <Tooltip title={t('filters')}>
-                        <IconButton size="small" onClick={() => setShowFilters(s => !s)} sx={{ ...iconButton, ...(showFilters ? { color: 'primary.main', bgcolor: 'action.selected' } : {}) }}><Filter size={16} /></IconButton>
-                    </Tooltip>
-                    <Tooltip title={allSelected ? t('deselectAll') : t('selectAll')}>
-                        <IconButton size="small" onClick={allSelected ? clearSelection : selectAll} sx={iconButton}>{selected.size > 0 ? <CheckSquare size={16} /> : <Square size={16} />}</IconButton>
-                    </Tooltip>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                    <Select size="small" value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)} sx={{ fontSize: '0.72rem', height: 28 }} aria-label={t('sort')}>
-                        {(['page', 'largest', 'smallest', 'type'] as const).map(s => <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>{t(`sortBy.${s}`)}</MenuItem>)}
-                    </Select>
-                    <Select size="small" value={groupBy} onChange={e => { setGroupBy(e.target.value as GroupBy | 'none'); setActiveGroup(null); }} sx={{ fontSize: '0.72rem', height: 28 }} aria-label={t('group')}>
-                        {(['none', 'size', 'section', 'domain'] as const).map(g => <MenuItem key={g} value={g} sx={{ fontSize: '0.75rem' }}>{t(`groupBy.${g}`)}</MenuItem>)}
-                    </Select>
-                    <Tooltip title={t('cardSize')}>
-                        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1, minWidth: 60, px: 1 }}>
-                            <ImageIcon size={12} />
-                            <Slider size="small" min={70} max={260} step={10} value={cardSize} onChange={(_, v) => setCardSize(v as number)} aria-label={t('cardSize')} />
-                            <Maximize2 size={12} />
-                        </Box>
-                    </Tooltip>
-                </Box>
+                    <div className="flex items-center gap-1.5">
+                        <TextField size="sm" className="flex-1" placeholder={t('search')} aria-label={t('search')} value={filters.searchQuery}
+                            onChange={e => update('searchQuery', e.target.value)} start={<Search />} />
+                        <IconButton variant="secondary" label={t('filters')} active={showFilters} onClick={() => setShowFilters(s => !s)}><Filter /></IconButton>
+                        <IconButton variant="secondary" label={allSelected ? t('deselectAll') : t('selectAll')} onClick={allSelected ? clearSelection : selectAll}>
+                            {selected.size > 0 ? <CheckSquare /> : <Square />}
+                        </IconButton>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Select size="sm" aria-label={t('sort')} value={sortBy} onChange={(v: SortBy) => setSortBy(v)}
+                            options={(['page', 'largest', 'smallest', 'type'] as const).map(s => ({ value: s, label: t(`sortBy.${s}`) }))} />
+                        <Select size="sm" aria-label={t('group')} value={groupBy} onChange={(v: GroupBy | 'none') => { setGroupBy(v); setActiveGroup(null); }}
+                            options={(['none', 'size', 'section', 'domain'] as const).map(g => ({ value: g, label: t(`groupBy.${g}`) }))} />
+                        <label className="flex min-w-[60px] flex-1 items-center gap-1.5 px-1 text-ink-3" title={t('cardSize')}>
+                            <ImageIcon size={12} className="shrink-0" />
+                            <input type="range" min={70} max={260} step={10} value={cardSize} onChange={e => setCardSize(Number(e.target.value))} aria-label={t('cardSize')}
+                                className="cp-range h-1.5 w-full cursor-pointer appearance-none rounded-full bg-ink/10" />
+                            <Maximize2 size={12} className="shrink-0" />
+                        </label>
+                    </div>
 
-                <Collapse in={showFilters}>
-                    {/* Scrolls on its own, so the save options at its end stay reachable in a short side panel. */}
-                    <Box sx={{ maxHeight: '55vh', overflowY: 'auto', pr: 0.5 }}>
-                    <FiltersPanel filters={filters} update={update} toggle={toggle} reset={reset} domains={domains}>
-                        <Box>
-                            <FormControlLabel sx={{ ml: 0 }} control={<Switch size="small" checked={fullSize.enabled} onChange={e => fullSize.setEnabled(e.target.checked)} />}
-                                label={<Typography variant="caption" fontWeight={600}>{t('fullSize')}</Typography>} />
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.62rem' }}>
-                                {fullSize.pending > 0 ? t('fullSizeSearching', { found: fullSize.found, pending: fullSize.pending }) : t('fullSizeFound', { count: fullSize.found })}
-                            </Typography>
-                        </Box>
-                        <FormControlLabel sx={{ ml: 0 }} control={<Switch size="small" checked={fold} onChange={e => setFold(e.target.checked)} />}
-                            label={<Typography variant="caption" fontWeight={600}>{t('foldDuplicates')}</Typography>} />
-                        <SaveOptions mode={saver.mode} onMode={saver.setMode} template={saver.template} onTemplate={saver.setTemplate} manifest={saver.manifest} onManifest={saver.setManifest}
-                            processing={saver.processing} onProcessing={saver.setProcessing} />
-                    </FiltersPanel>
-                    </Box>
-                </Collapse>
+                    <Collapse open={showFilters}>
+                        {/* Scrolls on its own, so the save options at its end stay reachable in a short side panel. */}
+                        <div className="max-h-[55vh] overflow-y-auto pr-1">
+                            <FiltersPanel filters={filters} update={update} toggle={toggle} reset={reset} domains={domains}>
+                                <Switch checked={fullSize.enabled} onChange={fullSize.setEnabled} label={t('fullSize')}
+                                    hint={fullSize.pending > 0 ? t('fullSizeSearching', { found: fullSize.found, pending: fullSize.pending }) : t('fullSizeFound', { count: fullSize.found })} />
+                                <Switch checked={fold} onChange={setFold} label={t('foldDuplicates')} />
+                                <SaveOptions mode={saver.mode} onMode={saver.setMode} template={saver.template} onTemplate={saver.setTemplate} manifest={saver.manifest} onManifest={saver.setManifest}
+                                    processing={saver.processing} onProcessing={saver.setProcessing} />
+                            </FiltersPanel>
+                        </div>
+                    </Collapse>
+                </div>
             </ToolHeader>
 
-            <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5, pb: 10 }}>
+            <div className="flex-1 overflow-y-auto p-3 pb-20">
                 {saver.report && <SaveReportCard report={saver.report} onRetry={saver.retryFailed} onDismiss={saver.dismiss} />}
                 {filtered.length === 0 && !scanning ? (
-                    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, textAlign: 'center', color: 'text.secondary' }}>
-                        <ImageIcon size={48} strokeWidth={1} />
-                        <Box>
-                            <Typography variant="body2" fontWeight={600} color="text.primary">{t('noImagesFound')}</Typography>
-                            <Typography variant="caption">{images.length > 0 ? t('tryAdjustFilters') : t('navigateAndScan')}</Typography>
-                        </Box>
-                        <Stack direction="row" spacing={1}>
-                            {images.length > 0 && <Button size="small" variant="outlined" onClick={reset}>{t('resetFilters')}</Button>}
-                            <Button size="small" variant="contained" onClick={() => void (images.length ? deepScan() : quickScan())} startIcon={<Search size={14} />}>
+                    <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+                        <span className="flex size-14 -rotate-6 items-center justify-center rounded-[18px] border-[1.5px] border-line-strong bg-tile-peach text-ink shadow-press"><ImageIcon size={26} /></span>
+                        <div>
+                            <Text weight="semibold">{t('noImagesFound')}</Text>
+                            <Text size="caption" tone="muted">{images.length > 0 ? t('tryAdjustFilters') : t('navigateAndScan')}</Text>
+                        </div>
+                        <div className="flex gap-2">
+                            {images.length > 0 && <Button size="sm" onClick={reset}>{t('resetFilters')}</Button>}
+                            <Button size="sm" variant="primary" icon={<Search />} onClick={() => void (images.length ? deepScan() : quickScan())}>
                                 {images.length ? t('deepScanShort') : t('scanPage')}
                             </Button>
-                        </Stack>
-                    </Box>
+                        </div>
+                    </div>
                 ) : groupBy !== 'none' && activeGroup === null ? (
-                    <Stack spacing={1}>
-                        <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ px: 0.5 }}>{t('groupCount', { count: groups.length })}</Typography>
+                    <Stack gap={2}>
+                        <Text size="caption" weight="semibold" tone="muted" className="px-1">{t('groupCount', { count: groups.length })}</Text>
                         {groups.map(group => (
-                            <Paper key={group.label} variant="outlined" onClick={() => setActiveGroup(group.label)}
-                                sx={theme => ({ p: 1.25, borderRadius: 2.5, cursor: 'pointer', '&:hover': { borderColor: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.04) } })}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    <Box sx={{ display: 'flex', gap: 0.25, flexShrink: 0 }}>
-                                        {group.images.slice(0, 3).map(img => (
-                                            <Box key={img.src} sx={{ width: 36, height: 36, borderRadius: '6px', overflow: 'hidden', bgcolor: 'action.hover' }}>
-                                                <img src={img.src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-                                            </Box>
-                                        ))}
-                                    </Box>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="subtitle2" noWrap sx={{ fontWeight: 700, fontSize: '0.78rem' }}>{group.label}</Typography>
-                                        <Typography variant="caption" color="text.secondary">{t('imagesInGroup', { count: group.images.length })}</Typography>
-                                    </Box>
-                                    <Tooltip title={t('downloadGroup')}>
-                                        <span><IconButton size="small" sx={iconButton} disabled={downloading} onClick={e => { e.stopPropagation(); void saver.save(group.images); }}><Download size={13} /></IconButton></span>
-                                    </Tooltip>
-                                </Box>
-                            </Paper>
+                            <div key={group.label} onClick={() => setActiveGroup(group.label)}
+                                className="flex cursor-pointer items-center gap-3 rounded-card border border-line bg-surface p-3 transition-[border-color,box-shadow] hover:border-line-strong hover:shadow-press">
+                                <div className="flex shrink-0 gap-0.5">
+                                    {group.images.slice(0, 3).map(img => (
+                                        <div key={img.src} className="size-9 overflow-hidden rounded-md bg-surface-2">
+                                            <img src={img.src} alt="" className="size-full object-cover" loading="lazy" />
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <Text size="small" weight="bold" truncate>{group.label}</Text>
+                                    <Text size="caption" tone="muted">{t('imagesInGroup', { count: group.images.length })}</Text>
+                                </div>
+                                <IconButton size="sm" label={t('downloadGroup')} disabled={downloading} onClick={e => { e.stopPropagation(); void saver.save(group.images); }}><Download /></IconButton>
+                            </div>
                         ))}
                     </Stack>
                 ) : (
-                    <Box>
+                    <div>
                         {groupBy !== 'none' && activeGroup !== null && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, px: 0.5 }}>
-                                <Chip label={activeGroup} size="small" color="primary" onDelete={() => setActiveGroup(null)} sx={{ maxWidth: 220 }} />
-                                <Typography variant="caption" color="text.secondary">{t('imagesInGroup', { count: shown.length })}</Typography>
-                                <Button size="small" onClick={selectAll}>{t('selectAll')}</Button>
-                            </Box>
+                            <div className="mb-3 flex items-center gap-2 px-1">
+                                <Chip size="md" tone="brand" className="max-w-[220px]" onRemove={() => setActiveGroup(null)}>{activeGroup}</Chip>
+                                <Text size="caption" tone="muted">{t('imagesInGroup', { count: shown.length })}</Text>
+                                <Button size="sm" variant="ghost" onClick={selectAll}>{t('selectAll')}</Button>
+                            </div>
                         )}
-                        <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${cardSize}px, 1fr))`, gap: 1 }}>
+                        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${cardSize}px, 1fr))` }}>
                             {shown.slice(0, visibleCount).map((img, i) => (
                                 <ImageCard key={img.src} img={img} selected={selected.has(img.src)}
                                     onSelect={e => select(i, e)} onPreview={() => setPreview(i)} onDownload={() => void saver.save([img], 'folder')} />
                             ))}
-                        </Box>
+                        </div>
                         {visibleCount < shown.length && (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1.5 }}>
-                                <Button size="small" onClick={() => setVisibleCount(c => c + PAGE_SIZE)}>{t('showMore', { count: shown.length - visibleCount })}</Button>
-                            </Box>
+                            <div className="mt-3 flex justify-center">
+                                <Button size="sm" onClick={() => setVisibleCount(c => c + PAGE_SIZE)}>{t('showMore', { count: shown.length - visibleCount })}</Button>
+                            </div>
                         )}
-                    </Box>
+                    </div>
                 )}
                 {scanning && filtered.length > 0 && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, py: 2, color: 'text.secondary' }}>
-                        <Loader size={14} className="animate-spin" />
-                        <Typography variant="caption">{t('discoveringMore')}</Typography>
-                    </Box>
+                    <div className="flex items-center justify-center gap-2 py-4 text-ink-2">
+                        <Spinner size={14} />
+                        <Text size="caption" tone="muted">{t('discoveringMore')}</Text>
+                    </div>
                 )}
-            </Box>
+            </div>
 
             {preview !== null && (
                 <ImageLightbox images={shown} index={preview} onIndex={setPreview} onClose={() => setPreview(null)}
                     onShowOnPage={showOnPage} onDownload={img => void saver.save([img], 'folder')} onCopyImage={copyImage} />
             )}
 
-            <Fade in={selected.size > 0 || scanning === 'deep' || downloading || !!notice}>
-                <Paper elevation={8} sx={{ position: 'absolute', bottom: 12, left: 12, right: 12, zIndex: 30, p: '8px 12px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, border: 1, borderColor: 'divider' }}>
+            {bar && (
+                <div className="absolute inset-x-3 bottom-3 z-30 flex items-center justify-between gap-2 rounded-2xl border-[1.5px] border-line-strong bg-surface px-3 py-2 shadow-press animate-slide-up">
                     {saver.progress ? (
                         <>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                                <Loader size={14} className="animate-spin" />
-                                <Typography variant="caption" fontWeight={600} noWrap>
+                            <div className="flex min-w-0 items-center gap-2">
+                                <Spinner size={14} />
+                                <Text size="caption" weight="semibold" truncate>
                                     {t('saving', { done: saver.progress.done + saver.progress.failed, total: saver.progress.total, size: megabytes(saver.progress.bytes) })}
                                     {saver.progress.failed > 0 && ` · ${t('failedCount', { count: saver.progress.failed })}`}
-                                </Typography>
-                            </Box>
-                            <Button size="small" color="error" onClick={saver.stop}>{t('stop')}</Button>
+                                </Text>
+                            </div>
+                            <Button size="sm" variant="danger" onClick={saver.stop}>{t('stop')}</Button>
                         </>
                     ) : scanning === 'deep' ? (
                         <>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Loader size={14} className="animate-spin" />
-                                <Typography variant="caption" fontWeight={600}>{`${progress}%`}</Typography>
-                            </Box>
-                            <Button size="small" color="error" onClick={cancelScan}>{t('cancelScan')}</Button>
+                            <div className="flex items-center gap-2">
+                                <Spinner size={14} />
+                                <Text size="caption" weight="semibold">{`${progress}%`}</Text>
+                            </div>
+                            <Button size="sm" variant="danger" onClick={cancelScan}>{t('cancelScan')}</Button>
                         </>
                     ) : selected.size > 0 ? (
                         <>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Chip size="small" color="primary" label={selected.size} sx={{ fontWeight: 800 }} />
-                                <Typography variant="caption" color="text.secondary" fontWeight={600}>{t('selected')}</Typography>
-                            </Box>
-                            <Stack direction="row" spacing={0.5} alignItems="center">
-                                <Button size="small" onClick={clearSelection}>{t('clear')}</Button>
-                                <Tooltip title={t('copyUrls')}><IconButton size="small" onClick={() => void copyUrls(selectedImages)}><Copy size={15} /></IconButton></Tooltip>
-                                <Tooltip title={t('saveToData')}><IconButton size="small" onClick={() => void saveToData(selectedImages)}><Database size={15} /></IconButton></Tooltip>
-                                <Button variant="contained" size="small" startIcon={<Download size={13} />} onClick={() => void saver.save(selectedImages)}>{t('downloadSelected')}</Button>
-                            </Stack>
+                            <div className="flex items-center gap-1.5">
+                                <Badge>{selected.size}</Badge>
+                                <Text size="caption" weight="semibold" tone="muted">{t('selected')}</Text>
+                            </div>
+                            <div className="flex items-center gap-0.5">
+                                <Button size="sm" variant="ghost" onClick={clearSelection}>{t('clear')}</Button>
+                                <IconButton size="sm" label={t('copyUrls')} onClick={() => void copyUrls(selectedImages)}><Copy /></IconButton>
+                                <IconButton size="sm" label={t('saveToData')} onClick={() => void saveToData(selectedImages)}><Database /></IconButton>
+                                <Button size="sm" variant="primary" icon={<Download />} onClick={() => void saver.save(selectedImages)}>{t('downloadSelected')}</Button>
+                            </div>
                         </>
                     ) : (
-                        <Typography variant="caption" fontWeight={600}>{notice}</Typography>
+                        <Text size="caption" weight="semibold">{notice}</Text>
                     )}
-                </Paper>
-            </Fade>
+                </div>
+            )}
 
-            <Fade in={filtered.length > 0 && selected.size === 0 && !scanning && !downloading && !notice}>
-                <Button variant="contained" startIcon={<Download size={14} />} onClick={() => void saver.save(filtered)}
-                    sx={{ position: 'absolute', bottom: 16, right: 16, zIndex: 20, borderRadius: '12px', px: 2, py: 1, fontWeight: 700, textTransform: 'none' }}>
+            {filtered.length > 0 && !bar && !scanning && (
+                <Button variant="primary" icon={<Download />} onClick={() => void saver.save(filtered)} className="absolute right-4 bottom-4 z-20 animate-pop">
                     {t('downloadAll', { count: filtered.length })}
                 </Button>
-            </Fade>
-        </Box>
+            )}
+        </div>
     );
 }

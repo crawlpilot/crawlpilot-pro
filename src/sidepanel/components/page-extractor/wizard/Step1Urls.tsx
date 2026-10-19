@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
-import { Check, Compass, Database, FileText, Upload, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronRight, Compass, Database, FileText, Upload, X } from 'lucide-react';
 import { pageTabId } from '../../../hooks/usePageTab';
-import Badge from '../../ui/Badge';
+import { Button, Card, CardButton, Chip, Disclosure, Heading, IconButton, Stack, Text, type Tone } from '../../../ui';
 import SiteDiscoveryDialog from '../SiteDiscoveryDialog';
 
 interface Step1UrlsProps {
@@ -54,139 +54,61 @@ export function Step1Urls({
         if (url && /^https?:/.test(url)) setSelectedUrls(Array.from(new Set([...selectedUrls, url])));
     };
 
+    const source = (tone: Tone, icon: React.ReactNode, title: string, hint: string, onClick: () => void) => (
+        <CardButton tone={tone} pad="sm" onClick={onClick} className="flex items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface/80 text-ink [&_svg]:size-[18px]">{icon}</span>
+            <span className="min-w-0 flex-1">
+                <Text weight="semibold">{title}</Text>
+                <Text size="caption" tone="muted">{hint}</Text>
+            </span>
+            <ChevronRight size={16} className="shrink-0 text-ink-2" />
+        </CardButton>
+    );
+
     return (
-        <div className="space-y-4 animate-fade-in-up">
-            <div className={`card transition-all duration-300 ${selectedUrls.length > 0 ? 'border-accent-success/30' : ''}`}>
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white transition-colors ${selectedUrls.length > 0 ? 'bg-accent-success' : 'bg-primary'}`}>
-                            {selectedUrls.length > 0 ? <Check className="w-4 h-4" /> : '1'}
-                        </div>
-                        <h2 className="font-semibold text-sm text-text-primary">Which pages?</h2>
-                    </div>
-                    {selectedUrls.length > 0 && (
-                        <Badge variant="success">
-                            {selectedUrls.length} Loaded
-                        </Badge>
-                    )}
+        <Stack gap={4} className="animate-slide-up">
+            <div className="flex items-center justify-between gap-2">
+                <div>
+                    <Heading size="heading">Which pages?</Heading>
+                    {selectedUrls.length === 0 && <Text size="small" tone="muted" className="mt-0.5">Choose where the page addresses come from</Text>}
                 </div>
-
-                {selectedUrls.length > 0 ? (
-                    <div className="space-y-4 animate-fade-in">
-                        <div className="bg-surface-lighter rounded-lg p-3 border border-border-subtle">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                    <Database className="w-3.5 h-3.5 text-accent-ai" />
-                                    <span className="text-xs font-medium text-text-primary">URL List</span>
-                                </div>
-                                <button
-                                    onClick={() => setSelectedUrls([])}
-                                    className="text-[10px] text-accent-error hover:text-red-400 uppercase tracking-wider font-medium"
-                                >
-                                    Clear
-                                </button>
-                            </div>
-
-                            <div className="max-h-[160px] overflow-y-auto custom-scrollbar border border-border-subtle rounded bg-background-app/50 p-2">
-                                {selectedUrls.map((url, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-1.5 text-xs border-b border-border-subtle last:border-0 group">
-                                        <span className="truncate text-text-muted font-mono flex-1 mr-4" title={url}>{url}</span>
-                                        <button
-                                            onClick={() => handleRemoveUrl(idx)}
-                                            className="text-text-muted hover:text-accent-error opacity-0 group-hover:opacity-100 transition-all ml-2 flex-shrink-0"
-                                        >
-                                            <X className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={() => setShowDataSourceSelector(true)}
-                            className="w-full btn btn-secondary text-xs"
-                        >
-                            <Database className="w-3 h-3 mr-2" />
-                            Choose Different Source
-                        </button>
-                    </div>
-                ) : (
-                    <>
-                        <p className="text-xs text-center text-text-muted mb-4 px-4">
-                            Choose where the page addresses come from
-                        </p>
-
-                        <div className="space-y-2">
-                            <button
-                                className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border-subtle hover:border-primary/50 hover:bg-surface-lighter transition-all text-left group"
-                                onClick={addThisPage}
-                            >
-                                <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center">
-                                    <FileText className="w-5 h-5 text-primary" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-semibold text-text-primary group-hover:text-primary transition-colors">This page</h3>
-                                    <p className="text-xs text-text-muted mt-0.5">The page open in this tab</p>
-                                </div>
-                            </button>
-
-                            <button
-                                className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border-subtle hover:border-primary/50 hover:bg-surface-lighter transition-all text-left group"
-                                onClick={() => csvInputRef.current?.click()}
-                            >
-                                <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center">
-                                    <Upload className="w-5 h-5 text-primary" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-semibold text-text-primary group-hover:text-primary transition-colors">Upload a file</h3>
-                                    <p className="text-xs text-text-muted mt-0.5">A CSV with one page address per row</p>
-                                </div>
-                            </button>
-                            <input
-                                ref={csvInputRef}
-                                type="file"
-                                accept=".csv,.tsv,.txt"
-                                className="hidden"
-                                onChange={handleCsvUpload}
-                            />
-                            <details className="text-[10px] text-text-muted px-1">
-                                <summary className="cursor-pointer select-none hover:text-text-primary transition-colors">What the file should look like</summary>
-                                <div className="mt-1.5 pl-2 border-l border-border-subtle space-y-0.5">
-                                    <p>One URL per line, or comma-separated with a header row.</p>
-                                    <p className="font-mono text-text-muted/80">https://example.com/product/1</p>
-                                    <p className="font-mono text-text-muted/80">https://example.com/product/2</p>
-                                </div>
-                            </details>
-
-                            <button
-                                className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border-subtle hover:border-accent-ai/50 hover:bg-surface-lighter transition-all text-left group"
-                                onClick={() => setShowDataSourceSelector(true)}
-                            >
-                                <div className="w-10 h-10 rounded bg-accent-ai/10 flex items-center justify-center">
-                                    <Database className="w-5 h-5 text-accent-ai" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-semibold text-text-primary group-hover:text-accent-ai transition-colors">A list you saved</h3>
-                                    <p className="text-xs text-text-muted mt-0.5">The links in a table you already have</p>
-                                </div>
-                            </button>
-
-                            <button
-                                className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border-subtle hover:border-accent-warning/50 hover:bg-surface-lighter transition-all text-left group"
-                                onClick={() => setDiscoverOpen(true)}
-                            >
-                                <div className="w-10 h-10 rounded bg-accent-warning/10 flex items-center justify-center">
-                                    <Compass className="w-5 h-5 text-accent-warning" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-semibold text-text-primary group-hover:text-accent-warning transition-colors">Find pages on this site</h3>
-                                    <p className="text-xs text-text-muted mt-0.5">From its sitemap, grouped by kind of page</p>
-                                </div>
-                            </button>
-                        </div>
-                    </>
-                )}
+                {selectedUrls.length > 0 && <Chip tone="success" icon={<Check />}>{selectedUrls.length} loaded</Chip>}
             </div>
+
+            {selectedUrls.length > 0 ? (
+                <Card pad="none" className="overflow-hidden animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-line px-3.5 py-2">
+                        <Text size="small" weight="semibold" className="flex items-center gap-1.5"><Database size={14} className="text-ink-2" /> URL list</Text>
+                        <Button size="sm" variant="ghost" className="-mr-2 text-danger" onClick={() => setSelectedUrls([])}>Clear</Button>
+                    </div>
+                    <div className="max-h-[180px] overflow-y-auto">
+                        {selectedUrls.map((url, idx) => (
+                            <div key={idx} className="group flex items-center justify-between gap-2 border-b border-line px-3.5 py-1 last:border-0">
+                                <span className="min-w-0 flex-1 truncate font-mono text-caption text-ink-2" title={url}>{url}</span>
+                                <IconButton size="sm" label="Remove" noTooltip className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" onClick={() => handleRemoveUrl(idx)}><X /></IconButton>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="border-t border-line p-2">
+                        <Button size="sm" variant="ghost" fullWidth icon={<Database />} onClick={() => setShowDataSourceSelector(true)}>Choose a different source</Button>
+                    </div>
+                </Card>
+            ) : (
+                <Stack gap={2}>
+                    {source('mint', <FileText />, 'This page', 'The page open in this tab', addThisPage)}
+                    {source('sky', <Upload />, 'Upload a file', 'A CSV with one page address per row', () => csvInputRef.current?.click())}
+                    <input ref={csvInputRef} type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={handleCsvUpload} />
+                    <Disclosure variant="plain" summary="What the file should look like" className="px-1">
+                        <div className="border-l-2 border-line pl-3 text-caption text-ink-2">
+                            <p className="m-0">One URL per line, or comma-separated with a header row.</p>
+                            <p className="m-0 font-mono">https://example.com/product/1</p>
+                            <p className="m-0 font-mono">https://example.com/product/2</p>
+                        </div>
+                    </Disclosure>
+                    {source('lilac', <Database />, 'A list you saved', 'The links in a table you already have', () => setShowDataSourceSelector(true))}
+                    {source('butter', <Compass />, 'Find pages on this site', 'From its sitemap, grouped by kind of page', () => setDiscoverOpen(true))}
+                </Stack>
+            )}
 
             <SiteDiscoveryDialog
                 open={discoverOpen}
@@ -194,15 +116,11 @@ export function Step1Urls({
                 onUse={(urls) => setSelectedUrls(Array.from(new Set([...selectedUrls, ...urls])))}
             />
 
-            <div className="flex justify-end pt-2">
-                <button
-                    onClick={onNext}
-                    disabled={selectedUrls.length === 0}
-                    className="btn btn-primary px-6"
-                >
+            <div className="flex justify-end border-t border-line pt-4">
+                <Button variant="primary" onClick={onNext} disabled={selectedUrls.length === 0} iconEnd={selectedUrls.length ? <ArrowRight /> : undefined}>
                     {selectedUrls.length === 0 ? 'Add at least one page' : `Next: ${selectedUrls.length} page${selectedUrls.length === 1 ? '' : 's'}`}
-                </button>
+                </Button>
             </div>
-        </div>
+        </Stack>
     );
 }
