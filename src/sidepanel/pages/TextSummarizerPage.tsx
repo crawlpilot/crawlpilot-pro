@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { WizardLayout } from '../components/wizard/WizardLayout';
 import { Step2SummaryChat } from '../components/summarizer/wizard/Step2SummaryChat';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Spinner, Text } from '../ui';
 import { extractActiveTabContent } from '../services/extraction/pageContent';
 import type { ExtractedContent } from '@/shared/types/summarizer';
 
@@ -40,14 +40,14 @@ export default function TextSummarizerPage({ onBack }: TextSummarizerPageProps) 
             onBack={onBack}
         >
             {isExtracting ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 6, gap: 2 }}>
-                    <CircularProgress size={40} />
-                    <Typography variant="body1" color="text.secondary">{t('readingPage')}</Typography>
-                </Box>
+                <div className="flex flex-col items-center justify-center gap-3 p-12 text-ink-2">
+                    <Spinner size={32} />
+                    <Text tone="muted">{t('readingPage')}</Text>
+                </div>
             ) : !doc ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 6, gap: 2 }}>
-                    <Typography variant="body1" color="text.secondary">{t('noTextFound')}</Typography>
-                </Box>
+                <div className="flex flex-col items-center justify-center p-12">
+                    <Text tone="muted">{t('noTextFound')}</Text>
+                </div>
             ) : (
                 <Step2SummaryChat doc={doc} onBack={onBack || (() => {})} />
             )}

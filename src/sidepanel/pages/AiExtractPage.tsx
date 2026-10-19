@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-    Alert, Box, Button, Chip, LinearProgress, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Tooltip, Typography,
-} from '@mui/material';
+import { Button, Card, Notice, Progress, Stack, Text, TextArea, TextField, ToggleChip, Tooltip, cx, type ChipTone } from '../ui';
 import { Copy, Database, Sparkles } from 'lucide-react';
 import ToolHeader from '../components/ui/ToolHeader';
 import { parseSchemaInput, SCHEMA_PRESETS } from '../../shared/ai/schemaIntake';
@@ -28,19 +26,20 @@ function shown(v: ExtractedValue | undefined): string {
     return typeof v.value === 'string' ? v.value : JSON.stringify(v.value);
 }
 
+const UNDERLINE: Record<ChipTone, string> = {
+    success: 'border-success', info: 'border-info', danger: 'border-danger', warning: 'border-warning',
+    neutral: 'border-line', brand: 'border-brand', outline: 'border-line',
+};
+
 function Value({ v }: { v: ExtractedValue | undefined }) {
     if (!v) return null;
     const s = STATUS[v.status];
     const text = shown(v);
     return (
-        <Tooltip title={`${s.label}${v.source ? ` · ${v.source}` : ''}`} placement="top">
-            <Box component="span" sx={{
-                borderBottom: 2, borderColor: s.color === 'default' ? 'divider' : `${s.color}.main`,
-                textDecoration: v.status === 'unverified' ? 'line-through' : 'none', wordBreak: 'break-word',
-                color: text ? 'text.primary' : 'text.disabled',
-            }}>
+        <Tooltip title={`${s.label}${v.source ? ` · ${v.source}` : ''}`}>
+            <span className={cx('border-b-2 break-words', UNDERLINE[s.color], v.status === 'unverified' && 'line-through', text ? 'text-ink' : 'text-ink-3')}>
                 {text || '—'}
-            </Box>
+            </span>
         </Tooltip>
     );
 }
@@ -98,100 +97,93 @@ export default function AiExtractPage({ onBack }: { onBack: () => void }) {
     const counts = intake.fields.length + intake.lists.reduce((n, l) => n + l.fields.length, 0);
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden' }}>
+        <div className="flex h-full flex-col overflow-hidden bg-bg">
             <ToolHeader title="AI Extract" icon={<Sparkles size={17} />} onBack={onBack}
                 subtitle="Describe what you want; AI in Chrome fills it from this page" />
 
-            <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
-                <Stack spacing={1.5}>
+            <div className="flex-1 overflow-y-auto p-4">
+                <Stack gap={3}>
                     {unavailable && (
-                        <Alert severity="info" variant="outlined"
-                            action={model?.reason ? <Button size="small" color="inherit" onClick={() => setWhyOpen(o => !o)}>{whyOpen ? 'Hide' : 'Why?'}</Button> : undefined}>
+                        <Notice tone="info"
+                            action={model?.reason ? <Button size="sm" variant="ghost" onClick={() => setWhyOpen(o => !o)}>{whyOpen ? 'Hide' : 'Why?'}</Button> : undefined}>
                             AI isn't available in this Chrome, so CrawlPilot fills only what the page itself publishes.
-                            {whyOpen && model?.reason && <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>{model.reason}</Typography>}
-                        </Alert>
+                            {whyOpen && model?.reason && <Text size="caption" tone="muted" className="mt-1">{model.reason}</Text>}
+                        </Notice>
                     )}
-                    {model?.availability === 'downloadable' && (
-                        <Alert severity="info" variant="outlined">The model downloads once (a few GB) the first time you run this.</Alert>
-                    )}
+                    {model?.availability === 'downloadable' && <Notice tone="info">The model downloads once (a few GB) the first time you run this.</Notice>}
 
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                    <div className="flex flex-wrap gap-1.5">
                         {Object.entries(SCHEMA_PRESETS).map(([k, p]) => (
-                            <Chip key={k} size="small" label={p.label} onClick={() => setText(p.text)} variant="outlined" disabled={running} />
+                            <ToggleChip key={k} selected={text === p.text} onClick={() => setText(p.text)} disabled={running}>{p.label}</ToggleChip>
                         ))}
-                    </Stack>
-                    <TextField
-                        multiline minRows={6} maxRows={14} fullWidth size="small" value={text} disabled={running}
-                        onChange={e => setText(e.target.value)}
+                    </div>
+                    <TextArea mono rows={8} value={text} disabled={running} onChange={e => setText(e.target.value)}
                         placeholder={'One field per line, e.g.\nprice: current selling price\n\nA list:\nproducts[]:\n  title: product name\n  price: price\n\nor paste a JSON Schema / an example JSON object'}
-                        inputProps={{ style: { fontFamily: 'monospace', fontSize: 12 } }}
-                    />
-                    <Typography variant="caption" color={intake.error ? 'warning.main' : 'text.secondary'}>
-                        {intake.error ?? `${counts} field${counts !== 1 ? 's' : ''}${intake.lists.length ? ` · ${intake.lists.length} list${intake.lists.length !== 1 ? 's' : ''}` : ''} (${intake.source === 'json-schema' ? 'JSON Schema' : intake.source === 'example' ? 'example' : 'lines'})`}
-                    </Typography>
-                    <TextField size="small" fullWidth value={instructions} disabled={running} onChange={e => setInstructions(e.target.value)} placeholder="Optional instructions, e.g. only items in stock" />
+                        error={intake.error}
+                        hint={`${counts} field${counts !== 1 ? 's' : ''}${intake.lists.length ? ` · ${intake.lists.length} list${intake.lists.length !== 1 ? 's' : ''}` : ''} (${intake.source === 'json-schema' ? 'JSON Schema' : intake.source === 'example' ? 'example' : 'lines'})`} />
+                    <TextField size="sm" value={instructions} disabled={running} onChange={e => setInstructions(e.target.value)} placeholder="Optional instructions, e.g. only items in stock" />
 
-                    <Stack direction="row" spacing={1}>
+                    <div className="flex flex-wrap gap-1.5">
                         {running
-                            ? <Button variant="outlined" onClick={() => abortRef.current?.abort()}>Stop</Button>
-                            : <Button variant="contained" onClick={run} disabled={!!intake.error} startIcon={<Sparkles size={16} />}>{outcome ? 'Run again' : 'Extract'}</Button>}
+                            ? <Button onClick={() => abortRef.current?.abort()}>Stop</Button>
+                            : <Button variant="primary" onClick={run} disabled={!!intake.error} icon={<Sparkles />}>{outcome ? 'Run again' : 'Extract'}</Button>}
                         {outcome && !running && (
                             <>
-                                <Button variant="outlined" onClick={save} startIcon={<Database size={16} />} disabled={saved.length > 0}>{saved.length ? 'Saved' : 'Save to Data'}</Button>
-                                <Button variant="text" onClick={copyJson} startIcon={<Copy size={16} />}>JSON</Button>
+                                <Button onClick={save} icon={<Database />} disabled={saved.length > 0}>{saved.length ? 'Saved' : 'Save to Data'}</Button>
+                                <Button variant="ghost" onClick={copyJson} icon={<Copy />}>JSON</Button>
                             </>
                         )}
-                    </Stack>
+                    </div>
 
                     {running && (
-                        <Box>
-                            <LinearProgress variant={download !== null && download < 1 ? 'determinate' : 'indeterminate'} value={(download ?? 0) * 100} />
-                            <Typography variant="caption" color="text.secondary">
-                                {download !== null && download < 1 ? `Downloading model… ${Math.round(download * 100)}%` : status}
-                            </Typography>
-                        </Box>
+                        <Stack gap={1}>
+                            <Progress value={download !== null && download < 1 ? download * 100 : undefined} label="Extracting" />
+                            <Text size="caption" tone="muted">{download !== null && download < 1 ? `Downloading model… ${Math.round(download * 100)}%` : status}</Text>
+                        </Stack>
                     )}
-                    {error && <Alert severity="warning" variant="outlined">{error}</Alert>}
+                    {error && <Notice tone="warning">{error}</Notice>}
 
                     {outcome && (
-                        <Stack spacing={1.5}>
-                            {outcome.warnings.map((w, i) => <Alert key={i} severity="info" variant="outlined" sx={{ py: 0 }}>{w}</Alert>)}
+                        <Stack gap={3}>
+                            {outcome.warnings.map((w, i) => <Notice key={i} tone="info">{w}</Notice>)}
                             {intake.fields.length > 0 && (
-                                <Paper variant="outlined" sx={{ p: 1.25 }}>
-                                    <Stack spacing={0.75}>
+                                <Card pad="sm">
+                                    <Stack gap={1.5}>
                                         {intake.fields.map(f => (
-                                            <Box key={f.name} sx={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 1, alignItems: 'baseline' }}>
-                                                <Typography variant="caption" fontWeight={700} sx={{ wordBreak: 'break-word' }}>{f.name}</Typography>
-                                                <Typography variant="body2"><Value v={outcome.single[f.name]} /></Typography>
-                                            </Box>
+                                            <div key={f.name} className="grid grid-cols-[110px_1fr] items-baseline gap-2">
+                                                <Text size="caption" weight="bold" className="break-words">{f.name}</Text>
+                                                <Text size="small"><Value v={outcome.single[f.name]} /></Text>
+                                            </div>
                                         ))}
                                     </Stack>
-                                </Paper>
+                                </Card>
                             )}
                             {intake.lists.map(l => {
                                 const items = outcome.lists[l.name] ?? [];
                                 return (
-                                    <Paper key={l.name} variant="outlined" sx={{ overflow: 'auto' }}>
-                                        <Typography variant="subtitle2" sx={{ px: 1.25, pt: 1 }}>{l.name} · {items.length} item{items.length !== 1 ? 's' : ''}</Typography>
-                                        <Table size="small">
-                                            <TableHead><TableRow>{l.fields.map(f => <TableCell key={f.name} sx={{ fontWeight: 700, fontSize: 11 }}>{f.name}</TableCell>)}</TableRow></TableHead>
-                                            <TableBody>
+                                    <Card key={l.name} pad="none" className="overflow-auto">
+                                        <Text size="small" weight="semibold" className="px-3 pt-2.5 pb-1.5">{l.name} · {items.length} item{items.length !== 1 ? 's' : ''}</Text>
+                                        <table className="w-full border-collapse text-caption">
+                                            <thead>
+                                                <tr>{l.fields.map(f => <th key={f.name} className="border-b border-line bg-surface-2 px-3 py-1.5 text-left font-bold text-ink-2">{f.name}</th>)}</tr>
+                                            </thead>
+                                            <tbody>
                                                 {items.slice(0, ROWS_SHOWN).map((item, i) => (
-                                                    <TableRow key={i}>{l.fields.map(f => <TableCell key={f.name} sx={{ fontSize: 12, maxWidth: 220 }}><Value v={item[f.name]} /></TableCell>)}</TableRow>
+                                                    <tr key={i}>{l.fields.map(f => <td key={f.name} className="max-w-[220px] border-b border-line px-3 py-1.5 text-small"><Value v={item[f.name]} /></td>)}</tr>
                                                 ))}
-                                            </TableBody>
-                                        </Table>
-                                        {items.length > ROWS_SHOWN && <Typography variant="caption" color="text.secondary" sx={{ p: 1.25, display: 'block' }}>{items.length - ROWS_SHOWN} more in the saved table.</Typography>}
-                                    </Paper>
+                                            </tbody>
+                                        </table>
+                                        {items.length > ROWS_SHOWN && <Text size="caption" tone="muted" className="p-3">{items.length - ROWS_SHOWN} more in the saved table.</Text>}
+                                    </Card>
                                 );
                             })}
-                            <Typography variant="caption" color="text.secondary">
+                            <Text size="caption" tone="muted">
                                 Underline colour shows where a value came from: green, the page's data or checked on the page; blue, found elsewhere on the page; red, not on the page (crossed out).
-                            </Typography>
+                            </Text>
                         </Stack>
                     )}
                 </Stack>
-            </Box>
-        </Box>
+            </div>
+        </div>
     );
 }

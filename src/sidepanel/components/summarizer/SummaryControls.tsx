@@ -1,4 +1,4 @@
-import { Stack, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Segmented } from '../../ui';
 import type { SummaryType, SummaryLength } from '@/shared/types/summarizer';
 
 const TYPE_OPTIONS: { value: SummaryType; label: string }[] = [
@@ -23,31 +23,11 @@ interface SummaryControlsProps {
 
 export function SummaryControls({ type, length, disabled, onChange }: SummaryControlsProps) {
     return (
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
-            <ToggleButtonGroup
-                size="small"
-                exclusive
-                value={type}
-                disabled={disabled}
-                onChange={(_, value: SummaryType | null) => { if (value) onChange(value, length); }}
-                sx={{ '& .MuiToggleButton-root': { px: 1.25, py: 0.5, fontSize: '0.75rem', textTransform: 'none' } }}
-            >
-                {TYPE_OPTIONS.map(opt => (
-                    <ToggleButton key={opt.value} value={opt.value}>{opt.label}</ToggleButton>
-                ))}
-            </ToggleButtonGroup>
-            <ToggleButtonGroup
-                size="small"
-                exclusive
-                value={length}
-                disabled={disabled}
-                onChange={(_, value: SummaryLength | null) => { if (value) onChange(type, value); }}
-                sx={{ '& .MuiToggleButton-root': { px: 1.25, py: 0.5, fontSize: '0.75rem', textTransform: 'none' } }}
-            >
-                {LENGTH_OPTIONS.map(opt => (
-                    <ToggleButton key={opt.value} value={opt.value}>{opt.label}</ToggleButton>
-                ))}
-            </ToggleButtonGroup>
-        </Stack>
+        <div className="flex flex-wrap items-center gap-2">
+            <Segmented size="sm" aria-label="Summary type" value={type} onChange={v => onChange(v, length)}
+                options={TYPE_OPTIONS.map(o => ({ ...o, disabled }))} />
+            <Segmented size="sm" aria-label="Summary length" value={length} onChange={v => onChange(type, v)}
+                options={LENGTH_OPTIONS.map(o => ({ ...o, disabled }))} />
+        </div>
     );
 }
