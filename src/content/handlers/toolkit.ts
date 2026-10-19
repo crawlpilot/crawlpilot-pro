@@ -5,6 +5,7 @@ import { requestNetEntries, clearNetEntries } from '../features/network/NetworkR
 import { buildPageView, ground } from '../services/ai-view/pageView';
 import { RightClickUnlocker } from '../features/utility/RightClickUnlocker';
 import { fail, ok, on, send } from '../../shared/messages';
+import { checkPageClaims, showCitation } from '../services/ai-view/claims';
 
 const labPicker = new LabPicker();
 
@@ -37,6 +38,8 @@ export function registerToolkitHandlers() {
 
     on('AI_PAGE_VIEW', ({ chunkChars, maxChunks }) => ok({ view: buildPageView(chunkChars, maxChunks) }));
     on('AI_GROUND', ({ requests }) => ok({ results: ground(requests) }));
+    on('AI_CHECK', ({ claims }) => ok({ results: checkPageClaims(claims) }));
+    on('AI_SHOW', ({ ref, quote }) => ok({ shown: showCitation(ref, quote) }));
 
     on('TOGGLE_RIGHT_CLICK', ({ enable }) => {
         if (enable) RightClickUnlocker.enable();

@@ -15,6 +15,7 @@ import type { NextControl } from '../content/services/pagination/findNext';
 import type { NetEntry } from './network/types';
 import type { LabEval, LabPick } from '../content/features/lab/SelectorLab';
 import type { GroundRequest, Grounded, PageView } from './ai/page';
+import type { ClaimRequest, ClaimResult } from './ai/cite';
 import type { Chain } from './types/database';
 import type { FoundImage, ImageBatch, ImageScanProgress } from './images/types';
 
@@ -157,6 +158,9 @@ export interface Messages {
     PAGE_COOKIE: { reply: Res<{ cookie: string }> };
     AI_PAGE_VIEW: { payload: { chunkChars: number; maxChunks: number }; reply: Res<{ view: PageView }> };
     AI_GROUND: { payload: { requests: GroundRequest[] }; reply: Res<{ results: Grounded[] }> };
+    /** Page assistant: checks claims against the last page view's blocks, and shows a cited block. */
+    AI_CHECK: { payload: { claims: ClaimRequest[] }; reply: Res<{ results: ClaimResult[] }> };
+    AI_SHOW: { payload: { ref: string; quote?: string }; reply: Res<{ shown: boolean }> };
 
     // ---- content script → side panel (broadcasts)
     ELEMENT_SELECTED: { payload: ElementSelected };

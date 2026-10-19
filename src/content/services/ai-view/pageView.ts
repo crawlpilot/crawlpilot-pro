@@ -35,6 +35,11 @@ export function buildPageView(chunkChars: number, maxChunks: number, options: { 
     };
 }
 
+/** The blocks of the last view, `ref → element`, in page order (the Page assistant's citations). */
+export function viewBlocks(): Map<string, Element> {
+    return new Map(order.filter(r => refs.has(r)).map(r => [r, refs.get(r)!]));
+}
+
 function textOf(el: Element): string {
     if (el.tagName === 'IMG') return `${el.getAttribute('alt') || ''} ${(el as HTMLImageElement).currentSrc || (el as HTMLImageElement).src}`;
     return (el as HTMLElement).innerText || el.textContent || '';
