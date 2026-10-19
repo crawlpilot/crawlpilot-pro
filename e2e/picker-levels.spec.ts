@@ -131,3 +131,50 @@ test('the side panel mirror: the page sends where the selection is, the panel\'s
     expect((await panel.next('ELEMENT_SELECTED')).value).toContain('$24.99');
     await page.close();
 });
+
+test('List Extractor: ↑ / ↓ step through the sections around the card; the one shown is saved', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/sections-nested.html`);
+    await panel.clear();
+    await panel.toTab(await panel.tabId(page.url()), 'START_PICKER', { mode: 'list', action: 'extract' });
+    await hover(page, '#sw2 li:nth-child(3)');
+    // Suggested as before: the grid of cards; the swatches of this card are one step narrower.
+    await expect(tooltip(page)).toContainText('· 6 items');
+    const bar = page.getByTestId('element-picker-bar');
+    await expect(bar).toContainText('Sections');
+    await expect(bar).toContainText('· 4 items');
+    await page.keyboard.press('ArrowDown');
+    await outlined(page, '#sw2');
+    await expect(tooltip(page)).toContainText('· 4 items');
+    // Moving inside the chosen section keeps it.
+    await hover(page, '#sw2 li:nth-child(1)');
+    await outlined(page, '#sw2');
+    await page.keyboard.press('ArrowUp');
+    await outlined(page, '#grid');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    const picked = await panel.next('ELEMENT_SELECTED');
+    expect(picked.count).toBe(4);
+    await page.close();
+});
+
+test('List Extractor: a grid laid out in rows is offered as its cards or its rows (BestBuy)', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/corpus/bestbuy-search`);
+    await panel.clear();
+    await panel.toTab(await panel.tabId(page.url()), 'START_PICKER', { mode: 'list', action: 'extract' });
+    await page.locator('li.product-list-item h3.product-title').first().scrollIntoViewIfNeeded();
+    await hover(page, 'li.product-list-item h3.product-title >> nth=0');
+    // Suggested as before: the cards (placeholders still loading included on hover).
+    await expect(tooltip(page)).toContainText(/Results · \d+ items/);
+    const bar = page.getByTestId('element-picker-bar');
+    const rows = bar.getByRole('button', { name: /· \d+ rows/ });
+    const n = Number((await rows.innerText()).match(/(\d+) rows/)![1]);
+    expect(n).toBeGreaterThanOrEqual(6);
+    await rows.click();
+    await expect(tooltip(page)).toContainText(`${n} rows`);
+    await page.keyboard.press('Enter');
+    const picked = await panel.next('ELEMENT_SELECTED');
+    expect(picked.count).toBe(n);
+    await page.close();
+});

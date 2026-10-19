@@ -13,6 +13,14 @@ export interface Reading {
     outlines?: HTMLElement[];
     /** The element outlined solid instead of the selection (the parent of the items like this). */
     outline?: HTMLElement;
+    /** The one a strategy suggests (else the first). */
+    suggested?: boolean;
+    /** Strategies that step through readings: the level (a section, nearest first). */
+    group?: number;
+    /** Another way to read the same level (a grid's rows instead of its cards). */
+    variant?: string;
+    /** What the strategy needs to save it (a section's match). */
+    data?: unknown;
 }
 
 export interface ISelectionStrategy {
@@ -20,8 +28,13 @@ export interface ISelectionStrategy {
     handleHover(element: HTMLElement, picker: VisualElementPicker, reading?: Reading): void;
     /** `reading`: what the user chose to save; the click never re-decides it. */
     handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void, reading?: Reading): void;
-    /** The ways a click can read `element`, the suggested one first. */
+    /** The ways a click can read `element` (the suggested one first, or marked `suggested`). */
     readings?(element: HTMLElement): Reading[];
+    /**
+     * Wider / Narrower step through the readings' groups (the List Extractor's sections) instead of
+     * the element's path; ← / → don't apply.
+     */
+    stepsThroughReadings?: boolean;
 
     preferredAction?: 'extract' | 'click';
 }

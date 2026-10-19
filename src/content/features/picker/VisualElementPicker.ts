@@ -11,7 +11,7 @@
  */
 import type { ISelectionStrategy, Reading } from './strategies/ISelectionStrategy';
 import { getVisualRect } from '../../utils/rendering';
-import { ElementSelected, send } from '../../../shared/messages';
+import { ElementSelected, send, type PickerState } from '../../../shared/messages';
 import { SelectionPath } from './path';
 
 const reportSelection = (selected: ElementSelected) => { void send('ELEMENT_SELECTED', selected); };
@@ -110,11 +110,12 @@ export class VisualElementPicker {
     public handleExternalAction(action: string) {
         if (!this.isActive || !this.path) return;
         const [name, arg] = action.split(':');
+        const sections = !!this.strategy?.stepsThroughReadings && this.readings.length > 0;
         switch (name) {
-            case 'ArrowUp': case 'wider': this.move(() => this.path!.wider()); break;
-            case 'ArrowDown': case 'narrower': this.move(() => this.path!.narrower()); break;
-            case 'ArrowLeft': case 'prev': this.move(() => this.path!.sibling(-1)); break;
-            case 'ArrowRight': case 'next': this.move(() => this.path!.sibling(1)); break;
+            case 'ArrowUp': case 'wider': sections ? this.stepSection(1) : this.move(() => this.path!.wider()); break;
+            case 'ArrowDown': case 'narrower': sections ? this.stepSection(-1) : this.move(() => this.path!.narrower()); break;
+            case 'ArrowLeft': case 'prev': if (!sections) this.move(() => this.path!.sibling(-1)); break;
+            case 'ArrowRight': case 'next': if (!sections) this.move(() => this.path!.sibling(1)); break;
             case 'step': this.move(() => this.path!.at(Number(arg))); break;
             case 'lock': this.locked = !this.locked; this.render(true); break;
             case 'reading': this.chooseReading(Number(arg)); break;
@@ -124,10 +125,15 @@ export class VisualElementPicker {
 
     // ---- Selection ----
 
+    /** What is outlined: the reading's own outline (a section's container) or the selected element. */
+    private get selected(): HTMLElement | null {
+        return this.reading?.outline ?? this.path?.current ?? null;
+    }
+
     /** A new element under the cursor: a fresh path, unless the user's level holds. */
     private hover(target: HTMLElement) {
         if (this.locked) return;
-        if (this.adjusted && this.path?.current.contains(target)) return;
+        if (this.adjusted && this.selected?.contains(target)) return;
         if (!this.adjusted && this.path?.start === target) return;
         this.path = new SelectionPath(target);
         this.adjusted = false;
@@ -145,14 +151,31 @@ export class VisualElementPicker {
         if (!this.path || !this.strategy) return;
         this.currentElement = this.path.current;
         this.readings = this.strategy.readings?.(this.currentElement) ?? [];
-        this.readingIndex = 0;
+        this.readingIndex = Math.max(0, this.readings.findIndex(r => r.suggested));
         this.render(redraw);
     }
 
     private chooseReading(i: number) {
         if (i < 0 || i >= this.readings.length) return;
         this.readingIndex = i;
+        // A reading chosen holds while the cursor stays inside it, like a level.
+        this.adjusted = true;
         this.render(true);
+    }
+
+    /** The next wider (1) / narrower (-1) section, read the same way (cards or rows) when it can be. */
+    private stepSection(dir: 1 | -1) {
+        const now = this.reading;
+        if (now?.group === undefined) return;
+        const group = now.group + dir;
+        const same = this.readings.findIndex(r => r.group === group && r.variant === now.variant);
+        const i = same >= 0 ? same : this.readings.findIndex(r => r.group === group);
+        if (i >= 0) this.chooseReading(i);
+    }
+
+    private groupStep(dir: 1 | -1): boolean {
+        const g = this.reading?.group;
+        return g !== undefined && this.readings.some(r => r.group === g + dir);
     }
 
     private get reading(): Reading | undefined {
@@ -180,16 +203,20 @@ export class VisualElementPicker {
         this.strategy.handleClick(this.currentElement, this, reportSelection, this.reading);
     }
 
-    private state() {
+    private state(): PickerState {
         const path = this.path!;
+        const sections = !!this.strategy?.stepsThroughReadings && this.readings.length > 0;
         return {
-            steps: path.steps.map(step => stepLabel(step, path.twins.get(step))).reverse(),
-            index: path.steps.length - 1 - path.index,
+            mode: sections ? 'sections' : 'path',
+            steps: sections ? [] : path.steps.map(step => stepLabel(step, path.twins.get(step))).reverse(),
+            index: sections ? 0 : path.steps.length - 1 - path.index,
             readings: this.readings.map(r => r.label),
             reading: this.readingIndex,
             locked: this.locked,
-            canPrev: !!path.current.previousElementSibling,
-            canNext: !!path.current.nextElementSibling,
+            canWider: sections ? this.groupStep(1) : path.index + 1 < path.steps.length,
+            canNarrower: sections ? this.groupStep(-1) : true,
+            canPrev: !sections && !!path.current.previousElementSibling,
+            canNext: !sections && !!path.current.nextElementSibling,
         };
     }
 
@@ -287,7 +314,8 @@ export class VisualElementPicker {
             `<button type="button" data-action="${action}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;${on ? 'color:#22D3EE;' : ''}"><kbd style="background:rgba(255,255,255,0.15);border-radius:3px;padding:1px 5px;font-weight:600;font-family:inherit;">${k}</kbd><span style="opacity:0.8;">${text}</span></button>`;
 
         let pathRow = '';
-        if (this.path) {
+        const sections = !!this.strategy?.stepsThroughReadings && this.readings.length > 0;
+        if (this.path && !sections) {
             const s = this.state();
             const from = Math.max(0, s.index - STEPS_ABOVE);
             const crumbs = s.steps.slice(from).map((label, i) => {
@@ -297,13 +325,12 @@ export class VisualElementPicker {
             pathRow = `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${from > 0 ? '<span style="opacity:.6">…</span>' : ''}${crumbs.join('<span style="opacity:.5">›</span>')}</div>`;
         }
         const readingRow = this.readings.length > 1
-            ? `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;"><span style="opacity:.7;margin-right:2px;">Read as</span>${this.readings.map((r, i) => chip(`reading:${i}`, r.label, i === this.readingIndex)).join('')}</div>`
+            ? `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;"><span style="opacity:.7;margin-right:2px;">${sections ? 'Sections' : 'Read as'}</span>${this.readings.map((r, i) => chip(`reading:${i}`, r.label, i === this.readingIndex)).join('')}</div>`
             : '';
         const keys = `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">${[
-            key('wider', '↑', 'Wider'),
-            key('narrower', '↓', 'Narrower'),
-            key('prev', '←', 'Prev'),
-            key('next', '→', 'Next'),
+            key('wider', '↑', sections ? 'Wider section' : 'Wider'),
+            key('narrower', '↓', sections ? 'Narrower section' : 'Narrower'),
+            ...(sections ? [] : [key('prev', '←', 'Prev'), key('next', '→', 'Next')]),
             key('lock', '␣', this.locked ? 'Locked' : 'Lock', this.locked),
             key('select', 'Enter', 'Select'),
             key('cancel', 'Esc', 'Cancel'),

@@ -236,16 +236,19 @@ function sideways(row: HTMLElement, cells: HTMLElement): boolean {
  * rows. Most of the container must be these cards (≥ 40% of its children hold one): an app shell
  * whose header, pane and map are `div`s is not a list.
  */
-function cardsIn(container: HTMLElement, child: HTMLElement, element: HTMLElement): HTMLElement[] | null {
+function cardsIn(container: HTMLElement, child: HTMLElement, element: HTMLElement): { items: HTMLElement[]; rows?: HTMLElement[] } | null {
     const children = renderedChildren(container);
     if (children.length < MIN_ITEMS) return null;
     let items: HTMLElement[] = [];
+    /** A grid of rows of cells: the rows (the other way to read it). */
+    let rowsOf: HTMLElement[] | undefined;
     // Everything that could be a card here: the children, or the cells of the alike rows.
     let pool: HTMLElement[] = children;
     const cells = cellsParent(child);
     const cell = cells ? (Array.from(cells.children) as HTMLElement[]).find(c => c.contains(element)) : undefined;
     if (cells && cell && cardLike(cell)) {
         const rows = children.filter(r => r === child || (r.tagName === child.tagName && similarity(shapeOf(r), shapeOf(child)) >= 0.6));
+        rowsOf = rows;
         pool = rows.flatMap(r => {
             const parent = r === child ? cells : cellsParent(r);
             return parent ? renderedChildren(parent) : [];
@@ -257,7 +260,8 @@ function cardsIn(container: HTMLElement, child: HTMLElement, element: HTMLElemen
     items = consensus(items, pool);
     if (items.length < MIN_ITEMS) return null;
     const holders = children.filter(c => items.some(i => c === i || c.contains(i)));
-    return holders.length >= children.length * 0.4 ? items : null;
+    if (holders.length < children.length * 0.4) return null;
+    return rowsOf && rowsOf.length >= MIN_ITEMS ? { items, rows: rowsOf } : { items };
 }
 
 /**
@@ -309,19 +313,22 @@ function describe(el: HTMLElement): string {
 
 /** A hover must never stall the page: past this, the nearest section found so far is the answer. */
 const BUDGET_MS = 20;
-let lastFind: { element: HTMLElement; at: number; result: ListMatch } | null = null;
+
+/** A section the walk found: its container, its cards, and its rows when it is a grid of rows. */
+interface Section { el: HTMLElement; items: HTMLElement[]; rows?: HTMLElement[] }
+let lastWalk: { element: HTMLElement; at: number; best: Section | null; all: Section[] } | null = null;
 
 /**
- * The section around a hovered element (List Extractor hover): the nearest container whose
- * children are cards like the one under the cursor. Walking up from the element, the first such
- * container is kept; one further up replaces it with clearly more cards (≥ 1.5× and 2 more), or when
- * the nearer list is a small part of one of its cards (swatches, price lines): so the result is the
- * same wherever in a card the pointer is, and a page wrapper never wins over the grid. The
- * walk stops at a scrolling pane or dialog once a section is found. Only the element's ancestors and
- * their children are looked at: nothing else on the page.
+ * The sections around a hovered element, nearest first, and the one picked (`best`): the nearest
+ * container whose children are cards like the one under the cursor. Walking up from the element,
+ * the first such container is kept; one further up replaces it with clearly more cards (≥ 1.5× and
+ * 2 more), or when the nearer list is a small part of one of its cards (swatches, price lines): so
+ * the result is the same wherever in a card the pointer is, and a page wrapper never wins over the
+ * grid. The walk stops at a scrolling pane or dialog once a section is found. Only the element's
+ * ancestors and their children are looked at: nothing else on the page.
  */
-export function findList(element: HTMLElement): ListMatch {
-    if (lastFind && lastFind.element === element && performance.now() - lastFind.at < 1000) return lastFind.result;
+function walkSections(element: HTMLElement): { best: Section | null; all: Section[] } {
+    if (lastWalk && lastWalk.element === element && performance.now() - lastWalk.at < 1000) return lastWalk;
     shapes = new WeakMap();
     contents = new WeakMap();
     boxes = new WeakMap();
@@ -329,28 +336,53 @@ export function findList(element: HTMLElement): ListMatch {
     const started = performance.now();
     // The sections considered, when the page has `data-cp-debug` on <html>.
     const debug: string[] | null = document.documentElement.hasAttribute('data-cp-debug') ? [] : null;
-    let best: { el: HTMLElement; items: HTMLElement[] } | null = null;
+    let best: Section | null = null;
+    const all: Section[] = [];
     let child = element;
     let el = element.parentElement;
     for (let level = 0; el && el !== document.body && el !== document.documentElement && level < MAX_LEVELS_UP; level++) {
-        const items = cardsIn(el, child, element);
-        if (items && (!best || moveUp(best, items))) best = { el, items };
+        const found = cardsIn(el, child, element);
+        if (found) {
+            const section = { el, ...found };
+            all.push(section);
+            if (!best || moveUp(best, found.items)) best = section;
+        }
         if (debug) {
             const cells = cellsParent(child);
-            debug.push(`${level} ${describe(el)} [child ${describe(child)}${cells ? `, rows of cells in ${describe(cells)}` : ''}]: ${items ? `${items.length} × ${describe(items[0])}` : '–'}${best?.el === el ? ' ← best' : ''}`);
+            debug.push(`${level} ${describe(el)} [child ${describe(child)}${cells ? `, rows of cells in ${describe(cells)}` : ''}]: ${found ? `${found.items.length} × ${describe(found.items[0])}` : '–'}${best?.el === el ? ' ← best' : ''}`);
         }
         if (best && (isBoundary(el) || performance.now() - started > BUDGET_MS)) break;
         child = el;
         el = el.parentElement;
     }
-    const result = best ? match(best.el, best.items) : NONE;
     if (debug) {
         // Read by the hover scorecard (e2e/picker.spec.ts) and useful in a bug report.
         debug.push(`${Math.round(performance.now() - started)} ms`);
         document.documentElement.setAttribute('data-cp-debug', debug.join('\n'));
     }
-    lastFind = { element, at: performance.now(), result };
-    return result;
+    lastWalk = { element, at: performance.now(), best, all };
+    return lastWalk;
+}
+
+/** The section around a hovered element (List Extractor hover): see `walkSections`. */
+export function findList(element: HTMLElement): ListMatch {
+    const { best } = walkSections(element);
+    return best ? match(best.el, best.items) : NONE;
+}
+
+export interface ListCandidate extends ListMatch {
+    /** A grid of rows of cards: the same section read as its rows. */
+    rows?: ListMatch;
+}
+
+/**
+ * Every section around a hovered element, nearest first (docs/plans/picker-level-control-plan.md
+ * L5), for the user to step through: `suggested` is the one `findList` picks.
+ */
+export function findListCandidates(element: HTMLElement): { lists: ListCandidate[]; suggested: number } {
+    const { best, all } = walkSections(element);
+    const lists = all.map(s => ({ ...match(s.el, s.items), ...(s.rows ? { rows: match(s.el, s.rows) } : {}) }));
+    return { lists, suggested: Math.max(0, all.findIndex(s => s === best)) };
 }
 
 /** The item (card / row) of `container` that holds `target`. */

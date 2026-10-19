@@ -1,6 +1,6 @@
 # Automation, page tools and developer aids
 
-Status: plan, nothing built yet (2026-10-19).
+Status: plan, nothing built yet (2026-10-19). All decisions made (§9). Next: T1 (Tables).
 
 This plan adds 12 features in three groups:
 
@@ -376,8 +376,8 @@ Suggested order: T1–T4 (small, visible), then M1–M4 (the biggest value; M1 f
 ## 9. Risks and decisions
 
 - **Decided: no `debugger` permission.** Screenshots are of the current tab only, stitched; PDF and bulk capture are out of scope.
-- **Decision for you: scheduled runs only run while Chrome is open.** The plan says so in the screen and offers script export (D1, D2) for always-on runs. A hosted runner is out of scope.
-- **Decision for you: should a monitor send notifications by default** (`notify: 'changes'`)? The plan assumes yes, for changes only.
+- **Decided: scheduled runs only run while Chrome is open.** The screen says so and offers script export (D1, D2) for always-on runs. A hosted runner is out of scope.
+- **Decided: monitors notify by default, only when something changed** (`notify: 'changes'`). The Watch dialog can switch to every run or never.
 - **Unattended runs on someone's site.** Monitors use the recipe's pacing and one run per host at a time. They don't solve bot checks; they stop and notify. Minimum interval: 15 minutes.
 - **Data leaving the device.** Webhooks are the first feature that sends scraped data to a server. They are opt-in per dataset, the origin permission is explicit, and the privacy page is updated.
 - **Cookies are credentials.** They are asked for and warned about each time, never stored, and never sent anywhere by CrawlPilot.

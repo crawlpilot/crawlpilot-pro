@@ -13,7 +13,7 @@ const act = (action: string) => { sendToActiveTab('PICKER_ACTION', { action }).c
 /** Keys pressed in the side panel act on the page's picker. */
 const KEYS: Record<string, string> = { ArrowUp: 'wider', ArrowDown: 'narrower', ArrowLeft: 'prev', ArrowRight: 'next', Enter: 'select', '[': 'wider', ']': 'narrower' };
 
-export function PickerControls({ onCancel }: { onCancel: () => void }) {
+export function PickerControls({ onCancel }: { onCancel?: () => void }) {
     const [state, setState] = useState<PickerState | null>(null);
 
     useEffect(() => on('PICKER_STATE', s => setState(s)), []);
@@ -40,7 +40,7 @@ export function PickerControls({ onCancel }: { onCancel: () => void }) {
                 </div>
             ) : (
                 <div className="flex flex-col gap-2.5 p-3.5">
-                    <div>
+                    {state.mode === 'path' && <div>
                         <Text size="caption" weight="semibold" tone="muted" className="mb-1">Selected</Text>
                         <div className="flex flex-wrap items-center gap-1">
                             {state.steps.slice(Math.max(0, state.index - 3)).map((label, i, shown) => {
@@ -58,16 +58,18 @@ export function PickerControls({ onCancel }: { onCancel: () => void }) {
                                 );
                             })}
                         </div>
-                    </div>
-                    <div className="grid grid-cols-4 gap-1.5">
-                        <Button size="sm" icon={<ArrowUp />} onClick={() => act('wider')} disabled={state.index === 0}>Wider</Button>
-                        <Button size="sm" icon={<ArrowDown />} onClick={() => act('narrower')}>Narrower</Button>
-                        <Button size="sm" icon={<ArrowLeft />} onClick={() => act('prev')} disabled={!state.canPrev} aria-label="Previous item">Prev</Button>
-                        <Button size="sm" icon={<ArrowRight />} onClick={() => act('next')} disabled={!state.canNext} aria-label="Next item">Next</Button>
+                    </div>}
+                    <div className={state.mode === 'path' ? 'grid grid-cols-4 gap-1.5' : 'grid grid-cols-2 gap-1.5'}>
+                        <Button size="sm" icon={<ArrowUp />} onClick={() => act('wider')} disabled={!state.canWider}>{state.mode === 'path' ? 'Wider' : 'Wider section'}</Button>
+                        <Button size="sm" icon={<ArrowDown />} onClick={() => act('narrower')} disabled={!state.canNarrower}>{state.mode === 'path' ? 'Narrower' : 'Narrower section'}</Button>
+                        {state.mode === 'path' && <>
+                            <Button size="sm" icon={<ArrowLeft />} onClick={() => act('prev')} disabled={!state.canPrev} aria-label="Previous item">Prev</Button>
+                            <Button size="sm" icon={<ArrowRight />} onClick={() => act('next')} disabled={!state.canNext} aria-label="Next item">Next</Button>
+                        </>}
                     </div>
                     {state.readings.length > 0 && (
                         <div>
-                            <Text size="caption" weight="semibold" tone="muted" className="mb-1">Save it as</Text>
+                            <Text size="caption" weight="semibold" tone="muted" className="mb-1">{state.mode === 'path' ? 'Save it as' : 'Section'}</Text>
                             <div className="flex flex-wrap gap-1">
                                 {state.readings.map((label, i) => (
                                     <ToggleChip key={label} selected={i === state.reading} onClick={() => act(`reading:${i}`)}>{label}</ToggleChip>

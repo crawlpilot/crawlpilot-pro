@@ -4,6 +4,7 @@ import { Button, Card, Heading, Row, Stack, Text } from '../../../ui';
 import { useTranslation } from 'react-i18next';
 import { SelectorCard } from '../SelectorCard';
 import { ListPick } from '../../../../shared/types/extraction';
+import { PickerControls } from '../../shared/PickerControls';
 
 const HINT_KEY = 'crawlpilot_list_hint_seen';
 
@@ -63,7 +64,7 @@ export function Step1Selection({
                 </Card>
             )}
 
-            {selectionStatus === 'selecting' && selectingFor === 'list' && <Listening title={t('step1.listeningForClick')} hint={t('step1.clickAnyRepeating')} cancel={t('step1.pressEscToCancel')} onCancel={onCancel} />}
+            {selectionStatus === 'selecting' && selectingFor === 'list' && <PickerControls onCancel={onCancel} />}
 
             {hasSelection && (
                 <Stack gap={3}>

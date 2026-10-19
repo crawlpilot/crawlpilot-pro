@@ -108,8 +108,12 @@ export interface PickerState {
     readings: string[];
     reading: number;
     locked: boolean;
+    canWider: boolean;
+    canNarrower: boolean;
     canPrev: boolean;
     canNext: boolean;
+    /** 'sections': Wider / Narrower step through `readings` (the List Extractor); 'path': through `steps`. */
+    mode: 'path' | 'sections';
 }
 
 export interface ElementSelected {

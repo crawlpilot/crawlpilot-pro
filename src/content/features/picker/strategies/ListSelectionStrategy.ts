@@ -1,9 +1,9 @@
 import type { ElementSelected } from '../../../../shared/messages';
-import { ISelectionStrategy } from './ISelectionStrategy';
+import { ISelectionStrategy, type Reading } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { refreshNetSources } from '../../../services/extraction/structuredRows';
-import { findList, itemOf, ListMatch } from '../../../services/extraction/items';
+import { findList, findListCandidates, itemOf, ListMatch } from '../../../services/extraction/items';
 import { sectionLabel } from '../../../services/extraction/section';
 import { withAtomCache } from '../../../services/extraction/atoms';
 import { listLocators } from '../../../services/selectors/list';
@@ -29,29 +29,54 @@ export class ListSelectionStrategy implements ISelectionStrategy {
     private lastMatch: ListMatch | null = null;
     private lastItemUnit: HTMLElement | null = null;
     public preferredAction?: 'extract' | 'click' = 'extract';
+    /** ↑ / ↓ step through the sections around the hovered card (plan L5), not single elements. */
+    public stepsThroughReadings = true;
 
     constructor() {
         this.extractor = new DataExtractor();
     }
 
-    handleHover(element: HTMLElement, picker: VisualElementPicker): void {
-        const found = findList(element);
+    /**
+     * The sections around the hovered element, nearest first (only its ancestors and their children:
+     * `picker-container-bound-plan.md`), the one `findList` picks suggested. A grid made of rows of
+     * cards is offered as its rows too.
+     */
+    readings(element: HTMLElement): Reading[] {
+        const { lists, suggested } = findListCandidates(element);
+        return lists.flatMap((m, group): Reading[] => {
+            const container = m.container!;
+            const cards: Reading = { kind: 'list', label: sectionLabel(container, m.siblings).label, outline: container, outlines: m.siblings, group, suggested: group === suggested, data: m };
+            if (!m.rows) return [cards];
+            const rows = m.rows.siblings.length;
+            return [cards, { kind: 'list', label: `${sectionLabel(container, m.rows.siblings).label.replace(/ · .*$/, '')} · ${rows} row${rows === 1 ? '' : 's'}`, outline: container, outlines: m.rows.siblings, group, variant: 'rows', data: m.rows }];
+        });
+    }
+
+    handleHover(element: HTMLElement, picker: VisualElementPicker, reading?: Reading): void {
+        const found = (reading?.data as ListMatch | undefined) ?? findList(element);
         this.lastMatch = found;
         if (found.isContainer && found.container) {
             this.lastItemUnit = found.siblings.find(s => s.contains(element)) ?? itemOf(element, found.container);
-            picker.updateHighlightManual(found.container, `📋 ${sectionLabel(found.container, found.siblings).label}`, 'Click to select the list', element, found.siblings);
+            const label = reading?.label ?? sectionLabel(found.container, found.siblings).label;
+            picker.updateHighlightManual(found.container, `📋 ${label}`, 'Click to select the list · ↑↓ other sections', element, found.siblings);
         } else {
             this.lastItemUnit = null;
             picker.updateHighlightManual(element, element.tagName.toLowerCase(), 'Click to select', undefined, []);
         }
     }
 
-    handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {
+    handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void, reading?: Reading): void {
+        // The section shown is the one saved.
+        if (reading?.data) {
+            const shown = reading.data as ListMatch;
+            this.lastMatch = shown;
+            this.lastItemUnit = shown.siblings.find(s => s.contains(element)) ?? (shown.container ? itemOf(element, shown.container) : null);
+        }
         const found = this.lastMatch;
-        const reading = found?.isContainer ? `Reading ${found.siblings.length} items…` : 'Reading…';
+        const busyText = found?.isContainer ? `Reading ${found.siblings.length} items…` : 'Reading…';
         // Recorded API responses (when the API Finder is recording) can back the list's fields:
         // fetch them first, briefly, so the pick can offer them.
-        void picker.showBusy(reading)
+        void picker.showBusy(busyText)
             .then(() => refreshNetSources(300).catch(() => undefined))
             .then(() => withAtomCache(() => this.select(element, picker, report)))
             .catch(err => { console.error('[Picker] Reading the pick failed:', err); picker.clearBusy(); });
