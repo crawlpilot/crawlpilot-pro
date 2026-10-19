@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, Chip, IconButton, InputAdornment, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
+import { Button, Chip, IconButton, Notice, Stack, Text, TextField, ToggleChip, Tooltip, cx } from '../../ui';
 import { Crosshair, Play, X, Info, Sparkles, Code2, Database, MousePointerClick } from 'lucide-react';
 import type { LabEval, LabCandidate, LabChainEntry, LabPick } from '../../../content/features/lab/SelectorLab';
 import { SNIPPET_LABELS, SnippetTarget, toSnippet } from '../../../shared/selectors/snippets';
@@ -7,7 +7,7 @@ import { on } from '../../../shared/messages';
 import { useToolkit } from './context';
 import { CodeBlock, CopyButton, DetailSection, GroupLabel, ToolIntro } from './ui';
 
-const GRADE_COLOR = { strong: 'success', fragile: 'warning', broken: 'error' } as const;
+const GRADE_COLOR = { strong: 'success', fragile: 'warning', broken: 'danger' } as const;
 const GRADE_LABEL = { strong: 'Strong', fragile: 'Fragile', broken: 'Broken' } as const;
 const GRADE_HELP = {
     strong: 'Built on something the site is unlikely to change (an id, a test id, a stable attribute).',
@@ -20,11 +20,7 @@ const CANDIDATES_SHOWN = 3;
 
 function GradeChip({ ev }: { ev: LabEval }) {
     const g = ev.grade.grade;
-    return (
-        <Tooltip title={GRADE_HELP[g]} arrow>
-            <Chip size="small" color={GRADE_COLOR[g]} label={GRADE_LABEL[g]} sx={{ fontWeight: 700, height: 20, fontSize: '0.66rem' }} />
-        </Tooltip>
-    );
+    return <Tooltip title={GRADE_HELP[g]}><span><Chip tone={GRADE_COLOR[g]}>{GRADE_LABEL[g]}</Chip></span></Tooltip>;
 }
 
 const isXPath = (s: string) => /^\(?\.?\//.test(s.trim());
@@ -33,50 +29,48 @@ const isXPath = (s: string) => /^\(?\.?\//.test(s.trim());
 function StoredChain({ title, entries, onUse }: { title: string; entries: LabChainEntry[]; onUse?: (selector: string) => void }) {
     const winner = entries.findIndex(e => e.wins);
     return (
-        <Box>
-            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>{title}</Typography>
+        <div>
+            <Text size="caption" weight="bold" className="mb-1">{title}</Text>
             {winner > 0 && (
-                <Typography variant="caption" color="warning.main" display="block" mb={0.5}>
+                <Text size="caption" tone="warning" className="mb-1">
                     The first {winner === 1 ? 'entry no longer works' : `${winner} entries no longer work`} here: a run would use backup #{winner + 1}.
-                </Typography>
+                </Text>
             )}
-            {winner < 0 && entries.length > 0 && <Typography variant="caption" color="error.main" display="block" mb={0.5}>No entry finds it on this page.</Typography>}
-            <Stack spacing={0.5}>
+            {winner < 0 && entries.length > 0 && <Text size="caption" tone="danger" className="mb-1">No entry finds it on this page.</Text>}
+            <Stack gap={1}>
                 {entries.map((e, i) => (
-                    <Box key={e.selector} onClick={onUse ? () => onUse(e.selector) : undefined}
-                        sx={{ border: 1, borderColor: e.wins ? 'success.main' : 'divider', borderRadius: '10px', p: 1, cursor: onUse ? 'pointer' : 'default', '&:hover': onUse ? { borderColor: 'primary.main' } : undefined }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.primary' }}>#{i + 1}</Typography>
-                            <Chip size="small" color={GRADE_COLOR[e.grade.grade]} label={GRADE_LABEL[e.grade.grade]} sx={{ fontWeight: 700, height: 18, fontSize: '0.62rem' }} />
-                            <Typography variant="caption">{e.family} · {e.count} match{e.count !== 1 ? 'es' : ''}</Typography>
-                            {e.wins && <Chip size="small" variant="outlined" color="success" label="used now" sx={{ height: 18, fontSize: '0.62rem' }} />}
-                        </Box>
-                        <Typography variant="caption" sx={{ fontFamily: 'monospace', wordBreak: 'break-all', display: 'block', color: 'text.primary' }}>{e.selector}</Typography>
-                    </Box>
+                    <div key={e.selector} onClick={onUse ? () => onUse(e.selector) : undefined}
+                        className={cx('rounded-field border p-2.5', e.wins ? 'border-success' : 'border-line', onUse && 'cursor-pointer hover:border-line-strong')}>
+                        <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                            <Text size="caption" weight="bold">#{i + 1}</Text>
+                            <Chip tone={GRADE_COLOR[e.grade.grade]}>{GRADE_LABEL[e.grade.grade]}</Chip>
+                            <Text size="caption" tone="muted">{e.family} · {e.count} match{e.count !== 1 ? 'es' : ''}</Text>
+                            {e.wins && <Chip tone="outline">used now</Chip>}
+                        </div>
+                        <Text size="caption" mono className="break-all">{e.selector}</Text>
+                    </div>
                 ))}
             </Stack>
-        </Box>
+        </div>
     );
 }
 
 function CandidateCard({ c, best, active, onUse }: { c: LabCandidate; best: boolean; active: boolean; onUse: () => void }) {
     return (
-        <Box onClick={onUse}
-            sx={{
-                border: 1, borderColor: active ? 'primary.main' : best ? 'rgba(16,185,129,0.45)' : 'divider', bgcolor: best ? 'rgba(16,185,129,0.05)' : undefined,
-                borderRadius: '10px', p: 1, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' },
-            }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.4 }}>
-                {best && <Chip size="small" icon={<Sparkles size={11} />} label="Recommended" color="success" variant="outlined" sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700 }} />}
+        <div onClick={onUse}
+            className={cx('cursor-pointer rounded-field border p-2.5 transition-colors hover:border-line-strong',
+                active ? 'border-[1.5px] border-line-strong' : best ? 'border-success/50 bg-success-soft/50' : 'border-line')}>
+            <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                {best && <Chip tone="brand" icon={<Sparkles />}>Recommended</Chip>}
                 <GradeChip ev={c} />
-                <Typography variant="caption" sx={{ flex: 1 }}>
+                <Text size="caption" tone="muted" className="flex-1">
                     {c.list ? `all similar · ${c.count}` : c.count === 1 ? 'unique' : `${c.count} matches`} · {c.grade.family}
-                </Typography>
-                <CopyButton text={c.selector} label="Copy selector" size={13} />
-            </Box>
-            <Typography variant="caption" sx={{ fontFamily: 'monospace', wordBreak: 'break-all', display: 'block', color: 'text.primary' }}>{c.selector}</Typography>
-            <Typography variant="caption" sx={{ fontSize: '0.64rem' }}>{c.grade.reason}</Typography>
-        </Box>
+                </Text>
+                <CopyButton text={c.selector} label="Copy selector" />
+            </div>
+            <Text size="caption" mono className="break-all">{c.selector}</Text>
+            <Text size="caption" tone="faint" className="text-[10.5px]">{c.grade.reason}</Text>
+        </div>
     );
 }
 
@@ -152,109 +146,101 @@ export default function SelectorLabPanel() {
     const candidates = pick ? (showAll ? pick.candidates : pick.candidates.slice(0, CANDIDATES_SHOWN)) : [];
 
     return (
-        <Stack spacing={1.5}>
+        <Stack gap={3}>
             {!result && !pick && (
-                <ToolIntro icon={<Crosshair size={18} />} title="Find a selector that won't break"
+                <ToolIntro icon={<Crosshair />} title="Find a selector that won't break"
                     text="Click any element on the page to get the most robust ways to find it, or type a CSS or XPath selector to test it live."
                     points={['Matches are highlighted on the page as you type', 'Each selector is graded on how likely it survives site updates', 'Copy it as Playwright, Puppeteer, Selenium, Scrapy… code']} />
             )}
 
-            <Button variant="contained" color="warning" onClick={picking ? undefined : startPick} disabled={!page.web}
-                startIcon={picking ? <MousePointerClick size={16} /> : <Crosshair size={16} />}
-                sx={{ color: '#1a1205', fontWeight: 700, ...(picking ? { animation: 'pulse 1.6s ease-in-out infinite', '@keyframes pulse': { '50%': { opacity: 0.7 } } } : {}) }}>
+            <Button variant={picking ? 'brand' : 'primary'} onClick={picking ? undefined : startPick} disabled={!page.web}
+                icon={picking ? <MousePointerClick /> : <Crosshair />} className={picking ? 'animate-pulse' : undefined}>
                 {picking ? 'Now click an element on the page (Esc cancels)' : 'Pick an element on the page'}
             </Button>
 
-            <Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                        size="small" fullWidth placeholder="or type a selector: .price, //h1"
+            <div>
+                <div className="flex gap-2">
+                    <TextField size="md" className="flex-1" inputClassName="font-mono text-small" aria-label="Selector" placeholder="or type a selector: .price, //h1"
                         value={selector}
                         onChange={e => { typed.current = true; setSelector(e.target.value); }}
                         onKeyDown={e => { if (e.key === 'Enter') evaluate(selector); }}
-                        inputProps={{ style: { fontFamily: 'monospace', fontSize: 12 }, 'aria-label': 'Selector' }}
-                        InputProps={{
-                            endAdornment: selector ? (
-                                <InputAdornment position="end" sx={{ gap: 0.5 }}>
-                                    <Chip size="small" label={isXPath(selector) ? 'XPath' : 'CSS'} sx={{ height: 18, fontSize: '0.6rem' }} />
-                                    <IconButton size="small" onClick={clear} aria-label="Clear"><X size={13} /></IconButton>
-                                </InputAdornment>
-                            ) : undefined,
-                        }}
-                    />
-                    <Tooltip title="Test (Enter)">
-                        <span><Button variant="outlined" onClick={() => evaluate(selector)} disabled={!selector.trim()} sx={{ minWidth: 0, px: 1.25, height: '100%' }}><Play size={15} /></Button></span>
-                    </Tooltip>
-                </Box>
+                        end={selector ? (
+                            <span className="flex items-center gap-1">
+                                <Chip>{isXPath(selector) ? 'XPath' : 'CSS'}</Chip>
+                                <IconButton size="sm" label="Clear" noTooltip onClick={clear}><X /></IconButton>
+                            </span>
+                        ) : undefined} />
+                    <IconButton variant="secondary" size="lg" label="Test (Enter)" onClick={() => evaluate(selector)} disabled={!selector.trim()}><Play /></IconButton>
+                </div>
                 {!selector && (
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
-                        <Typography variant="caption" sx={{ mr: 0.25, alignSelf: 'center' }}>Try:</Typography>
-                        {EXAMPLES.map(x => <Chip key={x} size="small" variant="outlined" label={x} onClick={() => use(x)} sx={{ fontFamily: 'monospace', fontSize: '0.64rem', height: 20 }} />)}
-                    </Stack>
+                    <div className="mt-2 flex flex-wrap items-center gap-1">
+                        <Text size="caption" tone="muted" as="span" className="mr-0.5">Try:</Text>
+                        {EXAMPLES.map(x => <ToggleChip key={x} selected={false} onClick={() => use(x)} className="font-mono">{x}</ToggleChip>)}
+                    </div>
                 )}
-            </Box>
-            {error && <Alert severity="warning" variant="outlined" onClose={() => setError(null)}>{error}</Alert>}
+            </div>
+            {error && <Notice tone="warning" onClose={() => setError(null)}>{error}</Notice>}
 
             {result && (
-                <Box sx={{ border: 1, borderColor: result.count > 0 ? 'divider' : 'rgba(244,63,94,0.4)', borderRadius: '12px', p: 1.5, bgcolor: 'background.paper' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
-                        <Typography sx={{ fontSize: '1.35rem', fontWeight: 800, lineHeight: 1, color: result.count > 0 ? 'text.primary' : 'error.main' }}>{result.count}</Typography>
-                        <Typography variant="caption" sx={{ flex: 1 }}>
+                <div className={cx('rounded-card border bg-surface p-4', result.count > 0 ? 'border-line' : 'border-danger/45')}>
+                    <div className="mb-1 flex items-baseline gap-2">
+                        <span className={cx('font-display text-title leading-none font-extrabold', result.count > 0 ? 'text-ink' : 'text-danger')}>{result.count}</span>
+                        <Text size="caption" tone="muted" className="flex-1">
                             match{result.count !== 1 ? 'es' : ''} · {result.kind.toUpperCase()}{result.count > 0 ? ' · highlighted on the page' : ''}
-                        </Typography>
+                        </Text>
                         <GradeChip ev={result} />
                         <CopyButton text={result.selector} label="Copy selector" />
-                    </Box>
-                    <Typography variant="caption" display="block" sx={{ mb: result.samples.length ? 1 : 0 }}>
+                    </div>
+                    <Text size="caption" tone="muted" className={result.samples.length ? 'mb-2' : undefined}>
                         {result.count === 0 && !result.error ? 'Nothing matches. Check the spelling, or pick the element instead.' : result.grade.reason}
-                    </Typography>
+                    </Text>
                     {result.samples.length > 0 && (
-                        <Stack spacing={0.25} sx={{ bgcolor: 'rgb(var(--cp-ink-rgb) / 0.05)', borderRadius: '6px', p: 0.75 }}>
+                        <div className="flex flex-col gap-0.5 rounded-field bg-surface-2 p-2">
                             {result.samples.map((s, i) => (
-                                <Box key={i} sx={{ display: 'flex', gap: 0.75, minWidth: 0 }}>
-                                    <Typography variant="caption" sx={{ color: '#F59E0B', fontWeight: 700, minWidth: 14, textAlign: 'right' }}>{i + 1}</Typography>
-                                    <Typography variant="caption" sx={{ color: 'text.primary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s || <em>(no text)</em>}</Typography>
-                                </Box>
+                                <div key={i} className="flex min-w-0 gap-2 text-caption">
+                                    <span className="min-w-3.5 text-right font-bold text-accent">{i + 1}</span>
+                                    <span className="truncate text-ink">{s || <em>(no text)</em>}</span>
+                                </div>
                             ))}
-                            {result.count > result.samples.length && <Typography variant="caption" sx={{ pl: 2.75 }}>…and {result.count - result.samples.length} more</Typography>}
-                        </Stack>
+                            {result.count > result.samples.length && <Text size="caption" tone="faint" className="pl-5.5">…and {result.count - result.samples.length} more</Text>}
+                        </div>
                     )}
-                </Box>
+                </div>
             )}
 
             {pick && (
-                <Box>
+                <div>
                     <GroupLabel>Ways to find &lt;{pick.tag}&gt; “{pick.text.slice(0, 32)}{pick.text.length > 32 ? '…' : ''}”</GroupLabel>
-                    {pick.candidates.length === 0 && <Typography variant="caption">No selector found for this element.</Typography>}
-                    <Stack spacing={0.75}>
+                    {pick.candidates.length === 0 && <Text size="caption" tone="muted">No selector found for this element.</Text>}
+                    <Stack gap={1.5}>
                         {candidates.map((c, i) => <CandidateCard key={c.selector} c={c} best={i === 0 && c.grade.grade === 'strong'} active={result?.selector === c.selector} onUse={() => use(c.selector)} />)}
                     </Stack>
                     {pick.candidates.length > CANDIDATES_SHOWN && (
-                        <Button size="small" onClick={() => setShowAll(s => !s)} sx={{ mt: 0.5 }}>
+                        <Button size="sm" variant="ghost" className="mt-1" onClick={() => setShowAll(s => !s)}>
                             {showAll ? 'Show fewer' : `Show ${pick.candidates.length - CANDIDATES_SHOWN} more`}
                         </Button>
                     )}
-                </Box>
+                </div>
             )}
 
             {snippet && (
-                <DetailSection icon={<Code2 size={14} />} title="Use it in code" summary={SNIPPET_LABELS[target]} defaultOpen>
-                    <ToggleButtonGroup size="small" exclusive value={target} onChange={(_, v) => v && setTarget(v)} sx={{ flexWrap: 'wrap', mb: 0.75, gap: 0.5, '& .MuiToggleButtonGroup-grouped': { border: '1px solid rgb(var(--cp-ink-rgb) / 0.08) !important', borderRadius: '6px !important' } }}>
+                <DetailSection icon={<Code2 />} title="Use it in code" summary={SNIPPET_LABELS[target]} defaultOpen>
+                    <div className="mb-2 flex flex-wrap gap-1">
                         {(Object.keys(SNIPPET_LABELS) as SnippetTarget[]).map(k => (
-                            <ToggleButton key={k} value={k} sx={{ py: 0.2, px: 0.9, fontSize: '0.64rem', textTransform: 'none' }}>{SNIPPET_LABELS[k]}</ToggleButton>
+                            <ToggleChip key={k} selected={target === k} onClick={() => setTarget(k)}>{SNIPPET_LABELS[k]}</ToggleChip>
                         ))}
-                    </ToggleButtonGroup>
+                    </div>
                     <CodeBlock code={snippet} />
                 </DetailSection>
             )}
 
             {pick && (
-                <DetailSection icon={<Database size={14} />} title="What a saved recipe stores" summary={`${pick.stored.length} backups`}>
-                    <Box sx={{ display: 'flex', gap: 0.75, mb: 1 }}>
-                        <Info size={13} style={{ color: 'var(--cp-text-3)', marginTop: 2, flexShrink: 0 }} />
-                        <Typography variant="caption">Recipes keep several ways to find each element, best first. If the site changes and the first stops working, a run falls back to the next.</Typography>
-                    </Box>
-                    <Stack spacing={1.25}>
+                <DetailSection icon={<Database />} title="What a saved recipe stores" summary={`${pick.stored.length} backups`}>
+                    <div className="mb-2.5 flex gap-2">
+                        <Info size={14} className="mt-0.5 shrink-0 text-ink-3" />
+                        <Text size="caption" tone="muted">Recipes keep several ways to find each element, best first. If the site changes and the first stops working, a run falls back to the next.</Text>
+                    </div>
+                    <Stack gap={3}>
                         <StoredChain title="This element (Page Extractor)" entries={pick.stored} onUse={use} />
                         {pick.storedList && (
                             <>

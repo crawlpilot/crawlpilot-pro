@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Box, Button, Chip, CircularProgress, Collapse, IconButton, LinearProgress, Stack, Tooltip, Typography } from '@mui/material';
+import { Button, Chip, Collapse, IconButton, Notice, Progress, Stack, Text, Tooltip, cx } from '../../ui';
 import {
     Radar, ChevronDown, Code2, Globe, Shield, FileJson, ListOrdered, Zap, MonitorSmartphone, ShieldAlert, FileCode2,
     Crosshair, Network, List, RotateCw, ClipboardCopy, Check, Lightbulb,
@@ -24,46 +24,40 @@ const CHECKS = ['Bot protection and block pages', 'Server HTML vs. what JavaScri
 function NextSteps({ rec, report, onShowData }: { rec: Recommendation; report: ReconReport; onShowData: () => void }) {
     const { openTool, navigate } = useToolkit();
     const steps: { label: string; icon: React.ReactNode; onClick: () => void }[] = [];
-    if (rec.approach === 'http-json') steps.push({ label: 'See the embedded JSON', icon: <FileJson size={14} />, onClick: onShowData });
-    if (rec.approach === 'browser' || report.pagination.loadMore) steps.push({ label: 'Find the API it calls', icon: <Network size={14} />, onClick: () => openTool('api') });
-    if (rec.approach !== 'blocked') steps.push({ label: 'Test a selector', icon: <Crosshair size={14} />, onClick: () => openTool('lab') });
-    if (rec.approach !== 'blocked' && navigate) steps.push({ label: 'Extract a list', icon: <List size={14} />, onClick: () => navigate('list-extractor') });
+    if (rec.approach === 'http-json') steps.push({ label: 'See the embedded JSON', icon: <FileJson />, onClick: onShowData });
+    if (rec.approach === 'browser' || report.pagination.loadMore) steps.push({ label: 'Find the API it calls', icon: <Network />, onClick: () => openTool('api') });
+    if (rec.approach !== 'blocked') steps.push({ label: 'Test a selector', icon: <Crosshair />, onClick: () => openTool('lab') });
+    if (rec.approach !== 'blocked' && navigate) steps.push({ label: 'Extract a list', icon: <List />, onClick: () => navigate('list-extractor') });
     if (steps.length === 0) return null;
     return (
-        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 1.25 }}>
-            {steps.map(s => (
-                <Button key={s.label} size="small" variant="outlined" color="inherit" startIcon={s.icon} onClick={s.onClick}
-                    sx={{ borderColor: 'divider', color: 'text.primary', fontSize: '0.7rem', py: 0.25 }}>{s.label}</Button>
-            ))}
-        </Stack>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+            {steps.map(s => <Button key={s.label} size="sm" icon={s.icon} onClick={s.onClick}>{s.label}</Button>)}
+        </div>
     );
 }
 
 function EmbeddedList({ report }: { report: ReconReport }) {
     const [open, setOpen] = useState<number | null>(report.embedded.findIndex(e => e.json));
-    if (report.embedded.length === 0) return <Typography variant="caption">No JSON-LD, app state or microdata found. The data is only in the page's HTML (or comes from an API: try the API Finder).</Typography>;
+    if (report.embedded.length === 0) return <Text size="caption" tone="muted">No JSON-LD, app state or microdata found. The data is only in the page's HTML (or comes from an API: try the API Finder).</Text>;
     return (
-        <Stack spacing={0.75}>
+        <Stack gap={1.5}>
             {report.embedded.map((e, i) => (
-                <Box key={i} sx={{ border: 1, borderColor: open === i ? 'rgba(245,158,11,0.4)' : 'divider', borderRadius: '10px', overflow: 'hidden' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 1.25, pr: 0.5, py: 0.5, cursor: e.json ? 'pointer' : 'default' }}
-                        onClick={() => e.json && setOpen(open === i ? null : i)}>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.label}</Typography>
-                            {e.types && e.types.length > 0 && <Typography variant="caption" sx={{ fontSize: '0.62rem' }}>{e.types.slice(0, 4).join(' · ')}</Typography>}
-                        </Box>
-                        <Typography variant="caption">{e.kind === 'microdata' || e.kind === 'opengraph' ? `${e.size} fields` : `${(e.size / 1024).toFixed(1)} KB`}</Typography>
+                <div key={i} className={cx('overflow-hidden rounded-field border', open === i ? 'border-line-strong' : 'border-line')}>
+                    <div className={cx('flex items-center gap-2 py-1 pr-1 pl-3', e.json && 'cursor-pointer')} onClick={() => e.json && setOpen(open === i ? null : i)}>
+                        <div className="min-w-0 flex-1">
+                            <Text size="caption" weight="semibold" truncate>{e.label}</Text>
+                            {e.types && e.types.length > 0 && <Text size="caption" tone="faint" className="text-[10.5px]">{e.types.slice(0, 4).join(' · ')}</Text>}
+                        </div>
+                        <Text size="caption" tone="muted">{e.kind === 'microdata' || e.kind === 'opengraph' ? `${e.size} fields` : `${(e.size / 1024).toFixed(1)} KB`}</Text>
                         {e.json && <CopyButton text={e.json} label="Copy JSON" />}
                         {e.json && (
-                            <IconButton size="small" aria-label={open === i ? 'Hide JSON' : 'Show JSON'}>
-                                <ChevronDown size={14} style={{ transform: open === i ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} />
+                            <IconButton size="sm" label={open === i ? 'Hide JSON' : 'Show JSON'} noTooltip>
+                                <ChevronDown className={cx('transition-transform', open === i && 'rotate-180')} />
                             </IconButton>
                         )}
-                    </Box>
-                    <Collapse in={open === i} unmountOnExit>
-                        <Box sx={{ p: 0.75, pt: 0 }}><CodeBlock code={e.json?.slice(0, 20000) ?? ''} maxHeight={260} /></Box>
-                    </Collapse>
-                </Box>
+                    </div>
+                    {open === i && <div className="p-1.5 pt-0"><CodeBlock code={e.json?.slice(0, 20000) ?? ''} maxHeight={260} /></div>}
+                </div>
             ))}
         </Stack>
     );
@@ -100,19 +94,19 @@ export default function ReconPanel() {
 
     if (!report) {
         return (
-            <Stack spacing={1.5}>
-                <ToolIntro icon={<Radar size={18} />} title="How should I scrape this page?"
+            <Stack gap={3}>
+                <ToolIntro icon={<Radar />} title="How should I scrape this page?"
                     text="One click checks the page and tells you the simplest way to get its data: a plain HTTP request, its JSON, or a real browser."
                     points={CHECKS}>
-                    <Button fullWidth variant="contained" color="warning" onClick={run} disabled={loading || !page.web}
-                        startIcon={loading ? <CircularProgress size={14} color="inherit" /> : <Radar size={16} />}
-                        sx={{ color: '#1a1205', fontWeight: 700 }}>
+                    <Button fullWidth variant="primary" onClick={run} disabled={!page.web} loading={loading} icon={<Radar />}>
                         {loading ? 'Analysing this page…' : 'Analyse this page'}
                     </Button>
-                    {loading && <LinearProgress color="warning" sx={{ mt: 1, borderRadius: '6px', height: 3 }} />}
-                    {loading && <Typography variant="caption" display="block" sx={{ mt: 0.75, textAlign: 'center' }}>Fetching the served HTML and robots.txt: a few seconds.</Typography>}
+                    <Collapse open={loading}>
+                        <Progress size="sm" className="mt-3" label="Analysing" />
+                        <Text size="caption" tone="muted" className="mt-1.5 text-center">Fetching the served HTML and robots.txt: a few seconds.</Text>
+                    </Collapse>
                 </ToolIntro>
-                {error && <Alert severity="warning" variant="outlined">{error}</Alert>}
+                {error && <Notice tone="warning">{error}</Notice>}
             </Stack>
         );
     }
@@ -120,96 +114,83 @@ export default function ReconPanel() {
     const approach = APPROACH[rec!.approach];
     const tone = TONE[approach.tone];
     const facts = [
-        { icon: <Shield size={12} />, label: 'Protection', ...protectionFact(report) },
-        { icon: <Code2 size={12} />, label: 'Rendering', ...renderingFact(report) },
-        { icon: <FileJson size={12} />, label: 'Embedded data', ...dataFact(report) },
-        { icon: <ListOrdered size={12} />, label: 'Pagination', ...paginationFact(report) },
+        { icon: <Shield />, label: 'Protection', ...protectionFact(report) },
+        { icon: <Code2 />, label: 'Rendering', ...renderingFact(report) },
+        { icon: <FileJson />, label: 'Embedded data', ...dataFact(report) },
+        { icon: <ListOrdered />, label: 'Pagination', ...paginationFact(report) },
     ];
 
     return (
-        <Stack spacing={1.5}>
+        <Stack gap={3}>
             {stale && (
-                <Alert severity="info" variant="outlined" icon={<RotateCw size={16} />}
-                    action={<Button size="small" color="inherit" onClick={run} disabled={loading}>Analyse</Button>}>
+                <Notice tone="info" icon={<RotateCw />} action={<Button size="sm" onClick={run} disabled={loading}>Analyse</Button>}>
                     This report is for another page. Analyse the one you're on?
-                </Alert>
+                </Notice>
             )}
 
-            {/* Verdict */}
-            <Box sx={{ borderRadius: '16px', p: 1.75, border: 1, borderColor: tone.border, bgcolor: tone.bg }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
-                    <Box sx={{ color: tone.fg, display: 'flex' }}>{approach.icon}</Box>
-                    <Typography variant="caption" sx={{ color: tone.fg, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', flex: 1 }}>
-                        {approachLabel(rec!.approach)}
-                    </Typography>
-                    <Tooltip title={copied ? 'Copied' : 'Copy the report as Markdown'}>
-                        <IconButton size="small" onClick={async () => { await copyText(reconMarkdown(report, rec!)); setCopied(true); setTimeout(() => setCopied(false), 1200); }}>
-                            {copied ? <Check size={15} /> : <ClipboardCopy size={15} />}
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Analyse again">
-                        <span>
-                            <IconButton size="small" onClick={run} disabled={loading}>{loading ? <CircularProgress size={14} /> : <RotateCw size={15} />}</IconButton>
-                        </span>
-                    </Tooltip>
-                </Box>
-                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.45 }}>{rec!.headline}</Typography>
+            <div className={cx('rounded-card border-[1.5px] border-line-strong p-4 shadow-press', tone.box)}>
+                <div className="mb-1.5 flex items-center gap-2">
+                    <span className={cx('flex', tone.text)}>{approach.icon}</span>
+                    <span className={cx('flex-1 text-small font-extrabold', tone.text)}>{approachLabel(rec!.approach)}</span>
+                    <IconButton size="sm" label={copied ? 'Copied' : 'Copy the report as Markdown'}
+                        onClick={async () => { await copyText(reconMarkdown(report, rec!)); setCopied(true); setTimeout(() => setCopied(false), 1200); }}>
+                        {copied ? <Check /> : <ClipboardCopy />}
+                    </IconButton>
+                    <IconButton size="sm" label="Analyse again" onClick={run} disabled={loading}><RotateCw className={loading ? 'animate-spin' : undefined} /></IconButton>
+                </div>
+                <p className="m-0 font-display text-lead font-bold leading-snug tracking-[-0.01em] text-ink">{rec!.headline}</p>
                 <NextSteps rec={rec!} report={report} onShowData={() => setShowData(n => n + 1)} />
-            </Box>
-            {error && <Alert severity="warning" variant="outlined" onClose={() => setError(null)}>{error}</Alert>}
+            </div>
+            {error && <Notice tone="warning" onClose={() => setError(null)}>{error}</Notice>}
 
-            {/* At a glance */}
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
+            <div className="grid grid-cols-2 gap-1.5">
                 {facts.map(f => <FactTile key={f.label} icon={f.icon} label={f.label} value={f.value} tone={f.tone} />)}
-            </Box>
+            </div>
 
             {rec!.notes.length > 0 && (
-                <Box sx={{ border: 1, borderColor: 'divider', borderRadius: '12px', p: 1.5 }}>
+                <div className="rounded-card bg-tile-butter p-4">
                     <GroupLabel>Good to know</GroupLabel>
-                    <Stack spacing={0.75}>
+                    <Stack gap={1.5}>
                         {rec!.notes.map((n, i) => (
-                            <Box key={i} sx={{ display: 'flex', gap: 1 }}>
-                                <Lightbulb size={13} style={{ color: 'var(--cp-warning)', marginTop: 2, flexShrink: 0 }} />
-                                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.72rem' }}>{n}</Typography>
-                            </Box>
+                            <div key={i} className="flex gap-2">
+                                <Lightbulb size={14} className="mt-0.5 shrink-0 text-ink" />
+                                <Text size="caption">{n}</Text>
+                            </div>
                         ))}
                     </Stack>
-                </Box>
+                </div>
             )}
 
-            {/* Details */}
             <GroupLabel>Details</GroupLabel>
-            <Box id="recon-embedded">
-                <DetailSection key={`data-${showData}`} icon={<FileJson size={14} />} title="Embedded data" summary={dataFact(report).value} defaultOpen={showData > 0}>
+            <div id="recon-embedded" className="-mt-2">
+                <DetailSection key={`data-${showData}`} icon={<FileJson />} title="Embedded data" summary={dataFact(report).value} defaultOpen={showData > 0}>
                     <EmbeddedList report={report} />
                 </DetailSection>
-            </Box>
-            <DetailSection icon={<Shield size={14} />} title="Protection" summary={protectionFact(report).value}>
-                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+            </div>
+            <DetailSection icon={<Shield />} title="Protection" summary={protectionFact(report).value}>
+                <div className="flex flex-wrap gap-1.5">
                     {report.check.botManagers.map(b => (
-                        <Tooltip key={b.id} title={`Seen: ${b.evidence}`}><Chip size="small" label={b.name} variant="outlined" color="warning" /></Tooltip>
+                        <Tooltip key={b.id} title={`Seen: ${b.evidence}`}><span><Chip tone="warning">{b.name}</Chip></span></Tooltip>
                     ))}
-                </Stack>
-                {report.check.botManagers.length === 0 && <Typography variant="caption">No bot-management vendor or CAPTCHA seen on this page.</Typography>}
-                {report.check.reason && <Typography variant="caption" display="block" sx={{ mt: 0.75 }}>{report.check.reason}</Typography>}
+                </div>
+                {report.check.botManagers.length === 0 && <Text size="caption" tone="muted">No bot-management vendor or CAPTCHA seen on this page.</Text>}
+                {report.check.reason && <Text size="caption" tone="muted" className="mt-1.5">{report.check.reason}</Text>}
             </DetailSection>
-            <DetailSection icon={<Code2 size={14} />} title="Rendering" summary={renderingFact(report).value}>
+            <DetailSection icon={<Code2 />} title="Rendering" summary={renderingFact(report).value}>
                 {report.rendering.frameworks.length > 0 && (
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: 0.75 }}>
-                        {report.rendering.frameworks.map(f => <Chip key={f} size="small" label={f} />)}
-                    </Stack>
+                    <div className="mb-1.5 flex flex-wrap gap-1">{report.rendering.frameworks.map(f => <Chip key={f}>{f}</Chip>)}</div>
                 )}
                 <InfoRow label="Text on the page now" value={`${report.rendering.liveTextLength.toLocaleString()} chars`} />
                 {report.rendering.servedTextLength != null && <InfoRow label="Text in the HTML the server sent" value={`${report.rendering.servedTextLength.toLocaleString()} chars`} />}
                 {report.rendering.servedStatus != null && <InfoRow label="Plain request status" value={report.rendering.servedStatus} />}
             </DetailSection>
-            <DetailSection icon={<ListOrdered size={14} />} title="Pagination" summary={paginationFact(report).value}>
+            <DetailSection icon={<ListOrdered />} title="Pagination" summary={paginationFact(report).value}>
                 <InfoRow label='rel="next" link' value={report.pagination.relNext || '—'} mono={!!report.pagination.relNext} />
                 <InfoRow label="Page number in URL" value={report.pagination.pageParam ? `?${report.pagination.pageParam}=` : '—'} />
                 <InfoRow label='"Next" button' value={report.pagination.nextButton ? 'Yes' : 'No'} />
                 <InfoRow label='"Load more" button' value={report.pagination.loadMore ? 'Yes' : 'No'} />
             </DetailSection>
-            <DetailSection icon={<Globe size={14} />} title="Discovery"
+            <DetailSection icon={<Globe />} title="Discovery"
                 summary={!report.robots?.found ? 'No robots.txt' : report.robots.allowed ? `Allowed · ${report.robots.sitemaps.length} sitemaps` : 'Disallowed by robots.txt'}>
                 <InfoRow label="Canonical" value={report.canonical || '—'} mono={!!report.canonical} />
                 <InfoRow label="robots.txt" value={!report.robots?.found ? 'Not found' : report.robots.allowed ? `Allowed${report.robots.rule ? ` (${report.robots.rule})` : ''}` : `Disallowed (${report.robots.rule})`} />
@@ -217,16 +198,16 @@ export default function ReconPanel() {
                 {report.robotsMeta && <InfoRow label="Robots meta" value={report.robotsMeta} />}
                 <InfoRow label="Language versions (hreflang)" value={report.hreflangCount} />
                 {(report.robots?.sitemaps.length ?? 0) > 0 && (
-                    <Box sx={{ mt: 1 }}>
+                    <div className="mt-2">
                         <GroupLabel action={<CopyButton text={report.robots!.sitemaps.join('\n')} label="Copy sitemap URLs" />}>Sitemaps</GroupLabel>
-                        {report.robots!.sitemaps.slice(0, 6).map(s => <Typography key={s} variant="caption" display="block" sx={{ fontFamily: 'monospace', wordBreak: 'break-all', color: 'text.primary' }}>{s}</Typography>)}
-                    </Box>
+                        {report.robots!.sitemaps.slice(0, 6).map(s => <Text key={s} size="caption" mono className="break-all">{s}</Text>)}
+                    </div>
                 )}
                 {report.feeds.length > 0 && (
-                    <Box sx={{ mt: 1 }}>
+                    <div className="mt-2">
                         <GroupLabel action={<CopyButton text={report.feeds.join('\n')} label="Copy feed URLs" />}>Feeds</GroupLabel>
-                        {report.feeds.map(f => <Typography key={f} variant="caption" display="block" sx={{ fontFamily: 'monospace', wordBreak: 'break-all', color: 'text.primary' }}>{f}</Typography>)}
-                    </Box>
+                        {report.feeds.map(f => <Text key={f} size="caption" mono className="break-all">{f}</Text>)}
+                    </div>
                 )}
             </DetailSection>
         </Stack>
