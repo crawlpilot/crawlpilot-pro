@@ -101,5 +101,9 @@
   "tables": {
     "title": "Tables on this page",
     "description": "Every table, to copy, CSV or My data"
+  },
+  "pageMarkdown": {
+    "title": "Page as Markdown",
+    "description": "Clean markdown of this page, for notes or an LLM"
   }
 }

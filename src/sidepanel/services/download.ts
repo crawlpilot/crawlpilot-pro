@@ -4,6 +4,18 @@ import { csvText } from '@/shared/utils/csv';
 import { exportData } from '../components/ui/data-table/pipeline';
 
 /** Saves text as a file; `stamp` adds the date and time before the extension (data_2026-10-17T12-00-00.csv). */
+/** Saves a Blob (a zip, an image) under `fileName`. */
+export function downloadBlob(blob: Blob, fileName: string) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function downloadText(content: string, fileName: string, type: string, stamp = false) {
     let name = fileName;
     if (stamp) {

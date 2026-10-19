@@ -6,7 +6,11 @@ import { db } from '@/shared/db';
 import type { TypedColumnDef } from '@/shared/types/database';
 import DataTable from '../components/ui/DataTable';
 import SchemaMapDialog, { OutputMappingState } from '../components/ui/SchemaMapDialog';
-import { Calendar, ChevronDown, Database, Download, ExternalLink, FileJson, FileText, Sheet, Table2, Webhook, Zap } from 'lucide-react';
+import { Calendar, ChevronDown, Database, Download, ExternalLink, FileArchive, FileJson, FileText, Sheet, Table2, Webhook, Zap } from 'lucide-react';
+import { DEFAULT_CHUNK_CHARS, markdownFiles, markdownJsonl, pagesFromRows } from '../../shared/export/markdownExport';
+import { ZipWriter } from '../services/images/zip';
+import { downloadBlob, downloadText } from '../services/download';
+import { slug } from '../../shared/utils/text';
 import { sendTable, stopSync, syncTable } from '@/shared/integrations/sheetsSync';
 import { storage } from '@/shared/storage';
 import { Button, Chip, EmptyState, Menu, MenuDivider, MenuItem, Notice, Select, Spinner, Text } from '../ui';
@@ -123,6 +127,23 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
 
     const hasMarkdownColumns = tableData?.columns.some(c => c.type === 'markdown') ?? false;
 
+    /** The dataset's pages (a markdown column per row) as a zip of `.md` files or as `.jsonl`. */
+    const markdownPages = () => {
+        if (!tableRef.current || !tableData) return [];
+        const { columns, rows } = tableRef.current.getProcessedData();
+        return pagesFromRows(columns, rows, new Date(tableData.createdAt).toISOString());
+    };
+    const exportName = slug(tableData?.name || 'export', '-', 'export');
+    const handleExportMarkdownZip = async () => {
+        const zip = new ZipWriter();
+        const encoder = new TextEncoder();
+        for (const file of markdownFiles(markdownPages())) zip.add(file.path, encoder.encode(file.text));
+        downloadBlob(await zip.finish(), `${exportName}.zip`);
+    };
+    const handleExportJsonl = (chunkChars?: number) => {
+        downloadText(markdownJsonl(markdownPages(), chunkChars), `${exportName}${chunkChars ? '-chunks' : ''}.jsonl`, 'application/jsonl');
+    };
+
     const handlePremiumExport = async (type: 'webhook' | 'zapier' | 'airtable') => {
         if (!tableRef.current) return;
 
@@ -222,7 +243,12 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                             <MenuItem icon={<FileText />} onClick={exportItem(handleExportCSV)}>{t('page.exportCSV')}</MenuItem>
                             <MenuItem icon={<FileJson />} onClick={exportItem(handleExportJSON)}>{t('page.exportJSON')}</MenuItem>
                             <MenuItem icon={<FileJson />} onClick={exportItem(openSchemaMap)}>JSON to a schema…</MenuItem>
-                            {hasMarkdownColumns && <MenuItem icon={<FileText />} onClick={exportItem(handleExportMarkdown)}>{t('page.exportMarkdown')}</MenuItem>}
+                            {hasMarkdownColumns && <>
+                                <MenuItem icon={<FileText />} onClick={exportItem(handleExportMarkdown)}>{t('page.exportMarkdown')}</MenuItem>
+                                <MenuItem icon={<FileArchive />} onClick={exportItem(() => void handleExportMarkdownZip())}>{t('page.exportMarkdownZip')}</MenuItem>
+                                <MenuItem icon={<FileJson />} onClick={exportItem(() => handleExportJsonl())}>{t('page.exportJsonl')}</MenuItem>
+                                <MenuItem icon={<FileJson />} onClick={exportItem(() => handleExportJsonl(DEFAULT_CHUNK_CHARS))}>{t('page.exportJsonlChunks')}</MenuItem>
+                            </>}
                             <MenuDivider />
                             <div className="px-2.5 pt-1 pb-1 text-caption font-semibold text-ink-3">{t('page.integrations')}</div>
                             <MenuItem icon={<Sheet />} onClick={exportItem(() => void sheetAction(() => sendTable(selectedId!)))}>

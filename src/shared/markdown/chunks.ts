@@ -6,7 +6,7 @@
  *    between rows with its header repeated in each part.
  * 2. **Greedy packing:** blocks join a chunk until the next would pass `maxChars`; a single block over
  *    the budget gets a chunk of its own (a soft limit).
- * 3. **Heading trail** (`trail`): a chunk that starts under a heading starts with the headings above it
+ * 3. **Heading trail** (`trail`): a chunk starts with the headings above it
  *    (`(Section: Acme X-200 › Specifications)`, refs dropped), so a chunk that starts mid-section still
  *    knows what it is about (docs/plans/ai-extract-v2-plan.md §3.3).
  * 4. **Overlap** (`overlap`, lists): each chunk starts with the previous chunk's last block, so an item
@@ -84,7 +84,10 @@ export function chunkMarkdown(markdown: string, maxChars: number, options: Chunk
     for (const block of blocks) {
         if (current && current.length + 2 + block.length > maxChars) {
             chunks.push(current);
-            const trail = options.trail && !HEADING.test(block) ? trailLine(stack.filter((h): h is string => !!h)) : '';
+            // A chunk starting with a heading keeps the headings above its level ("## Setup" under "# Intro").
+            const starts = HEADING.exec(block.split('\n')[0]);
+            const above = starts ? stack.slice(0, starts[1].length - 1) : stack;
+            const trail = options.trail ? trailLine(above.filter((h): h is string => !!h)) : '';
             const carry = options.overlap && last && !HEADING.test(last) && trail.length + last.length + block.length + 4 <= maxChars ? last : '';
             current = [trail, carry].filter(Boolean).join('\n\n');
         }

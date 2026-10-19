@@ -213,6 +213,7 @@ export default function HomePage({ onNavigate, isTabConnected = true }: HomePage
                 <Disclosure variant="plain" icon={<Layers />} summary={t('moreTools')} open={more} onToggle={setMore}>
                     <Stack gap={0.5}>
                         <ToolRow icon={<Table2 />} title={t('tables.title')} hint={t('tables.description')} onClick={() => onNavigate('tables')} />
+                        <ToolRow icon={<FileText />} title={t('pageMarkdown.title')} hint={t('pageMarkdown.description')} onClick={() => onNavigate('markdown')} />
                         <ToolRow icon={<Mail />} title={t('contacts.title')} hint={t('contacts.description')} onClick={() => onNavigate('email-extractor')} />
                         <ToolRow icon={<Unlock />} title={t('browserUtilities.title')} hint={t('browserUtilities.description')} onClick={() => onNavigate('utilities')} />
                         {ai === false && aiTools(t('ai.needsAi'))}

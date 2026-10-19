@@ -1,6 +1,6 @@
 # Automation, page tools and developer aids
 
-Status: T1 done (2026-10-19). All decisions made (§9). The other steps are GitHub issues #38–#49. Next: T2 (Markdown).
+Status: T1 and T2 done (2026-10-19). All decisions made (§9). The other steps are GitHub issues #39–#49. Next: T3 (Data on this page).
 
 This plan adds 12 features in three groups:
 
@@ -389,7 +389,7 @@ Suggested order: T1–T4 (small, visible), then M1–M4 (the biggest value; M1 f
 | Step | State | Issue |
 |---|---|---|
 | T1 Tables | **Done** | |
-| T2 Markdown | Open | #38 |
+| T2 Markdown | **Done** | #38 |
 | T3 Data on this page | Open | #39 |
 | T4 Load everything | Open | #40 |
 | M1 Background list runs | Open | #41 |
@@ -425,3 +425,20 @@ What T1 built:
   - `tables.test.ts` (3): the exports.
   - `e2e/tables.spec.ts` (2): the finder on a live page, and the screen (cards, Show on page, Save to My data).
 - **Differs from the plan:** a "many pages" table run (§3.5, last bullet) isn't built; it belongs with the bulk-run work. A one-column table counts as a list, not a table.
+
+What T2 built:
+
+- **`shared/export/markdownExport.ts`:**
+  - YAML front matter: title, URL, description, author, published, lang, fetched_at;
+  - one `.md` per page, named by title and kept unique;
+  - `.jsonl` with one page per line (`url, title, markdown, lang, fetched_at`), or one chunk per line (`chunk, chunk_index, chunk_count`; about 4,000 characters, each starting with its heading trail);
+  - `pagesFromRows`, which reads the pages from a dataset with a markdown column.
+- **Screen:** `MarkdownPage` (`?view=markdown`), from Home → More tools → "Page as Markdown".
+  - Options: Main content / Pruned / Whole page; read hidden sections (nothing is clicked, as `CLICK_TO_REVEAL` is off); links; images; front matter.
+  - It shows word and token counts and which hidden sections were read, with Copy and Download .md.
+  - It reads the page with the metadata extractor's `CMD_EXTRACT_METADATA`.
+- **Many pages:** a dataset with a markdown column (an "Article text & details" run) gets three more exports: "Markdown files (.zip)", "JSONL for LLMs", and "JSONL in chunks". A whole docs site is the existing flow (sitemap discovery → article details) plus these exports, so no new preset was added.
+- **Chunker:** a chunk that starts with a heading now carries the headings above its level (`(Section: Intro)` before `## Setup`).
+- **Tests:**
+  - `markdownExport.test.ts` (4).
+  - `e2e/markdown.spec.ts` (2): this page with front matter, hidden sections read, the download, and switches off; a 3-URL metadata run exported as a zip of 3 `.md` files and a 3-line `.jsonl`.

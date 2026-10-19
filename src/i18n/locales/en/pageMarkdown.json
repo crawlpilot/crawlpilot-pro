@@ -1,0 +1,26 @@
+{
+  "title": "Page as Markdown",
+  "subtitle": "This page as clean markdown, to copy or save",
+  "refresh": "Read again",
+  "notWeb": "Open a web page to read it as markdown.",
+  "scope": {
+    "label": "What to read",
+    "main": "Main content",
+    "pruned": "Pruned",
+    "whole": "Whole page"
+  },
+  "reveal": "Read hidden sections too",
+  "revealHint": "Closed accordions and tabs already in the page are read. Nothing is clicked.",
+  "links": "Keep links",
+  "images": "Keep images",
+  "front": "Front matter",
+  "frontHint": "Title, URL, author, date and language at the top",
+  "stats": "{{words}} words · about {{tokens}} tokens",
+  "opened": "hidden sections read: {{sections}}",
+  "preview": "Markdown",
+  "copy": "Copy",
+  "copied": "Copied",
+  "download": "Download .md",
+  "error": "Couldn't read this page. Reload it and try again.",
+  "manyHint": "Many pages: run \"Article text & details\" over them, then export the dataset as Markdown files or JSONL."
+}
