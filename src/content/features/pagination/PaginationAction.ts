@@ -10,6 +10,7 @@ import { looksLikeXPath, resolveContainer, resolveItems } from '../../../shared/
 import { listLocators } from '../../services/selectors/list';
 import { hashString } from '../../../shared/utils/hash';
 import { classifyPage, collectPageSignals, PageVerdict, VERDICT_LABELS } from '../../../shared/verdict/classifyPage';
+import { PaginationResume, storage } from '../../../shared/storage';
 
 export interface PaginationConfig {
     startSelector: string;
@@ -684,14 +685,12 @@ export class PaginationAction extends BaseAction {
         }
     }
 
-    private async saveState(state: any) {
-        console.log('💾 [PaginationAction] Saving state...', { page: state.pageCount, total: state.totalItems });
-        const persistState = { ...state, visitedUrls: Array.from(this.visitedUrls), isRunning: true, timestamp: Date.now() };
-        await chrome.storage.local.set({ 'pagination_state': persistState });
-        console.log('✅ [PaginationAction] State saved.');
+    /** Saved before clicking "Next": the next page's content script continues the run from here. */
+    private async saveState(state: { config: PaginationResume['config']; pageCount: number; totalItems: number }) {
+        await storage.set('pagination_state', { ...state, visitedUrls: Array.from(this.visitedUrls), isRunning: true, timestamp: Date.now() });
     }
 
     private async clearState() {
-        await chrome.storage.local.remove('pagination_state');
+        await storage.remove('pagination_state');
     }
 }

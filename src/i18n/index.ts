@@ -126,6 +126,7 @@ import ptUtilities from './locales/pt/utilities.json';
 import ptWelcome from './locales/pt/welcome.json';
 import ptMetadataExtractor from './locales/pt/metadataExtractor.json';
 import ptDataTable from './locales/pt/dataTable.json';
+import { storage } from '../shared/storage';
 
 export const SUPPORTED_LANGS = ['en', 'es', 'fr', 'de', 'it', 'zh', 'ja', 'ru', 'pt'] as const;
 export type SupportedLang = typeof SUPPORTED_LANGS[number];
@@ -149,9 +150,7 @@ function makeResources(common: any, home: any, settings: any, history: any, list
 }
 
 export async function initI18n(): Promise<void> {
-  const stored = await new Promise<string>((resolve) =>
-    chrome.storage.local.get(['language'], (r) => resolve((r.language as string) || ''))
-  );
+  const stored = (await storage.get('language')) || '';
 
   const browserLang = chrome.i18n.getUILanguage().split('-')[0];
   const detected = stored || browserLang;

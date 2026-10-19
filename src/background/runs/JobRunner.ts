@@ -13,6 +13,7 @@ import type { Column, RecipeSpec } from '../../shared/types/database';
 import { classifyPage, collectPageSignals, PageClassification, VERDICT_LABELS } from '../../shared/verdict/classifyPage';
 import { TabPool } from './TabPool';
 import { buildFinalName, buildInitialName, buildPreviewName } from './naming';
+import { storage } from '../../shared/storage';
 
 export type RunKind = 'bulk' | 'metadata';
 type Row = Record<string, any>;
@@ -114,7 +115,7 @@ export class JobRunner {
 
     constructor(private kind: RunKind) { }
 
-    private get storageKey() { return `${this.kind}_extraction_state`; }
+    private get storageKey() { return `${this.kind}_extraction_state` as const; }
     private get alarmName() { return `${this.kind}_extraction_keepalive`; }
 
     get running(): boolean {
@@ -419,7 +420,7 @@ export class JobRunner {
                 await this.tabPool.destroyAll();
                 this.tabPool = null;
             }
-            await chrome.storage.local.remove([this.storageKey]);
+            await storage.remove(this.storageKey);
             this.job = null;
             this.state = null;
             this.previewTableId = null;
@@ -446,12 +447,10 @@ export class JobRunner {
     private async persist() {
         const { state } = this;
         if (!state) return;
-        await chrome.storage.local.set({
-            [this.storageKey]: {
-                jobId: state.jobId,
-                urlStatuses: state.urls.map(({ url, status, tabId }) => ({ url, status, tabId })),
-                isRunning: true,
-            },
+        await storage.set(this.storageKey, {
+            jobId: state.jobId,
+            urlStatuses: state.urls.map(({ url, status, tabId }) => ({ url, status, tabId })),
+            isRunning: true,
         });
     }
 
@@ -461,8 +460,7 @@ export class JobRunner {
      * clears the state.
      */
     async recover(): Promise<void> {
-        const data = await chrome.storage.local.get([this.storageKey]);
-        const saved = data[this.storageKey] as { jobId?: number; isRunning?: boolean; urlStatuses?: { status: string; tabId?: number }[] } | undefined;
+        const saved = await storage.get(this.storageKey);
         if (!saved?.isRunning || !saved.jobId) return;
 
         console.warn(`[${this.kind} run] Recovering interrupted job ${saved.jobId}`);
@@ -476,6 +474,6 @@ export class JobRunner {
             error: 'Extraction interrupted — the browser or extension was restarted mid-run.',
             stats: { startTime: Date.now(), endTime: Date.now(), itemsExtracted: 0, stoppedByUser: false },
         }).catch(e => console.error(`[${this.kind} run] Could not mark job failed:`, e));
-        await chrome.storage.local.remove([this.storageKey]);
+        await storage.remove(this.storageKey);
     }
 }

@@ -3,6 +3,7 @@ import { downloadText } from '../services/download';
 import { db } from '@/shared/db';
 import { TableData, TableRow } from '@/shared/types/database';
 import type { JobWithRecipe } from '@/shared/db';
+import { storage } from '@/shared/storage';
 
 const ROW_PAGE_LIMIT = 2000;
 
@@ -145,7 +146,7 @@ export function useExportData() {
 
     const exportToWebhook = async (columns: { id: string, name: string }[], data: any[], type: 'webhook' | 'zapier' = 'webhook') => {
         try {
-            const { integrations } = await chrome.storage.local.get(['integrations']) as { integrations?: any };
+            const integrations = await storage.get('integrations');
             const url = type === 'webhook' ? integrations?.webhookUrl : integrations?.zapierUrl;
 
             if (!url) {
@@ -184,7 +185,7 @@ export function useExportData() {
 
     const exportToAirtable = async (columns: { id: string, name: string }[], data: any[]) => {
         try {
-            const { integrations } = await chrome.storage.local.get(['integrations']) as { integrations?: any };
+            const integrations = await storage.get('integrations');
             const { airtableApiKey, airtableBaseId, airtableTableName } = integrations || {};
 
             if (!airtableApiKey || !airtableBaseId || !airtableTableName) {

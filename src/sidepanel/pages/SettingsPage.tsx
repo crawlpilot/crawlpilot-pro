@@ -43,6 +43,7 @@ import i18n, { SUPPORTED_LANGS, LANG_LABELS, type SupportedLang } from '../../i1
 const FEEDBACK_FORM_URL = 'https://forms.gle/REPLACE_ME';
 import { db } from '../../shared/db';
 import { useJobHistory } from '../hooks/useDatabase';
+import { DEFAULT_INTEGRATIONS, Integrations, storage } from '../../shared/storage';
 
 interface SettingsPageProps {
     onBack: () => void;
@@ -56,7 +57,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     const handleLanguageChange = (lang: SupportedLang) => {
         setCurrentLang(lang);
         i18n.changeLanguage(lang);
-        chrome.storage.local.set({ language: lang });
+        void storage.set('language', lang);
     };
     const [storageUsage, setStorageUsage] = useState<{ usage: number, quota: number } | null>(null);
     const [daysRetain, setDaysRetain] = useState<number>(30);
@@ -68,21 +69,12 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
 
 
-    const [integrations, setIntegrations] = useState({
-        webhookUrl: '',
-        zapierUrl: '',
-        airtableApiKey: '',
-        airtableBaseId: '',
-        airtableTableName: '',
-        googleSheetsConnected: false
-    });
+    const [integrations, setIntegrations] = useState<Integrations>(DEFAULT_INTEGRATIONS);
 
     useEffect(() => {
         // Fetch data from storage
-        chrome.storage.local.get(['integrations'], (result) => {
-            if (result.integrations) {
-                setIntegrations(prev => ({ ...prev, ...(result.integrations as any) }));
-            }
+        void storage.get('integrations').then(saved => {
+            if (saved) setIntegrations(prev => ({ ...prev, ...saved }));
         });
 
         // Estimate storage usage
@@ -149,7 +141,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     const updateIntegration = (updates: Partial<typeof integrations>) => {
         const next = { ...integrations, ...updates };
         setIntegrations(next);
-        chrome.storage.local.set({ integrations: next });
+        void storage.set('integrations', next);
     };
 
     return (

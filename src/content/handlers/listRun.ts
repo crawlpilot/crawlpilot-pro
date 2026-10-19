@@ -7,6 +7,7 @@ import { HL_COLOR, HL_GLOW } from '../utils/highlight-tokens';
 import { looksLikeXPath, resolveContainer, resolveItems } from '../../shared/selectors/resolve';
 import { hashString } from '../../shared/utils/hash';
 import { AutoScrollRequest, fail, ok, on, PaginationRequest, send } from '../../shared/messages';
+import { storage } from '../../shared/storage';
 
 const UPDATE_INTERVAL_MS = 500;
 const UPDATE_BATCH_SIZE = 10;
@@ -173,15 +174,14 @@ async function startPagination(req: PaginationRequest) {
 
 /** A pagination run that navigated to the next page continues here (PaginationAction saves its state before navigating). */
 function resumePagination() {
-    chrome.storage.local.get(['pagination_state'], (result: any) => {
-        const state = result.pagination_state;
+    void storage.get('pagination_state').then(state => {
         if (state?.isRunning) {
             void startPagination({
                 ...state.config,
                 resumeState: { pageCount: state.pageCount, totalItems: state.totalItems, visitedUrls: state.visitedUrls }
             });
         } else if (state) {
-            chrome.storage.local.remove('pagination_state');
+            void storage.remove('pagination_state');
         }
     });
 }
