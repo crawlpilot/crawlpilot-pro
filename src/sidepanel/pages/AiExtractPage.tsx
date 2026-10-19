@@ -13,14 +13,14 @@ import { db } from '../../shared/db';
 const DRAFT_KEY = 'crawlpilot.aiExtract.draft';
 const ROWS_SHOWN = 50;
 
-export const STATUS: Record<ValueStatus, { label: string; color: 'success' | 'info' | 'warning' | 'error' | 'default' }> = {
+export const STATUS: Record<ValueStatus, { label: string; color: ChipTone }> = {
     structured: { label: 'From page data', color: 'success' },
     verified: { label: 'Verified on page', color: 'success' },
     relocated: { label: 'Found elsewhere on page', color: 'info' },
-    unverified: { label: 'Not on page', color: 'error' },
+    unverified: { label: 'Not on page', color: 'danger' },
     invalid: { label: 'Wrong type', color: 'warning' },
-    empty: { label: 'Not found', color: 'default' },
-    needs_model: { label: 'Needs on-device AI', color: 'default' },
+    empty: { label: 'Not found', color: 'neutral' },
+    needs_model: { label: 'Needs on-device AI', color: 'neutral' },
 };
 
 function shown(v: ExtractedValue | undefined): string {

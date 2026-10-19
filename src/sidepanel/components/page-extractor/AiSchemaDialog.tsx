@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-    Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, Stack, TextField, Typography,
-} from '@mui/material';
-import { Sparkles } from 'lucide-react';
+import { Button, Checkbox, Chip, Dialog, Notice, Progress, Stack, Text, TextArea, ToggleChip } from '../../ui';
 import { parseSchemaInput, SCHEMA_PRESETS } from '../../../shared/ai/schemaIntake';
 import { modelStatus, type ModelStatus } from '../../services/ai/modelHost';
 import { runPageExtract, ExtractStopped, type ExtractOutcome, type ExtractedValue } from '../../services/ai/extractRun';
@@ -83,109 +80,84 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
     const unavailable = availability === 'unavailable';
 
     return (
-        <Dialog open={open} onClose={running ? undefined : onClose} fullWidth maxWidth="sm">
-            <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Sparkles size={18} /> Fill fields from a schema (on-device AI)
-            </DialogTitle>
-            <DialogContent dividers>
-                <Stack spacing={1.5}>
-                    <Typography variant="body2" color="text.secondary">
-                        Describe the fields you want. Chrome's built-in model reads this page once and points at each value; every value is checked against the page and turned into a selector, so your bulk runs need no AI and nothing leaves your browser.
-                    </Typography>
-                    {unavailable && (
-                        <Alert severity="info" variant="outlined">
-                            Chrome's built-in AI isn't available here: only fields the page publishes as structured data can be found. You can still pick each field with “Select Element”.
-                            {model?.reason && <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>{model.reason}</Typography>}
-                        </Alert>
-                    )}
-                    {availability === 'downloadable' && (
-                        <Alert severity="info" variant="outlined">The model downloads once (about 2 GB) the first time you run this.</Alert>
-                    )}
-
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                        {Object.entries(SCHEMA_PRESETS).map(([k, p]) => (
-                            <Chip key={k} size="small" label={p.label} onClick={() => setText(p.text)} variant="outlined" />
-                        ))}
-                    </Stack>
-                    <TextField
-                        multiline minRows={6} maxRows={12} fullWidth size="small"
-                        value={text} onChange={e => setText(e.target.value)}
-                        placeholder={'One field per line, e.g.\nprice: current selling price\n\nor paste a JSON Schema / an example JSON object'}
-                        inputProps={{ style: { fontFamily: 'monospace', fontSize: 12 } }}
-                        disabled={running}
-                    />
-                    <Typography variant="caption" color={intake.error ? 'warning.main' : 'text.secondary'}>
-                        {intake.error ?? `${intake.fields.length} field${intake.fields.length !== 1 ? 's' : ''} (${intake.source === 'json-schema' ? 'from JSON Schema' : intake.source === 'example' ? 'from example' : 'from lines'})${intake.lists.length ? `; lists (${intake.lists.map(l => l.name).join(', ')}) are filled in AI Extract, not here` : ''}`}
-                    </Typography>
-
-                    {running && (
-                        <Box>
-                            <LinearProgress variant={download !== null && download < 1 ? 'determinate' : 'indeterminate'} value={(download ?? 0) * 100} />
-                            <Typography variant="caption" color="text.secondary">
-                                {download !== null && download < 1 ? `Downloading model… ${Math.round(download * 100)}%` : status}
-                            </Typography>
-                        </Box>
-                    )}
-                    {error && <Alert severity="warning" variant="outlined">{error}</Alert>}
-
-                    {result && (
-                        <Box>
-                            {result.warnings.map((w, i) => (
-                                <Typography key={i} variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>{w}</Typography>
-                            ))}
-                            <Stack spacing={0.5}>
-                                {intake.fields.map(f => {
-                                    const v = result.single[f.name];
-                                    const ok = usable(v);
-                                    return (
-                                        <Box key={f.name} sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, p: 1, display: 'flex', gap: 1, alignItems: 'flex-start', opacity: ok ? 1 : 0.7 }}>
-                                            <Checkbox size="small" sx={{ p: 0.25 }} disabled={!ok} checked={chosen.has(f.name)}
-                                                onChange={e => {
-                                                    const next = new Set(chosen);
-                                                    if (e.target.checked) next.add(f.name); else next.delete(f.name);
-                                                    setChosen(next);
-                                                }} />
-                                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                                                    <Typography variant="caption" fontWeight={700}>{f.name}</Typography>
-                                                    {v && <Chip size="small" label={STATUS[v.status].label} color={STATUS[v.status].color} sx={{ height: 18, fontSize: 10 }} />}
-                                                    {v?.grade && ok && (
-                                                        <Chip size="small" variant="outlined" sx={{ height: 18, fontSize: 10 }}
-                                                            color={v.grade.grade === 'strong' ? 'success' : v.grade.grade === 'fragile' ? 'warning' : 'error'}
-                                                            label={`${v.grade.grade} selector`} title={v.grade.reason} />
-                                                    )}
-                                                </Box>
-                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
-                                                    {!v || v.status === 'empty' ? 'Nothing found for this field.'
-                                                        : v.status === 'needs_model' ? 'Needs the on-device model.'
-                                                            : v.status === 'unverified' ? `The model said “${v.text.slice(0, 80)}”, which isn't on the page: dropped.`
-                                                                : !v.selectors?.length ? `${v.text.slice(0, 120)} (from the page's data; not shown on the page, so no selector)`
-                                                                    : v.text.slice(0, 160)}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                    );
-                                })}
-                            </Stack>
-                        </Box>
-                    )}
-                </Stack>
-            </DialogContent>
-            <DialogActions>
-                {running ? (
-                    <Button onClick={() => abortRef.current?.abort()}>Stop</Button>
-                ) : (
-                    <>
-                        <Button onClick={onClose} sx={{ mr: 'auto' }}>Cancel</Button>
-                        <Button onClick={run} disabled={!!intake.error || intake.fields.length === 0} variant={result ? 'outlined' : 'contained'}>
-                            {result ? 'Run again' : 'Find fields'}
-                        </Button>
-                        {result && (
-                            <Button variant="contained" onClick={add} disabled={chosen.size === 0}>Add {chosen.size} field{chosen.size !== 1 ? 's' : ''}</Button>
-                        )}
-                    </>
+        <Dialog open={open} onClose={onClose} persistent={running} size="lg" title="Fill fields from a schema (on-device AI)"
+            description="Describe the fields you want. Chrome's built-in model reads this page once and points at each value; every value is checked against the page and turned into a selector, so your bulk runs need no AI and nothing leaves your browser."
+            actions={running ? (
+                <Button onClick={() => abortRef.current?.abort()}>Stop</Button>
+            ) : (
+                <>
+                    <Button variant="ghost" className="mr-auto" onClick={onClose}>Cancel</Button>
+                    <Button variant={result ? 'secondary' : 'primary'} onClick={run} disabled={!!intake.error || intake.fields.length === 0}>
+                        {result ? 'Run again' : 'Find fields'}
+                    </Button>
+                    {result && <Button variant="primary" onClick={add} disabled={chosen.size === 0}>Add {chosen.size} field{chosen.size !== 1 ? 's' : ''}</Button>}
+                </>
+            )}>
+            <Stack gap={3}>
+                {unavailable && (
+                    <Notice tone="info">
+                        Chrome's built-in AI isn't available here: only fields the page publishes as structured data can be found. You can still pick each field with “Select Element”.
+                        {model?.reason && <Text size="caption" tone="muted" className="mt-1">{model.reason}</Text>}
+                    </Notice>
                 )}
-            </DialogActions>
+                {availability === 'downloadable' && <Notice tone="info">The model downloads once (about 2 GB) the first time you run this.</Notice>}
+
+                <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(SCHEMA_PRESETS).map(([k, p]) => (
+                        <ToggleChip key={k} selected={text === p.text} onClick={() => setText(p.text)}>{p.label}</ToggleChip>
+                    ))}
+                </div>
+                <TextArea mono rows={7} value={text} onChange={e => setText(e.target.value)} disabled={running}
+                    placeholder={'One field per line, e.g.\nprice: current selling price\n\nor paste a JSON Schema / an example JSON object'}
+                    hint={intake.error ? undefined : `${intake.fields.length} field${intake.fields.length !== 1 ? 's' : ''} (${intake.source === 'json-schema' ? 'from JSON Schema' : intake.source === 'example' ? 'from example' : 'from lines'})${intake.lists.length ? `; lists (${intake.lists.map(l => l.name).join(', ')}) are filled in AI Extract, not here` : ''}`}
+                    error={intake.error} />
+
+                {running && (
+                    <Stack gap={1}>
+                        <Progress value={download !== null && download < 1 ? download * 100 : undefined} label="Finding fields" />
+                        <Text size="caption" tone="muted">{download !== null && download < 1 ? `Downloading model… ${Math.round(download * 100)}%` : status}</Text>
+                    </Stack>
+                )}
+                {error && <Notice tone="warning">{error}</Notice>}
+
+                {result && (
+                    <Stack gap={1.5}>
+                        {result.warnings.map((w, i) => <Text key={i} size="caption" tone="muted">{w}</Text>)}
+                        {intake.fields.map(f => {
+                            const v = result.single[f.name];
+                            const ok = usable(v);
+                            return (
+                                <div key={f.name} className={`flex items-start gap-2.5 rounded-field border border-line p-2.5 ${ok ? '' : 'opacity-70'}`}>
+                                    <Checkbox disabled={!ok} checked={chosen.has(f.name)} aria-label={f.name}
+                                        onChange={on => {
+                                            const next = new Set(chosen);
+                                            if (on) next.add(f.name); else next.delete(f.name);
+                                            setChosen(next);
+                                        }} />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            <Text size="small" weight="bold">{f.name}</Text>
+                                            {v && <Chip tone={STATUS[v.status].color}>{STATUS[v.status].label}</Chip>}
+                                            {v?.grade && ok && (
+                                                <Chip tone={v.grade.grade === 'strong' ? 'success' : v.grade.grade === 'fragile' ? 'warning' : 'danger'} title={v.grade.reason}>
+                                                    {`${v.grade.grade} selector`}
+                                                </Chip>
+                                            )}
+                                        </div>
+                                        <Text size="caption" tone="muted" className="mt-0.5 break-words">
+                                            {!v || v.status === 'empty' ? 'Nothing found for this field.'
+                                                : v.status === 'needs_model' ? 'Needs the on-device model.'
+                                                    : v.status === 'unverified' ? `The model said “${v.text.slice(0, 80)}”, which isn't on the page: dropped.`
+                                                        : !v.selectors?.length ? `${v.text.slice(0, 120)} (from the page's data; not shown on the page, so no selector)`
+                                                            : v.text.slice(0, 160)}
+                                        </Text>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </Stack>
+                )}
+            </Stack>
         </Dialog>
     );
 }
