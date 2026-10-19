@@ -8,7 +8,7 @@ import { ElementDefinition, ExtractionConfig, ProcessedElementResult, Extraction
 import { DataExtractor } from '../../extraction/DataExtractor';
 import { readValue } from '../../extraction/atoms';
 import { clickElementRobust } from '../../../utils/click';
-import { resolveFirst } from '../../../../shared/selectors/resolve';
+import { resolveOne } from '../../../../shared/selectors/resolve';
 import { extractColumns, collapseTableToJson } from './columnHelpers';
 
 export class ElementProcessor {
@@ -63,7 +63,7 @@ export class ElementProcessor {
     }
 
     private find(selectors: SelectorDefinition[]): HTMLElement | null {
-        return resolveFirst(selectors, document).element as HTMLElement | null;
+        return resolveOne(selectors).result as HTMLElement | null;
     }
 
     private highlight(element: HTMLElement, elementName?: string): void {

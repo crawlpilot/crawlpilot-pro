@@ -316,7 +316,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 setStatus(prev => ({ ...prev, stopReason }));
                                 resolve();
                             }),
-                            on('PAGINATION_UPDATE', ({ items, page, columns, unmapped }) => {
+                            on('PAGINATION_UPDATE', ({ items, page, columns, unmapped, fallback }) => {
                                 if (page) pagesVisitedRef.current = page;
                                 // The fields the run reads every page with (frozen): save them as the columns.
                                 if (Array.isArray(columns) && columns.length > 0) sel.data.columns = columns;
@@ -326,6 +326,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                     sel.data.items = [...(sel.data.items || []), ...fresh];
                                 }
                                 if (unmapped) tracker.addUnmapped(page || pagesVisitedRef.current, unmapped);
+                                if (fallback) tracker.markFallback(page || pagesVisitedRef.current);
                                 setStatus(prev => ({
                                     ...prev,
                                     progress: { id: sel.id, count: (sel.data.items?.length || 0) },

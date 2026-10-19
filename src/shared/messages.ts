@@ -140,7 +140,7 @@ export interface Messages {
     LAB_PICKED: { payload: LabPick | null };
     AUTO_SCROLL_UPDATE: { payload: { count: number } };
     AUTO_SCROLL_COMPLETE: { payload: { success: boolean; items?: any[]; columns?: any[]; error?: string } };
-    PAGINATION_UPDATE: { payload: { items: any[]; page: number; total?: number; columns?: any[]; unmapped?: number } };
+    PAGINATION_UPDATE: { payload: { items: any[]; page: number; total?: number; columns?: any[]; unmapped?: number; fallback?: boolean } };
     PAGINATION_COMPLETE: { payload: { success: boolean; reason?: string; error?: string } };
     SCAN_IMAGES_PROGRESS: { payload: any };
     SCAN_IMAGES_BATCH: { payload: any[] };

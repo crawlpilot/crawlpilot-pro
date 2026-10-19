@@ -4,7 +4,7 @@ import { PaginationAction } from '../features/pagination/PaginationAction';
 import { refreshNetSourcesFor } from '../services/extraction/structuredRows';
 import { hasReaders, inferFields, readRow, similarSiblings, ReaderColumn } from '../services/extraction/fields';
 import { HL_COLOR, HL_GLOW } from '../utils/highlight-tokens';
-import { resolveFirst, resolveAll } from '../../shared/selectors/resolve';
+import { looksLikeXPath, resolveContainer, resolveItems } from '../../shared/selectors/resolve';
 import { hashString } from '../../shared/utils/hash';
 import { AutoScrollRequest, fail, ok, on, PaginationRequest, send } from '../../shared/messages';
 
@@ -72,16 +72,17 @@ async function startAutoScroll(req: AutoScrollRequest) {
     const signal = scrollAbort.signal;
 
     const containerChain = req.containerSelectors?.length ? req.containerSelectors : req.containerSelector ? [req.containerSelector] : [];
-    const root = containerChain.length > 0 ? (resolveFirst(containerChain, document).element as HTMLElement | null) ?? undefined : undefined;
+    const itemChain = req.selectors?.length ? req.selectors : req.selector ? [req.selector] : [];
+    const root = containerChain.length > 0 ? resolveContainer(containerChain, itemChain).result ?? undefined : undefined;
 
-    // In 'items' mode, use the best entry of the item selector chain within the container.
+    // In 'items' mode, use the entry of the item chain that finds items in the container (CSS only:
+    // the scroll strategy queries with it).
     let selector = req.selector;
-    if (req.selectionMode === 'items') {
-        const itemChain = req.selectors?.length ? req.selectors : req.selector ? [req.selector] : [];
-        if (itemChain.length > 0) {
-            const { used } = resolveAll(itemChain, root || document);
-            if (used && used.kind === 'css') selector = used.value;
-        }
+    if (req.selectionMode === 'items' && itemChain.length > 0) {
+        const { used } = resolveItems(itemChain, root || document);
+        const entry = used >= 0 ? itemChain[used] : undefined;
+        const value = typeof entry === 'string' ? entry : entry?.selector;
+        if (value && !looksLikeXPath(value)) selector = value;
     }
 
     const results: Record<string, string>[] = [];
@@ -160,7 +161,7 @@ async function startPagination(req: PaginationRequest) {
                 // The fields go to the side panel once (they are frozen for the run), so it saves them as the columns.
                 const columns = progress.columns && progress.columns !== sentPaginationColumns ? progress.columns : undefined;
                 if (columns) sentPaginationColumns = columns;
-                void send('PAGINATION_UPDATE', { items: progress.items, page: progress.page, total: progress.cumulativeTotal, columns, unmapped: progress.unmapped });
+                void send('PAGINATION_UPDATE', { items: progress.items, page: progress.page, total: progress.cumulativeTotal, columns, unmapped: progress.unmapped, fallback: progress.fallback });
             } else if (progress.type === 'complete') {
                 void send('PAGINATION_COMPLETE', ok({ reason: progress.reason }));
             } else if (progress.type === 'error') {

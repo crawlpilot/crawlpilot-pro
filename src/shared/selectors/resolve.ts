@@ -59,60 +59,56 @@ function queryAll(entry: ChainEntry, root: ParentNode): Element[] {
     }
 }
 
+type RawChain = (RawChainEntry | null | undefined)[] | null | undefined;
+
+/** Which entry of the chain answered (0 = the primary; > 0 = a fallback), or -1 when none did. */
+export interface Resolution<T> {
+    result: T;
+    used: number;
+}
+
+const rendered = (el: Element) => el.getClientRects().length > 0;
+
 /**
- * Resolves the first chain entry that matches at least one element, in priority order.
- * This is the single fallback-chain applier for the whole extension — replaces the
- * hand-rolled first-match loops that used to be duplicated in ElementProcessor,
- * BackgroundElementProcessor, and PaginationAction.
+ * One element: the first entry that matches exactly one; failing that, the first entry that
+ * matches several, and its first rendered match (a control and its sticky copy).
  */
-export function resolveFirst(
-    entries: (RawChainEntry | null | undefined)[] | null | undefined,
-    root: ParentNode = document,
-): { element: Element | null; used: ChainEntry | null } {
+export function resolveOne(entries: RawChain, root: ParentNode = document): Resolution<Element | null> {
     const chain = normalizeChain(entries);
-    for (const entry of chain) {
-        const matches = queryAll(entry, root);
-        // Several matches (a control and its sticky copy): the first one that is rendered.
-        if (matches.length > 0) {
-            return { element: matches.find(m => m.getClientRects().length > 0) ?? matches[0], used: entry };
-        }
+    let several: Resolution<Element | null> | null = null;
+    for (let i = 0; i < chain.length; i++) {
+        const matches = queryAll(chain[i], root);
+        if (matches.length === 1) return { result: matches[0], used: i };
+        if (matches.length > 1 && !several) several = { result: matches.find(rendered) ?? matches[0], used: i };
     }
-    return { element: null, used: null };
+    return several ?? { result: null, used: -1 };
+}
+
+/** Items under `container`: the first entry that matches any (an empty page has none). */
+export function resolveItems(entries: RawChain, container: ParentNode): Resolution<Element[]> {
+    const chain = normalizeChain(entries);
+    for (let i = 0; i < chain.length; i++) {
+        const matches = queryAll(chain[i], container);
+        if (matches.length > 0) return { result: matches, used: i };
+    }
+    return { result: [], used: -1 };
 }
 
 /**
- * Resolves all elements matched by a chain entry, preferring — in order — a chain entry
- * that is not volatile (see isVolatileSelector) and whose match count is closest to
- * `expectedCount` when provided. Falls back to the first entry with any matches.
+ * A list's container: the first entry whose element holds at least two of the list's items (by
+ * `items`), so a stale entry that now matches some other element is passed over. Without an item
+ * chain, the first entry that matches.
  */
-export function resolveAll(
-    entries: (RawChainEntry | null | undefined)[] | null | undefined,
-    root: ParentNode = document,
-    opts?: { expectedCount?: number },
-): { elements: Element[]; used: ChainEntry | null } {
+export function resolveContainer(entries: RawChain, items: RawChain, root: ParentNode = document): Resolution<HTMLElement | null> {
     const chain = normalizeChain(entries);
-    const candidates: { entry: ChainEntry; elements: Element[] }[] = [];
-
-    for (const entry of chain) {
-        const elements = queryAll(entry, root);
-        if (elements.length > 0) candidates.push({ entry, elements });
-    }
-
-    if (candidates.length === 0) return { elements: [], used: null };
-    if (opts?.expectedCount == null) {
-        const best = candidates[0];
-        return { elements: best.elements, used: best.entry };
-    }
-
-    const expected = opts.expectedCount;
-    let best = candidates[0];
-    let bestDelta = Math.abs(best.elements.length - expected);
-    for (const cand of candidates.slice(1)) {
-        const delta = Math.abs(cand.elements.length - expected);
-        if (delta < bestDelta) {
-            best = cand;
-            bestDelta = delta;
+    const itemChain = normalizeChain(items);
+    let first: Resolution<HTMLElement | null> | null = null;
+    for (let i = 0; i < chain.length; i++) {
+        for (const candidate of queryAll(chain[i], root)) {
+            first ??= { result: candidate as HTMLElement, used: i };
+            if (itemChain.length === 0) return first;
+            if (resolveItems(itemChain, candidate).result.length >= 2) return { result: candidate as HTMLElement, used: i };
         }
     }
-    return { elements: best.elements, used: best.entry };
+    return first ?? { result: null, used: -1 };
 }

@@ -6,7 +6,7 @@
  * a clear visual reference of what has been selected so far.
  */
 
-import { sanitizeCssSelector } from '../../../shared/selectors/sanitize';
+import { resolveOne } from '../../../shared/selectors/resolve';
 
 interface HighlightEntry {
     elementDef: HighlightableElement;
@@ -170,25 +170,9 @@ export class SelectionHighlightManager {
         });
     }
 
+    /** The element a saved chain finds, the same way a run finds it. */
     private resolveElement(selectors: { type: string; value: string }[]): HTMLElement | null {
-        for (const selector of selectors) {
-            try {
-                if (selector.type === 'xpath') {
-                    const result = document.evaluate(
-                        selector.value, document, null,
-                        XPathResult.FIRST_ORDERED_NODE_TYPE, null
-                    );
-                    const el = result.singleNodeValue as HTMLElement;
-                    if (el) return el;
-                } else {
-                    const el = document.querySelector(sanitizeCssSelector(selector.value)) as HTMLElement;
-                    if (el) return el;
-                }
-            } catch (e) {
-                console.warn(`[SelectionHighlightManager] Failed to resolve selector: ${selector.value}`, e);
-            }
-        }
-        return null;
+        return resolveOne(selectors).result as HTMLElement | null;
     }
 
     private updatePositions(): void {

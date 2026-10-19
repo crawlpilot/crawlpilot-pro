@@ -1,5 +1,5 @@
 import { IScrollStrategy, ScrollStrategyConfig, ScrollStrategyResult } from './IScrollStrategy';
-import { looksLikeXPath } from '../../../shared/selectors/resolve';
+import { resolveOne } from '../../../shared/selectors/resolve';
 
 /**
  * MutationAwareScrollStrategy — default for infinite/dynamic feeds.
@@ -49,11 +49,8 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
 
         if (rootElement) {
             container = rootElement;
-        } else if (selectorType === 'xpath') {
-            const result = document.evaluate(parentSelector, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-            container = result.singleNodeValue as HTMLElement;
-        } else {
-            container = document.querySelector(parentSelector) as HTMLElement;
+        } else if (parentSelector) {
+            container = resolveOne([parentSelector]).result as HTMLElement | null;
         }
 
         if (!container) {
@@ -329,19 +326,7 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
 
     private async clickLoadMore(selector: string, selectorType: 'selector' | 'xpath' = 'selector'): Promise<boolean> {
         try {
-            const cleanSelector = selector.trim();
-            let actualType = selectorType;
-            if (looksLikeXPath(cleanSelector)) {
-                actualType = 'xpath';
-            }
-
-            let element: HTMLElement | null = null;
-            if (actualType === 'selector') {
-                element = document.querySelector(cleanSelector) as HTMLElement;
-            } else {
-                const result = document.evaluate(cleanSelector, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                element = result.singleNodeValue as HTMLElement;
-            }
+            const element = resolveOne([{ value: selector.trim(), type: selectorType === 'xpath' ? 'xpath' : undefined }]).result as HTMLElement | null;
 
             if (element) {
                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });

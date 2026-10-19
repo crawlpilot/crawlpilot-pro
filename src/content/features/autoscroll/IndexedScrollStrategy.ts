@@ -1,5 +1,6 @@
 import { IScrollStrategy, ScrollStrategyConfig, ScrollStrategyResult } from './IScrollStrategy';
 import { hashString } from '../../../shared/utils/hash';
+import { resolveOne } from '../../../shared/selectors/resolve';
 
 interface ChildHashData {
     hash: string;
@@ -59,11 +60,8 @@ export class IndexedScrollStrategy implements IScrollStrategy {
 
         if (rootElement) {
             container = rootElement;
-        } else if (selectorType === 'xpath') {
-            const result = document.evaluate(parentSelector, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-            container = result.singleNodeValue as HTMLElement;
-        } else {
-            container = document.querySelector(parentSelector) as HTMLElement;
+        } else if (parentSelector) {
+            container = resolveOne([{ value: parentSelector, type: selectorType === 'xpath' ? 'xpath' : undefined }]).result as HTMLElement | null;
         }
 
         if (!container && selectionMode === 'container') {

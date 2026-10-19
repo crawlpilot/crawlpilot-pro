@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { resolveFirst, resolveAll, normalizeChain, looksLikeXPath } from './resolve';
+import { resolveOne, resolveItems, resolveContainer, normalizeChain, looksLikeXPath } from './resolve';
 
 describe('looksLikeXPath', () => {
     it('detects xpath-shaped strings', () => {
@@ -33,7 +33,7 @@ describe('normalizeChain', () => {
     });
 });
 
-describe('resolveFirst / resolveAll', () => {
+describe('resolveOne / resolveItems / resolveContainer', () => {
     beforeEach(() => {
         document.body.innerHTML = `
             <div id="root">
@@ -42,51 +42,35 @@ describe('resolveFirst / resolveAll', () => {
                 <div class="card">C</div>
                 <div class="stale-hash-xyz1">D</div>
             </div>
+            <section class="results"><p>stale</p></section>
+            <section class="list"><article>1</article><article>2</article></section>
         `;
     });
 
-    it('resolveFirst returns the first entry with a match', () => {
-        const { element, used } = resolveFirst(['.nope', '.card'], document.body);
-        expect(element?.textContent).toBe('A');
-        expect(used?.value).toBe('.card');
+    it('resolveOne takes the first entry that names one element, and says which', () => {
+        expect(resolveOne(['.nope', '.card', '.stale-hash-xyz1'])).toMatchObject({ used: 2 });
+        expect(resolveOne(['.nope', '.stale-hash-xyz1']).result?.textContent).toBe('D');
+        expect(resolveOne(['//div[@class="stale-hash-xyz1"]']).result?.textContent).toBe('D');
     });
 
-    it('resolveFirst falls back through the whole chain', () => {
-        const { element } = resolveFirst(['.nope', '.also-nope', '.stale-hash-xyz1'], document.body);
-        expect(element?.textContent).toBe('D');
+    it('resolveOne settles for an entry matching several only when none names one', () => {
+        const { result, used } = resolveOne(['.nope', '.card']);
+        expect(result?.textContent).toBe('A');
+        expect(used).toBe(1);
+        expect(resolveOne(['.nope', '.still-nope'])).toEqual({ result: null, used: -1 });
     });
 
-    it('resolveFirst returns null when nothing in the chain matches', () => {
-        const { element, used } = resolveFirst(['.nope', '.still-nope'], document.body);
-        expect(element).toBeNull();
-        expect(used).toBeNull();
+    it('resolveItems returns the first entry with matches under the container', () => {
+        const root = document.getElementById('root')!;
+        expect(resolveItems(['.nope', '.card'], root)).toMatchObject({ used: 1 });
+        expect(resolveItems(['.nope', '.card'], root).result).toHaveLength(3);
+        expect(resolveItems([], root)).toEqual({ result: [], used: -1 });
     });
 
-    it('resolveFirst resolves xpath entries', () => {
-        const { element } = resolveFirst(['//div[@class="stale-hash-xyz1"]'], document.body);
-        expect(element?.textContent).toBe('D');
-    });
-
-    it('resolveAll returns all matches for the first working entry', () => {
-        const { elements, used } = resolveAll(['.nope', '.card'], document.body);
-        expect(elements).toHaveLength(3);
-        expect(used?.value).toBe('.card');
-    });
-
-    it('resolveAll prefers the entry whose match count is closest to expectedCount', () => {
-        document.body.innerHTML = `
-            <div id="root">
-                <div class="wide">1</div><div class="wide">2</div>
-                <div class="narrow">1</div><div class="narrow">2</div><div class="narrow">3</div>
-            </div>
-        `;
-        const { elements, used } = resolveAll(['.wide', '.narrow'], document.body, { expectedCount: 3 });
-        expect(elements).toHaveLength(3);
-        expect(used?.value).toBe('.narrow');
-    });
-
-    it('resolveAll returns empty when the chain is empty or unmatched', () => {
-        expect(resolveAll([], document.body).elements).toEqual([]);
-        expect(resolveAll(['.nope'], document.body).elements).toEqual([]);
+    it('resolveContainer passes over an entry whose element no longer holds the items', () => {
+        const { result, used } = resolveContainer(['section.results', 'section.list'], [':scope > article']);
+        expect(result?.className).toBe('list');
+        expect(used).toBe(1);
+        expect(resolveContainer(['section.results'], []).result?.className).toBe('results');
     });
 });

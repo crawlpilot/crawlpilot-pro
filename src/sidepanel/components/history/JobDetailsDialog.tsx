@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, LinearProgress, Stack, Typography, alpha, useTheme } from '@mui/material';
 import { Activity, Copy, ExternalLink, Settings, Trash2, X } from 'lucide-react';
-import { stopReasonLabel } from '@/shared/listing/runStats';
+import { PageStat, stopReasonLabel } from '@/shared/listing/runStats';
 import { VERDICT_LABELS, PageVerdict } from '@/shared/verdict/classifyPage';
 
 interface Props {
@@ -106,11 +106,14 @@ export function JobDetailsDialog({ detailsJob, onClose, onDelete, onRerun }: Pro
                                         {t('perPage', 'Rows per page')}
                                     </Typography>
                                     <Box sx={{ maxHeight: 160, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 2 }}>
-                                        {detailsJob.stats.pageStats.map((p: { page: number; rows: number; duplicates: number; unmapped?: number }) => (
+                                        {detailsJob.stats.pageStats.map((p: PageStat) => (
                                             <Box key={p.page} sx={{ display: 'flex', justifyContent: 'space-between', px: 1.5, py: 0.5, fontSize: 12, fontFamily: 'monospace' }}>
                                                 <span>{t('pageN', 'Page {{n}}', { n: p.page })}</span>
-                                                <span title={p.unmapped ? `${p.unmapped} rows had content no field reads: the layout may have changed` : undefined}>
-                                                    {p.rows}{p.duplicates > 0 ? ` (+${p.duplicates} dup)` : ''}{p.unmapped ? ` · ${p.unmapped} unmapped` : ''}
+                                                <span title={[
+                                                    p.unmapped ? `${p.unmapped} rows had content no field reads: the layout may have changed` : '',
+                                                    p.fallback ? 'The list was found through a backup selector: its main selector no longer matches. Re-pick it before the backups stop working too.' : '',
+                                                ].filter(Boolean).join('\n') || undefined}>
+                                                    {p.rows}{p.duplicates > 0 ? ` (+${p.duplicates} dup)` : ''}{p.unmapped ? ` · ${p.unmapped} unmapped` : ''}{p.fallback ? ` · ${t('backupSelector', 'backup selector')}` : ''}
                                                 </span>
                                             </Box>
                                         ))}

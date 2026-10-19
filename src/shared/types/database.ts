@@ -157,7 +157,7 @@ export interface Job {
         verdicts?: Record<string, number>;
         /** Listing runs: why the run ended, rows/duplicates per page, total duplicates skipped. */
         stopReason?: string;
-        pageStats?: { page: number; rows: number; duplicates: number; unmapped?: number }[];
+        pageStats?: import('../listing/runStats').PageStat[];
         duplicatesRemoved?: number;
         /** Share of rows each field filled (listing runs), most-filled first. */
         coverage?: { name: string; fill: number }[];

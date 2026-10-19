@@ -6,7 +6,7 @@ import { SelectorMetadata } from '../../../shared/types/extraction';
 import { BaseAction, ActionContext } from '../../core/BaseAction';
 import { AutoScrollAction } from '../autoscroll/AutoScrollAction';
 import { HL_COLOR, HL_BG, HL_GLOW_STRONG } from '../../utils/highlight-tokens';
-import { looksLikeXPath, resolveAll } from '../../../shared/selectors/resolve';
+import { looksLikeXPath, resolveContainer, resolveItems } from '../../../shared/selectors/resolve';
 import { listLocators } from '../../services/selectors/list';
 import { hashString } from '../../../shared/utils/hash';
 import { classifyPage, collectPageSignals, PageVerdict, VERDICT_LABELS } from '../../../shared/verdict/classifyPage';
@@ -48,6 +48,8 @@ const PROGRESS_BATCH = 10;
 export class PaginationAction extends BaseAction {
     private visitedUrls: Set<string>;
     private lastPageHash: string | null = null;
+    /** Whether this page's container or items were found through a fallback entry (or a healed selector). */
+    private usedFallback = false;
 
     constructor(private config: PaginationConfig) {
         super();
@@ -284,6 +286,7 @@ export class PaginationAction extends BaseAction {
                 items: pending,
                 columns: lastColumns,
                 unmapped: pendingUnmapped,
+                fallback: this.usedFallback || undefined,
                 page: pageCount,
                 cumulativeTotal: mode !== 'loadMore' ? newTotal : pageItems.length
             });
@@ -298,14 +301,15 @@ export class PaginationAction extends BaseAction {
         // items mode (XPath entries fall back to walking container.children below).
         let itemSelectionMode: 'container' | 'items' = 'container';
         let resolvedItemSelector: string | undefined;
-        const itemChain = this.config.itemSelectors && this.config.itemSelectors.length > 0
-            ? this.config.itemSelectors
-            : (this.config.itemSelector ? [this.config.itemSelector] : []);
+        const itemChain = this.itemChain();
         if (itemChain.length > 0) {
-            const { elements, used } = resolveAll(itemChain, container);
-            if (elements.length > 0 && used && used.kind === 'css') {
+            const { result, used } = resolveItems(itemChain, container);
+            const entry = used >= 0 ? itemChain[used] : undefined;
+            const selector = typeof entry === 'string' ? entry : entry?.selector;
+            if (used > 0) this.usedFallback = true;
+            if (result.length > 0 && selector && !looksLikeXPath(selector)) {
                 itemSelectionMode = 'items';
-                resolvedItemSelector = used.value;
+                resolvedItemSelector = selector;
             } else {
                 // [NEW] Verify-and-heal: the whole stored chain is stale (e.g. the site
                 // redeployed with new hash classes). Re-derive a fresh item selector from
@@ -313,6 +317,7 @@ export class PaginationAction extends BaseAction {
                 // container.children, which can pull in ads/spacers the original pick excluded.
                 const healed = this.healItemSelector(container);
                 if (healed) {
+                    this.usedFallback = true;
                     itemSelectionMode = 'items';
                     resolvedItemSelector = healed;
                     console.log('[PaginationAction] Item selector chain stale — healed to:', healed);
@@ -361,6 +366,7 @@ export class PaginationAction extends BaseAction {
             newTotal = pageItems.length;
         }
 
+        this.usedFallback = false;
         return { extractedCount, newTotal };
     }
 
@@ -476,24 +482,17 @@ export class PaginationAction extends BaseAction {
         return { success: false, error: error.message };
     }
 
+    /** The list's container on this page: the first entry of its chain that holds the list's items. */
     private findContainerRobust(selectors: string[]): HTMLElement | null {
-        for (const sel of selectors) {
-            try {
-                if (!sel) continue;
+        const { result, used } = resolveContainer(selectors, this.itemChain());
+        if (used > 0) this.usedFallback = true;
+        return result;
+    }
 
-                // Detect XPath
-                if (looksLikeXPath(sel)) {
-                    const result = document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                    if (result.singleNodeValue) return result.singleNodeValue as HTMLElement;
-                } else {
-                    const container = document.querySelector(sel) as HTMLElement;
-                    if (container) return container;
-                }
-            } catch (e) {
-                console.warn(`[PaginationAction] Failed to query container with "${sel}":`, e);
-            }
-        }
-        return null;
+    private itemChain(): (string | { selector: string; strategy?: string })[] {
+        return this.config.itemSelectors && this.config.itemSelectors.length > 0
+            ? this.config.itemSelectors
+            : (this.config.itemSelector ? [this.config.itemSelector] : []);
     }
 
     private highlightProcessedElement(element: HTMLElement) {

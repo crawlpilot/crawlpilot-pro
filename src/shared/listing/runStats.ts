@@ -11,6 +11,8 @@ export interface PageStat {
     duplicates: number;
     /** Rows with content none of the list's fields reads (the layout changed, or a field is missing). */
     unmapped?: number;
+    /** The list was found through a backup selector: its primary no longer matches (fix the recipe before it breaks). */
+    fallback?: boolean;
 }
 
 export const STOP_REASON_LABELS: Record<string, string> = {
@@ -86,6 +88,13 @@ export class ListingRunTracker {
         if (rows <= 0) return;
         const stat = this.pages.get(page) ?? { page, rows: 0, duplicates: 0 };
         stat.unmapped = (stat.unmapped ?? 0) + rows;
+        this.pages.set(page, stat);
+    }
+
+    /** Records that a page's list was found through a backup selector. */
+    markFallback(page: number): void {
+        const stat = this.pages.get(page) ?? { page, rows: 0, duplicates: 0 };
+        stat.fallback = true;
         this.pages.set(page, stat);
     }
 
