@@ -1,6 +1,6 @@
 # AI Extract v2: JSON Schema in, JSON out, resilient on a small on-device model
 
-Status: A1 and A2b done. Next: A2 (budget and groups). Builds on `ai-extract-markdown-plan.md`, where X0 (model host), M1 (markdown
+Status: A1, A2 and A2b done. Next: A3 (markdown input and evidence). Builds on `ai-extract-markdown-plan.md`, where X0 (model host), M1 (markdown
 engine) and X1 (single-page AI Extract) are done; X2 (compile to a recipe) and X3 (many pages) are still open.
 
 ## 1. What the user gets
@@ -362,7 +362,8 @@ closed), as already planned, on top of this.
 |---|---|---|
 | A1 | **Done** | See the details below |
 | A2b | **Done** | See the details below |
-| A2, A3–A6 | Open | |
+| A2 | **Done** | See the details below |
+| A3–A6 | Open | |
 
 What A1 built:
 
@@ -406,3 +407,25 @@ What A2b built (`content/services/reveal/`):
   - `e2e/reveal.spec.ts` (3) on `e2e/site/hidden-sections.html`. That page has a Bootstrap collapse, an ARIA accordion, a Radix region, a lazy accordion, an inactive tab, a lazy tab, "Show more", clamped text, an "Add to cart" button, a link away, a filter sidebar, and hidden text with no control.
   - Results: every hidden fact is read; nothing unsafe is clicked; the hidden text stays out; the page is restored; `reveal: 'off'` reads only what is shown.
 - **Not done yet:** "Show on page" for a value read from a closed section doesn't re-open the section first. The evidence path ("opened *Specifications*") comes with A3's evidence.
+
+What A2 built (`sidepanel/services/ai/budget.ts`, `extractRun.ts`):
+
+- **The page is read once, whole** (up to 400k characters). Each call cuts it to its own size.
+- **Characters per token** are measured on this page's markdown, not on English filler.
+- **Answer reserve per call** comes from the fields' types: a number is about 8 tokens, an enum 6, text 30, a URL 40, several values ×3.
+- **Input size per call** = the measured room, minus the reserve, the prompt's own text and the constraint (`inputChars`).
+- **Single answers:**
+  - Groups of at most 8 fields and about 300 answer tokens, siblings kept together.
+  - Each group reads the whole page when it fits, else the BM25 blocks for its own fields.
+  - `too_large` retries the group over 60% of the input.
+  - The required-field retry runs per group, and only when the page had to be cut.
+- **Lists:**
+  - Items per chunk come from the item's width, 5–20.
+  - Chunks are sized per pass.
+  - An item over 8 fields is read in passes of its identifying fields (name, title, URL, id, SKU…) plus up to 8 others. Passes are joined on those fields, else the ref (`joinPasses`).
+  - **New:** a chunk whose answer comes back full is read again from after the last item given, at most 8 extra reads per pass. Before, items past the cap were lost silently.
+- **Caps:** 8 chunks per pass and 40 calls per page; reaching either is a warning.
+- **Tests:** `budget.test.ts` (8).
+  - Sizing maths, grouping, passes and joining.
+  - A fake model in a 3,000-token window: a 20-field schema runs as 3 calls, a 12-field item as 2 joined passes, and every call fits the room it had.
+  - The corpus run still finds ≥90% of the listing items. It caught the full-answer loss above.

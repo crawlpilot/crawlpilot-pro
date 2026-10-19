@@ -20,7 +20,7 @@ describe('sizing calls', () => {
         const twenty = Array.from({ length: 20 }, (_, i) => field(`f${i}`, 'number'));
         expect(groupFields(twenty).map(g => g.length)).toEqual([8, 8, 4]);
         const urls = Array.from({ length: 8 }, (_, i) => field(`u${i}`, 'url'));
-        for (const g of groupFields(urls)) expect(g.reduce((n, f) => n + 12 + 40, 0)).toBeLessThanOrEqual(MAX_GROUP_TOKENS);
+        for (const g of groupFields(urls)) expect(g.reduce(n => n + 12 + 40, 0)).toBeLessThanOrEqual(MAX_GROUP_TOKENS);
         const nested = [field('a'), ...['w', 'h', 'd'].map(k => field(`size__${k}`, 'number')), ...Array.from({ length: 5 }, (_, i) => field(`b${i}`, 'number'))];
         const groups = groupFields(nested, 6);
         // The three size fields don't straddle two calls.
