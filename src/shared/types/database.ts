@@ -141,6 +141,8 @@ export interface PageElement {
     fields?: Column[];
     /** Where the value is in the page's own data; read before the DOM (`content/services/page/dataBinding.ts`). */
     data?: DataBinding;
+    /** The kind of value picked (price, number, text…): a healed match must be the same kind. */
+    shape?: import('../extraction/shape').Shape;
 }
 
 /** A step of a path into page data: a key, an index, or the array item whose `where` key is `is`. */
@@ -218,6 +220,8 @@ export interface Job {
         duplicatesRemoved?: number;
         /** Share of rows each field filled (listing runs), most-filled first. */
         coverage?: { name: string; fill: number }[];
+        /** Page Extractor runs: each step's result over the pages (`shared/listing/stepStats.ts`). */
+        steps?: import('../listing/stepStats').StepStat[];
     };
 
     /** The table the run wrote. */

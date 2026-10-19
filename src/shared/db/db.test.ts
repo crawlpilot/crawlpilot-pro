@@ -202,7 +202,7 @@ describe('migration v5 → v6', () => {
         expect(bulk.input.urls).toEqual(['https://a.test/1', 'https://a.test/2']);
         expect(bulk.recipe?.spec).toEqual({
             kind: 'page', settings: { actionSpeed: 500 },
-            elements: [{ id: 'e1', name: 'Title', action: 'extract', type: 'text', selectors: ['#productTitle', '//span[@id="productTitle"]'] }],
+            elements: [{ id: 'e1', name: 'Title', action: 'extract', type: 'text', selectors: ['#productTitle', '//span[@id="productTitle"]'], shape: 'text' }],
         });
 
         // Unreadable config: the job stays, without a recipe.

@@ -1,16 +1,10 @@
 import { ElementDefinition, ExtractionConfig } from './types';
 import { ElementProcessor } from './processors/ElementProcessor';
 import { buildPageRecord } from './processors/columnHelpers';
+import type { StepResult } from '../../../shared/listing/stepStats';
 
 /** How one recipe step went on this page (`docs/plans/page-extractor-background-plan.md` P1, P5). */
-export interface PageStep {
-    id: string;
-    name: string;
-    action: 'extract' | 'click';
-    /** `data`: read from the page's data; `skipped`: a click whose fields all came from data. */
-    status: 'ok' | 'data' | 'empty' | 'not-found' | 'clicked' | 'already-open' | 'opened' | 'no-effect' | 'skipped';
-    error?: string;
-}
+export type PageStep = StepResult & { error?: string };
 
 const isEmpty = (v: unknown) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
 
@@ -69,7 +63,7 @@ export async function extractPage(elements: ElementDefinition[], config: Extract
             if (result.data[rawKey] !== undefined) data[rawKey] = result.data[rawKey];
         }
         const value = data[element.id];
-        steps.push({ id: element.id, name: element.name, action: 'extract', status: isEmpty(value?.items ?? value) ? 'empty' : result.fromData ? 'data' : 'ok' });
+        steps.push({ id: element.id, name: element.name, action: 'extract', status: isEmpty(value?.items ?? value) ? 'empty' : result.fromData ? 'data' : result.healed ? 'healed' : 'ok' });
     }
 
     return { ...buildPageRecord(data, columns, config?.listOutput), steps };

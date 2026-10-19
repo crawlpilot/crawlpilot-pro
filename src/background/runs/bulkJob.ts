@@ -2,6 +2,7 @@
 import type { BulkStart } from '../../shared/messages';
 import type { RunJob } from './JobRunner';
 import { pageSpec } from '../../shared/recipes/spec';
+import type { StepResult } from '../../shared/listing/stepStats';
 
 export function bulkJob(start: BulkStart): RunJob {
     const { elements, config } = start;
@@ -39,10 +40,10 @@ export function bulkJob(start: BulkStart): RunJob {
                 config: { ...config, actionSpeed, ...(clicks.length > 0 ? { clickWaitMs } : {}) },
             });
             if (!response.success) throw new Error(response.error);
-            const { item, items, columns, steps } = response.result as typeof response.result & { steps?: { action: string; status: string }[] };
+            const { item, items, columns, steps } = response.result as typeof response.result & { steps?: StepResult[] };
             const rows = Array.isArray(items) ? items : item ? [item] : [];
             const needsWindow = (steps ?? []).some(s => s.action === 'click' && s.status === 'no-effect');
-            return { rows, columns, needsWindow };
+            return { rows, columns, needsWindow, steps };
         },
     };
 }

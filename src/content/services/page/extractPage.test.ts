@@ -71,3 +71,19 @@ describe('Page Extractor steps', () => {
         expect((document.getElementById('panel') as HTMLElement).hidden).toBe(false);
     });
 });
+
+describe('Page Extractor healing', () => {
+    it('finds an element whose selector broke by a looser one, when the value is the kind picked', async () => {
+        // Picked as `.pdp .price-v1 > span.amount`; the page was redesigned.
+        document.body.innerHTML = '<div class="pdp"><div class="price-v2"><span class="amount">$59.00</span></div><span class="amount">Free</span></div>';
+        const record = await extractPage([{ id: 'price', name: 'Price', action: 'extract', type: 'text', selectors: ['.pdp .price-v1 > span.amount'], shape: 'price' }], {});
+        expect(record.item.price).toBe('$59.00');
+        expect(record.steps[0].status).toBe('healed');
+    });
+
+    it('does not take a match of another kind', async () => {
+        document.body.innerHTML = '<div class="pdp"><span class="amount">Free shipping</span></div>';
+        const record = await extractPage([{ id: 'price', name: 'Price', action: 'extract', type: 'text', selectors: ['.pdp .price-v1 > span.amount'], shape: 'price' }], {});
+        expect(record.steps[0].status).toBe('not-found');
+    });
+});

@@ -127,6 +127,8 @@ test('Page Extractor bulk run with a click step: values revealed by the click ar
     expect(byTitle).toEqual({ 'Lamp model 1': 'SKU-1', 'Lamp model 2': 'SKU-2', 'Lamp model 3': 'SKU-3' });
     const job = (await panel.store('jobs')).find(j => j.id === done.jobId);
     expect(job).toMatchObject({ status: 'completed', tableId: done.tableId });
+    // Each step's coverage over the pages, for Job details.
+    expect(job.stats.steps.map((s: any) => `${s.name}:${s.pages}:${s.fill}`)).toEqual(['Title:3:1', 'Show specs:3:1', 'SKU:3:1']);
 });
 
 test('Page Extractor bulk run reads closed sections without clicking: a hidden tab panel\'s table, a closed details, a collapsed accordion', async ({ panel, origin }) => {

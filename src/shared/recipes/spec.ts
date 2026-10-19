@@ -8,6 +8,7 @@ import type { Chain, Column, ListSpec, PageElement, PageSpec, RecipeSpec } from 
 import type { ListPick, PaginationConfig } from '../types/extraction';
 import { hashString } from '../utils/hash';
 import { isVolatileSelector } from '../selectors/stability';
+import { shapeOf } from '../extraction/shape';
 
 const MAX_CHAIN = 3;
 
@@ -96,6 +97,8 @@ export function pageSpec(elements: RunElement[], settings: Record<string, unknow
             selectors: chainOf(e.selectors),
             ...(Array.isArray(e.fields) && e.fields.length > 0 ? { fields: e.fields as Column[] } : {}),
             ...(e.data ? { data: e.data } : {}),
+            // The picked value's kind, for healing (a preview like "List (12 items)" says nothing).
+            ...(e.action !== 'click' && (e.type || 'text') === 'text' && typeof e.value === 'string' && e.value.trim() ? { shape: shapeOf(e.value.trim()) } : {}),
         })),
         settings,
     };

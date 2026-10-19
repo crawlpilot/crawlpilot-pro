@@ -11,7 +11,8 @@ import { clickElementRobust } from '../../../utils/click';
 import { settle } from '../../../utils/settle';
 import { whileShown } from '../reveal';
 import { readBinding } from '../dataBinding';
-import { resolveOne } from '../../../../shared/selectors/resolve';
+import { looksLikeXPath, resolveOne } from '../../../../shared/selectors/resolve';
+import { shapeOf } from '../../../../shared/extraction/shape';
 import { extractColumns, collapseTableToJson } from './columnHelpers';
 
 export class ElementProcessor {
@@ -36,8 +37,12 @@ export class ElementProcessor {
                 await this.waitForElement(elementDef.selectors, timeout);
             }
 
-            // Not in the DOM yet: scroll the page to wake lazy loaders.
-            const element = this.find(elementDef.selectors) ?? await this.scrollPageToReveal(elementDef.selectors);
+            // Not in the DOM yet: scroll the page to wake lazy loaders; then look for it with a looser selector.
+            let element = this.find(elementDef.selectors) ?? await this.scrollPageToReveal(elementDef.selectors);
+            if (!element && elementDef.action !== 'click') {
+                element = this.heal(elementDef);
+                if (element) result.healed = true;
+            }
             if (!element) {
                 result.error = `Element "${elementDef.name}" not found after full page scroll`;
                 return result;
@@ -92,6 +97,38 @@ export class ElementProcessor {
             _columnCount: width,
         } as ExtractionResult;
         return { ...base, data: actionResult.data, columns: extractColumns(def, actionResult) };
+    }
+
+    /**
+     * The element when its selectors no longer match (a redesign, an A/B variant): each CSS selector
+     * loosened, nearest steps kept (`.specs > table` → `table`), positions dropped (`li:nth-of-type(3)`).
+     * Taken only when exactly one element matches and, for text, its value is the kind picked (a
+     * price is still a price).
+     */
+    private heal(def: ElementDefinition): HTMLElement | null {
+        const fits = (el: Element) => {
+            if (!def.shape || (def.type || 'text') !== 'text') return true;
+            const text = ((el as HTMLElement).innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+            return !!text && shapeOf(text) === def.shape;
+        };
+        for (const selector of def.selectors) {
+            if (looksLikeXPath(selector)) continue;
+            const steps = selector.replace(/^:scope\s*>\s*/, '').split(/\s*>\s*|\s+/).filter(Boolean);
+            const loose = (s: string) => s.replace(/:nth-(of-type|child)\(\d+\)/g, '');
+            const tries = new Set<string>();
+            for (let k = steps.length; k >= 1; k--) {
+                tries.add(steps.slice(-k).join(' '));
+                tries.add(steps.slice(-k).map(loose).filter(Boolean).join(' '));
+            }
+            for (const t of tries) {
+                if (!t || t === selector) continue;
+                let found: Element[] = [];
+                try { found = Array.from(document.querySelectorAll(t)); } catch { continue; }
+                const ok = found.filter(fits);
+                if (ok.length === 1) return ok[0] as HTMLElement;
+            }
+        }
+        return null;
     }
 
     private find(selectors: string[]): HTMLElement | null {

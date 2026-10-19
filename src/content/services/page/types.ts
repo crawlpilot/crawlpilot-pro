@@ -22,6 +22,8 @@ export interface ExtractionResult {
 export interface ProcessedElementResult {
     elementId: string;
     elementName: string;
+    /** Found by a loosened selector (`ElementProcessor.heal`). */
+    healed?: boolean;
     /** Read from the page's data, not the DOM (`dataBinding.ts`). */
     fromData?: boolean;
     /** For a click step: how it went (`ElementProcessor.click`). */

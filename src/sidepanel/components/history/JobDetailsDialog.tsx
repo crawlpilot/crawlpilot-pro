@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, LinearProgress, Stack, Typography, alpha, useTheme } from '@mui/material';
 import { Activity, Copy, ExternalLink, Settings, Trash2, X } from 'lucide-react';
 import { PageStat, stopReasonLabel } from '@/shared/listing/runStats';
+import { STEP_STATUS_LABELS, StepStat, StepStatus } from '@/shared/listing/stepStats';
 import { VERDICT_LABELS, PageVerdict } from '@/shared/verdict/classifyPage';
 import { jobKind, jobUrl, type JobWithRecipe } from './jobFilters';
 
@@ -95,6 +96,30 @@ export function JobDetailsDialog({ detailsJob, onClose, onDelete, onRerun }: Pro
                                                 <Box component="span" sx={{ width: 36, textAlign: 'right', fontFamily: 'monospace' }}>{Math.round(c.fill * 100)}%</Box>
                                             </Box>
                                         ))}
+                                    </Box>
+                                </Box>
+                            )}
+                            {detailsJob.stats?.steps && detailsJob.stats.steps.length > 0 && (
+                                <Box sx={{ mt: 2 }}>
+                                    <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" mb={0.5}>
+                                        {t('stepCoverage', 'Pages each step worked on')}
+                                    </Typography>
+                                    <Box sx={{ maxHeight: 220, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 2, px: 1.5, py: 0.5 }}>
+                                        {detailsJob.stats.steps.map((s: StepStat) => {
+                                            const how = (Object.entries(s.counts) as [StepStatus, number][]).map(([k, n]) => `${n} ${STEP_STATUS_LABELS[k]}`).join(' · ');
+                                            return (
+                                                <Box key={s.name + s.action} sx={{ py: 0.5, fontSize: 12 }} title={s.failing.length ? `Failed on:\n${s.failing.join('\n')}` : undefined}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <Box component="span" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {s.action === 'click' ? `${t('clickStep', 'Click')}: ` : ''}{s.name}
+                                                        </Box>
+                                                        <LinearProgress variant="determinate" value={s.fill * 100} color={s.fill < 0.8 ? 'warning' : 'success'} sx={{ width: 60, height: 4, borderRadius: 2 }} />
+                                                        <Box component="span" sx={{ width: 36, textAlign: 'right', fontFamily: 'monospace' }}>{Math.round(s.fill * 100)}%</Box>
+                                                    </Box>
+                                                    <Box sx={{ color: 'text.secondary', fontSize: 11 }}>{how}</Box>
+                                                </Box>
+                                            );
+                                        })}
                                     </Box>
                                 </Box>
                             )}

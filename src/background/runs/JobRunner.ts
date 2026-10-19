@@ -14,6 +14,7 @@ import { classifyPage, collectPageSignals, PageClassification, VERDICT_LABELS } 
 import { TabPool } from './TabPool';
 import { buildFinalName, buildInitialName, buildPreviewName } from './naming';
 import { storage } from '../../shared/storage';
+import { stepStats, StepResult } from '../../shared/listing/stepStats';
 
 export type RunKind = 'bulk' | 'metadata';
 type Row = Record<string, any>;
@@ -59,7 +60,7 @@ export interface RunJob {
     /** The table's columns, from the columns the pages reported so far. */
     columns(found: Column[]): Column[];
     /** The page's rows (each gets `source_url`); null when it yielded nothing. Throw to fail the page. */
-    extract(tabId: number, url: string, ctx: RunContext): Promise<{ rows: Row[]; columns?: Column[]; needsWindow?: boolean } | null>;
+    extract(tabId: number, url: string, ctx: RunContext): Promise<{ rows: Row[]; columns?: Column[]; needsWindow?: boolean; steps?: StepResult[] } | null>;
 }
 
 interface UrlState extends UrlStatus {
@@ -67,6 +68,8 @@ interface UrlState extends UrlStatus {
     attempts?: number;
     /** Read in a parked window: its clicks did nothing in a hidden tab. */
     window?: boolean;
+    /** Page Extractor: how each recipe step went on this page. */
+    steps?: StepResult[];
 }
 
 const SHIM_ID = 'crawlpilot-visible-shim';
@@ -347,6 +350,7 @@ export class JobRunner {
                 status.status = 'queued';
                 return 'retry';
             }
+            if (page?.steps) status.steps = page.steps;
             if (!page || page.rows.length === 0) {
                 status.status = 'error';
                 status.error = 'No data extracted';
@@ -458,7 +462,10 @@ export class JobRunner {
                 status: stoppedByUser ? 'stopped' : error ? 'failed' : 'completed',
                 tableId,
                 ...(error ? { error } : {}),
-                stats: { startTime, endTime: Date.now(), itemsExtracted: rows.length, pagesVisited: done, errors, stoppedByUser, verdicts: this.verdictCounts() },
+                stats: {
+                    startTime, endTime: Date.now(), itemsExtracted: rows.length, pagesVisited: done, errors, stoppedByUser, verdicts: this.verdictCounts(),
+                    ...(urls.some(u => u.steps) ? { steps: stepStats(urls.filter(u => u.steps)) } : {}),
+                },
             });
             void send(MESSAGES[this.kind].complete, { jobId, tableId, totalItems: rows.length, success: !error && !stoppedByUser, error, stoppedByUser });
         } catch (e) {
