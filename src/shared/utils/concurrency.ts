@@ -8,3 +8,9 @@ export function defaultConcurrency(nav: { deviceMemory?: number; hardwareConcurr
     const cores = nav.hardwareConcurrency ?? 4;
     return Math.max(1, Math.min(Math.floor(memoryGB), Math.floor(cores / 2), 5));
 }
+
+/** The "Tabs at a time" hint: what suits this computer, and what more than that does. */
+export function tabsHint(chosen: number, suited: number): string {
+    const fit = `${suited} tab${suited === 1 ? '' : 's'} at a time suit${suited === 1 ? 's' : ''} this computer`;
+    return chosen > suited ? `${fit}. More may slow it down; the run eases off if it struggles.` : `${fit} (max 5)`;
+}

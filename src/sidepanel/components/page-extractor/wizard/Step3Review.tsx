@@ -2,6 +2,7 @@ import { Play, Settings2, ExternalLink, RotateCcw, PartyPopper, ShieldAlert, Squ
 import { Button, Card, Chip, Disclosure, Heading, Notice, Progress, Segmented, Spinner, Stack, Stepper, Switch, Text } from '../../../ui';
 import type { UrlStatus } from '../../../../shared/messages';
 import { VERDICT_LABELS } from '../../../../shared/verdict/classifyPage';
+import { defaultConcurrency, tabsHint } from '../../../../shared/utils/concurrency';
 
 interface Step3ReviewProps {
     elements: any[];
@@ -176,7 +177,7 @@ export function Step3Review({
                 <Disclosure icon={<Settings2 />} summary="Settings">
                     <div className="flex flex-col gap-4">
                         <Group title="Speed">
-                            <SettingRow label="Tabs at a time" hint="Background tabs running in parallel (max 5)">
+                            <SettingRow label="Tabs at a time" hint={tabsHint(maxConcurrent, defaultConcurrency())}>
                                 <Stepper label="Tabs at a time" value={maxConcurrent} onChange={setMaxConcurrent} min={1} max={5} step={1} width={1} />
                             </SettingRow>
                             <SettingRow label="Wait between pages" hint="Milliseconds">
