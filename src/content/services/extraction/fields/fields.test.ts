@@ -516,6 +516,37 @@ describe('Google Maps results (google.com/maps/search/cars, Bangalore)', () => {
     });
 });
 
+describe('values of one kind in fixed places of the card', () => {
+    const price = (mods: string, label: string, shown: string) => `<div class="chirp-price ${mods}"><p class="chirp-price__label sr-only">${label}</p><span aria-hidden="true">${shown}</span></div>`;
+    const split = (v: string) => { const [d, c] = v.split('.'); return `<span aria-hidden="true" class="cur">$</span><span aria-hidden="true" class="d">${d}</span><span aria-hidden="true" class="dl">.</span><span aria-hidden="true" class="c">${c}</span>`; };
+    const card = (t: string, p: string, ppu?: string, auto?: string) => `<div class="card"><h2>${t}</h2><div class="chirp-pricing">
+      <div class="chirp-pricing__row${ppu ? ' chirp-pricing__row--ppu' : ''}">${price('chirp-price--lg chirp-price--superscript', `$${p} Chewy Price`, split(p))}${ppu ? price('chirp-price--md chirp-price--default chirp-price--ppu', `(${ppu}) Price per unit`, `(${ppu})`) : ''}</div>
+      ${auto ? `<div class="chirp-pricing__row chirp-pricing__row--autoship">${price('chirp-price--xs chirp-price--default chirp-price--deal chirp-pricing__autoship-price', `$${auto} Autoship Price`, split(auto))}</div>` : ''}
+    </div></div>`;
+
+    it('are a field per place, not one list (chewy.com: price, price per unit, Autoship price)', () => {
+        document.body.innerHTML = [card('A', '5.99', '$2.86/oz', '4.49'), card('B', '7.99', '$0.07/ea', '5.19'), card('C', '34.95'), card('D', '12.49', '$1.10/lb', '9.99'), card('E', '3.99', undefined, '2.99')].join('');
+        const rows = Array.from(document.querySelectorAll('.card'));
+        const { columns } = inferFields(rows);
+        expect(columns.some(c => c.reader?.many)).toBe(false);
+        const read = rows.map(r => Object.values(readRow(r, columns)));
+        // The price per unit keeps its unit.
+        expect(read[0]).toEqual(expect.arrayContaining(['$5.99', '$2.86/oz', '$4.49']));
+        expect(read[2]).toEqual(expect.arrayContaining(['$34.95']));
+        // Each value in its own column: no cell holds two.
+        expect(rows.flatMap(r => Object.values(readRow(r, columns))).some(v => v.includes(';'))).toBe(false);
+    });
+
+    it('stay one list when the values share their place (colour swatches, 2 to 5 per card)', () => {
+        const swatches = (n: number) => `<ul class="sw">${Array.from({ length: n }, (_, i) => `<li class="sw-item${i === 0 ? ' is-selected' : ''}"><span>${['Red', 'Blue', 'Green', 'Black', 'Pink'][i]}</span></li>`).join('')}</ul>`;
+        document.body.innerHTML = [2, 5, 3, 4, 3].map((n, i) => `<div class="card"><h2>Lamp ${i}</h2>${swatches(n)}</div>`).join('');
+        const rows = Array.from(document.querySelectorAll('.card'));
+        const { columns } = inferFields(rows);
+        const list = columns.find(c => c.reader?.many)!;
+        expect(readRow(rows[1], columns)[list.id]).toBe('Red; Blue; Green; Black; Pink');
+    });
+});
+
 describe('table columns', () => {
     const table = (headers: string[], rows: string[][]) =>
         `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;

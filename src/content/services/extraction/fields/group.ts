@@ -129,6 +129,77 @@ function isList(group: Group): boolean {
     return shapes.size === 1;
 }
 
+/** Class words that say an element's state, not its place ("active", "is-selected", "swiper-slide-next"). */
+const STATE = /^(is|has)-|(^|[-_])(active|selected|current|focus(ed)?|hover(ed)?|open(ed)?|visible|hidden|show(n)?|next|prev|duplicate|disabled|checked|expanded|collapsed)$/i;
+
+function placeTokens(el: Element): string[] {
+    return (el.getAttribute('class') || '').split(/\s+/).filter(t => t && !STATE.test(t));
+}
+
+const PLACE_DEPTH = 4;
+
+/** The element and its ancestors below the row, nearest first, at most PLACE_DEPTH + 1. */
+function chainUp(el: Element, row: Element): Element[] {
+    const out: Element[] = [];
+    for (let e: Element | null = el; e && e !== row && out.length <= PLACE_DEPTH; e = e.parentElement) out.push(e);
+    return out;
+}
+
+/**
+ * Same-shape values that look like a list but are fixed places of the card: Chewy's price, price per
+ * unit and Autoship price, each in a `.chirp-price` of its own modifier (`--lg`, `--ppu`, `--deal`).
+ * A place is a class on the value or a near ancestor that marks at most one value per card (in two
+ * cards or more); each value takes its nearest. A list (swatches, a gallery) has no such classes:
+ * its members share theirs. Each place becomes a group of its own, read by its class; null when the
+ * values aren't such places or a place's selector doesn't read exactly its values in every row.
+ */
+function splitByPlace(group: Group, rows: Element[]): { group: Group; selector: string }[] | null {
+    const members = [...group.perRow.entries()].flatMap(([r, list]) => list.map(a => ({ r, a, chain: chainUp(a.el, rows[r]) })));
+    // Per class: rows it marks a value in, and whether a row has two.
+    const marks = new Map<string, { rows: Set<number>; twice: boolean }>();
+    for (const m of members) {
+        const tokens = new Set(m.chain.flatMap(placeTokens));
+        tokens.forEach(t => {
+            const e = marks.get(t) ?? { rows: new Set<number>(), twice: false };
+            if (e.rows.has(m.r)) e.twice = true;
+            e.rows.add(m.r);
+            marks.set(t, e);
+        });
+    }
+    const marksOne = (t: string) => { const e = marks.get(t)!; return !e.twice && e.rows.size >= 2; };
+
+    const places = new Map<string, { depth: number; token: string; byRow: Map<number, Atom[]> }>();
+    for (const m of members) {
+        let found: { depth: number; token: string } | null = null;
+        for (let d = 0; d < m.chain.length && !found; d++) {
+            const t = placeTokens(m.chain[d]).filter(marksOne).sort((x, y) => marks.get(y)!.rows.size - marks.get(x)!.rows.size)[0];
+            if (t) found = { depth: d, token: t };
+        }
+        if (!found) return null;
+        const key = `${found.depth}|${found.token}`;
+        const place = places.get(key) ?? { ...found, byRow: new Map<number, Atom[]>() };
+        if (place.byRow.has(m.r)) return null;
+        place.byRow.set(m.r, [m.a]);
+        places.set(key, place);
+    }
+    if (places.size < 2) return null;
+
+    const out: { group: Group; selector: string }[] = [];
+    for (const [key, place] of places) {
+        const first = members.find(m => place.byRow.get(m.r)?.[0] === m.a)!;
+        const below = first.chain.slice(0, place.depth).reverse().map(e => nodeStep(e).css);
+        const selector = [`.${CSS.escape(place.token)}`, ...below].join(' > ');
+        const exact = rows.every((row, r) => {
+            const matched = query(row, selector).filter(el => isAtomRoot(el, row, group.attr) && meaningful(readValue(el, group.attr)));
+            const mine = place.byRow.get(r)?.[0].el;
+            return mine ? matched.length === 1 && matched[0] === mine : matched.length === 0;
+        });
+        if (!exact) return null;
+        out.push({ group: { sig: `${group.sig}~${key}`, attr: group.attr, perRow: place.byRow, maxCount: 1 }, selector });
+    }
+    return out;
+}
+
 /** Splits a group into fields: one, one per slot (aligned by shape), or one "many" field. */
 function fieldsOf(group: Group, selector: string, docOrder: Map<Element, number>): Field[] {
     const firstOrder = (atoms: Atom[]) => Math.min(...atoms.map(a => docOrder.get(a.el) ?? 1e9));
@@ -189,17 +260,21 @@ export function groupFields(rows: Element[], rowsAtoms: Atom[][]): Field[] {
     rowsAtoms.forEach(atoms => atoms.forEach((a, i) => { if (!docOrder.has(a.el)) docOrder.set(a.el, i); }));
 
     const byKey = new Map<string, Field>();
-    for (const group of groupsOf(rowsAtoms)) {
-        const selector = selectorFor(group, rowAtoms, rows);
-        if (selector === null) continue;
-        for (const f of fieldsOf(group, selector, docOrder)) {
-            const existing = byKey.get(f.key);
-            if (existing) {
-                f.values.forEach((v, r) => { if (!existing.values.has(r)) existing.values.set(r, v); });
-                existing.atoms.push(...f.atoms);
-                existing.order = Math.min(existing.order, f.order);
-            } else {
-                byKey.set(f.key, f);
+    for (const whole of groupsOf(rowsAtoms)) {
+        // A "list" whose members each have a place of their own is that many fields.
+        const parts = whole.attr !== 'src' && whole.attr !== 'href' && isList(whole) ? splitByPlace(whole, rows) : null;
+        const groups = parts ?? [{ group: whole, selector: selectorFor(whole, rowAtoms, rows) }];
+        for (const { group, selector } of groups) {
+            if (selector === null) continue;
+            for (const f of fieldsOf(group, selector, docOrder)) {
+                const existing = byKey.get(f.key);
+                if (existing) {
+                    f.values.forEach((v, r) => { if (!existing.values.has(r)) existing.values.set(r, v); });
+                    existing.atoms.push(...f.atoms);
+                    existing.order = Math.min(existing.order, f.order);
+                } else {
+                    byKey.set(f.key, f);
+                }
             }
         }
     }
