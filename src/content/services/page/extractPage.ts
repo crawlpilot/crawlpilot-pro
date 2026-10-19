@@ -7,7 +7,8 @@ export interface PageStep {
     id: string;
     name: string;
     action: 'extract' | 'click';
-    status: 'ok' | 'empty' | 'not-found' | 'clicked' | 'already-open' | 'opened' | 'no-effect';
+    /** `data`: read from the page's data; `skipped`: a click whose fields all came from data. */
+    status: 'ok' | 'data' | 'empty' | 'not-found' | 'clicked' | 'already-open' | 'opened' | 'no-effect' | 'skipped';
     error?: string;
 }
 
@@ -25,9 +26,21 @@ export async function extractPage(elements: ElementDefinition[], config: Extract
     const data: Record<string, any> = {};
     const steps: PageStep[] = [];
     let afterClick = false;
+    // Fields bound to the page's data are read first: a click is only needed for what they don't give.
+    const fromData = new Map(elements.map(e => [e.id, processor.fromData(e)] as const).filter(([, r]) => r !== null));
+    const revealsOnlyData = (i: number) => {
+        const next = elements.slice(i + 1);
+        const until = next.findIndex(e => e.action === 'click');
+        const revealed = (until < 0 ? next : next.slice(0, until));
+        return revealed.length > 0 && revealed.every(e => fromData.has(e.id));
+    };
 
-    for (const element of elements) {
-        const result = await processor.processElement(element, { waitFor: afterClick && element.action !== 'click' });
+    for (const [i, element] of elements.entries()) {
+        if (element.action === 'click' && revealsOnlyData(i)) {
+            steps.push({ id: element.id, name: element.name, action: 'click', status: 'skipped' });
+            continue;
+        }
+        const result = fromData.get(element.id) ?? await processor.processElement(element, { waitFor: afterClick && element.action !== 'click' });
         if (element.action === 'click') {
             steps.push({ id: element.id, name: element.name, action: 'click', status: result.step ?? 'not-found', ...(result.error ? { error: result.error } : {}) });
             afterClick = true;
@@ -56,7 +69,7 @@ export async function extractPage(elements: ElementDefinition[], config: Extract
             if (result.data[rawKey] !== undefined) data[rawKey] = result.data[rawKey];
         }
         const value = data[element.id];
-        steps.push({ id: element.id, name: element.name, action: 'extract', status: isEmpty(value?.items ?? value) ? 'empty' : 'ok' });
+        steps.push({ id: element.id, name: element.name, action: 'extract', status: isEmpty(value?.items ?? value) ? 'empty' : result.fromData ? 'data' : 'ok' });
     }
 
     return { ...buildPageRecord(data, columns, config?.listOutput), steps };

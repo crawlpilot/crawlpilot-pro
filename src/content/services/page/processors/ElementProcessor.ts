@@ -10,6 +10,7 @@ import { atomText, isTextAtom, readValue } from '../../extraction/atoms';
 import { clickElementRobust } from '../../../utils/click';
 import { settle } from '../../../utils/settle';
 import { whileShown } from '../reveal';
+import { readBinding } from '../dataBinding';
 import { resolveOne } from '../../../../shared/selectors/resolve';
 import { extractColumns, collapseTableToJson } from './columnHelpers';
 
@@ -68,6 +69,29 @@ export class ElementProcessor {
             result.error = error.message;
             return result;
         }
+    }
+
+    /**
+     * The element read from the page's data (`dataBinding.ts`), when it is bound and the data is on
+     * this page; null otherwise (then it is read from the page).
+     */
+    fromData(def: ElementDefinition): ProcessedElementResult | null {
+        if (!def.data || def.action === 'click') return null;
+        const v = readBinding(def.data);
+        if (v === undefined) return null;
+        const base = { elementId: def.id, elementName: def.name, success: true, error: null, fromData: true };
+        if (typeof v === 'string') return { ...base, data: { [def.id]: v }, columns: extractColumns(def, { success: true, data: { [def.id]: v } }) };
+        if (def.data.as === 'list') return { ...base, data: { [def.id]: v }, columns: extractColumns(def, { success: true, data: { [def.id]: v } }) };
+        const rows = v as string[][];
+        const width = Math.max(...rows.map(r => r.length));
+        const columns = Array.from({ length: width }, (_, i) => ({ id: `column_${i + 1}`, name: `Column ${i + 1}`, type: 'text' }));
+        const items = rows.map(r => Object.fromEntries(r.map((c, i) => [`column_${i + 1}`, c])));
+        const actionResult = {
+            success: true,
+            data: { [def.id]: collapseTableToJson(items, columns), [def.id + '__tabledata']: JSON.stringify({ items, columns }) },
+            _columnCount: width,
+        } as ExtractionResult;
+        return { ...base, data: actionResult.data, columns: extractColumns(def, actionResult) };
     }
 
     private find(selectors: string[]): HTMLElement | null {

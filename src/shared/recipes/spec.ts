@@ -95,6 +95,7 @@ export function pageSpec(elements: RunElement[], settings: Record<string, unknow
             type: e.type || 'text',
             selectors: chainOf(e.selectors),
             ...(Array.isArray(e.fields) && e.fields.length > 0 ? { fields: e.fields as Column[] } : {}),
+            ...(e.data ? { data: e.data } : {}),
         })),
         settings,
     };

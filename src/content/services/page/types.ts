@@ -22,6 +22,8 @@ export interface ExtractionResult {
 export interface ProcessedElementResult {
     elementId: string;
     elementName: string;
+    /** Read from the page's data, not the DOM (`dataBinding.ts`). */
+    fromData?: boolean;
     /** For a click step: how it went (`ElementProcessor.click`). */
     step?: 'clicked' | 'already-open' | 'opened' | 'no-effect';
     success: boolean;

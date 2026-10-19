@@ -179,7 +179,9 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                     type: message.payload.extractionType || 'text',
                     value: message.payload.previewValue,
                     // A list's fields as inferred on this page: every bulk page is read with them.
-                    ...(listFields(message.payload) ? { fields: listFields(message.payload) } : {})
+                    ...(listFields(message.payload) ? { fields: listFields(message.payload) } : {}),
+                    // Where the value is in the page's data (read there first on a run).
+                    ...(message.payload.dataBinding ? { data: message.payload.dataBinding } : {})
                 };
 
                 if (message.payload.viewportWidth && message.payload.viewportHeight) {
@@ -215,13 +217,17 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             selectors: el.selectors ?? [],
             value: el.value,
             type: el.type || 'text',
-            fields: el.fields
+            fields: el.fields,
+            data: el.data
         });
         setElementName(el.name);
         setElementAction(el.action);
         setEditingElementId(el.id);
         setShowEditModal(true);
     };
+
+    const unchanged = (before: any, after: any) => !!before && before.type === (after.type || 'text')
+        && (before.selectors ?? []).join('\n') === (after.selectors ?? []).map((x: string) => x.trim()).filter(Boolean).join('\n');
 
     const handleSaveElement = () => {
         if (!pendingElement) return;
@@ -233,7 +239,9 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             action: elementAction,
             type: pendingElement.type || 'text',
             value: pendingElement.value, // preview
-            ...(pendingElement.fields ? { fields: pendingElement.fields } : {})
+            ...(pendingElement.fields ? { fields: pendingElement.fields } : {}),
+            // A binding holds while the selectors and type do; an edit of them drops it.
+            ...(pendingElement.data && editingElementId && unchanged(elements.find(e => e.id === editingElementId), pendingElement) ? { data: pendingElement.data } : {})
         };
 
         if (editingElementId) {

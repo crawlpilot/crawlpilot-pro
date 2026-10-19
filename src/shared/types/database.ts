@@ -139,6 +139,25 @@ export interface PageElement {
     selectors: Chain;
     /** A list or table element's frozen fields. */
     fields?: Column[];
+    /** Where the value is in the page's own data; read before the DOM (`content/services/page/dataBinding.ts`). */
+    data?: DataBinding;
+}
+
+/** A step of a path into page data: a key, an index, or the array item whose `where` key is `is`. */
+export type JsonStep = string | number | { where: string; is: string };
+
+/** A Page Extractor element bound to the page's JSON: the source (kind, label, which of that name) and the path. */
+export interface DataBinding {
+    kind: 'ld' | 'json' | 'state';
+    label: string;
+    nth: number;
+    path: JsonStep[];
+    /** Text; a list of strings; or rows of cells (a table), each column read from `keys`. */
+    as: 'text' | 'list' | 'rows';
+    keys?: string[];
+    /** What the page writes around a bare number ("$" before 194). */
+    prefix?: string;
+    suffix?: string;
 }
 
 export interface PageSpec {

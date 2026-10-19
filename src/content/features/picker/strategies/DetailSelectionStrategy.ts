@@ -6,6 +6,7 @@ import { findListInside, ListMatch } from '../../../services/extraction/items';
 import { elementChain } from '../../../services/selectors/element';
 import { clickElementRobust } from '../../../utils/click';
 import { hasRenderedBox } from '../../../utils/rendering';
+import { bindToData } from '../../../services/page/dataBinding';
 
 type ExtractionType = 'text' | 'link' | 'image' | 'list' | 'table' | 'image_array' | 'text_array' | 'link_array';
 
@@ -57,11 +58,15 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
         const selectors = classification.selectors
             ?? elementChain(isList ? containerInfo.container! : target, { control }).map(c => c.selector);
 
+        // Where the value is in the page's own data: runs read it there first, with no click (P3).
+        const bound = control ? null : bindToData((isList && !classification.selectors ? containerInfo.container! : target) as HTMLElement, classification.extractionType);
+
         report({
             success: true,
             id: `sel-${Date.now()}`,
             data,
             selectors,
+            ...(bound ? { dataBinding: bound } : {}),
             value: classification.finalValue,
             previewValue: classification.previewValue,
             tagName: element.tagName.toLowerCase(),
