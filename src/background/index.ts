@@ -58,10 +58,7 @@ on('BULK_EXTRACTION_START', async (payload) => {
     }
 });
 
-on('BULK_EXTRACTION_STOP', async () => {
-    await bulkRuns.stop();
-    return ok();
-});
+on('BULK_EXTRACTION_STOP', async () => ok({ running: await bulkRuns.stop() }));
 
 on('METADATA_EXTRACTION_START', async (payload) => {
     try {
@@ -71,9 +68,6 @@ on('METADATA_EXTRACTION_START', async (payload) => {
     }
 });
 
-on('METADATA_EXTRACTION_STOP', async () => {
-    await metadataRuns.stop();
-    return ok();
-});
+on('METADATA_EXTRACTION_STOP', async () => ok({ running: await metadataRuns.stop() }));
 
 // Fetches an image for the side panel, bypassing the page's CORS restrictions.

@@ -191,9 +191,17 @@ export class JobRunner {
         }
     }
 
-    async stop() {
+    /**
+     * Stops the run now: the run's tabs are closed, so whatever a page was doing (loading, its steps,
+     * a message) ends at once instead of after it; those pages go back to the queue. False when no
+     * run is going (the side panel then resets instead of waiting for an end that won't come).
+     */
+    async stop(): Promise<boolean> {
+        if (!this.job) return false;
         this.stopping = true;
-        if (this.tabPool) this.tabPool.shouldStop = true;
+        await this.tabPool?.closeAll();
+        this.broadcast();
+        return true;
     }
 
     private async createJob(job: RunJob, urls: string[]): Promise<number> {
@@ -361,8 +369,9 @@ export class JobRunner {
             status.status = 'done';
         } catch (err: any) {
             console.error(`[${this.kind} run] ${url}:`, err?.message);
-            status.status = 'error';
-            status.error = err?.message;
+            // A page cut short by a stop is not a failed page.
+            status.status = this.stopping ? 'queued' : 'error';
+            status.error = this.stopping ? undefined : err?.message;
         } finally {
             if (tabId !== null) await tabPool.releaseTab(tabId);
             this.broadcast();
@@ -409,10 +418,11 @@ export class JobRunner {
     }
 
     private tabClosed(tabId: number) {
-        const status = this.state?.urls.find(u => u.tabId === tabId && u.status === 'extracting');
+        const status = this.state?.urls.find(u => u.tabId === tabId && (u.status === 'extracting' || u.status === 'waiting'));
         if (!status) return;
-        status.status = 'error';
-        status.error = 'Tab was closed during extraction';
+        // Closed by a stop: not read, not failed.
+        status.status = this.stopping ? 'queued' : 'error';
+        status.error = this.stopping ? undefined : 'Tab was closed during extraction';
         status.tabId = undefined;
         this.broadcast();
     }

@@ -108,8 +108,16 @@ export function useMetadataExtraction() {
     }, []);
 
     const stopMetadataExtraction = useCallback(() => {
-        void send('METADATA_EXTRACTION_STOP');
         setIsStopping(true);
+        void send('METADATA_EXTRACTION_STOP').then(res => {
+            // No run to stop (the service worker lost it): nothing will report the end, so end here.
+            if (!res || (res.success && !res.running)) {
+                setIsStopping(false);
+                setIsExtracting(false);
+                setActiveTabs(0);
+                setHasStopped(true);
+            }
+        });
     }, []);
 
     const resetState = useCallback(() => {

@@ -93,6 +93,7 @@ export class TabPool {
     /** Opens `url` in a hidden background tab, or (`window`) in a parked popup: see the header. */
     async acquireTab(url: string, mode: 'background' | 'window' = 'background'): Promise<number | null> {
         this.lastFailure = '';
+        if (this.shouldStop) { this.lastFailure = 'the run was stopped'; return null; }
         if (this.tabs.size >= this.maxSize) {
             this.lastFailure = `all ${this.maxSize} run tabs were busy`;
             return null;
@@ -176,18 +177,21 @@ export class TabPool {
      * Waits for a tab to finish loading (status === 'complete').
      */
     private waitForTabLoad(tabId: number, timeout: number = 30000): Promise<void> {
+        if (this.shouldStop) return Promise.resolve();
         return new Promise((resolve) => {
+            // A stop (or the tab closing) ends the wait at once.
+            const stop = () => { clearTimeout(cap); chrome.tabs.onUpdated.removeListener(onUpdated); chrome.tabs.onRemoved.removeListener(onRemoved); this.stopWaiters.delete(stop); resolve(); };
+            const onRemoved = (id: number) => { if (id === tabId) stop(); };
+            chrome.tabs.onRemoved.addListener(onRemoved);
+            this.stopWaiters.add(stop);
             const cap = setTimeout(() => {
-                chrome.tabs.onUpdated.removeListener(onUpdated);
                 console.warn(`[TabPool] Tab ${tabId} load timed out after ${timeout} ms — proceeding anyway`);
-                resolve();
+                stop();
             }, timeout);
 
             const onUpdated = (id: number, info: { status?: string }) => {
                 if (id === tabId && info.status === 'complete') {
-                    clearTimeout(cap);
-                    chrome.tabs.onUpdated.removeListener(onUpdated);
-                    resolve();
+                    stop();
                 }
             };
 
@@ -196,15 +200,11 @@ export class TabPool {
             // Check if already loaded
             chrome.tabs.get(tabId, (t) => {
                 if (chrome.runtime.lastError) {
-                    clearTimeout(cap);
-                    chrome.tabs.onUpdated.removeListener(onUpdated);
-                    resolve();
+                    stop();
                     return;
                 }
                 if (t?.status === 'complete') {
-                    clearTimeout(cap);
-                    chrome.tabs.onUpdated.removeListener(onUpdated);
-                    resolve();
+                    stop();
                 }
             });
         });
@@ -276,7 +276,7 @@ export class TabPool {
     /** Sends to a tab's content script, retrying while the script isn't connected yet. */
     async sendMessage<T extends MessageType>(tabId: number, type: T, payload: Payload<T>, maxRetries = 10, interval = 500): Promise<Reply<T>> {
         let error = 'Max retries reached.';
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
+        for (let attempt = 0; attempt < maxRetries && !(attempt > 0 && this.shouldStop); attempt++) {
             try {
                 return await sendToTab(tabId, type, ...([payload] as any));
             } catch (e: any) {
@@ -287,6 +287,19 @@ export class TabPool {
         // Every content-script reply carries `success` / `error`.
         return { success: false, error } as Reply<T>;
     }
+
+    /** Stops every acquire in progress and closes the run's tabs; the pool stays usable for nothing more. */
+    async closeAll() {
+        this.shouldStop = true;
+        const open = [...this.tabs.values()];
+        this.tabs.clear();
+        await Promise.all(open.map(t => (t.isPopup ? chrome.windows.remove(t.windowId) : chrome.tabs.remove(t.tabId)).catch(() => undefined)));
+        // Acquires waiting for a load see it ended.
+        this.stopWaiters.forEach(w => w());
+        this.stopWaiters.clear();
+    }
+
+    private stopWaiters = new Set<() => void>();
 
     /**
      * Closes all pool tabs (and their popup windows where applicable).

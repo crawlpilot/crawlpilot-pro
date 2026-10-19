@@ -203,6 +203,32 @@ test('a page whose click does nothing in a background tab is read again in a par
     expect(rows.map(r => r.Title ?? r.title).sort()).toEqual(['Lamp model 1', 'Lamp model 2']);
 });
 
+test('stopping a run ends it at once: its tabs close, pages cut short are not failures', async ({ panel, origin }) => {
+    // Each page takes ~40 s: a click with no effect is waited for twice (20 s each).
+    const urls = [1, 2, 3, 4].map(n => `${origin}/site/product-anim.html?id=${n}`);
+    const elements = [
+        { id: 'title', name: 'Title', action: 'extract', type: 'text', selectors: ['h1'] },
+        { id: 'noop', name: 'Description', action: 'click', type: 'text', selectors: ['p.description'] },
+    ];
+    await panel.clear();
+    const start = await panel.toExtension('BULK_EXTRACTION_START', { urls, elements, config: { requestDelay: 0, clickWaitMs: 20_000 }, maxConcurrent: 2, customName: 'e2e stop' });
+    expect(start?.success).toBe(true);
+    await panel.page.waitForTimeout(2500);
+    const t0 = Date.now();
+    const stop = await panel.toExtension('BULK_EXTRACTION_STOP');
+    expect(stop).toMatchObject({ success: true, running: true });
+    const done = await panel.next('BULK_EXTRACTION_COMPLETE', 15_000);
+    expect(Date.now() - t0).toBeLessThan(8000);
+    expect(done.stoppedByUser).toBe(true);
+    const runTabs = await panel.page.evaluate(async () => (await chrome.tabs.query({})).filter(t => /product-anim/.test(t.url || '')).length);
+    expect(runTabs).toBe(0);
+    const job = (await panel.store('jobs')).find(j => j.id === done.jobId);
+    expect(job.status).toBe('stopped');
+    expect(job.stats.errors ?? 0).toBe(0);
+    // Nothing to stop any more: said so, so the side panel doesn't wait.
+    expect(await panel.toExtension('BULK_EXTRACTION_STOP')).toMatchObject({ success: true, running: false });
+});
+
 test('a bulk run where every page fails is reported as failed, not completed', async ({ panel }) => {
     // Nothing listens on port 9: every page load fails.
     const urls = ['http://127.0.0.1:9/a', 'http://127.0.0.1:9/b'];

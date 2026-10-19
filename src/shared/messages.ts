@@ -166,9 +166,10 @@ export interface Messages {
 
     // ---- side panel → background
     BULK_EXTRACTION_START: { payload: BulkStart; reply: Res<{ jobId: number; originalCount: number; uniqueCount: number }> };
-    BULK_EXTRACTION_STOP: { reply: Res };
+    /** `running: false`: there was no run to stop (the side panel resets). */
+    BULK_EXTRACTION_STOP: { reply: Res<{ running: boolean }> };
     METADATA_EXTRACTION_START: { payload: MetadataStart; reply: Res<{ jobId: number; uniqueCount: number }> };
-    METADATA_EXTRACTION_STOP: { reply: Res };
+    METADATA_EXTRACTION_STOP: { reply: Res<{ running: boolean }> };
 
     // ---- background → side panel (broadcasts)
     BULK_EXTRACTION_PROGRESS: { payload: RunProgress };

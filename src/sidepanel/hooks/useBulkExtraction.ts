@@ -100,8 +100,16 @@ export function useBulkExtraction() {
     }, []);
 
     const stopBulkExtraction = useCallback(() => {
-        void send('BULK_EXTRACTION_STOP');
         setIsStopping(true);
+        void send('BULK_EXTRACTION_STOP').then(res => {
+            // No run to stop (the service worker lost it): nothing will report the end, so end here.
+            if (!res || (res.success && !res.running)) {
+                setIsStopping(false);
+                setIsExtracting(false);
+                setActiveTabs(0);
+                setHasStopped(true);
+            }
+        });
     }, []);
 
     const startBulkExtraction = useCallback(async (
