@@ -53,6 +53,19 @@ export const CORPUS: Record<string, PageTargets> = {
         ],
         next: '.s-pagination-next',
     },
+    'amazon-category': {
+        file: 'corpus/amazon-category.html.gz',
+        list: {
+            container: '.s-main-slot',
+            items: ':scope > [data-component-type="s-search-result"]',
+            fields: [
+                { name: 'title', at: 'h2 span', attr: 'text' },
+                { name: 'url', at: '[data-cy="title-recipe"] a', attr: 'href' },
+                { name: 'image', at: 'img.s-image', attr: 'src' },
+            ],
+        },
+        elements: [{ name: 'title', at: '[data-component-type="s-search-result"] h2 span' }],
+    },
     'walmart-search': {
         file: 'corpus/walmart-search.html.gz',
         list: {

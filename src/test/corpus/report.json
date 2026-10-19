@@ -1,17 +1,17 @@
 {
   "summary": {
     "lists": {
-      "pages": 6,
-      "itemFirstExact": 6,
-      "itemPersistedFirstExact": 6,
-      "containerFirstNamed": 6,
-      "elementSelectors": 16,
-      "elementNamesTarget": 16,
+      "pages": 7,
+      "itemFirstExact": 7,
+      "itemPersistedFirstExact": 7,
+      "containerFirstNamed": 7,
+      "elementSelectors": 18,
+      "elementNamesTarget": 18,
       "elementStrong": 5,
-      "elementPositional": 14,
+      "elementPositional": 16,
       "elementInstanceValue": 0,
-      "fields": 18,
-      "fieldsRead": 17
+      "fields": 21,
+      "fieldsRead": 20
     },
     "products": {
       "targets": 30,
@@ -75,7 +75,7 @@
           "Reviews ← .s-csa-instrumentation-wrapper > a",
           "Badge ← .puis-bold-weight-text",
           "Sales Volume ← [data-cy=\"reviews-block\"] > .a-row > span",
-          "Details ← .puisg-col-inner > span"
+          "Options ← .puisg-col-inner > span"
         ],
         "fields": [
           {
@@ -145,6 +145,109 @@
             "namesTarget": true
           }
         ]
+      }
+    },
+    "amazon-category": {
+      "list": {
+        "items": 24,
+        "children": 28,
+        "keptAsItems": 24,
+        "container": [
+          {
+            "selector": "div.s-main-slot",
+            "unique": true
+          },
+          {
+            "selector": "[data-component-type=\"s-search-results\"] div.s-main-slot",
+            "unique": true
+          },
+          {
+            "selector": "//div[contains(concat(' ', normalize-space(@class), ' '), ' s-main-slot ')]",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": "div[data-component-type=\"s-search-result\"]",
+            "matches": 24,
+            "exact": true
+          },
+          {
+            "selector": ":scope > div:has([data-cy=\"asin-faceout-container\"])",
+            "matches": 24,
+            "exact": true
+          },
+          {
+            "selector": "./div[@data-component-type=\"s-search-result\"]",
+            "matches": 24,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 3,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": "div[data-component-type=\"s-search-result\"]",
+          "matches": 24,
+          "exact": true
+        },
+        "columns": [
+          "Image ← [data-component-type=\"s-product-image\"] > a > .a-section > img",
+          "Image 2 ← [data-cy=\"s-pc-faceout-badge\"] > .a-section > img",
+          "Badge ← .a-nowrap",
+          "URL ← [data-cy=\"title-recipe\"] > a",
+          "Options ← div[role=\"listitem\"] > a",
+          "Badge 3 ← [data-cy=\"asin-faceout-container\"] > .a-section > .a-section > .a-section > .a-section > div > a",
+          "Title ← h2 > span",
+          "Rating ← [data-cy=\"reviews-block\"] > .a-row > span > a",
+          "Differentiators ← .title-differentiators",
+          "Badge 2 ← .s-csa-instrumentation-wrapper > .s-background-color-platinum",
+          "Badge 4 ← .a-row > .s-background-color-platinum",
+          "Reviews ← .s-csa-instrumentation-wrapper > a",
+          "Text ← .a-truncate-cut",
+          "Sales Volume ← [data-cy=\"reviews-block\"] > .a-row > span",
+          "Badge 5 ← [data-cy=\"product-details-recipe\"] > .a-row > span",
+          "Price ← a > .a-price",
+          "Delivery ← .a-column",
+          "Was Price ← .a-section > .a-price",
+          "Text 2 ← .a-section > div",
+          "Badge 6 ← [data-cy=\"secondary-offer-recipe\"] > .a-row > span",
+          "Price 2 ← [data-cy=\"secondary-offer-recipe\"] > .a-row > span",
+          "Badge 7 ← [data-cy=\"secondary-offer-recipe\"] > .a-row > span > a",
+          "URL 2 ← .a-row > span > a"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 24,
+            "readBy": "Title ← h2 > span (24/24)"
+          },
+          {
+            "field": "url",
+            "rowsWithValue": 24,
+            "readBy": "URL ← [data-cy=\"title-recipe\"] > a (24/24)"
+          },
+          {
+            "field": "image",
+            "rowsWithValue": 24,
+            "readBy": "Image ← [data-component-type=\"s-product-image\"] > a > .a-section > img (24/24)"
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": "[data-component-type=\"s-search-results\"] > div:nth-of-type(1) > div:nth-of-type(2) > div > div > span > div > div > div:nth-of-type(3) > div:nth-of-type(1) > a > h2 > span",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          "xpath": {
+            "selector": "//*[@data-component-type=\"s-search-results\"]/div[1]/div[2]/div/div/span/div/div/div[3]/div[1]/a/h2/span",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        }
       }
     },
     "walmart-search": {
@@ -304,7 +407,7 @@
           "Image ← [data-testid=\"productTileImage\"]",
           "URL ← a",
           "Deal ← [data-test-id=\"gpt-product-flag-container\"] [data-testid=\"badgeTagComponent\"]",
-          "Price Flex ← [data-test-id=\"gpt-price-flex-container\"] > span",
+          "Price ← [data-test-id=\"gpt-price-flex-container\"] > span",
           "Was Price ← [data-test-id=\"gpt-was-price-container\"]",
           "Title ← [data-automation-id=\"product-title\"]",
           "Rating ← [data-testid=\"rating-container\"] > span",

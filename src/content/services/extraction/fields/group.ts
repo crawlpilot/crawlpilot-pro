@@ -112,10 +112,24 @@ function groupsOf(rowsAtoms: Atom[][]): Group[] {
     return [...bySig.values()];
 }
 
+/**
+ * Same-kind siblings whose number changes from card to card (colour swatches: 3 on one card, 6 on
+ * the next) are one list, not a column per position: slot 4 would be "Pink" on one card and
+ * "Skye" on another. A fixed set of siblings (brand, then colour) stays split by slot.
+ */
+function isList(group: Group): boolean {
+    if (group.maxCount < 3) return false;
+    const lists = [...group.perRow.values()];
+    const counts = new Set(lists.filter(l => l.length > 1).map(l => l.length));
+    if (counts.size < 2) return false;
+    const shapes = new Set(lists.flat().map(a => shapeOf(a.value, a.attr)));
+    return shapes.size === 1;
+}
+
 /** Splits a group into fields: one, one per slot (aligned by shape), or one "many" field. */
 function fieldsOf(group: Group, selector: string, docOrder: Map<Element, number>): Field[] {
     const firstOrder = (atoms: Atom[]) => Math.min(...atoms.map(a => docOrder.get(a.el) ?? 1e9));
-    const many = group.maxCount > (MANY_THRESHOLD[group.attr] ?? 99);
+    const many = group.maxCount > (MANY_THRESHOLD[group.attr] ?? 99) || isList(group);
 
     if (group.maxCount === 1 || many) {
         const values = new Map<number, string>();

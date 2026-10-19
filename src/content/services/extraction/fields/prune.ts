@@ -41,8 +41,20 @@ function dropComposites(fields: Field[]): void {
     }
 }
 
+/** Controls; their captions ("Add to cart", "See options") are actions, not something about the item. */
+const CONTROL = 'button, [role="button"], input[type="submit"], [class*="button" i], [class*="btn" i]';
+/** Text only screen readers get (`a-offscreen`, `sr-only`). */
+const SCREEN_READER_ONLY = /(^|[\s_-])(sr-only|screen-reader|visually-hidden|visuallyhidden|a11y|offscreen)([\s_-]|$)/i;
+
 function isBoilerplate(f: Field, n: number): boolean {
     if (n >= 8 && f.values.size <= 1) return true;
+    // A control can hold data too (a rating that opens a popover): captions are few, short and wordy.
+    const values = [...f.values.values()];
+    if (TEXTUAL.has(f.attr) && f.atoms.every(a => a.el.closest(CONTROL)) && values.every(v => v.length <= 40 && !/\d/.test(v)) &&
+        new Set(values.map(norm)).size <= 3) return true;
+    // The same words on every card that has them, for screen readers only ("Price, product page").
+    if (TEXTUAL.has(f.attr) && new Set([...f.values.values()].map(norm)).size === 1 &&
+        f.atoms.every(a => [a.el, ...a.path].some(el => SCREEN_READER_ONLY.test(el.getAttribute('class') || '')))) return true;
     // The same text on (nearly) every card is a label ("See options"); on only some cards it flags
     // them ("Limited deal", "Sponsored") and is kept.
     if (TEXTUAL.has(f.attr) && n >= 3 && f.values.size >= Math.max(3, n * 0.9) && new Set([...f.values.values()].map(norm)).size === 1) return true;

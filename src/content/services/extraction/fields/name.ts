@@ -11,7 +11,8 @@ const NOISE_WORDS = new Set(['text', 'label', 'value', 'wrapper', 'wrap', 'conta
     'recipe', 'instrumentation', 'declarative', 'offscreen', 'outline', 'rush', 'faceout', 'bold', 'weight', 'normal', 'base', 'spacing',
     'size', 'widget', 'grid', 'list', 'group', 'line', 'clamp', 'truncate', 'color', 'style', 'theme', 'variant', 'primary', 'secondary',
     'small', 'large', 'medium', 'mini', 'micro', 'default', 'heading', 'title', 'none', 'show', 'visible', 'display', 'layout', 'puis',
-    'puisg', 'csa', 'sg', 'aok', 'js', 'ui', 'mod', 'cmp', 'comp', 'internal', 'external', 'holder', 'area', 'region']);
+    'puisg', 'csa', 'sg', 'aok', 'js', 'ui', 'mod', 'cmp', 'comp', 'internal', 'external', 'holder', 'area', 'region', 'nowrap', 'wrapper',
+    'background', 'platinum', 'align', 'children', 'center', 'column', 'columns', 'flex', 'inline', 'cut']);
 /** Short words that do name a value. */
 const SHORT_WORDS = new Set(['sku', 'age', 'url', 'tag', 'fee', 'tax', 'qty', 'new', 'id', 'isbn', 'upc', 'ean', 'mpn', 'brand', 'size']);
 /** Struck-through price classes, as whole class words (`font-bold` is not "old"). */
@@ -19,6 +20,7 @@ const STRIKE_CLASS = /(^|[\s_-])(strike|strikethrough|line-?through|was|was-?pri
 const UNIT_PRICE = /\/\s*(oz|fl\s?oz|lb|kg|g|ml|l|ct|count|each|unit|item|100\s?g|sq\s?ft)\b|\bper\s+\w+/i;
 const REVIEW_WORDS = /reviews?|ratings?/i;
 const SALES_WORDS = /\b(bought|sold|purchased|orders?)\b/i;
+const DELIVERY_WORDS = /\b(deliver(y|ed|s)?|shipping|ships|arrives)\b/i;
 const BRACKET_COUNT = /^\(?[\d.,]+\s*[kKmM]?\+?\)?$/;
 const WAS_LABEL = /^(was|list|list price|reg(ular)?|orig(inal)?|compare at|before|msrp|rrp)\s*(price)?\s*:?$/i;
 const WAS_BEFORE = /(was|list|reg(ular)?|orig(inal)?|compare at|before|msrp|rrp)\s*(price)?\s*:?\s*$/i;
@@ -126,6 +128,7 @@ function baseName(f: Field, all: Field[]): string {
         case 'date': return 'Date';
     }
     if (sample.some(v => SALES_WORDS.test(v)) && sample.every(v => v.length < 60)) return 'Sales Volume';
+    if (!f.many && sample.length > 0 && sample.every(v => DELIVERY_WORDS.test(v) && v.length < 80)) return 'Delivery';
     if (anchor) return anchor;
     if ((f.attr === 'text' || f.attr === 'own') && inHeading(f)) return 'Title';
     // A card's main link text with no heading or hook naming it ("Trail runner") is its title.
@@ -138,6 +141,8 @@ function baseName(f: Field, all: Field[]): string {
     // Short labels drawn from a small vocabulary ("Top Brand", "Best Seller", "Deal").
     const distinct = new Set(sample.map(norm));
     if (!f.many && sample.length >= 2 && sample.every(v => v.length <= 30) && distinct.size <= Math.max(3, sample.length * 0.4)) return 'Badge';
+    // A list of short labels (colours, sizes, styles a card offers).
+    if (f.many && sample.length > 0 && sample.every(v => v.split('; ').every(x => x.length <= 30))) return 'Options';
     return f.many ? 'Details' : 'Text';
 }
 

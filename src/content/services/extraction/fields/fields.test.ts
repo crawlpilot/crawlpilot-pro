@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { inferFields, readRow, hasReaders, unmappedCount } from '.';
-import { alignToTemplate, atomText, collectAtoms } from '../atoms';
+import { alignToTemplate, atomText, collectAtoms, isAtomRoot, readValue } from '../atoms';
 import { loadPage } from '../../../../test/corpus/measure';
 
 function rowsOf(html: string, selector = '.card'): Element[] {
@@ -311,6 +311,69 @@ describe('unique column selectors', () => {
         const plain = columns.filter(c => c.reader!.slot === undefined && c.reader!.kind === undefined).map(c => c.reader!.chain[0]);
         expect(new Set(plain).size).toBe(plain.length);
     });
+});
+
+describe('Amazon category results (amazon.com/s?i=specialty-aps&bbn=16225005011, baby activity & entertainment)', () => {
+    const load = () => {
+        loadPage('corpus/amazon-category.html.gz');
+        const rows = Array.from(document.querySelector('.s-main-slot')!.children);
+        const { columns } = inferFields(rows);
+        const items = rows.map(r => readRow(r, columns));
+        const col = (n: string) => columns.find(c => c.name === n)?.id;
+        const values = (n: string) => items.map(i => i[col(n)!]).filter(Boolean);
+        return { columns, items, col, values };
+    };
+
+    it('reads the swatches as one list, not a column per position', () => {
+        const { columns, values } = load();
+        expect(columns.filter(c => c.reader!.chain[0] === 'div[role="listitem"] > a')).toHaveLength(1);
+        expect(values('Options')).toContain('Beige; Black; Light Grey');
+    });
+
+    it('keeps unrelated values that never meet apart (rating digit vs "+2" swatch overflow)', () => {
+        const { columns, items } = load();
+        for (const c of columns) {
+            const vs = items.map(i => i[c.id]).filter(Boolean);
+            if (vs.some(v => /^\+\d+$/.test(v))) expect(vs.every(v => /^\+\d+$/.test(v))).toBe(true);
+        }
+    });
+
+    it('has no button captions or screen-reader filler, and names delivery and ratings', () => {
+        const { columns, items, values } = load();
+        const all = items.flatMap(i => Object.values(i));
+        for (const junk of ['See options', 'Add to cart', 'Price, product page']) expect(all).not.toContain(junk);
+        expect(columns.map(c => c.name)).toEqual(expect.arrayContaining(['Title', 'Rating', 'Reviews', 'Sales Volume', 'Price', 'Was Price', 'Delivery', 'Options']));
+        expect(values('Rating').every(v => /^\d\.\d out of 5 stars$/.test(v))).toBe(true);
+        expect(values('Delivery').every(v => /delivery/.test(v))).toBe(true);
+        expect(columns.map(c => c.name).join()).not.toMatch(/Nowrap|Platinum|Column|Button/);
+    });
+});
+
+describe('a column reads one element per card', () => {
+    // On real pages: a plain column's selector matches at most one element that reads a value in
+    // each card, so a run can't read a sibling the inference never meant.
+    const pages: [string, string, string][] = [
+        ['corpus/walmart-search.html.gz', '[data-testid="item-stack"]', 'walmart'],
+        ['corpus/amazon-search.html.gz', '.s-main-slot', 'amazon search'],
+        ['corpus/amazon-category.html.gz', '.s-main-slot', 'amazon category'],
+    ];
+    it.each(pages)('%s', (file, container) => {
+        loadPage(file);
+        const rows = Array.from(document.querySelector(container)!.children);
+        const { columns } = inferFields(rows);
+        // Only item cards: headers, widgets and ads read as {} anyway.
+        const items = rows.filter(row => Object.keys(readRow(row, columns)).length > 0);
+        expect(items.length).toBeGreaterThan(5);
+        for (const c of columns) {
+            const r = c.reader!;
+            if (r.many || r.slot !== undefined || r.kind !== undefined || r.json || r.cell) continue;
+            for (const row of items) {
+                const reads = Array.from(row.querySelectorAll(r.chain[0]))
+                    .filter(el => isAtomRoot(el, row, r.attr) && readValue(el, r.attr) !== '');
+                expect(reads.length, `${c.name} ← ${r.chain[0]}`).toBeLessThanOrEqual(1);
+            }
+        }
+    }, 30_000);
 });
 
 describe('table columns', () => {
