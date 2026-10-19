@@ -33,9 +33,9 @@ function serve(): Promise<{ server: Server; origin: string }> {
                 return;
             }
             if (url.pathname.startsWith('/site/')) {
-                const file = path.join(SITE, path.basename(url.pathname));
+                const body = await readFile(path.join(SITE, path.basename(url.pathname)));
                 res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-                res.end(await readFile(file));
+                res.end(body);
                 return;
             }
             res.writeHead(404).end();

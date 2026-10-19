@@ -1,22 +1,5 @@
-import TurndownService from 'turndown';
-import { gfm } from 'turndown-plugin-gfm';
+import { toMarkdown } from '../markdown';
 import type { MetadataExtractOptions, MetadataExtractResult, HtmlMetadata, PageType, ExtractStats } from '../../../shared/types/metadata';
-
-// ─── Tag weight tables (article profile as default) ──────────────────────────
-
-const TAG_WEIGHTS: Record<string, number> = {
-    article: 8, main: 8,
-    p: 3, blockquote: 3, pre: 3,
-    h1: 2, h2: 2, h3: 2, h4: 1,
-    li: 1, td: 1, th: 1,
-    div: 0, span: 0, section: 0,
-    nav: -6, footer: -6, header: -4, aside: -5,
-    form: -10, button: -10, input: -10,
-    script: -20, style: -20, noscript: -5,
-};
-
-const CLASS_PENALTIES = /\b(ad|ads|advert|advertisement|banner|sidebar|related|recommend|promo|popup|modal|cookie|newsletter|subscribe|social|share|comment|disqus|footer|header|nav|menu|breadcrumb|pagination)\b/i;
-const CLASS_BOOSTS = /\b(article|content|story|post|entry|body|main|text|prose|markdown|blog)\b/i;
 
 // ─── Stage 1: Metadata extraction ─────────────────────────────────────────────
 
@@ -175,156 +158,6 @@ function classifyPageType(url?: string): PageType {
     return 'other';
 }
 
-// ─── Stage 3: Content scoring ─────────────────────────────────────────────────
-
-interface ScoredElement {
-    el: Element;
-    score: number;
-    textLength: number;
-}
-
-function scoreElement(el: Element): number {
-    const tag = el.tagName.toLowerCase();
-    let score = TAG_WEIGHTS[tag] ?? 0;
-
-    const text = (el as HTMLElement).innerText || '';
-    const textLen = text.trim().length;
-    if (textLen === 0) return -Infinity;
-
-    // Text density bonus
-    score += Math.log1p(textLen) * 0.5;
-
-    // Link density penalty
-    const links = el.querySelectorAll('a');
-    const linkText = Array.from(links).reduce((sum, a) => sum + ((a as HTMLElement).innerText?.length || 0), 0);
-    if (textLen > 0 && linkText / textLen > 0.5) score *= 0.3;
-
-    // Class-based adjustments
-    const cls = ((el as HTMLElement).className || '') + ' ' + (el.id || '');
-    if (CLASS_PENALTIES.test(cls)) score -= 8;
-    if (CLASS_BOOSTS.test(cls)) score += 4;
-
-    // aria-role hints
-    const role = el.getAttribute('role') || '';
-    if (role === 'main' || role === 'article') score += 6;
-    if (role === 'navigation' || role === 'banner' || role === 'complementary') score -= 6;
-
-    return score;
-}
-
-function findMainContent(favorPrecision = false, favorRecall = false): { el: Element | null; usedFallback: boolean } {
-    const MIN_TEXT = favorPrecision ? 100 : 25;
-
-    // Walk first-level block children of body scoring each subtree
-    const candidates: ScoredElement[] = [];
-    const walk = (root: Element, depth = 0) => {
-        if (depth > 6) return;
-        const children = Array.from(root.children);
-        for (const child of children) {
-            const tag = child.tagName.toLowerCase();
-            if (['script', 'style', 'noscript', 'head', 'iframe'].includes(tag)) continue;
-            const score = scoreElement(child);
-            const textLen = ((child as HTMLElement).innerText || '').trim().length;
-            if (textLen >= MIN_TEXT) {
-                candidates.push({ el: child, score, textLength: textLen });
-            }
-            walk(child, depth + 1);
-        }
-    };
-    walk(document.body);
-
-    // Sort by score descending
-    candidates.sort((a, b) => b.score - a.score);
-
-    // Pick top candidate if it passes minimum text threshold
-    const best = candidates[0];
-    if (best && best.textLength >= MIN_TEXT && best.score > 0) {
-        return { el: best.el, usedFallback: false };
-    }
-
-    // Fallback chain (Stage 4)
-    const fallbackSelectors = [
-        'article',
-        '[role="main"]',
-        'main',
-        '.article-body',
-        '.post-content',
-        '.entry-content',
-        '.content',
-        '#content',
-        '.main-content',
-        '#main',
-    ];
-
-    if (!favorPrecision || favorRecall) {
-        for (const sel of fallbackSelectors) {
-            const el = document.querySelector(sel);
-            if (el && ((el as HTMLElement).innerText || '').trim().length >= MIN_TEXT) {
-                return { el, usedFallback: true };
-            }
-        }
-
-        // Last resort: collect all <p> tags
-        const paragraphs = Array.from(document.querySelectorAll('p'));
-        if (paragraphs.length > 0) {
-            const div = document.createElement('div');
-            paragraphs.forEach(p => div.appendChild(p.cloneNode(true)));
-            return { el: div, usedFallback: true };
-        }
-    }
-
-    return { el: null, usedFallback: true };
-}
-
-// ─── Stage 5: Markdown rendering ──────────────────────────────────────────────
-
-function getTurndown(includeLinks: boolean, includeTables: boolean, includeImages: boolean): TurndownService {
-    const td = new TurndownService({
-        headingStyle: 'atx',
-        codeBlockStyle: 'fenced',
-        bulletListMarker: '-',
-        strongDelimiter: '**',
-        emDelimiter: '_',
-    });
-    td.use(gfm);
-
-    // Always strip noisy elements (svg excluded from the typed list — handled via addRule)
-    td.remove(['script', 'style', 'noscript', 'nav', 'footer', 'header', 'aside', 'form', 'button', 'input', 'select', 'textarea', 'iframe']);
-    td.addRule('strip-svg', { filter: (node) => node.nodeName === 'SVG', replacement: () => '' });
-
-    if (!includeLinks) {
-        td.addRule('strip-links', {
-            filter: 'a',
-            replacement: (content) => content,
-        });
-    }
-
-    if (!includeImages) {
-        td.addRule('strip-images', {
-            filter: 'img',
-            replacement: () => '',
-        });
-    }
-
-    if (!includeTables) {
-        td.addRule('strip-tables', {
-            filter: ['table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td'],
-            replacement: (content) => content + '\n',
-        });
-    }
-
-    return td;
-}
-
-function elementToMarkdown(el: Element, opts: Required<Pick<MetadataExtractOptions, 'includeLinks' | 'includeTables' | 'includeImages'>>): string {
-    const td = getTurndown(opts.includeLinks, opts.includeTables, opts.includeImages);
-    try {
-        return td.turndown(el.outerHTML || '').trim();
-    } catch {
-        return (el as HTMLElement).innerText?.trim() || '';
-    }
-}
-
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export function extractMetadata(options: MetadataExtractOptions = {}): MetadataExtractResult {
@@ -350,16 +183,16 @@ export function extractMetadata(options: MetadataExtractOptions = {}): MetadataE
         // Stage 2: Page type
         const pageType = classifyPageType(url || location.href);
 
-        // Stage 3+4: Content selection
-        const { el: mainEl, usedFallback } = findMainContent(favorPrecision, favorRecall);
-
-        // Stage 5: Markdown rendering
-        let markdown = '';
-        let textChars = 0;
-        if (mainEl) {
-            markdown = elementToMarkdown(mainEl, { includeLinks, includeTables, includeImages });
-            textChars = markdown.replace(/[#*`\[\]()_~\->\s]/g, '').length;
-        }
+        // Stage 3: main content as markdown (services/markdown). Precision prunes chrome by density
+        // (`fit`); recall keeps everything but what isn't rendered.
+        const page = toMarkdown(document, {
+            mode: favorPrecision ? 'fit' : 'markdown',
+            mainContent: !favorRecall,
+            includeLinks, includeTables, includeImages,
+        });
+        const markdown = page.markdown;
+        const textChars = page.stats.keptChars;
+        const usedFallback = page.fellBack;
 
         // Extraction quality heuristic (0–1)
         let quality = 0;
@@ -387,7 +220,7 @@ export function extractMetadata(options: MetadataExtractOptions = {}): MetadataE
         };
 
         if (outputText) {
-            result.text = mainEl ? ((mainEl as HTMLElement).innerText || '').trim() : '';
+            result.text = toMarkdown(document, { mode: 'text', mainContent: !favorRecall }).markdown;
         }
 
         return result;

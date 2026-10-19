@@ -28,3 +28,13 @@ labels, controls) are the product-page corpus captured for thenos's selector wor
 
 The capture tool marked elements with `data-tn-*` attributes; the corpus removes them before measuring, since a live
 page has none. Amazon's capture has no buy-box price (the item did not ship to the capture's region).
+
+## Markdown pages
+
+Used with every page above by `src/test/corpus/markdown.test.ts` (the markdown engine's corpus). Stripped the same
+way (scripts except JSON-LD, styles, stylesheets, iframes, SVG paths). Both are CC BY-SA.
+
+| File | Source | Captured | Notes |
+|---|---|---|---|
+| `article-wikipedia.html.gz` | https://en.wikipedia.org/wiki/Incandescent_light_bulb | 2026-10-19, `curl` | Long article: infobox, data tables with spans, figures with captions, references |
+| `docs-mdn.html.gz` | https://developer.mozilla.org/en-US/docs/Web/API/Element/querySelectorAll | 2026-10-19, `curl` | Reference page: code blocks with languages, definition lists, a specification table |

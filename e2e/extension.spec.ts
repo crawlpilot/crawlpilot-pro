@@ -111,3 +111,22 @@ test('a bulk run where every page fails is reported as failed, not completed', a
     expect(done.error).toBeTruthy();
     expect((await panel.store('jobs')).find(j => j.id === done.jobId)).toMatchObject({ status: 'failed' });
 });
+
+test('markdown from a live page: rendered text only, lazy images, shadow DOM, no floating chrome', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/article.html`);
+    const tabId = await panel.tabId(page.url());
+    const precise = await panel.toTab(tabId, 'CMD_EXTRACT_METADATA', { url: page.url(), options: { favorPrecision: true, includeImages: true } });
+    expect(precise.success).toBe(true);
+    const md: string = precise.result.markdown;
+    expect(md).toContain('# How to choose a desk lamp');
+    expect(md).toContain('## Brightness');
+    expect(md).not.toContain('hidden by the stylesheet');
+    expect(md).toContain(`![A lamp on a desk](${origin}/site/lamp.jpg)`);
+    expect(md).toContain('| Lumens | Colour |');
+    expect(md).toContain('| 450 | 2700K |');
+    // Fixed and sticky chrome is dropped in precision (fit) mode.
+    expect(md).not.toContain('cookies');
+    expect(md).not.toContain('Lamps & Co');
+    await page.close();
+});
