@@ -19,6 +19,7 @@ const CASES: Case[] = [
     { page: '/corpus/walmart-cars', cards: '[data-testid="item-stack"] > div:has([data-automation-id="heart-item"])', count: 21, points: ['[data-automation-id="product-title"]', 'img', '[data-automation-id="product-price"]'] },
     { page: '/corpus/amazon-search', cards: '[data-component-type="s-search-result"]', count: 18, points: ['h2', 'img', '[data-cy="reviews-block"]'] },
     { page: '/corpus/homedepot-search', cards: '.browse-search__pod', count: 12, points: ['[data-testid="attribute-product-label"]', 'img', '[data-testid="price-simple"]'] },
+    { page: '/corpus/chewy-plp', cards: '[data-testid="plp-product-card"]', count: 36, points: ['.chirp-title', '.chirp-product-card__image img', '.chirp-product-card__rating', '.chirp-product-card__pricing', ':scope'] },
     { page: '/site/app-pane.html', cards: '.x3', count: 20, points: ['.x7', '.x8', ':scope'] },
     { page: '/site/rows-grid.html', cards: 'a.p', count: 12, points: ['img'] },
 ];

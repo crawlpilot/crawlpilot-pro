@@ -195,7 +195,11 @@ function cellsParent(row: HTMLElement): HTMLElement | null {
             const lead = kids.find(cardLike) ?? kids[0];
             const cells = lead ? kids.filter(k => k.tagName === lead.tagName && sized(k, lead, [0.85, 1.18], [0.67, 1.5])) : [];
             const covered = cells.reduce((n, k) => n + area(boxOf(k)), 0);
-            if (cells.length >= MIN_ITEMS && (rowArea ? covered >= area(boxOf(e)) * 0.7 : cells.length === kids.length)) return sideways(row, e) ? null : e;
+            if (cells.length >= MIN_ITEMS && (rowArea ? covered >= area(boxOf(e)) * 0.7 : cells.length === kids.length)) {
+                // A row's cells sit side by side; a card's sections (Chewy's image over its details) are stacked.
+                if (rowArea && !sideBySide(cells)) return null;
+                return sideways(row, e) ? null : e;
+            }
             const main = rowArea ? kids.find(k => area(boxOf(k)) >= rowArea * 0.7) : undefined;
             if (!main) return null;
             e = main;
@@ -206,6 +210,13 @@ function cellsParent(row: HTMLElement): HTMLElement | null {
         }
     }
     return null;
+}
+
+/** At least two of `cells` share a horizontal band, one beside the other. */
+function sideBySide(cells: HTMLElement[]): boolean {
+    const boxes = cells.map(boxOf).filter((b): b is DOMRect => !!b && b.width > 0 && b.height > 0);
+    return boxes.some((a, i) => boxes.slice(i + 1).some(b =>
+        Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > Math.min(a.height, b.height) * 0.5 && (a.right <= b.left + 2 || b.right <= a.left + 2)));
 }
 
 /**

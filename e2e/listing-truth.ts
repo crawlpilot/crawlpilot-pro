@@ -21,6 +21,23 @@ export interface ListingTruth {
 
 export const LISTINGS: ListingTruth[] = [
     {
+        name: 'chewy-plp',
+        click: '[data-testid="plp-product-card"] .chirp-title',
+        products: '[data-testid="plp-product-card"]',
+        read: (card: Element) => {
+            const n = (s: string | null | undefined) => (s ? Number(s.replace(/[,$]/g, '')) : undefined);
+            const link = card.querySelector('a.chirp-title__link') as HTMLAnchorElement | null;
+            return {
+                title: card.querySelector('.chirp-title__text')?.textContent?.replace(/\s+/g, ' ').trim(),
+                url: link ? new URL(link.href).pathname : undefined,
+                id: card.getAttribute('data-id') ?? undefined,
+                rating: n(card.querySelector('.chirp-product-rating__rating-display')?.textContent),
+                review_count: n(card.querySelector('.chirp-product-rating__count > span')?.textContent),
+                price: n(/\$([\d,.]+)/.exec(card.querySelector('.chirp-pricing__row:not(.chirp-pricing__row--autoship) .chirp-price__label')?.textContent ?? '')?.[1]),
+            };
+        },
+    },
+    {
         name: 'bestbuy-search',
         click: 'li.product-list-item h3.product-title',
         products: 'li.product-list-item',

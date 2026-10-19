@@ -13,7 +13,7 @@
     "review_count.exact": 100
   },
   "walmart-search-live": {
-    "matched": 98,
+    "matched": 100,
     "title.found": 100,
     "title.exact": 100,
     "url.found": 100,
@@ -75,5 +75,20 @@
     "model.exact": 100,
     "price.found": 100,
     "price.exact": 100
+  },
+  "chewy-plp": {
+    "matched": 100,
+    "title.found": 100,
+    "title.exact": 100,
+    "url.found": 100,
+    "url.exact": 100,
+    "id.found": 100,
+    "id.exact": 100,
+    "rating.found": 100,
+    "rating.exact": 100,
+    "price.found": 100,
+    "price.exact": 100,
+    "review_count.found": 100,
+    "review_count.exact": 100
   }
 }
