@@ -8,7 +8,8 @@
 import { modelHost, CALL_ERROR_MESSAGES, type CallError, type CallResult } from './modelHost';
 import { relax } from '../../../shared/ai/constraint';
 import { BRIEFS, BRIEF_SYSTEM, briefColumns, briefPrompt, briefRow, briefSchema, detectKind, mergeBriefs, parseBrief, type AnswerTable, type Brief, type PageKind } from '../../../shared/ai/brief';
-import type { ClaimRequest, ClaimResult } from '../../../shared/ai/cite';
+import { checkClaims, type ClaimRequest, type ClaimResult } from '../../../shared/ai/cite';
+import { detectLanguage, translateChunk, translationSupported, translatorFor } from './translate';
 import type { PageView } from '../../../shared/ai/page';
 import { sendToPage } from '../../../shared/messages';
 
@@ -42,6 +43,21 @@ export interface BriefOutcome {
     checks: Record<string, ClaimResult>;
     /** The page was longer than the parts read. */
     partial: boolean;
+    /** The page's language when it was translated to English for the model (`view` holds the translation). */
+    translatedFrom?: string;
+    /** The translated blocks (`ref → text`): claims are checked against these, not the page. */
+    blocks?: Map<string, string>;
+    /** The language the brief is shown in, when not English. */
+    shownIn?: string;
+    /** The user's language, when its translation still needs a click to download. */
+    showInPending?: string;
+}
+
+/** A language pack must be downloaded first, which needs a click. */
+export class TranslationNeeded extends Error {
+    constructor(readonly source: string, readonly target: string) {
+        super(`The ${source} → ${target} translation needs downloading.`);
+    }
 }
 
 export class AssistantError extends Error {
@@ -84,19 +100,64 @@ async function briefCall(kind: PageKind, chunk: string, title: string, signal?: 
 
 export interface BriefRunOptions {
     page: AssistantPage;
-    onStatus?: (status: { step: 'reading' | 'briefing' | 'checking'; part?: number; parts?: number; kind?: PageKind }) => void;
+    /** The user's language: the brief is translated into it when it isn't English. */
+    userLang?: string;
+    onStatus?: (status: { step: 'reading' | 'translating' | 'briefing' | 'checking'; part?: number; parts?: number; kind?: PageKind; language?: string }) => void;
     signal?: AbortSignal;
 }
 
-export async function runBrief({ page, onStatus, signal }: BriefRunOptions): Promise<BriefOutcome> {
+/** Blocks of a (translated) view: each line ending in a reference, as `ref → text`. */
+export function viewBlockTexts(chunks: string[]): Map<string, string> {
+    const blocks = new Map<string, string>();
+    for (const line of chunks.join('\n').split('\n')) {
+        const m = line.match(/^(.*?)\s*\[(b\d+)\]\s*$/);
+        if (m) blocks.set(m[2], m[1].replace(/^[#>*\-\s|]+/, '').trim());
+    }
+    return blocks;
+}
+
+/** The page as the assistant checks it: a translated page's claims against its translated blocks. */
+export function checkedPage(outcome: Pick<BriefOutcome, 'blocks'>, page: AssistantPage): AssistantPage {
+    if (!outcome.blocks) return page;
+    const blocks = outcome.blocks;
+    return {
+        view: page.view,
+        check: async claims => checkClaims(claims, blocks),
+        // The quote is in English, the page isn't: the block is shown whole.
+        show: ref => page.show(ref),
+    };
+}
+
+export async function runBrief({ page, userLang, onStatus, signal }: BriefRunOptions): Promise<BriefOutcome> {
     onStatus?.({ step: 'reading' });
     const room = await modelHost.room(BRIEF_SYSTEM, 'exact', 'The quick brown fox jumps over the lazy dog. '.repeat(40), MAX_RESERVE);
     if ('code' in room) throw new AssistantError(room.code);
     const chunkChars = Math.max(MIN_CHUNK_CHARS, Math.floor((room.tokens - PROMPT_TOKENS) * room.charsPerToken * 0.9));
-    const view = await page.view(chunkChars, MAX_BRIEF_CHUNKS);
-    const kind = detectKind(view);
-    const chunks = view.chunks.filter(c => c.trim().length > 0);
+    const original = await page.view(chunkChars, MAX_BRIEF_CHUNKS);
+    const kind = detectKind(original);
+    let chunks = original.chunks.filter(c => c.trim().length > 0);
     if (chunks.length === 0) throw new AssistantError('failed', 'The page has no text to brief.');
+
+    // A page in another language: translated to English, line by line, refs kept.
+    let translatedFrom: string | undefined;
+    if (translationSupported()) {
+        const lang = await detectLanguage(chunks[0].replace(/\s*\[b\d+\]/g, ''));
+        if (lang && lang !== 'en') {
+            const tr = await translatorFor(lang, 'en');
+            if ('needs' in tr) throw new TranslationNeeded(lang, 'en');
+            if ('translator' in tr) {
+                const translated: string[] = [];
+                for (let i = 0; i < chunks.length; i++) {
+                    onStatus?.({ step: 'translating', part: i + 1, parts: chunks.length, kind, language: lang });
+                    translated.push(await translateChunk(tr.translator, chunks[i]));
+                }
+                chunks = translated;
+                translatedFrom = lang;
+            }
+        }
+    }
+    const view: PageView = translatedFrom ? { ...original, chunks } : original;
+    const blocks = translatedFrom ? viewBlockTexts(chunks) : undefined;
 
     const parts: Brief[] = [];
     for (let i = 0; i < chunks.length; i++) {
@@ -115,8 +176,39 @@ export async function runBrief({ page, onStatus, signal }: BriefRunOptions): Pro
         if (s.inferred) continue;
         s.points.forEach((p, i) => claims.push({ key: pointKey(s.key, i), text: p.text, quote: p.quote, refs: p.ref ? [p.ref] : [] }));
     }
-    const results = claims.length > 0 ? await page.check(claims) : [];
-    return { view, kind, brief, checks: Object.fromEntries(results.map(r => [r.key, r])), partial: view.truncated };
+    const results = claims.length > 0 ? await checkedPage({ blocks }, page).check(claims) : [];
+    const outcome: BriefOutcome = { view, kind, brief, checks: Object.fromEntries(results.map(r => [r.key, r])), partial: view.truncated, ...(translatedFrom ? { translatedFrom, blocks } : {}) };
+
+    // Shown in the user's language; a pack still to download waits for a click (`showBriefIn`).
+    if (userLang && userLang !== 'en' && translationSupported()) {
+        const tr = await translatorFor('en', userLang);
+        if ('translator' in tr) return translateBrief(outcome, userLang, tr.translator);
+        if ('needs' in tr) outcome.showInPending = userLang;
+    }
+    return outcome;
+}
+
+/** The brief's points in `lang` (quotes stay as the page has them: they are checked and shown). */
+async function translateBrief(outcome: BriefOutcome, lang: string, translator: { translate(t: string): Promise<string> }): Promise<BriefOutcome> {
+    const sections = [];
+    for (const s of outcome.brief.sections) {
+        const points = [];
+        for (const p of s.points) points.push({ ...p, text: await translator.translate(p.text).catch(() => p.text) });
+        sections.push({ ...s, points });
+    }
+    return { ...outcome, brief: { ...outcome.brief, sections }, shownIn: lang, showInPending: undefined };
+}
+
+/** From a click: downloads the user's language pack and shows the brief in it. */
+export async function showBriefIn(outcome: BriefOutcome, lang: string, onProgress?: (f: number) => void): Promise<BriefOutcome> {
+    const tr = await translatorFor('en', lang, onProgress);
+    if (!('translator' in tr)) throw new Error(`Chrome can't translate into ${lang} on this device.`);
+    return translateBrief(outcome, lang, tr.translator);
+}
+
+/** From a click: downloads a language pack (so the next run can translate). */
+export async function downloadTranslation(source: string, target: string, onProgress?: (f: number) => void): Promise<boolean> {
+    return 'translator' in (await translatorFor(source, target, onProgress));
 }
 
 /** The brief as Markdown (copying): sections, points, and where each is on the page. */

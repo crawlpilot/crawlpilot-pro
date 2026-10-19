@@ -29,10 +29,14 @@ test('a product page: Home suggests the product details', async ({ panel, ext, o
     await expect(ui.getByRole('button', { name: "Get this product's details" })).toBeVisible();
 });
 
-test('the other tools are one tap away under More tools', async ({ panel, ext, origin }) => {
+test('Home leads with the tools that work everywhere; without Chrome AI the AI tools wait under More tools', async ({ panel, ext, origin }) => {
     const ui = await home(panel, ext, origin, '/corpus/walmart-search');
-    await expect(ui.getByText('Scraper Toolkit')).toBeHidden();
+    // The test browser has no on-device model, so the AI tools are not offered up front.
+    await expect(ui.getByRole('button', { name: /Many pages/ })).toBeVisible();
+    await expect(ui.getByText('Page assistant')).toBeHidden();
     await ui.getByRole('button', { name: 'More tools' }).click();
-    await ui.getByText('Scraper Toolkit').click();
+    await expect(ui.getByText('Page assistant')).toBeVisible();
+    await expect(ui.getByText(/Needs Chrome's built-in AI/).first()).toBeVisible();
+    await ui.getByRole('button', { name: /Scraper Toolkit/ }).click();
     await expect(ui.getByText('How should I scrape this page?')).toBeVisible();
 });

@@ -5,13 +5,14 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { AlertTriangle, ArrowRight, CheckCircle2, Copy, Database, Download, Lock, MapPin, RotateCcw, Send, Sparkles, Table2 } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Languages, CheckCircle2, Copy, Database, Download, Lock, MapPin, RotateCcw, Send, Sparkles, Table2 } from 'lucide-react';
 import { Button, Card, Chip, Heading, IconButton, Notice, Progress, Skeleton, Spinner, Text, ToggleChip, Tooltip, cx } from '../../ui';
 import { usePageAssistant, type BriefStatus } from '../../hooks/usePageAssistant';
 import { useAskSession, type AskMessage } from '../../hooks/useAskSession';
 import { usePageTab } from '../../hooks/usePageTab';
 import { briefMarkdown, openTable, pointKey, saveBrief, saveTable, type BriefOutcome } from '../../services/ai/assistant';
 import { setExtractDraft } from '../../services/ai/extractDraft';
+import { languageName } from '../../services/ai/translate';
 import { SCHEMA_PRESETS } from '../../../shared/ai/schemaIntake';
 import { BRIEFS, EXTRACT_PRESET, tableCsv, type AnswerTable } from '../../../shared/ai/brief';
 import type { CiteStatus } from '../../../shared/ai/cite';
@@ -26,6 +27,7 @@ const STATUS: Record<CiteStatus, { icon: ReactNode; label: string; tone: string 
 function statusText(s: BriefStatus | null): string {
     if (!s || s.step === 'reading') return 'Reading the page…';
     const kind = s.kind ? BRIEFS[s.kind].label.toLowerCase() : 'page';
+    if (s.step === 'translating') return `Translating the page from ${languageName(s.language ?? '')}${s.parts && s.parts > 1 ? ` (part ${s.part} of ${s.parts})` : ''}…`;
     if (s.step === 'briefing') return s.parts && s.parts > 1 ? `Briefing this ${kind} page (part ${s.part} of ${s.parts})…` : `Briefing this ${kind} page…`;
     return 'Checking each point against the page…';
 }
@@ -185,8 +187,8 @@ function TableView({ table, rows, name, url }: { table: AnswerTable; rows: CiteS
     );
 }
 
-function AskPanel({ outcome, page, onShow }: { outcome: BriefOutcome; page: ReturnType<typeof usePageAssistant>['page']; onShow: (ref: string) => void }) {
-    const session = useAskSession(outcome.view, page, BRIEFS[outcome.kind].questions);
+function AskPanel({ outcome, page, onShow, userLang }: { outcome: BriefOutcome; page: ReturnType<typeof usePageAssistant>['page']; onShow: (ref: string) => void; userLang: string }) {
+    const session = useAskSession(outcome.view, page, BRIEFS[outcome.kind].questions, userLang);
     const [input, setInput] = useState('');
     const end = useRef<HTMLDivElement>(null);
     useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [session.messages.length, session.messages[session.messages.length - 1]?.content]);
@@ -238,12 +240,23 @@ export function PageAssistant({ initialTabId, onSummary, onNavigate }: { initial
     if (a.phase === 'starting') {
         return <div className="flex flex-col items-center gap-3 p-12"><Spinner size={28} /><Text tone="muted">Checking the on-device model…</Text></div>;
     }
+    if (a.phase === 'needs-translation' && a.translation) {
+        const from = languageName(a.translation.source);
+        return (
+            <div className="flex flex-col items-center gap-3 p-8 text-center" data-testid="needs-translation">
+                <span className="flex size-14 -rotate-6 items-center justify-center rounded-[18px] border-[1.5px] border-line-strong bg-brand text-on-brand shadow-press"><Languages size={26} /></span>
+                <Heading size="heading">This page is in {from}</Heading>
+                <Text size="small" tone="muted" className="max-w-[320px]">Chrome translates it on this device so the assistant can read it. The {from} pack downloads once.</Text>
+                <Button variant="primary" className="mt-2" onClick={a.downloadLanguage}>Download {from}</Button>
+            </div>
+        );
+    }
     if (a.phase === 'needs-model' || a.phase === 'downloading') {
         const percent = Math.round((a.downloadProgress ?? 0) * 100);
         return (
             <div className="flex flex-col items-center gap-3 p-8 text-center">
                 <span className="flex size-14 -rotate-6 items-center justify-center rounded-[18px] border-[1.5px] border-line-strong bg-brand text-on-brand shadow-press"><Download size={26} /></span>
-                <Heading size="heading">{a.phase === 'downloading' ? 'Downloading the on-device model' : 'Get the on-device model'}</Heading>
+                <Heading size="heading">{a.phase === 'downloading' ? (a.translation ? `Downloading ${languageName(a.translation.source)}` : 'Downloading the on-device model') : 'Get the on-device model'}</Heading>
                 <Text size="small" tone="muted" className="max-w-[320px]">Chrome downloads Gemini Nano once. After that, pages are read on this computer and never sent anywhere.</Text>
                 {a.phase === 'downloading'
                     ? <div className="mt-2 w-full max-w-sm"><Progress value={percent} label="Download" /><Text size="caption" tone="muted" className="mt-1">{percent}%</Text></div>
@@ -273,8 +286,14 @@ export function PageAssistant({ initialTabId, onSummary, onNavigate }: { initial
             <div className="flex flex-wrap items-center gap-1.5">
                 {a.outcome && <Chip tone="brand" icon={<Sparkles />}>{BRIEFS[a.outcome.kind].label}</Chip>}
                 {a.outcome && <Text size="caption" tone="muted" className="truncate">{(() => { try { return new URL(a.outcome.view.url).host; } catch { return ''; } })()}</Text>}
+                {a.outcome?.translatedFrom && <Chip tone="info" icon={<Languages />} data-testid="read-from">Read from {languageName(a.outcome.translatedFrom)}</Chip>}
                 <Text size="caption" tone="muted" className="ml-auto flex items-center gap-1"><Lock size={11} /> On this device</Text>
             </div>
+            {a.outcome?.showInPending && (
+                <Button size="sm" variant="secondary" icon={<Languages />} loading={a.downloadProgress !== null} onClick={a.showInMyLanguage}>
+                    Show in {new Intl.DisplayNames([a.outcome.showInPending], { type: 'language' }).of(a.outcome.showInPending) ?? a.outcome.showInPending}
+                </Button>
+            )}
 
             {elsewhere && (
                 <Notice tone="info">
@@ -295,7 +314,7 @@ export function PageAssistant({ initialTabId, onSummary, onNavigate }: { initial
             {a.phase === 'ready' && a.outcome && (
                 <>
                     <BriefCard outcome={a.outcome} onShow={a.show} onNavigate={onNavigate} />
-                    <AskPanel outcome={a.outcome} page={a.page} onShow={ref => a.show(ref)} />
+                    <AskPanel outcome={a.outcome} page={a.page} onShow={ref => a.show(ref)} userLang={a.userLang} />
                 </>
             )}
         </div>

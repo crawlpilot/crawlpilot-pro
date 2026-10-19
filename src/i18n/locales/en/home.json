@@ -74,6 +74,14 @@
     "summary": {
       "title": "Page assistant",
       "hint": "A brief and answers you can check"
+    },
+    "pages": {
+      "title": "Many pages",
+      "hint": "The same details from each"
+    },
+    "toolkit": {
+      "title": "Scraper Toolkit",
+      "hint": "How to scrape, selectors, APIs"
     }
   },
   "recent": {
@@ -81,5 +89,9 @@
     "rows": "{{count}} rows",
     "all": "All my data"
   },
-  "moreTools": "More tools"
+  "moreTools": "More tools",
+  "ai": {
+    "title": "With Chrome's built-in AI",
+    "needsAi": "Needs Chrome's built-in AI, which this computer doesn't have"
+  }
 }

@@ -9,6 +9,7 @@ import { askReference, type AssistantPage } from '../services/ai/assistant';
 import { ASK_SYSTEM, parseTable, tablePrompt, tableSchema, type AnswerTable } from '../../shared/ai/brief';
 import { citedSentences, type CiteStatus } from '../../shared/ai/cite';
 import type { PageView } from '../../shared/ai/page';
+import { detectLanguage, translateCited, translatorFor } from '../services/ai/translate';
 
 const SUGGESTIONS_SCHEMA = { type: 'array', items: { type: 'string' }, minItems: 3, maxItems: 3 };
 
@@ -36,7 +37,22 @@ export interface AskSessionApi {
     asTable(index: number): void;
 }
 
-export function useAskSession(view: PageView | null, page: AssistantPage | null, starters: string[]): AskSessionApi {
+/** Text in `lang` when its translator is ready (no download prompt mid-conversation); else as is. */
+async function into(lang: string, text: string): Promise<string> {
+    if (lang === 'en') return text;
+    const tr = await translatorFor('en', lang);
+    return 'translator' in tr ? translateCited(tr.translator, text) : text;
+}
+
+/** A question in English for the model (it reads English); as typed when it is, or can't be translated. */
+async function toEnglish(text: string): Promise<string> {
+    const lang = await detectLanguage(text);
+    if (!lang || lang === 'en') return text;
+    const tr = await translatorFor(lang, 'en');
+    return 'translator' in tr ? tr.translator.translate(text).catch(() => text) : text;
+}
+
+export function useAskSession(view: PageView | null, page: AssistantPage | null, starters: string[], userLang = 'en'): AskSessionApi {
     const [messages, setMessages] = useState<AskMessage[]>([]);
     const [thinking, setThinking] = useState(false);
     const [suggestions, setSuggestions] = useState<string[]>(starters);
@@ -48,6 +64,7 @@ export function useAskSession(view: PageView | null, page: AssistantPage | null,
         mounted.current = true;
         setMessages([]);
         setSuggestions(starters);
+        if (userLang !== 'en') void Promise.all(starters.map(q => into(userLang, q))).then(t => { if (mounted.current) setSuggestions(t); });
         return () => {
             mounted.current = false;
             session.current?.destroy();
@@ -77,7 +94,7 @@ export function useAskSession(view: PageView | null, page: AssistantPage | null,
                 if ('code' in opened) throw new Error(opened.code === 'model_unavailable' && opened.detail ? opened.detail : CALL_ERROR_MESSAGES[opened.code]);
                 session.current = opened.session;
             }
-            const reader = session.current.promptStreaming(q).getReader();
+            const reader = session.current.promptStreaming(await toEnglish(q)).getReader();
             let full = '';
             for (;;) {
                 const { done, value } = await reader.read();
@@ -100,6 +117,11 @@ export function useAskSession(view: PageView | null, page: AssistantPage | null,
                 });
                 if (mounted.current) update(m => ({ ...m, markers, unsupported }));
             }
+            // In the user's language, markers where they were (so the checks above still line up).
+            if (userLang !== 'en') {
+                const shown = await into(userLang, full);
+                if (mounted.current && shown !== full) update(m => ({ ...m, content: shown }));
+            }
             void suggestNext(full);
         } catch (e: any) {
             if (!mounted.current) return;
@@ -111,7 +133,7 @@ export function useAskSession(view: PageView | null, page: AssistantPage | null,
             if (mounted.current) setThinking(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [thinking, view, page]);
+    }, [thinking, view, page, userLang]);
 
     const suggestNext = async (answer: string) => {
         const s = session.current;
@@ -125,7 +147,10 @@ export function useAskSession(view: PageView | null, page: AssistantPage | null,
                 return list.slice(0, 3).map((q: unknown) => String(q).trim()).filter(Boolean);
             },
         });
-        if (mounted.current && res.ok && res.value.length > 0) setSuggestions(res.value);
+        if (mounted.current && res.ok && res.value.length > 0) {
+            const shown = userLang === 'en' ? res.value : await Promise.all(res.value.map(q => into(userLang, q)));
+            if (mounted.current) setSuggestions(shown);
+        }
     };
 
     const asTable = useCallback(async (index: number) => {

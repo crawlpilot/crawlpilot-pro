@@ -1,11 +1,12 @@
 /**
  * Home starts from the page you're on (docs/plans/ux-simplification-plan.md §4.2): which page,
- * one suggestion for it ("24 products on this page · Get them as a table"), four plain choices, your
- * recent tables, and the rest of the tools one tap further.
+ * one suggestion for it ("24 products on this page · Get them as a table"), four tools that work on any
+ * computer, the AI tools only where Chrome's built-in AI is available, your recent tables, and the rest
+ * one tap further.
  */
 import { ReactNode, useEffect, useState } from 'react';
 import {
-    ArrowRight, ChevronRight, FileText, Image as ImageIcon, Layers, List, MessageSquareText, MousePointerClick,
+    ArrowRight, ChevronRight, FileText, Files, Image as ImageIcon, Layers, List, MessageSquareText, MousePointerClick,
     Radar, ShoppingBag, Sparkles, Table2, Unlock,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +17,8 @@ import { sendToPage } from '../../shared/messages';
 import type { PageSummary } from '../../shared/types/pageSummary';
 import type { Table } from '../../shared/types/database';
 import { db } from '../../shared/db';
+import { modelStatus } from '../services/ai/modelHost';
+import { getSummarizerAvailability } from '../services/ai/summarizer';
 import { Button, Card, CardButton, Disclosure, Heading, Row, Skeleton, Stack, Text, type Tone } from '../ui';
 
 interface HomePageProps {
@@ -54,12 +57,28 @@ function useRecentTables(): Table[] {
     return tables;
 }
 
+/**
+ * Whether this computer has Chrome's built-in AI (the Prompt or Summarizer API, ready or downloadable):
+ * the AI tools need it, so Home leads with the tools that work everywhere. null while checking.
+ */
+function useAiReady(): boolean | null {
+    const [ready, setReady] = useState<boolean | null>(null);
+    useEffect(() => {
+        let alive = true;
+        Promise.all([modelStatus().then(s => s.availability), getSummarizerAvailability()])
+            .then(all => alive && setReady(all.some(a => a !== 'unavailable')))
+            .catch(() => alive && setReady(false));
+        return () => { alive = false; };
+    }, []);
+    return ready;
+}
+
 function openTable(id?: number) {
     chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=data-table${id ? `&tableId=${id}` : ''}`) });
 }
 
 /** The one thing to do with this page. */
-function Suggestion({ summary, web, onNavigate }: { summary: PageSummary | null; web: boolean; onNavigate: (view: string) => void }) {
+function Suggestion({ summary, web, ai, onNavigate }: { summary: PageSummary | null; web: boolean; ai: boolean; onNavigate: (view: string) => void }) {
     const { t } = useTranslation('home');
     if (!summary) {
         return (
@@ -73,7 +92,9 @@ function Suggestion({ summary, web, onNavigate }: { summary: PageSummary | null;
     const s: { icon: ReactNode; title: string; hint?: string; action: string; view: string; secondary?: { label: string; view: string } } =
         summary.kind === 'list' ? { icon: <List />, title: t('page.list', { count: summary.items, noun: summary.noun }), hint: t('page.listHint'), action: t('page.listAction'), view: 'list-extractor' }
             : summary.kind === 'product' ? { icon: <ShoppingBag />, title: t('page.product'), hint: summary.name, action: t('page.productAction'), view: 'ai-extract' }
-                : summary.kind === 'article' ? { icon: <FileText />, title: t('page.article'), hint: summary.name, action: t('page.articleAction'), view: 'text-summarizer', secondary: { label: t('page.articleSecondary'), view: 'metadata-extractor' } }
+                : summary.kind === 'article'
+                    ? ai ? { icon: <FileText />, title: t('page.article'), hint: summary.name, action: t('page.articleAction'), view: 'text-summarizer', secondary: { label: t('page.articleSecondary'), view: 'metadata-extractor' } }
+                        : { icon: <FileText />, title: t('page.article'), hint: summary.name, action: t('page.articleSecondary'), view: 'metadata-extractor' }
                     : { icon: <MousePointerClick />, title: web ? t('page.none') : t('page.notWeb'), hint: web ? t('page.noneHint') : undefined, action: t('page.noneAction'), view: 'list-extractor' };
     const found = summary.kind !== 'none';
     return (
@@ -109,10 +130,10 @@ function IntentTile({ icon, title, hint, tone, onClick }: { icon: ReactNode; tit
     );
 }
 
-function ToolRow({ icon, title, hint, onClick }: { icon: ReactNode; title: string; hint: string; onClick: () => void }) {
+function ToolRow({ icon, title, hint, onClick, iconClass = 'bg-surface-2 text-ink-2' }: { icon: ReactNode; title: string; hint: string; onClick: () => void; iconClass?: string }) {
     return (
         <button type="button" onClick={onClick} className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 text-left hover:bg-ink/5">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-ink-2 [&_svg]:size-4">{icon}</span>
+            <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4 ${iconClass}`}>{icon}</span>
             <span className="min-w-0 flex-1">
                 <Text size="small" weight="semibold">{title}</Text>
                 <Text size="caption" tone="faint" truncate>{hint}</Text>
@@ -138,22 +159,34 @@ export default function HomePage({ onNavigate, isTabConnected = true }: HomePage
     const summary = usePageSummary(page, isTabConnected);
     const recent = useRecentTables();
     const [more, setMore] = useState(false);
+    const ai = useAiReady();
+    const aiTools = (hint?: string) => <>
+        <ToolRow icon={<MessageSquareText />} iconClass="bg-tile-lilac text-ink" title={t('textSummarizer.title')} hint={hint ?? t('textSummarizer.description')} onClick={() => onNavigate('text-summarizer')} />
+        <ToolRow icon={<Sparkles />} iconClass="bg-tile-mint text-ink" title={t('aiExtract.title')} hint={hint ?? t('aiExtract.description')} onClick={() => onNavigate('ai-extract')} />
+    </>;
 
     return (
         <div className="h-full overflow-y-auto bg-bg">
             <Stack gap={5} className="p-4 pb-6">
                 <PageStrip page={page} />
-                <Suggestion summary={summary} web={page.web} onNavigate={onNavigate} />
+                <Suggestion summary={summary} web={page.web} ai={ai === true} onNavigate={onNavigate} />
 
                 <Stack gap={2}>
                     <Heading size="label">{t('intents.title')}</Heading>
                     <div className="grid grid-cols-2 gap-2">
                         <IntentTile tone="lilac" icon={<List />} title={t('intents.list.title')} hint={t('intents.list.hint')} onClick={() => onNavigate('list-extractor')} />
-                        <IntentTile tone="mint" icon={<Sparkles />} title={t('intents.details.title')} hint={t('intents.details.hint')} onClick={() => onNavigate('ai-extract')} />
+                        <IntentTile tone="sky" icon={<Files />} title={t('intents.pages.title')} hint={t('intents.pages.hint')} onClick={() => onNavigate('page-extractor')} />
                         <IntentTile tone="peach" icon={<ImageIcon />} title={t('intents.images.title')} hint={t('intents.images.hint')} onClick={() => onNavigate('image-downloader')} />
-                        <IntentTile tone="sky" icon={<MessageSquareText />} title={t('intents.summary.title')} hint={t('intents.summary.hint')} onClick={() => onNavigate('text-summarizer')} />
+                        <IntentTile tone="butter" icon={<Radar />} title={t('intents.toolkit.title')} hint={t('intents.toolkit.hint')} onClick={() => onNavigate('toolkit')} />
                     </div>
                 </Stack>
+
+                {ai && (
+                    <Stack gap={1.5}>
+                        <Heading size="label" className="flex items-center gap-1.5"><Sparkles size={13} className="text-accent" />{t('ai.title')}</Heading>
+                        <Card pad="none" className="p-1">{aiTools()}</Card>
+                    </Stack>
+                )}
 
                 {recent.length > 0 && (
                     <Stack gap={1.5}>
@@ -179,9 +212,8 @@ export default function HomePage({ onNavigate, isTabConnected = true }: HomePage
 
                 <Disclosure variant="plain" icon={<Layers />} summary={t('moreTools')} open={more} onToggle={setMore}>
                     <Stack gap={0.5}>
-                        <ToolRow icon={<FileText />} title={t('pageExtractor.title')} hint={t('pageExtractor.description')} onClick={() => onNavigate('page-extractor')} />
-                        <ToolRow icon={<Radar />} title={t('scraperToolkit.title')} hint={t('scraperToolkit.description')} onClick={() => onNavigate('toolkit')} />
                         <ToolRow icon={<Unlock />} title={t('browserUtilities.title')} hint={t('browserUtilities.description')} onClick={() => onNavigate('utilities')} />
+                        {ai === false && aiTools(t('ai.needsAi'))}
                     </Stack>
                 </Disclosure>
             </Stack>

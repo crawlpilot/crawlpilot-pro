@@ -140,3 +140,71 @@ test('a brief made for a product page: points checked on the page, shown with a 
     await ui.close();
     await product.close();
 });
+
+/** Chrome's Language Detector and Translator, scripted: German pages, a German pack that downloads on a click, French for the user. */
+function fakeTranslation() {
+    const german: Record<string, string> = {
+        'Neue Fahrradwege in Berlin bis zum Jahr 2027': 'New cycle paths in Berlin by the year 2027',
+        'Der Senat plant 120 Kilometer neue Fahrradwege in der ganzen Stadt.': 'The Senate plans 120 kilometres of new cycle paths across the whole city.',
+        'Die Kosten liegen bei rund 85 Millionen Euro und werden vom Bund mitgetragen.': 'The costs are around 85 million euros and are shared by the federal government.',
+        'Kritiker sagen, dass der Bau zu langsam vorankommt und Parkplätze wegfallen.': 'Critics say that construction is progressing too slowly and parking spaces are being lost.',
+    };
+    let germanReady = false;
+    (self as any).LanguageDetector = {
+        availability: async () => 'available',
+        create: async () => ({ detect: async (t: string) => [/\b(der|die|und|mit|neue)\b/i.test(t) ? { detectedLanguage: 'de', confidence: 0.95 } : { detectedLanguage: 'en', confidence: 0.9 }] }),
+    };
+    (self as any).Translator = {
+        availability: async ({ sourceLanguage }: any) => (sourceLanguage === 'de' && !germanReady ? 'downloadable' : 'available'),
+        create: async ({ sourceLanguage, targetLanguage }: any) => {
+            if (sourceLanguage === 'de') germanReady = true;
+            return {
+                translate: async (t: string) => sourceLanguage === 'de' ? (german[t.trim()] ?? t) : targetLanguage === 'fr' ? `FR: ${t}` : t,
+            };
+        },
+    };
+}
+
+test('a page in another language: translated to read it, checked, and shown in the user\'s language', async ({ ext, origin, panel }) => {
+    const article = await ext.newPage();
+    await article.goto(`${origin}/site/assistant-artikel.html`);
+    const tabId = await panel.tabId(article.url());
+    await panel.toTab(tabId, 'PING');
+    // The extension set to French.
+    await panel.page.evaluate(() => chrome.storage.local.set({ language: 'fr' }));
+
+    const ui = await ext.newPage();
+    await ui.addInitScript(fakeModel);
+    await ui.addInitScript(fakeTranslation);
+    await ui.setViewportSize({ width: 400, height: 900 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=text-summarizer&tabId=${tabId}`);
+
+    // The German pack downloads on a click.
+    await expect(ui.getByTestId('needs-translation')).toContainText('This page is in German');
+    await ui.getByRole('button', { name: 'Download German' }).click();
+
+    const brief = ui.getByTestId('page-brief');
+    await expect(brief).toBeVisible({ timeout: 20_000 });
+    await expect(ui.getByTestId('read-from')).toHaveText('Read from German');
+    await expect(ui.getByText('Article', { exact: true })).toBeVisible();
+    // Checked against the translated page; shown in French.
+    expect((await brief.locator('[data-status="verified"]').count())).toBeGreaterThanOrEqual(3);
+    await expect(brief.locator('[data-status="verified"]').first()).toContainText('FR: About');
+    await expect(brief.locator('[data-status="not_on_page"]')).toContainText('FR: It can drive over water');
+
+    // Show on page: the German block, highlighted whole.
+    await brief.locator('[data-status="verified"]').nth(1).click();
+    await expect.poll(() => article.evaluate(() => [...((CSS as any).highlights?.get('crawlpilot-cite') ?? [])][0]?.toString() ?? '')).toMatch(/Senat|Kosten|Kritiker|Fahrradwege/);
+
+    // An answer in French, its citations kept.
+    await ui.bringToFront();
+    await ui.getByLabel('Ask about this page').fill('Wie viel kostet es?');
+    await ui.getByLabel('Ask about this page').press('Enter');
+    const answer = ui.getByTestId('answer').last();
+    await expect(answer).toContainText('FR: The top speed');
+    await expect(answer.getByTestId('cite')).toHaveCount(2);
+    await panel.page.evaluate(() => chrome.storage.local.remove('language'));
+    await ui.close();
+    await article.close();
+});
+
