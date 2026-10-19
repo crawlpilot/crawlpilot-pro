@@ -5,10 +5,39 @@ import { SingleSelectionStrategy } from '../features/picker/strategies/SingleSel
 import { DetailSelectionStrategy } from '../features/picker/strategies/DetailSelectionStrategy';
 import { SelectionHighlightManager } from '../services/page/SelectionHighlightManager';
 import { HL_COLOR, HL_BG, HL_GLOW, HL_GLOW_STRONG, DUR_VALIDATE, DUR_FADE } from '../utils/highlight-tokens';
-import { ok, on, send } from '../../shared/messages';
+import { fail, ok, on, send, type PickerAdjust } from '../../shared/messages';
+import { resolveContainer, resolveItems, resolveOne } from '../../shared/selectors/resolve';
+import type { Reading } from '../features/picker/strategies/ISelectionStrategy';
 
 let picker: VisualElementPicker | null = null;
 const selectionHighlights = new SelectionHighlightManager();
+
+/** The reading a saved field was: its type as the picker's reading kind. */
+function readingFor(type: string | undefined): (readings: Reading[]) => number {
+    const kind: Reading['kind'] = type === 'list' || type === 'table' ? 'list' : type && /_array$/.test(type) ? 'array' : 'value';
+    return readings => readings.findIndex(r => r.kind === kind);
+}
+
+/** Opens the running picker on a picked field or list; false when the page no longer has it. */
+function adjust(target: PickerAdjust): boolean {
+    if (!picker) return false;
+    if (target.items?.length) {
+        const container = resolveContainer(target.chain, target.items).result;
+        const first = container ? resolveItems(target.items, container).result[0] as HTMLElement | undefined : undefined;
+        if (!container || !first) return false;
+        // The section whose container this is, cards or rows as its items are.
+        const rows = resolveItems(target.items, container).result;
+        picker.adjustOn(first, readings => {
+            const exact = readings.findIndex(r => r.outline === container && (r.outlines ?? []).length === rows.length);
+            return exact >= 0 ? exact : readings.findIndex(r => r.outline === container);
+        });
+        return true;
+    }
+    const el = resolveOne(target.chain).result as HTMLElement | null;
+    if (!el) return false;
+    picker.adjustOn(el, readingFor(target.type));
+    return true;
+}
 
 function startPicker(mode: 'list' | 'single' | 'detail' = 'list', action: 'extract' | 'click' = 'extract') {
     picker?.deactivate();
@@ -134,7 +163,14 @@ function testSelector(selector: string) {
 }
 
 export function registerPickerHandlers() {
-    on('START_PICKER', p => { startPicker(p?.mode, p?.action); return ok(); });
+    on('START_PICKER', p => {
+        startPicker(p?.mode, p?.action);
+        if (p?.adjust && !adjust(p.adjust)) {
+            stopPicker();
+            return fail('This is no longer on the page: pick it again.');
+        }
+        return ok();
+    });
     on('STOP_PICKER', () => { stopPicker(); return ok(); });
     on('PICKER_ACTION', p => { picker?.handleExternalAction(p.action); return ok(); });
     on('SHOW_SELECTION_HIGHLIGHTS', p => {

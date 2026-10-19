@@ -1,4 +1,4 @@
-/** Scraper toolkit: page recon, the selector lab, the API finder, the AI view, and the right-click unlocker. */
+/** Scraper toolkit: page recon, the selector lab, the API finder, the AI view, tables, and the right-click unlocker. */
 import { runRecon } from '../services/recon/ReconService';
 import { LabPicker, evaluateSelector, highlightSelector, clearLabHighlights } from '../features/lab/SelectorLab';
 import { requestNetEntries, clearNetEntries } from '../features/network/NetworkRelay';
@@ -9,6 +9,7 @@ import { fail, ok, on, send } from '../../shared/messages';
 import { checkPageClaims, showCitation } from '../services/ai-view/claims';
 import { pickRegion } from '../services/ai-view/pickRegion';
 import { siteContacts } from '../services/contacts/site';
+import { findTables, showTable } from '../services/tables/findTables';
 
 const labPicker = new LabPicker();
 
@@ -33,6 +34,9 @@ export function registerToolkitHandlers() {
         labPicker.start(pick => { void send('LAB_PICKED', pick); });
         return ok();
     });
+
+    on('TABLES_FIND', () => ok({ tables: findTables() }));
+    on('TABLES_SHOW', ({ index }) => ok({ shown: showTable(index) }));
 
     on('NET_LIST', async () => ok(await requestNetEntries()));
     on('NET_CLEAR', () => { clearNetEntries(); return ok(); });

@@ -1,0 +1,22 @@
+{
+  "title": "Tables on this page",
+  "subtitle": "Every data table, ready to copy or save",
+  "refresh": "Look again",
+  "reading": "Looking for tables…",
+  "count_one": "{{count}} table",
+  "count_other": "{{count}} tables",
+  "size": "{{rows}} rows × {{cols}} columns",
+  "more": "+ {{count}} more rows",
+  "truncated": "First {{shown}} of {{total}} rows",
+  "copy": "Copy",
+  "copied": "Copied",
+  "copyHint": "Pastes into Sheets or Excel as cells",
+  "csv": "CSV",
+  "save": "Save to My data",
+  "saved": "Saved",
+  "show": "Show on page",
+  "none": "No tables on this page",
+  "noneHint": "Only data tables are listed: page layout, menus and one-column lists are left out. For cards or rows that aren't a table, use the List Extractor.",
+  "listExtractor": "Open the List Extractor",
+  "error": "Couldn't read this page. Reload it and try again."
+}

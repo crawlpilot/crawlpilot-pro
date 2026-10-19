@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tables · fixture</title>
+<style>.hidden { display: none; } td, th { border: 1px solid #ccc; padding: 2px 6px; }</style>
+</head>
+<body>
+<nav><table><tr><td><a href="/a">Home</a></td><td><a href="/b">Shop</a></td></tr><tr><td><a href="/c">About</a></td><td><a href="/d">Help</a></td></tr></table></nav>
+
+<!-- Layout: the page is laid out with a table; its cells hold blocks of content. -->
+<table id="layout">
+  <tr>
+    <td><h2>Sidebar</h2><ul><li>One</li><li>Two</li></ul></td>
+    <td>
+      <h1>Store data</h1>
+
+      <!-- A plain table: header row of th, a link column. -->
+      <table id="plain">
+        <caption>Products</caption>
+        <tr><th>Name</th><th>Price</th><th>Stock</th></tr>
+        <tr><td><a href="/p/lamp">Lamp</a></td><td>$49.00</td><td>12</td></tr>
+        <tr><td><a href="/p/desk">Desk</a></td><td>$299.00</td><td>3</td></tr>
+        <tr><td><a href="/p/chair">Chair</a></td><td>$89.00</td><td>0</td></tr>
+      </table>
+
+      <h2>Opening hours</h2>
+      <!-- thead, and a rowspan that covers two rows. -->
+      <table id="spans">
+        <thead><tr><th>Day</th><th>Opens</th><th>Closes</th></tr></thead>
+        <tbody>
+          <tr><td>Monday</td><td rowspan="2">09:00</td><td>17:00</td></tr>
+          <tr><td>Tuesday</td><td>18:00</td></tr>
+          <tr><td>Wednesday</td><td colspan="2">Closed</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Revenue</h2>
+      <!-- Two header rows, joined per column. -->
+      <table id="twohead">
+        <thead>
+          <tr><th rowspan="2">Region</th><th colspan="2">Q1</th><th colspan="2">Q2</th></tr>
+          <tr><th>Revenue</th><th>Cost</th><th>Revenue</th><th>Cost</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>North</td><td>10</td><td>4</td><td>12</td><td>5</td></tr>
+          <tr><td>South</td><td>8</td><td>3</td><td>9</td><td>4</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Team</h2>
+      <!-- An ARIA grid built from divs. -->
+      <div role="table" aria-label="Team members" id="aria">
+        <div role="row"><span role="columnheader">Name</span><span role="columnheader">Role</span></div>
+        <div role="row"><span role="cell">Ana</span><span role="cell">Design</span></div>
+        <div role="row"><span role="cell">Bo</span><span role="cell">Engineering</span></div>
+        <div role="row"><span role="cell">Cy</span><span role="cell">Sales</span></div>
+      </div>
+
+      <h2>Details</h2>
+      <!-- No header at all. -->
+      <table id="noheader">
+        <tr><td>Weight</td><td>1.2 kg</td></tr>
+        <tr><td>Colour</td><td>Oak</td></tr>
+      </table>
+
+      <h2>Specifications</h2>
+      <!-- A header and one row: still a table. -->
+      <table id="onerow"><tr><th>Specification</th><th>Status</th></tr><tr><td>HTML Standard</td><td>Living</td></tr></table>
+
+      <!-- One row and no header, hidden, presentation: left out. -->
+      <table id="tiny"><tr><td>1</td><td>2</td></tr></table>
+      <table id="hidden" style="display:none"><tr><td>x</td><td>y</td></tr><tr><td>z</td><td>w</td></tr></table>
+      <table id="presentation" role="presentation"><tr><td>x</td><td>y</td></tr><tr><td>z</td><td>w</td></tr></table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

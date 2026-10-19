@@ -125,6 +125,21 @@ export class VisualElementPicker {
 
     // ---- Selection ----
 
+    /**
+     * Opens on a picked field or list (plan L6): `el` selected and locked, scrolled into view, read
+     * as it was saved (`pick` chooses the reading).
+     */
+    public adjustOn(el: HTMLElement, pick?: (readings: Reading[]) => number) {
+        if (!this.isActive) return;
+        el.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+        this.path = new SelectionPath(el);
+        this.adjusted = true;
+        this.locked = true;
+        this.update(true);
+        const i = pick?.(this.readings) ?? -1;
+        if (i >= 0) this.chooseReading(i);
+    }
+
     /** What is outlined: the reading's own outline (a section's container) or the selected element. */
     private get selected(): HTMLElement | null {
         return this.reading?.outline ?? this.path?.current ?? null;

@@ -97,5 +97,9 @@
   "contacts": {
     "title": "Contacts from websites",
     "description": "Emails, phones and social profiles of a list of companies"
+  },
+  "tables": {
+    "title": "Tables on this page",
+    "description": "Every table, to copy, CSV or My data"
   }
 }

@@ -13,6 +13,7 @@ import type { PageVerdict } from './verdict/classifyPage';
 import type { ReconReport } from './recon/types';
 import type { PageSummary } from './types/pageSummary';
 import type { NextControl } from '../content/services/pagination/findNext';
+import type { PageTable } from '../content/services/tables/findTables';
 import type { NetEntry } from './network/types';
 import type { LabEval, LabPick } from '../content/features/lab/SelectorLab';
 import type { GroundRequest, Grounded, PageView, PickedRegion } from './ai/page';
@@ -98,6 +99,16 @@ export interface MetadataStart {
 /** What a picked list is: ordinary results, a sponsored shelf, a carousel. */
 export type ListKind = 'results' | 'sponsored' | 'carousel';
 
+/** A picked field or list to adjust: found again by its chains, read as it was saved. */
+export interface PickerAdjust {
+    /** The element's chain (a list: its container's). */
+    chain: string[];
+    /** A list's item chain: the picker opens on its first item, on that section. */
+    items?: string[];
+    /** The field's saved type (text, link, image, list, table, image_array…). */
+    type?: string;
+}
+
 /** Where the picker's selection is (docs/plans/picker-level-control-plan.md §3.5). */
 export interface PickerState {
     /** The path's steps, widest first. */
@@ -169,7 +180,8 @@ export interface Messages {
     // ---- side panel / background → content script
     PING: { reply: Res<{ status: string }> };
     /** Reads a list from its chains (switching a pick to one of its alternatives). */
-    START_PICKER: { payload: { mode?: 'list' | 'single' | 'detail'; action?: 'extract' | 'click' }; reply: Res };
+    /** `adjust`: open on a picked field or list (its chains), locked, to make it wider or narrower (plan L6). */
+    START_PICKER: { payload: { mode?: 'list' | 'single' | 'detail'; action?: 'extract' | 'click'; adjust?: PickerAdjust }; reply: Res };
     STOP_PICKER: { reply: Res };
     PICKER_ACTION: { payload: { action: string }; reply: Res };
     SHOW_SELECTION_HIGHLIGHTS: { payload: { elements: any[] }; reply: Res };
@@ -202,6 +214,9 @@ export interface Messages {
     NET_LIST: { reply: Res<{ installed: boolean; entries: NetEntry[] }> };
     NET_CLEAR: { reply: Res };
     PAGE_COOKIE: { reply: Res<{ cookie: string }> };
+    /** Every data table on the page (Tables tool), and showing one of them. */
+    TABLES_FIND: { reply: Res<{ tables: PageTable[] }> };
+    TABLES_SHOW: { payload: { index: number }; reply: Res<{ shown: boolean }> };
     AI_PAGE_VIEW: { payload: { chunkChars: number; maxChunks: number; reveal?: RevealMode }; reply: Res<{ view: PageView }> };
     AI_GROUND: { payload: { requests: GroundRequest[] }; reply: Res<{ results: Grounded[] }> };
     /** Page assistant: checks claims against the last page view's blocks, and shows a cited block. */
