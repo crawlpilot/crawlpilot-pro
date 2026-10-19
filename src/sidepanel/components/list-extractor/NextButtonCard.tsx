@@ -1,6 +1,6 @@
 import { Edit, MousePointer2, RefreshCw, Trash2, CheckCircle2 } from 'lucide-react';
 import { selectorFamily } from '../../../shared/selectors/grade';
-import { Box, Card, Typography, Button, IconButton, Stack, Chip } from '@mui/material';
+import { Button, Card, Chip, IconButton, Row, Text } from '../../ui';
 
 interface NextButtonCardProps {
     /** The control's chain, best first. */
@@ -16,89 +16,25 @@ export function NextButtonCard({ chain, title, onRemove, onTest, onEdit }: NextB
     const strategy = `${selectorFamily(selector)}${chain.length > 1 ? ` +${chain.length - 1}` : ''}`;
 
     return (
-        <Card
-            variant="outlined"
-            sx={{
-                p: 2,
-                borderRadius: 3,
-                borderColor: 'primary.main',
-                bgcolor: 'rgba(37, 99, 235, 0.05)',
-                position: 'relative'
-            }}
-        >
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box sx={{
-                        p: 0.75,
-                        borderRadius: 1,
-                        bgcolor: 'primary.main',
-                        color: 'primary.contrastText',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}>
-                        <MousePointer2 size={16} />
-                    </Box>
-                    <Box>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                            <Typography variant="subtitle2" fontWeight="600" color="primary.main">
-                                {title} Selected
-                            </Typography>
-                            <Chip
-                                label={strategy}
-                                size="small"
-                                color="primary"
-                                variant="outlined"
-                                sx={{ height: 16, fontSize: '0.65rem', px: 0.5 }}
-                            />
-                        </Stack>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <CheckCircle2 size={12} className="text-green-500" />
-                            Ready
-                        </Typography>
-                    </Box>
-                </Box>
-                <Stack direction="row" spacing={0.5}>
-                    <IconButton onClick={onEdit} size="small" sx={{ color: 'text.secondary' }}>
-                        <Edit size={16} />
-                    </IconButton>
-                    <IconButton onClick={onRemove} size="small" color="error">
-                        <Trash2 size={16} />
-                    </IconButton>
-                </Stack>
-            </Box>
-
-            <Box sx={{
-                bgcolor: 'background.paper',
-                p: 1.5,
-                borderRadius: 2,
-                border: '1px solid',
-                borderColor: 'divider',
-                mb: 2
-            }}>
-                <Typography variant="caption" fontFamily="monospace" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
-                    {selector}
-                </Typography>
-            </Box>
-
-            <Button
-                variant="outlined"
-                fullWidth
-                size="small"
-                startIcon={<RefreshCw size={14} />}
-                onClick={() => onTest(selector)}
-                sx={{
-                    borderColor: 'divider',
-                    color: 'text.secondary',
-                    '&:hover': {
-                        borderColor: 'primary.main',
-                        color: 'primary.main',
-                        bgcolor: 'rgba(37, 99, 235, 0.05)'
-                    }
-                }}
-            >
-                Test Selector
-            </Button>
+        <Card raised>
+            <Row justify="between" align="start" className="mb-3">
+                <Row gap={2.5} className="min-w-0">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border-[1.5px] border-line-strong bg-brand text-on-brand"><MousePointer2 size={16} /></span>
+                    <div className="min-w-0">
+                        <Row gap={1.5}>
+                            <Text weight="semibold">{title} selected</Text>
+                            <Chip tone="outline">{strategy}</Chip>
+                        </Row>
+                        <Text size="caption" tone="success" className="flex items-center gap-1"><CheckCircle2 size={12} /> Ready</Text>
+                    </div>
+                </Row>
+                <Row gap={0.5} className="-mr-1.5 shrink-0">
+                    <IconButton size="sm" label="Edit" onClick={onEdit}><Edit /></IconButton>
+                    <IconButton size="sm" label="Remove" variant="danger" className="border-0" onClick={onRemove}><Trash2 /></IconButton>
+                </Row>
+            </Row>
+            <div className="mb-3 rounded-field bg-surface-2 px-3 py-2 font-mono text-caption break-all text-ink-2">{selector}</div>
+            <Button size="sm" fullWidth icon={<RefreshCw />} onClick={() => onTest(selector)}>Test selector</Button>
         </Card>
     );
 }

@@ -3,10 +3,10 @@
  * few rows of it, how more pages will load (found on the page, stated as a sentence), and one button.
  * The Pages and Settings steps stay one tap away for anyone who wants to change them.
  */
-import { Box, Button, MenuItem, Select, Skeleton, Stack, Typography } from '@mui/material';
 import { ChevronRight, ExternalLink, Play, SlidersHorizontal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ListPick, PaginationMode } from '../../../shared/types/extraction';
+import { Button, Card, Heading, Row, Select, Skeleton, Text } from '../../ui';
 
 const PREVIEW_ROWS = 3;
 const PREVIEW_COLUMNS = 3;
@@ -31,63 +31,62 @@ export function QuickRun({ pick, pages, maxPages, onMaxPages, onRun, onCustomize
     const fieldCount = pick.data?.columns?.length ?? 0;
     const multi = !!pages && maxPages > 1;
 
-    const pageSelect = (
-        <Select size="small" variant="standard" value={maxPages} onChange={e => onMaxPages(Number(e.target.value))} disableUnderline
-            sx={{ mx: 0.5, fontSize: 'inherit', fontWeight: 700, color: 'primary.light', '& .MuiSelect-select': { py: 0, pr: '18px !important' } }}>
-            {PAGE_CHOICES.map(n => <MenuItem key={n} value={n} sx={{ fontSize: '0.8rem' }}>{n}</MenuItem>)}
-        </Select>
-    );
+    const pageSelect = <Select inline aria-label="Pages" value={maxPages} onChange={onMaxPages} options={PAGE_CHOICES.map(n => ({ value: n, label: String(n) }))} />;
 
     return (
-        <Box sx={{ border: 1, borderColor: 'rgb(var(--cp-accent-rgb) / 0.4)', borderRadius: '14px', overflow: 'hidden', background: 'linear-gradient(180deg, rgb(var(--cp-accent-rgb) / 0.07) 0%, rgb(var(--cp-accent-rgb) / 0.01) 100%)' }}>
-            <Box sx={{ p: 1.75, pb: 1.25 }}>
-                <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: 'text.primary' }}>
-                    {t('quick.found', { count: pick.count })}
-                </Typography>
-                <Typography variant="caption" sx={{ fontSize: '0.72rem' }}>{t('quick.details', { count: fieldCount })}</Typography>
-            </Box>
+        <Card raised pad="none" className="overflow-hidden animate-slide-up">
+            <div className="flex items-start gap-3 px-4 pt-4 pb-3">
+                <span className="mt-0.5 flex shrink-0 -rotate-6 items-center justify-center rounded-xl border-[1.5px] border-line-strong bg-brand px-2 py-1 font-display text-lead font-extrabold text-on-brand tabular-nums">
+                    {pick.count}
+                </span>
+                <div className="min-w-0">
+                    <Heading size="heading">{t('quick.found', { count: pick.count })}</Heading>
+                    <Text size="caption" tone="muted">{t('quick.details', { count: fieldCount })}</Text>
+                </div>
+            </div>
 
             {columns.length > 0 && rows.length > 0 && (
-                <Box sx={{ mx: 1.75, mb: 1.25, border: 1, borderColor: 'divider', borderRadius: '8px', overflow: 'hidden', bgcolor: 'rgb(var(--cp-ink-rgb) / 0.05)' }}>
-                    <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '0.68rem' }}>
+                <div className="mx-4 mb-3 overflow-hidden rounded-field border border-line bg-surface-2/60">
+                    <table className="w-full table-fixed border-collapse text-caption">
                         <thead>
                             <tr>{columns.map(c => (
-                                <Box component="th" key={c.id} sx={{ textAlign: 'left', px: 0.75, py: 0.5, color: 'text.secondary', fontWeight: 600, borderBottom: 1, borderColor: 'divider', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</Box>
+                                <th key={c.id} className="truncate border-b border-line px-2.5 py-1.5 text-left font-semibold text-ink-2">{c.name}</th>
                             ))}</tr>
                         </thead>
                         <tbody>
                             {rows.map((r, i) => (
                                 <tr key={i}>{columns.map(c => (
-                                    <Box component="td" key={c.id} sx={{ px: 0.75, py: 0.5, color: 'text.primary', borderTop: i ? 1 : 0, borderColor: 'divider', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(r[c.id] ?? '')}</Box>
+                                    <td key={c.id} className={`truncate px-2.5 py-1.5 text-ink ${i ? 'border-t border-line' : ''}`}>{String(r[c.id] ?? '')}</td>
                                 ))}</tr>
                             ))}
                         </tbody>
-                    </Box>
+                    </table>
                     {onOpenPreview && (
-                        <Button size="small" onClick={onOpenPreview} endIcon={<ExternalLink size={12} />} sx={{ width: '100%', borderRadius: 0, borderTop: 1, borderColor: 'divider', fontSize: '0.66rem', py: 0.25 }}>
-                            {t('quick.openPreview')}
-                        </Button>
+                        <button type="button" onClick={onOpenPreview}
+                            className="flex w-full cursor-pointer items-center justify-center gap-1 border-t border-line py-1.5 text-caption font-semibold text-ink-2 hover:bg-ink/5 hover:text-ink">
+                            {t('quick.openPreview')} <ExternalLink size={12} />
+                        </button>
                     )}
-                </Box>
+                </div>
             )}
 
-            <Box sx={{ px: 1.75, pb: 1.75 }}>
-                <Typography component="div" variant="body2" sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', mb: 1.25, color: 'text.secondary' }}>
-                    {pages === undefined ? <Skeleton width="70%" />
+            <div className="px-4 pb-4">
+                <div className="mb-3 flex flex-wrap items-center text-small text-ink-2">
+                    {pages === undefined ? <Skeleton className="h-4 w-3/4" />
                         : pages === null ? t('quick.onePage')
                             : pages.mode === 'loadMore'
                                 ? <>{t('quick.loadMoreBefore', { label: pages.label })}{pageSelect}{t('quick.loadMoreAfter')}</>
                                 : <>{t('quick.nextBefore', { label: pages.label })}{pageSelect}{t('quick.nextAfter')}</>}
-                </Typography>
-                <Stack direction="row" spacing={1} alignItems="center">
-                    <Button variant="contained" onClick={onRun} disabled={busy || pages === undefined} startIcon={<Play size={15} />} sx={{ fontWeight: 700, flex: 1 }}>
+                </div>
+                <Row gap={1}>
+                    <Button variant="primary" className="flex-1" onClick={onRun} disabled={busy || pages === undefined} icon={<Play />}>
                         {multi ? t('quick.runPages', { count: maxPages }) : t('quick.runOne', { count: pick.count })}
                     </Button>
-                    <Button variant="text" color="inherit" onClick={onCustomize} startIcon={<SlidersHorizontal size={14} />} endIcon={<ChevronRight size={14} />} sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                    <Button variant="ghost" onClick={onCustomize} icon={<SlidersHorizontal />} iconEnd={<ChevronRight />}>
                         {t('quick.customize')}
                     </Button>
-                </Stack>
-            </Box>
-        </Box>
+                </Row>
+            </div>
+        </Card>
     );
 }

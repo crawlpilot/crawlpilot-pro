@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Box, Button, Chip, IconButton, LinearProgress, Menu, MenuItem, TextField, Tooltip, Typography } from '@mui/material';
+import { Button, IconButton, Menu, MenuItem, Notice, Progress, Text, Tooltip } from '../../ui';
 import { Combine, Split, X } from 'lucide-react';
 import { dropField, fieldFill, fieldShapes, FieldData, joinFields, renameField, retypeField, splitField } from '../../../shared/extraction/fieldEdits';
 
@@ -52,116 +52,94 @@ export function FieldEditor({ data, onChange }: Props) {
         setEditing(null);
     };
 
+    const typeOf = columns.find(c => c.id === typeMenu?.id)?.type;
+
     return (
-        <Box>
-            <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase" sx={{ display: 'block', mb: 0.5 }}>
+        <div>
+            <Text size="caption" weight="semibold" tone="muted" className="mb-1">
                 Fields ({columns.length}) · from {rows} row{rows !== 1 ? 's' : ''}
-            </Typography>
-            {data.structured && !data.layoutFields && (
-                <Alert severity="info" variant="outlined" sx={{ py: 0, mb: 0.75, fontSize: 11 }}
-                    action={<Button size="small" sx={{ fontSize: 10 }} onClick={() => onChange({
+            </Text>
+            <div className="flex flex-col gap-1.5">
+                {data.structured && !data.layoutFields && (
+                    <Notice tone="info" action={<Button size="sm" onClick={() => onChange({
                         ...data, columns: data.structured!.columns, items: data.structured!.items,
                         layoutFields: { columns: data.columns, items: data.items },
                     })}>Use it</Button>}>
-                    The page's own data ({data.structured.label}) has these rows with {data.structured.columns.length} named fields.
-                </Alert>
-            )}
-            {data.layoutFields && (
-                <Alert severity="success" variant="outlined" sx={{ py: 0, mb: 0.75, fontSize: 11 }}
-                    action={<Button size="small" sx={{ fontSize: 10 }} onClick={() => onChange({
+                        The page's own data ({data.structured.label}) has these rows with {data.structured.columns.length} named fields.
+                    </Notice>
+                )}
+                {data.layoutFields && (
+                    <Notice tone="success" action={<Button size="sm" onClick={() => onChange({
                         ...data, columns: data.layoutFields!.columns, items: data.layoutFields!.items, layoutFields: undefined,
                     })}>Use layout</Button>}>
-                    Reading from the page's data ({data.structured?.label ?? 'JSON'}), matched to each row on the page.
-                </Alert>
-            )}
-            {listProblems.map(p => (
-                <Alert key={p} severity="warning" variant="outlined" sx={{ py: 0, mb: 0.75, fontSize: 11 }}>{p}</Alert>
-            ))}
-            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+                        Reading from the page's data ({data.structured?.label ?? 'JSON'}), matched to each row on the page.
+                    </Notice>
+                )}
+                {listProblems.map(p => <Notice key={p} tone="warning">{p}</Notice>)}
+            </div>
+            <div className="mt-1.5 overflow-hidden rounded-field border border-line">
                 {columns.map((col, i) => {
                     const fill = fieldFill(data, col.id);
                     const low = rows >= 4 && fill < LOW_FILL;
+                    const shapes = fieldShapes(data, col.id);
                     return (
-                        <Box key={col.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.5, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <div key={col.id} className={`flex items-center gap-1.5 py-1.5 pr-1 pl-3 ${i ? 'border-t border-line' : ''}`}>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
                                     {editing === col.id ? (
-                                        <TextField
-                                            size="small" variant="standard" autoFocus value={draft}
+                                        <input autoFocus value={draft} aria-label="Field name"
                                             onChange={e => setDraft(e.target.value)}
                                             onBlur={() => commitRename(col.id)}
                                             onKeyDown={e => { if (e.key === 'Enter') commitRename(col.id); if (e.key === 'Escape') setEditing(null); }}
-                                            inputProps={{ style: { fontSize: 12, padding: 0 } }}
-                                        />
+                                            className="min-w-0 flex-1 rounded-md border-[1.5px] border-line-strong bg-surface px-1.5 py-0.5 text-small font-semibold text-ink outline-none" />
                                     ) : (
                                         <Tooltip title="Click to rename">
-                                            <Typography
-                                                variant="caption" fontWeight={600} noWrap sx={{ cursor: 'text' }}
-                                                onClick={() => { setEditing(col.id); setDraft(col.name); }}
-                                            >
+                                            <button type="button" onClick={() => { setEditing(col.id); setDraft(col.name); }}
+                                                className="min-w-0 cursor-text truncate rounded px-0.5 text-left text-small font-semibold text-ink hover:bg-ink/6">
                                                 {col.name}
-                                            </Typography>
+                                            </button>
                                         </Tooltip>
                                     )}
                                     <Tooltip title="Change type">
-                                        <Chip size="small" label={col.type} variant="outlined" sx={{ height: 16, fontSize: 9, cursor: 'pointer' }}
-                                            onClick={e => setTypeMenu({ anchor: e.currentTarget, id: col.id })} />
+                                        <button type="button" onClick={e => setTypeMenu({ anchor: e.currentTarget, id: col.id })}
+                                            className="shrink-0 cursor-pointer rounded-full bg-ink/7 px-1.5 py-px font-mono text-[10px] text-ink-2 hover:bg-ink/12">
+                                            {col.type}
+                                        </button>
                                     </Tooltip>
-                                </Box>
-                                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', fontSize: 10 }}>
-                                    {sample(data, col.id).slice(0, 120) || '—'}
-                                </Typography>
-                            </Box>
+                                </div>
+                                <Text size="caption" tone="faint" truncate className="px-0.5">{sample(data, col.id).slice(0, 120) || '—'}</Text>
+                            </div>
                             <Tooltip title={low
                                 ? `Empty in ${Math.round((1 - fill) * rows)} of ${rows} rows: drop it, or join it into the field it is a variant of`
                                 : `Filled in ${Math.round(fill * 100)}% of rows`}>
-                                <Box sx={{ width: 44 }}>
-                                    <LinearProgress variant="determinate" value={fill * 100} color={low ? 'warning' : 'success'} sx={{ height: 4, borderRadius: 2 }} />
-                                </Box>
+                                <div className="w-11 shrink-0"><Progress size="sm" value={fill * 100} tone={low ? 'danger' : 'success'} /></div>
                             </Tooltip>
-                            {fieldShapes(data, col.id).length > 1 && (
-                                <Tooltip title={`Split by kind of value (${fieldShapes(data, col.id).join(', ')})`}>
-                                    <IconButton size="small" onClick={() => onChange(splitField(data, col.id))}>
-                                        <Split size={13} />
-                                    </IconButton>
-                                </Tooltip>
+                            {shapes.length > 1 && (
+                                <IconButton size="sm" label={`Split by kind of value (${shapes.join(', ')})`} onClick={() => onChange(splitField(data, col.id))}><Split /></IconButton>
                             )}
-                            <Tooltip title="Join into another field (same thing in a different card layout)">
-                                <span>
-                                    <IconButton size="small" disabled={columns.length < 2} onClick={e => setJoinMenu({ anchor: e.currentTarget, id: col.id })}>
-                                        <Combine size={13} />
-                                    </IconButton>
-                                </span>
-                            </Tooltip>
-                            <Tooltip title="Drop this field">
-                                <IconButton size="small" onClick={() => onChange(dropField(data, col.id))}>
-                                    <X size={13} />
-                                </IconButton>
-                            </Tooltip>
-                        </Box>
+                            <IconButton size="sm" label="Join into another field (same thing in a different card layout)" disabled={columns.length < 2}
+                                onClick={e => setJoinMenu({ anchor: e.currentTarget, id: col.id })}><Combine /></IconButton>
+                            <IconButton size="sm" label="Drop this field" onClick={() => onChange(dropField(data, col.id))}><X /></IconButton>
+                        </div>
                     );
                 })}
-            </Box>
-            <Menu anchorEl={typeMenu?.anchor} open={!!typeMenu} onClose={() => setTypeMenu(null)}>
+            </div>
+            <Menu anchor={typeMenu?.anchor ?? null} onClose={() => setTypeMenu(null)}>
                 {TYPES.map(type => (
-                    <MenuItem key={type} sx={{ fontSize: 12 }}
-                        selected={columns.find(c => c.id === typeMenu?.id)?.type === type}
+                    <MenuItem key={type} selected={typeOf === type}
                         onClick={() => { if (typeMenu) onChange(retypeField(data, typeMenu.id, type)); setTypeMenu(null); }}>
                         {type}
                     </MenuItem>
                 ))}
             </Menu>
-            <Menu anchorEl={joinMenu?.anchor} open={!!joinMenu} onClose={() => setJoinMenu(null)}>
-                <MenuItem disabled sx={{ fontSize: 11 }}>Join into…</MenuItem>
+            <Menu anchor={joinMenu?.anchor ?? null} onClose={() => setJoinMenu(null)}>
+                <div className="px-2.5 pt-1.5 pb-1 text-caption font-semibold text-ink-3">Join into…</div>
                 {columns.filter(c => c.id !== joinMenu?.id).map(c => (
-                    <MenuItem
-                        key={c.id} sx={{ fontSize: 12 }}
-                        onClick={() => { if (joinMenu) onChange(joinFields(data, c.id, joinMenu.id)); setJoinMenu(null); }}
-                    >
+                    <MenuItem key={c.id} onClick={() => { if (joinMenu) onChange(joinFields(data, c.id, joinMenu.id)); setJoinMenu(null); }}>
                         {c.name}
                     </MenuItem>
                 ))}
             </Menu>
-        </Box>
+        </div>
     );
 }
