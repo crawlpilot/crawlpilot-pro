@@ -21,24 +21,24 @@ export function FilterOption({ label, active, onClick, icon, description }: { la
                 flex items-center justify-between px-3 py-2 rounded-lg text-[11px] font-semibold transition-all duration-300 select-none group relative overflow-hidden
                 focus-visible:ring-2 focus-visible:ring-accent-ai/50 focus-visible:outline-none
                 ${active
-                    ? 'bg-accent-ai/20 text-accent-ai border border-accent-ai/40 shadow-[0_0_15px_-3px_rgba(34,211,238,0.25)]'
-                    : 'bg-white/5 text-text-muted hover:bg-white/[0.08] border border-white/5 hover:border-white/10'}
+                    ? 'bg-accent-ai/20 text-accent-ai border border-accent-ai/40 shadow-[0_0_15px_-3px_rgb(var(--cp-accent-rgb) / 0.25)]'
+                    : 'bg-ink/5 text-text-muted hover:bg-ink/[0.08] border border-ink/5 hover:border-ink/10'}
             `}
         >
             <div className="flex items-center gap-2.5 z-10">
-                <span className={`text-[13px] transition-all duration-300 ${active ? 'scale-110 drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}>
+                <span className={`text-[13px] transition-all duration-300 ${active ? 'scale-110 drop-shadow-[0_0_5px_rgb(var(--cp-accent-rgb) / 0.5)]' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}>
                     {icon}
                 </span>
-                <span className={`truncate ${active ? 'text-white' : ''}`}>{label}</span>
+                <span className={`truncate ${active ? 'text-text-primary' : ''}`}>{label}</span>
             </div>
 
             <div className="flex-shrink-0 z-10">
                 {active ? (
-                    <div className="flex h-4 w-4 items-center justify-center rounded-full bg-accent-ai text-black shadow-[0_0_8px_rgba(34,211,238,0.5)] scale-100 animate-in zoom-in-50 duration-300">
+                    <div className="flex h-4 w-4 items-center justify-center rounded-full bg-accent-ai text-black shadow-[0_0_8px_rgb(var(--cp-accent-rgb) / 0.5)] scale-100 animate-in zoom-in-50 duration-300">
                         <Check size={12} />
                     </div>
                 ) : (
-                    <div className="h-4 w-4 rounded-full border-2 border-white/10 group-hover:border-white/20 transition-all duration-300" />
+                    <div className="h-4 w-4 rounded-full border-2 border-ink/10 group-hover:border-ink/20 transition-all duration-300" />
                 )}
             </div>
 

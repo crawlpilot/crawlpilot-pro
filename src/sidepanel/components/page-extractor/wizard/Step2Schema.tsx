@@ -213,7 +213,7 @@ export function Step2Schema({
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2 min-w-0">
                                         <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold flex-shrink-0" style={{
-                                            backgroundColor: el.action === 'click' ? 'var(--color-accent-warning-10, rgba(245,158,11,0.1))' : 'var(--color-primary-10, rgba(34,211,238,0.1))',
+                                            backgroundColor: el.action === 'click' ? 'var(--color-accent-warning-10, rgba(245,158,11,0.1))' : 'var(--color-primary-10, rgb(var(--cp-accent-rgb) / 0.1))',
                                             color: el.action === 'click' ? 'var(--color-accent-warning, #f59e0b)' : 'var(--color-primary, #22d3ee)'
                                         }}>
                                             {el.action === 'click' ? '⚡' : (el.type === 'image' ? '🖼' : (el.type === 'link' ? '🔗' : (el.type === 'list' || el.type === 'table' ? '☰' : 'Tx')))}

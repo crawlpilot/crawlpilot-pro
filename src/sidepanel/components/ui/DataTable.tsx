@@ -262,7 +262,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
                 </div>
 
                 <Tooltip title={t('toolbar.statusTooltip')}>
-                    <div className="text-xs text-text-muted font-mono bg-white/5 px-3 py-1.5 rounded border-l-2 border-accent-ai/30" role="status" aria-live="polite" aria-label={`${processedRowData.length} rows, ${processedColumnDefs.length} columns after filtering`}>
+                    <div className="text-xs text-text-muted font-mono bg-ink/5 px-3 py-1.5 rounded border-l-2 border-accent-ai/30" role="status" aria-live="polite" aria-label={`${processedRowData.length} rows, ${processedColumnDefs.length} columns after filtering`}>
                         {t('toolbar.status', { rows: processedRowData.length, cols: processedColumnDefs.length })}
                     </div>
                 </Tooltip>
@@ -338,7 +338,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
                     <div className="flex items-center justify-between mb-3 px-1">
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-bold text-text-muted uppercase tracking-widest">{t('filters.title')}</span>
-                            <div className="h-1 w-1 rounded-full bg-accent-ai shadow-[0_0_8px_rgba(34,211,238,1)]"></div>
+                            <div className="h-1 w-1 rounded-full bg-accent-ai shadow-[0_0_8px_rgb(var(--cp-accent-rgb) / 1)]"></div>
                         </div>
                         <Tooltip title={t('filters.resetTooltip')}>
                             <button

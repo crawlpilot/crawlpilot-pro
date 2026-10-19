@@ -62,11 +62,11 @@ export function ImageCard({ img, selected, onSelect, onPreview, onDownload }: {
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                     {!!img.duplicates?.length && (
                         <Tooltip title={t('duplicatesTip', { count: img.duplicates.length })}>
-                            <Box sx={{ px: 0.5, borderRadius: '3px', bgcolor: 'rgba(255,255,255,0.18)', fontSize: '7px', fontWeight: 800, color: '#fff' }}>+{img.duplicates.length}</Box>
+                            <Box sx={{ px: 0.5, borderRadius: '3px', bgcolor: 'rgb(var(--cp-ink-rgb) / 0.18)', fontSize: '7px', fontWeight: 800, color: '#fff' }}>+{img.duplicates.length}</Box>
                         </Tooltip>
                     )}
-                    {img.hidden && <Box sx={{ px: 0.5, borderRadius: '3px', bgcolor: 'rgba(255,255,255,0.18)', fontSize: '7px', fontWeight: 800, color: '#fff' }}>{t('hiddenBadge')}</Box>}
-                    <Box sx={{ px: 0.5, borderRadius: '3px', bgcolor: 'rgba(255,255,255,0.18)', fontSize: '7px', fontWeight: 800, color: '#fff', textTransform: 'uppercase' }}>{type || '?'}</Box>
+                    {img.hidden && <Box sx={{ px: 0.5, borderRadius: '3px', bgcolor: 'rgb(var(--cp-ink-rgb) / 0.18)', fontSize: '7px', fontWeight: 800, color: '#fff' }}>{t('hiddenBadge')}</Box>}
+                    <Box sx={{ px: 0.5, borderRadius: '3px', bgcolor: 'rgb(var(--cp-ink-rgb) / 0.18)', fontSize: '7px', fontWeight: 800, color: '#fff', textTransform: 'uppercase' }}>{type || '?'}</Box>
                 </Box>
             </Box>
         </Box>

@@ -62,6 +62,9 @@ export function JobDetailsDialog({ detailsJob, onClose, onDelete, onRerun }: Pro
                                 {detailsJob.stats?.stopReason && (
                                     <DetailItem label={t('stopReason', 'Stopped because')} value={stopReasonLabel(detailsJob.stats.stopReason)} />
                                 )}
+                                {detailsJob.stats?.eased && (
+                                    <DetailItem label={t('eased', 'Tabs at a time')} value={`${detailsJob.stats.eased.to}, because ${detailsJob.stats.eased.reason}`} />
+                                )}
                                 {!!detailsJob.stats?.duplicatesRemoved && (
                                     <DetailItem label={t('duplicatesSkipped', 'Duplicates skipped')} value={detailsJob.stats.duplicatesRemoved} />
                                 )}
@@ -236,7 +239,7 @@ export function JobDetailsDialog({ detailsJob, onClose, onDelete, onRerun }: Pro
 
 function DetailItem({ label, value, capitalize }: any) {
     return (
-        <Box sx={{ p: 1.5, border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: alpha('#fff', 0.02) }}>
+        <Box sx={{ p: 1.5, border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'rgb(var(--cp-ink-rgb) / 0.02)' }}>
             <Typography variant="caption" fontWeight={700} color="text.disabled" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 {label}
             </Typography>

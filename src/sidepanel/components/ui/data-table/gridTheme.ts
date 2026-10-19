@@ -1,24 +1,24 @@
-/** The data table's dark ag-grid theme. */
+/** The data table's ag-grid theme, on the panel's colour variables (light or dark). */
 export const GRID_CSS = `
 .ag-theme-alpine {
-    --ag-background-color: #020617;
-    --ag-foreground-color: #E5E7EB;
-    --ag-header-background-color: #0d1321;
-    --ag-header-foreground-color: #CBD5E1;
-    --ag-border-color: rgba(148, 163, 184, 0.18);
-    --ag-row-hover-color: rgba(255, 255, 255, 0.06);
-    --ag-row-border-color: rgba(148, 163, 184, 0.10);
-    --ag-odd-row-background-color: #020617;
-    --ag-even-row-background-color: rgba(255, 255, 255, 0.025);
-    --ag-input-focus-border-color: #22D3EE;
+    --ag-background-color: var(--cp-surface);
+    --ag-foreground-color: var(--cp-text);
+    --ag-header-background-color: var(--cp-surface-2);
+    --ag-header-foreground-color: var(--cp-text-2);
+    --ag-border-color: rgb(var(--cp-ink-rgb) / 0.18);
+    --ag-row-hover-color: rgb(var(--cp-ink-rgb) / 0.06);
+    --ag-row-border-color: rgb(var(--cp-ink-rgb) / 0.10);
+    --ag-odd-row-background-color: var(--cp-surface);
+    --ag-even-row-background-color: rgb(var(--cp-ink-rgb) / 0.025);
+    --ag-input-focus-border-color: var(--cp-accent);
     --ag-font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --ag-font-size: 13px;
     --ag-header-height: 44px;
     --ag-row-height: 40px;
-    --ag-selected-row-background-color: rgba(244, 208, 63, 0.10);
+    --ag-selected-row-background-color: rgb(var(--cp-accent-rgb) / 0.10);
     --ag-cell-horizontal-padding: 12px;
 
-    --custom-grid-border: 1px solid rgba(148, 163, 184, 0.18);
+    --custom-grid-border: 1px solid rgb(var(--cp-ink-rgb) / 0.18);
 }
 
 /* Grid Container */
@@ -30,7 +30,7 @@ export const GRID_CSS = `
 
 /* Header Styling */
 .ag-header {
-    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    border-bottom: 1px solid rgb(var(--cp-ink-rgb) / 0.18);
     font-size: 12.5px;
     font-weight: 600;
     letter-spacing: 0.01em;
@@ -38,11 +38,11 @@ export const GRID_CSS = `
 }
 
 .ag-header-cell:hover {
-    background-color: rgba(255, 255, 255, 0.04);
+    background-color: rgb(var(--cp-ink-rgb) / 0.04);
 }
 
 .ag-header-icon {
-    color: #64748B;
+    color: var(--cp-text-3);
 }
 
 /* Row Styling */
@@ -52,7 +52,7 @@ export const GRID_CSS = `
 }
 
 .ag-row-selected {
-    border-left: 2px solid #F4D03F !important;
+    border-left: 2px solid var(--cp-accent) !important;
 }
 
 /* Cell Styling */
@@ -65,7 +65,7 @@ export const GRID_CSS = `
 
 .ag-cell-focus {
     border: none !important;
-    outline: 1px solid rgba(34, 211, 238, 0.4) !important;
+    outline: 1px solid rgb(var(--cp-accent-rgb) / 0.4) !important;
     outline-offset: -1px;
     z-index: 10;
 }
@@ -81,20 +81,20 @@ export const GRID_CSS = `
 }
 
 .ag-body-viewport::-webkit-scrollbar-thumb {
-    background-color: #334155;
+    background-color: rgb(var(--cp-ink-rgb) / 0.18);
     border-radius: 4px;
-    border: 2px solid #020617;
+    border: 2px solid var(--cp-surface);
 }
 
 .ag-body-viewport::-webkit-scrollbar-thumb:hover {
-    background-color: #475569;
+    background-color: rgb(var(--cp-ink-rgb) / 0.3);
 }
 
 /* Pagination */
 .ag-paging-panel {
-    border-top: 1px solid rgba(148, 163, 184, 0.18);
+    border-top: 1px solid rgb(var(--cp-ink-rgb) / 0.18);
     font-size: 12.5px;
-    color: #94A3B8;
+    color: var(--cp-text-2);
     padding: 8px 16px;
 }
 `;

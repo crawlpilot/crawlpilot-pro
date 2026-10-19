@@ -150,3 +150,7 @@ chrome-extension.zip
 # Playwright e2e
 test-results/
 playwright-report/
+chewy.html
+homedepot.html
+linkedin.html
+walamrt-toys.html

@@ -69,7 +69,7 @@ export function ColumnHeader(props: any) {
                 </div>
             ) : (
                 <div className="flex items-center justify-between w-full">
-                    <span className="truncate font-semibold text-gray-700 dark:text-gray-300" title={props.displayName}>{props.displayName}</span>
+                    <span className="truncate font-semibold text-gray-700 dark:text-text-primary" title={props.displayName}>{props.displayName}</span>
                     <div className="flex items-center opacity-30 group-hover:opacity-100 transition-opacity ml-1">
                         <Tooltip title="Clean / set type">
                             <IconButton

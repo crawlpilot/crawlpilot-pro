@@ -40,7 +40,7 @@ export default function UtilitiesPage({ onBack }: UtilitiesPageProps) {
             <ToolHeader title={t('title')} subtitle={t('subtitle')} onBack={onBack} />
 
             {/* Content */}
-            <Box sx={{ flex: 1, overflowY: 'auto', p: 2, '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.08)', borderRadius: 4 } }}>
+            <Box sx={{ flex: 1, overflowY: 'auto', p: 2, '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { background: 'rgb(var(--cp-ink-rgb) / 0.08)', borderRadius: 4 } }}>
                 <Stack spacing={1.5}>
                     {/* Right-Click Unlocker */}
                     <Card
@@ -48,10 +48,10 @@ export default function UtilitiesPage({ onBack }: UtilitiesPageProps) {
                         sx={{
                             borderRadius: 3,
                             border: '1px solid',
-                            borderColor: rightClickEnabled ? 'rgba(6, 182, 212, 0.3)' : 'divider',
-                            bgcolor: rightClickEnabled ? 'rgba(6, 182, 212, 0.04)' : 'background.paper',
+                            borderColor: rightClickEnabled ? 'rgb(var(--cp-accent-rgb) / 0.3)' : 'divider',
+                            bgcolor: rightClickEnabled ? 'rgb(var(--cp-accent-rgb) / 0.04)' : 'background.paper',
                             transition: 'all 0.2s ease',
-                            '&:hover': { borderColor: rightClickEnabled ? 'rgba(6, 182, 212, 0.5)' : 'rgba(255,255,255,0.12)' }
+                            '&:hover': { borderColor: rightClickEnabled ? 'rgb(var(--cp-accent-rgb) / 0.5)' : 'rgb(var(--cp-ink-rgb) / 0.12)' }
                         }}
                     >
                         <CardContent sx={{ p: '16px !important' }}>
@@ -59,8 +59,8 @@ export default function UtilitiesPage({ onBack }: UtilitiesPageProps) {
                                 <Box sx={{
                                     p: 1.25,
                                     borderRadius: 2.5,
-                                    bgcolor: rightClickEnabled ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255,255,255,0.04)',
-                                    color: rightClickEnabled ? '#06b6d4' : 'text.secondary',
+                                    bgcolor: rightClickEnabled ? 'rgb(var(--cp-accent-rgb) / 0.15)' : 'rgb(var(--cp-ink-rgb) / 0.04)',
+                                    color: rightClickEnabled ? 'var(--cp-accent)' : 'text.secondary',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -74,7 +74,7 @@ export default function UtilitiesPage({ onBack }: UtilitiesPageProps) {
                                             {t('rightClickUnlocker.title')}
                                         </Typography>
                                         {rightClickEnabled && (
-                                            <Chip label={t('rightClickUnlocker.active')} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4', borderRadius: '6px' }} />
+                                            <Chip label={t('rightClickUnlocker.active')} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: 'rgb(var(--cp-accent-rgb) / 0.15)', color: 'var(--cp-accent)', borderRadius: '6px' }} />
                                         )}
                                     </Box>
                                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', lineHeight: 1.4, mt: 0.25, display: 'block' }}>
@@ -87,13 +87,13 @@ export default function UtilitiesPage({ onBack }: UtilitiesPageProps) {
                                     disabled={loading}
                                     size="small"
                                     sx={{
-                                        '& .MuiSwitch-switchBase.Mui-checked': { color: '#06b6d4' },
-                                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#06b6d4' }
+                                        '& .MuiSwitch-switchBase.Mui-checked': { color: 'var(--cp-accent)' },
+                                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: 'var(--cp-accent)' }
                                     }}
                                 />
                             </Box>
                             <Fade in={rightClickEnabled}>
-                                <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgb(var(--cp-ink-rgb) / 0.05)' }}>
                                     <Stack direction="row" spacing={1.5}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
                                             <MousePointer size={11} />
@@ -119,8 +119,8 @@ export default function UtilitiesPage({ onBack }: UtilitiesPageProps) {
                         sx={{
                             borderRadius: 3,
                             border: '1px dashed',
-                            borderColor: 'rgba(255,255,255,0.06)',
-                            bgcolor: 'rgba(255,255,255,0.01)',
+                            borderColor: 'rgb(var(--cp-ink-rgb) / 0.06)',
+                            bgcolor: 'rgb(var(--cp-ink-rgb) / 0.01)',
                         }}
                     >
                         <CardContent sx={{ p: '14px !important', textAlign: 'center' }}>

@@ -174,7 +174,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                 <div className="text-center">
                     <div className="text-5xl mb-4">❌</div>
                     <h2 className="text-xl font-bold text-accent-red mb-2">{t('page.errorTitle')}</h2>
-                    <p className="text-gray-300">{loadError}</p>
+                    <p className="text-text-primary">{loadError}</p>
                 </div>
             </div>
         );
@@ -222,7 +222,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                     {/* Right: Stats & Source */}
                     {tableData && (
                         <div className="flex items-center gap-4 shrink-0">
-                            <div className="hidden lg:flex items-center gap-2 text-xs text-text-muted bg-white/5 py-1.5 px-3 rounded-full border border-white/5">
+                            <div className="hidden lg:flex items-center gap-2 text-xs text-text-muted bg-ink/5 py-1.5 px-3 rounded-full border border-ink/5">
                                 <Calendar className="w-3.5 h-3.5" />
                                 <span>{new Date(tableData.createdAt).toLocaleDateString()}</span>
                             </div>
@@ -231,7 +231,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                                 <Badge variant="primary" className="text-xs uppercase tracking-wider font-bold px-2 py-1 rounded-md bg-primary/20 text-primary border border-primary/20">
                                     {hasMore ? `${rows.length.toLocaleString()} / ${totalRows.toLocaleString()} ${t('page.rows')}` : `${rows.length} ${t('page.rows')}`}
                                 </Badge>
-                                <Badge variant="info" className="text-xs uppercase tracking-wider font-bold px-2 py-1 rounded-md bg-white/5 text-text-primary border border-white/10">
+                                <Badge variant="info" className="text-xs uppercase tracking-wider font-bold px-2 py-1 rounded-md bg-ink/5 text-text-primary border border-ink/10">
                                     {tableData.columns.length} {t('page.columns')}
                                 </Badge>
                             </div>
@@ -241,7 +241,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                                     href={tableData.sourceUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/5 text-accent-ai hover:text-white transition-all text-xs font-semibold"
+                                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-ink/5 text-accent-ai hover:text-text-primary transition-all text-xs font-semibold"
                                     title={t('page.source')}
                                     aria-label={`${t('page.source')}: ${tableData.sourceUrl}`}
                                 >
@@ -271,27 +271,27 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                                         if (e.key === 'Escape') setExportOpen(false);
                                     }}
                                 >
-                                        <div className="px-3 py-1.5 text-xs font-bold text-gray-500 uppercase border-bottom border-border-subtle bg-white/5">
+                                        <div className="px-3 py-1.5 text-xs font-bold text-text-muted uppercase border-bottom border-border-subtle bg-ink/5">
                                             {t('page.localExport')}
                                         </div>
                                         <button
                                             onClick={() => { handleExportCSV(); setExportOpen(false); }}
                                             role="menuitem"
-                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-white/5 focus-visible:bg-white/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
+                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
                                         >
                                             <FileText className="w-3 h-3 text-green-400" /> {t('page.exportCSV')}
                                         </button>
                                         <button
                                             onClick={() => { handleExportJSON(); setExportOpen(false); }}
                                             role="menuitem"
-                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-white/5 focus-visible:bg-white/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
+                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
                                         >
                                             <FileJson className="w-3 h-3 text-yellow-400" /> {t('page.exportJSON')}
                                         </button>
                                         <button
                                             onClick={() => { openSchemaMap(); setExportOpen(false); }}
                                             role="menuitem"
-                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-white/5 focus-visible:bg-white/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
+                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
                                         >
                                             <FileJson className="w-3 h-3 text-emerald-400" /> JSON to a schema…
                                         </button>
@@ -299,33 +299,33 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                                             <button
                                                 onClick={() => { handleExportMarkdown(); setExportOpen(false); }}
                                                 role="menuitem"
-                                                className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-white/5 focus-visible:bg-white/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
+                                                className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
                                             >
                                                 <FileText className="w-3 h-3 text-blue-300" /> {t('page.exportMarkdown')}
                                             </button>
                                         )}
 
-                                        <div className="px-3 py-1.5 text-xs font-bold text-gray-500 uppercase border-y border-border-subtle bg-white/5">
+                                        <div className="px-3 py-1.5 text-xs font-bold text-text-muted uppercase border-y border-border-subtle bg-ink/5">
                                             {t('page.integrations')}
                                         </div>
                                         <button
                                             onClick={() => { handlePremiumExport('webhook'); setExportOpen(false); }}
                                             role="menuitem"
-                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-white/5 focus-visible:bg-white/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
+                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
                                         >
                                             <Webhook className="w-3 h-3 text-purple-400" /> {t('page.exportWebhook')}
                                         </button>
                                         <button
                                             onClick={() => { handlePremiumExport('airtable'); setExportOpen(false); }}
                                             role="menuitem"
-                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-white/5 focus-visible:bg-white/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
+                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
                                         >
                                             <Database className="w-3 h-3 text-cyan-400" /> {t('page.exportAirtable')}
                                         </button>
                                         <button
                                             onClick={() => { handlePremiumExport('zapier'); setExportOpen(false); }}
                                             role="menuitem"
-                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-white/5 focus-visible:bg-white/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
+                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
                                         >
                                             <Zap className="w-3 h-3 text-orange-400" /> {t('page.exportZapier')}
                                         </button>

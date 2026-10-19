@@ -169,7 +169,7 @@ export default function ReconPanel() {
                     <Stack spacing={0.75}>
                         {rec!.notes.map((n, i) => (
                             <Box key={i} sx={{ display: 'flex', gap: 1 }}>
-                                <Lightbulb size={13} style={{ color: '#F59E0B', marginTop: 2, flexShrink: 0 }} />
+                                <Lightbulb size={13} style={{ color: 'var(--cp-warning)', marginTop: 2, flexShrink: 0 }} />
                                 <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.72rem' }}>{n}</Typography>
                             </Box>
                         ))}

@@ -6,33 +6,84 @@
 
 @import "tailwindcss";
 
+/*
+ * Colours as variables with a light and a dark value (docs/plans/ux-simplification-plan.md §4.7).
+ * Light is the default, like the website's Daylight look: white surfaces, near-black ink and
+ * buttons, amber as the one accent. `data-theme="dark"` on <html> switches to the dark set.
+ * Components use these (or the Tailwind tokens below), never raw hex: `rgb(var(--cp-ink-rgb) / .06)`
+ * is a faint overlay that works in both.
+ */
+:root {
+    --cp-bg: #F6F7F9;
+    --cp-surface: #FFFFFF;
+    --cp-surface-rgb: 255 255 255;
+    --cp-surface-2: #F1F3F6;
+    --cp-text: #14232F;
+    --cp-text-2: #51606D;
+    --cp-text-3: #67717E;
+    --cp-ink-rgb: 20 35 47;
+    --cp-accent: #B87514;
+    --cp-accent-rgb: 184 117 20;
+    --cp-primary: #14232F;
+    --cp-primary-hover: #26394A;
+    --cp-on-primary: #FFFFFF;
+    --cp-success: #0F8A60;
+    --cp-warning: #B87514;
+    --cp-error: #D23A4A;
+    --cp-info: #0E7490;
+    --cp-border: rgba(20, 35, 47, 0.10);
+    --cp-ring: rgba(184, 117, 20, 0.35);
+    color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+    --cp-bg: #030712;
+    --cp-surface: #0B0F19;
+    --cp-surface-rgb: 11 15 25;
+    --cp-surface-2: #111827;
+    --cp-text: #F8FAFC;
+    --cp-text-2: #94A3B8;
+    --cp-text-3: #7C8796;
+    --cp-ink-rgb: 255 255 255;
+    --cp-accent: #22D3EE;
+    --cp-accent-rgb: 6 182 212;
+    --cp-primary: #06B6D4;
+    --cp-primary-hover: #0891B2;
+    --cp-on-primary: #FFFFFF;
+    --cp-success: #10B981;
+    --cp-warning: #F59E0B;
+    --cp-error: #F43F5E;
+    --cp-info: #22D3EE;
+    --cp-border: rgba(148, 163, 184, 0.12);
+    --cp-ring: rgba(34, 211, 238, 0.4);
+    color-scheme: dark;
+}
+
 @theme {
-    /* 2️⃣ Color Scheme */
-    /* Primary (Cyan) */
-    --color-primary-DEFAULT: #06B6D4;
-    --color-primary-hover: #0891B2;
-    --color-primary-soft: #CFFAFE;
+    --color-primary-DEFAULT: var(--cp-primary);
+    --color-primary: var(--cp-primary);
+    --color-primary-hover: var(--cp-primary-hover);
+    --color-primary-soft: rgb(var(--cp-accent-rgb) / 0.15);
 
-    /* Backgrounds (Deep Slate) */
-    --color-background-app: #0F172A;
-    --color-background-panel: #020617;
-    --color-background-card: #020617;
+    --color-background-app: var(--cp-bg);
+    --color-background-panel: var(--cp-bg);
+    --color-background-card: var(--cp-surface);
+    --color-surface-darker: var(--cp-surface-2);
 
-    /* Text */
-    --color-text-primary: #E5E7EB;
-    --color-text-secondary: #9CA3AF;
-    --color-text-muted: #64748B;
+    --color-text-primary: var(--cp-text);
+    --color-text-secondary: var(--cp-text-2);
+    --color-text-muted: var(--cp-text-3);
 
-    /* Accents */
-    --color-accent-ai: #22D3EE;
-    /* Cyan */
-    --color-accent-success: #22C55E;
-    --color-accent-warning: #F59E0B;
-    --color-accent-error: #EF4444;
+    /* Faint overlays and lines that read on both: bg-ink/5, border-ink/10. */
+    --color-ink: rgb(var(--cp-ink-rgb));
 
-    /* Borders & UI */
-    --color-border-subtle: rgba(148, 163, 184, 0.12);
-    --color-ring-focus: rgba(34, 211, 238, 0.4);
+    --color-accent-ai: var(--cp-accent);
+    --color-accent-success: var(--cp-success);
+    --color-accent-warning: var(--cp-warning);
+    --color-accent-error: var(--cp-error);
+
+    --color-border-subtle: var(--cp-border);
+    --color-ring-focus: var(--cp-ring);
 
     /* 3️⃣ Typography */
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -92,14 +143,14 @@
     }
 
     ::-webkit-scrollbar-thumb {
-        background-color: #334155;
+        background-color: rgb(var(--cp-ink-rgb) / 0.18);
         /* Slate 700 */
         border-radius: 4px;
         border: 2px solid var(--color-background-app);
     }
 
     ::-webkit-scrollbar-thumb:hover {
-        background-color: #475569;
+        background-color: rgb(var(--cp-ink-rgb) / 0.3);
         /* Slate 600 */
     }
 
@@ -157,7 +208,7 @@
 
     .btn-primary {
         background-color: var(--color-primary-DEFAULT);
-        color: white;
+        color: var(--cp-on-primary);
         border: none;
     }
 
@@ -172,7 +223,7 @@
     }
 
     .btn-secondary:hover:not(:disabled) {
-        background-color: rgba(255, 255, 255, 0.04);
+        background-color: rgb(var(--cp-ink-rgb) / 0.04);
         border-color: rgba(148, 163, 184, 0.2);
     }
 
@@ -183,7 +234,7 @@
     }
 
     .btn-ghost:hover:not(:disabled) {
-        background-color: rgba(255, 255, 255, 0.04);
+        background-color: rgb(var(--cp-ink-rgb) / 0.04);
         color: var(--color-text-primary);
     }
 

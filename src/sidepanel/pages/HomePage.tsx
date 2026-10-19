@@ -6,7 +6,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Box, Button, ButtonBase, Collapse, Skeleton, Stack, Typography } from '@mui/material';
 import {
-    ChevronDown, ChevronRight, FileSearch, FileText, Image as ImageIcon, Layers, List, MessageSquareText, MousePointerClick,
+    ChevronDown, ChevronRight, FileText, Image as ImageIcon, Layers, List, MessageSquareText, MousePointerClick,
     Radar, ShoppingBag, Sparkles, Table2, Unlock,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -77,8 +77,8 @@ function Suggestion({ summary, web, onNavigate }: { summary: PageSummary | null;
                     : { icon: <MousePointerClick size={18} />, title: web ? t('page.none') : t('page.notWeb'), hint: web ? t('page.noneHint') : undefined, action: t('page.noneAction'), view: 'list-extractor' };
     return (
         <Box sx={{
-            borderRadius: '14px', p: 2, border: 1, borderColor: 'rgba(6,182,212,0.35)',
-            background: 'linear-gradient(180deg, rgba(6,182,212,0.08) 0%, rgba(6,182,212,0.02) 100%)',
+            borderRadius: '14px', p: 2, border: 1, borderColor: 'rgb(var(--cp-accent-rgb) / 0.35)',
+            background: 'linear-gradient(180deg, rgb(var(--cp-accent-rgb) / 0.08) 0%, rgb(var(--cp-accent-rgb) / 0.02) 100%)',
         }}>
             <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
                 <Box sx={{ color: 'primary.light', display: 'flex', mt: 0.25 }}>{s.icon}</Box>
@@ -102,7 +102,7 @@ function IntentTile({ icon, title, hint, onClick }: { icon: ReactNode; title: st
         <ButtonBase onClick={onClick} sx={{
             display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5, p: 1.5, borderRadius: '12px', textAlign: 'left',
             border: 1, borderColor: 'divider', bgcolor: 'background.paper', transition: 'border-color .15s, background-color .15s',
-            '&:hover': { borderColor: 'rgba(255,255,255,0.18)', bgcolor: 'rgba(255,255,255,0.03)' },
+            '&:hover': { borderColor: 'rgb(var(--cp-ink-rgb) / 0.18)', bgcolor: 'rgb(var(--cp-ink-rgb) / 0.03)' },
         }}>
             <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>
             <Typography sx={{ fontWeight: 600, fontSize: '0.8rem', color: 'text.primary', lineHeight: 1.25 }}>{title}</Typography>
@@ -113,13 +113,13 @@ function IntentTile({ icon, title, hint, onClick }: { icon: ReactNode; title: st
 
 function ToolRow({ icon, title, hint, onClick }: { icon: ReactNode; title: string; hint: string; onClick: () => void }) {
     return (
-        <ButtonBase onClick={onClick} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%', px: 1.25, py: 1, borderRadius: '10px', textAlign: 'left', '&:hover': { bgcolor: 'rgba(255,255,255,0.04)' } }}>
+        <ButtonBase onClick={onClick} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%', px: 1.25, py: 1, borderRadius: '10px', textAlign: 'left', '&:hover': { bgcolor: 'rgb(var(--cp-ink-rgb) / 0.04)' } }}>
             <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>
             <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography sx={{ fontWeight: 600, fontSize: '0.78rem', color: 'text.primary' }}>{title}</Typography>
                 <Typography variant="caption" noWrap sx={{ display: 'block', fontSize: '0.68rem' }}>{hint}</Typography>
             </Box>
-            <ChevronRight size={15} color="#64748B" />
+            <ChevronRight size={15} color="var(--cp-text-3)" />
         </ButtonBase>
     );
 }
@@ -167,14 +167,14 @@ export default function HomePage({ onNavigate, isTabConnected = true }: HomePage
                             {recent.map((table, i) => (
                                 <ButtonBase key={table.id} onClick={() => openTable(table.id)} sx={{
                                     display: 'flex', alignItems: 'center', gap: 1.25, width: '100%', px: 1.5, py: 1, textAlign: 'left',
-                                    borderTop: i ? 1 : 0, borderColor: 'divider', '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' },
+                                    borderTop: i ? 1 : 0, borderColor: 'divider', '&:hover': { bgcolor: 'rgb(var(--cp-ink-rgb) / 0.03)' },
                                 }}>
-                                    <Table2 size={15} color="#94A3B8" />
+                                    <Table2 size={15} color="var(--cp-text-2)" />
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography noWrap sx={{ fontSize: '0.76rem', fontWeight: 600, color: 'text.primary' }}>{table.name}</Typography>
                                         <Typography variant="caption" sx={{ fontSize: '0.66rem' }}>{t('recent.rows', { count: table.rowCount })} · {ago(table.updatedAt || table.createdAt, tc)}</Typography>
                                     </Box>
-                                    <ChevronRight size={15} color="#64748B" />
+                                    <ChevronRight size={15} color="var(--cp-text-3)" />
                                 </ButtonBase>
                             ))}
                         </Box>
@@ -190,7 +190,6 @@ export default function HomePage({ onNavigate, isTabConnected = true }: HomePage
                     <Collapse in={more}>
                         <Stack spacing={0.25} sx={{ mt: 0.75 }}>
                             <ToolRow icon={<FileText size={17} />} title={t('pageExtractor.title')} hint={t('pageExtractor.description')} onClick={() => onNavigate('page-extractor')} />
-                            <ToolRow icon={<FileSearch size={17} />} title={t('metadataExtractor.title')} hint={t('metadataExtractor.description')} onClick={() => onNavigate('metadata-extractor')} />
                             <ToolRow icon={<Radar size={17} />} title={t('scraperToolkit.title')} hint={t('scraperToolkit.description')} onClick={() => onNavigate('toolkit')} />
                             <ToolRow icon={<Unlock size={17} />} title={t('browserUtilities.title')} hint={t('browserUtilities.description')} onClick={() => onNavigate('utilities')} />
                         </Stack>

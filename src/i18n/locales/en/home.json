@@ -19,7 +19,7 @@
   },
   "pageExtractor": {
     "title": "Same details from many pages",
-    "description": "Give a list of pages; get the same fields from each",
+    "description": "A list of pages; the same details from each, or their article text",
     "tooltip": "Define your fields once, then CrawlPilot visits each URL automatically — great for lead research, pricing audits and content collection at scale"
   },
   "metadataExtractor": {

@@ -107,7 +107,7 @@ export function MetadataStep2Run({
                 <Database className="w-10 h-10 text-primary mx-auto mb-3 opacity-80" />
                 <h2 className="text-lg font-bold mb-1">{t('step2.title')}</h2>
                 <p className="text-text-muted mb-5 text-sm">
-                    {t('step2.subtitle')} — {selectedUrls.length} {selectedUrls.length === 1 ? 'URL' : 'URLs'}
+                    {t('step2.subtitle')}
                 </p>
 
                 {/* Pre-run: options */}
@@ -134,7 +134,7 @@ export function MetadataStep2Run({
                             </div>
 
                             <div className="border-t border-border-subtle px-4 py-3 space-y-2.5">
-                                <span className="text-[11px] font-semibold text-text-primary uppercase tracking-wider block">Performance</span>
+                                <span className="text-[11px] font-semibold text-text-primary uppercase tracking-wider block">Speed</span>
                                 <div className="flex items-center justify-between gap-3">
                                     <div className="min-w-0">
                                         <p className="text-xs text-text-primary">{t('options.concurrency')}</p>
@@ -292,7 +292,7 @@ export function MetadataStep2Run({
                                 className="btn btn-ghost w-full h-10 text-sm border border-accent-ai/30 hover:bg-accent-ai/10 text-accent-ai"
                             >
                                 <ExternalLink className="w-4 h-4 mr-2" />
-                                {t('results.previewResults')} ({completedCount} {completedCount === 1 ? 'page' : 'pages'} so far)
+                                {t('results.previewResults')} ({completedCount})
                             </button>
                         )}
                     </div>

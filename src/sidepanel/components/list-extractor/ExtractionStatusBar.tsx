@@ -5,10 +5,10 @@ import { Box, Paper, Typography, Button, LinearProgress, Stack, styled } from '@
 const GlassPaper = styled(Paper)(() => ({
     padding: '20px',
     borderRadius: '24px',
-    background: 'rgba(15, 23, 42, 0.85)',
+    background: 'rgb(var(--cp-surface-rgb) / 0.85)',
     backdropFilter: 'blur(16px) saturate(180%)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    boxShadow: '0 25px 40px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(6, 182, 212, 0.05)',
+    border: '1px solid rgb(var(--cp-ink-rgb) / 0.08)',
+    boxShadow: '0 25px 40px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgb(var(--cp-accent-rgb) / 0.05)',
     position: 'relative',
     overflow: 'hidden',
     '&::before': {
@@ -18,7 +18,7 @@ const GlassPaper = styled(Paper)(() => ({
         left: 0,
         right: 0,
         height: '1px',
-        background: 'linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.3), transparent)',
+        background: 'linear-gradient(90deg, transparent, rgb(var(--cp-accent-rgb) / 0.3), transparent)',
     }
 }));
 
@@ -26,8 +26,8 @@ const StatBox = styled(Box)(() => ({
     flex: 1,
     padding: '12px 16px',
     borderRadius: '16px',
-    background: 'rgba(255, 255, 255, 0.03)',
-    border: '1px solid rgba(255, 255, 255, 0.05)',
+    background: 'rgb(var(--cp-ink-rgb) / 0.03)',
+    border: '1px solid rgb(var(--cp-ink-rgb) / 0.05)',
     display: 'flex',
     flexDirection: 'column',
     gap: '4px'
@@ -56,20 +56,20 @@ export function ExtractionStatusBar({ status, hasSelectors, selectorCount, onSta
                                         width: 40,
                                         height: 40,
                                         borderRadius: '12px',
-                                        bgcolor: 'rgba(6, 182, 212, 0.1)',
-                                        color: '#06b6d4',
+                                        bgcolor: 'rgb(var(--cp-accent-rgb) / 0.1)',
+                                        color: 'var(--cp-accent)',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        boxShadow: '0 0 15px rgba(6, 182, 212, 0.2)'
+                                        boxShadow: '0 0 15px rgb(var(--cp-accent-rgb) / 0.2)'
                                     }}>
                                         <RefreshCw className="animate-spin" size={20} strokeWidth={2.5} />
                                     </Box>
                                     <Box>
-                                        <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.2 }}>
+                                        <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.2 }}>
                                             Extracting Data
                                         </Typography>
-                                        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)', fontWeight: 500 }}>
+                                        <Typography variant="caption" sx={{ color: 'rgb(var(--cp-ink-rgb) / 0.5)', fontWeight: 500 }}>
                                             Scanning page and collecting items...
                                         </Typography>
                                     </Box>
@@ -102,11 +102,11 @@ export function ExtractionStatusBar({ status, hasSelectors, selectorCount, onSta
                                 <StatBox>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                                         <Database size={12} className="text-cyan-400" />
-                                        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                                        <Typography variant="caption" sx={{ color: 'rgb(var(--cp-ink-rgb) / 0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
                                             Items Found
                                         </Typography>
                                     </Box>
-                                    <Typography variant="h5" sx={{ color: 'white', fontWeight: 800, fontFamily: 'monospace' }}>
+                                    <Typography variant="h5" sx={{ color: 'text.primary', fontWeight: 800, fontFamily: 'monospace' }}>
                                         {status.totalProcessed}
                                     </Typography>
                                 </StatBox>
@@ -114,17 +114,17 @@ export function ExtractionStatusBar({ status, hasSelectors, selectorCount, onSta
                                 <StatBox>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                                         <Layers size={12} className="text-cyan-400" />
-                                        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                                        <Typography variant="caption" sx={{ color: 'rgb(var(--cp-ink-rgb) / 0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
                                             Current Page
                                         </Typography>
                                     </Box>
-                                    <Typography variant="h5" sx={{ color: 'white', fontWeight: 800, fontFamily: 'monospace' }}>
+                                    <Typography variant="h5" sx={{ color: 'text.primary', fontWeight: 800, fontFamily: 'monospace' }}>
                                         {status.currentPage || 1}
                                     </Typography>
                                 </StatBox>
                             </Box>
                             {!!status.duplicates && (
-                                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)', mt: -1 }}>
+                                <Typography variant="caption" sx={{ color: 'rgb(var(--cp-ink-rgb) / 0.5)', mt: -1 }}>
                                     {status.duplicates} duplicate row{status.duplicates !== 1 ? 's' : ''} from earlier pages skipped
                                 </Typography>
                             )}
@@ -136,10 +136,10 @@ export function ExtractionStatusBar({ status, hasSelectors, selectorCount, onSta
                                     sx={{
                                         borderRadius: 2,
                                         height: 6,
-                                        bgcolor: 'rgba(255, 255, 255, 0.05)',
+                                        bgcolor: 'rgb(var(--cp-ink-rgb) / 0.05)',
                                         '& .MuiLinearProgress-bar': {
                                             background: 'linear-gradient(90deg, #06b6d4, #3b82f6)',
-                                            boxShadow: '0 0 10px rgba(6, 182, 212, 0.5)'
+                                            boxShadow: '0 0 10px rgb(var(--cp-accent-rgb) / 0.5)'
                                         }
                                     }}
                                 />
@@ -159,14 +159,14 @@ export function ExtractionStatusBar({ status, hasSelectors, selectorCount, onSta
                         borderRadius: '20px',
                         py: 2,
                         background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
-                        boxShadow: '0 10px 25px -5px rgba(6, 182, 212, 0.4)',
+                        boxShadow: '0 10px 25px -5px rgb(var(--cp-accent-rgb) / 0.4)',
                         fontSize: '1rem',
                         textTransform: 'none',
                         fontWeight: 700,
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        border: '1px solid rgb(var(--cp-ink-rgb) / 0.1)',
                         '&:hover': {
                             background: 'linear-gradient(135deg, #0891b2 0%, #2563eb 100%)',
-                            boxShadow: '0 15px 30px -5px rgba(6, 182, 212, 0.5)',
+                            boxShadow: '0 15px 30px -5px rgb(var(--cp-accent-rgb) / 0.5)',
                             transform: 'translateY(-2px)'
                         },
                         '&:active': {

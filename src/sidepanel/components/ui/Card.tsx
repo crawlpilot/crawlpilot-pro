@@ -15,7 +15,7 @@ export default function Card({ children, hover = false, glow = false, className 
 
     return (
         <div
-            className={`card ${hover ? 'hover:border-gray-600 transition-colors cursor-pointer' : ''} ${className}`}
+            className={`card ${hover ? 'hover:border-border-subtle transition-colors cursor-pointer' : ''} ${className}`}
             onClick={onClick}
             {...props}
         >

@@ -99,7 +99,10 @@ async function unregisterShim(): Promise<void> {
 interface RunState {
     jobId: number;
     urls: UrlState[];
+    /** Rows not yet saved to the preview table: saved rows leave memory (a long run stays small). */
     rows: Row[];
+    /** Every row the run read so far, saved or not. */
+    rowCount: number;
     columns: Column[];
     startTime: number;
 }
@@ -118,6 +121,15 @@ const CHALLENGE_POLL_MS = 3000;
 const CHALLENGE_TIMEOUT_MS = 3 * 60_000;
 /** Rows a preview save waits for (except the last). */
 const PREVIEW_BATCH = 3;
+/** The least time between two progress messages. */
+const BROADCAST_MS = 250;
+/** Easing off: the first pages set what "normal" opening time is on this computer. */
+const BASELINE_PAGES = 3;
+/** A page this many times slower to open than normal (and at least SLOW_MIN_MS) means the computer struggles. */
+const SLOW_FACTOR = 3;
+const SLOW_MIN_MS = 15_000;
+/** Pages between two easings. */
+const EASE_EVERY = 5;
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -138,9 +150,17 @@ export class JobRunner {
     private tabPool: TabPool | null = null;
     private stopping = false;
     private previewTableId: number | null = null;
-    private previewSaved = 0;
+    private lastBroadcast = 0;
+    /** Workers allowed to take pages; lowered when the computer struggles (`easeOff`). */
+    private workerLimit = 1;
+    private liveWorkers = 0;
+    /** How long each page took to open, in order: the first ones are this computer's normal. */
+    private openTimes: number[] = [];
+    private eased: { to: number; reason: string } | null = null;
+    private easedAtPage = -Infinity;
+    private broadcastTimer: ReturnType<typeof setTimeout> | null = null;
     // Workers save previews from their finally blocks concurrently; the chain keeps two of them
-    // from both creating a preview table or racing on `previewSaved`.
+    // from both creating a preview table or saving the same rows.
     private previewChain: Promise<void> = Promise.resolve();
     /** Earliest time the next page of a host may start (per-host gap and backoff). */
     private hostNextAllowed = new Map<string, number>();
@@ -167,10 +187,9 @@ export class JobRunner {
         try {
             const jobId = await this.createJob(job, urls);
             this.previewTableId = null;
-            this.previewSaved = 0;
             this.previewChain = Promise.resolve();
             this.hostNextAllowed.clear();
-            this.state = { jobId, urls: urls.map(url => ({ url, status: 'queued' })), rows: [], columns: [], startTime: Date.now() };
+            this.state = { jobId, urls: urls.map(url => ({ url, status: 'queued' })), rows: [], rowCount: 0, columns: [], startTime: Date.now() };
             await this.persist();
             chrome.alarms.create(this.alarmName, { periodInMinutes: 0.4 });
 
@@ -224,6 +243,11 @@ export class JobRunner {
         if (!this.state || !this.tabPool) return;
         const queue = this.state.urls.map(u => u.url);
         const workers = Math.min(this.tabPool.availableSlots + this.tabPool.activeCount, queue.length);
+        this.workerLimit = workers;
+        this.liveWorkers = 0;
+        this.openTimes = [];
+        this.eased = null;
+        this.easedAtPage = -Infinity;
         const running: Promise<void>[] = [];
         for (let i = 0; i < workers; i++) {
             // Stagger startup so tab/window creation doesn't all land in one tick.
@@ -235,12 +259,44 @@ export class JobRunner {
     }
 
     private async worker(queue: string[]) {
-        while (!this.stopping) {
-            const url = queue.shift();
-            if (!url) break;
-            await this.waitForHost(url);
-            if (this.stopping) break;
-            if (await this.processUrl(url) === 'retry') queue.push(url);
+        this.liveWorkers++;
+        try {
+            while (!this.stopping) {
+                // Fewer tabs at once since the computer struggled: this worker leaves its pages to the others.
+                if (this.liveWorkers > this.workerLimit) break;
+                const url = queue.shift();
+                if (!url) break;
+                await this.waitForHost(url);
+                if (this.stopping) break;
+                if (await this.processUrl(url) === 'retry') queue.push(url);
+            }
+        } finally {
+            this.liveWorkers--;
+        }
+    }
+
+    /**
+     * One tab fewer at a time for the rest of the run (never below one), when the computer shows it
+     * is short of memory or CPU: a page opening far slower than the run's first pages did, or Chrome
+     * discarding or closing a run tab. At most once per EASE_EVERY pages, so one slow page doesn't
+     * empty the pool.
+     */
+    private easeOff(reason: string) {
+        const page = this.openTimes.length;
+        if (this.workerLimit <= 1 || this.stopping || page - this.easedAtPage < EASE_EVERY) return;
+        this.workerLimit--;
+        this.easedAtPage = page;
+        this.eased = { to: this.workerLimit, reason };
+        console.warn(`[${this.kind} run] ${this.workerLimit} tab(s) at a time from now: ${reason}`);
+    }
+
+    /** Records how long a page took to open, and eases off when it is far slower than the first pages. */
+    private noteOpen(ms: number) {
+        this.openTimes.push(ms);
+        if (this.openTimes.length <= BASELINE_PAGES) return;
+        const normal = [...this.openTimes.slice(0, BASELINE_PAGES)].sort((a, b) => a - b)[Math.floor(BASELINE_PAGES / 2)];
+        if (ms > Math.max(normal * SLOW_FACTOR, SLOW_MIN_MS)) {
+            this.easeOff(`pages took ${Math.round(ms / 1000)} s to open (the first took ${Math.round(normal / 1000)} s)`);
         }
     }
 
@@ -328,7 +384,10 @@ export class JobRunner {
 
         try {
             const mode = status.window || this.windowPages >= WINDOW_AFTER ? 'window' : 'background';
+            const opening = Date.now();
             tabId = await tabPool.acquireTab(url, mode);
+            if (tabId !== null) this.noteOpen(Date.now() - opening);
+            else if (/discarded|closed/.test(tabPool.lastFailure)) this.easeOff('Chrome discarded or closed a run tab');
             if (tabId === null && !this.stopping) {
                 // Pool full or content script not ready: one more try.
                 await sleep(2000);
@@ -366,6 +425,7 @@ export class JobRunner {
             }
             page.columns?.forEach(c => { if (!state.columns.some(k => k.id === c.id)) state.columns.push(c); });
             state.rows.push(...page.rows.map(r => ({ ...r, source_url: url })));
+            state.rowCount += page.rows.length;
             status.status = 'done';
         } catch (err: any) {
             console.error(`[${this.kind} run] ${url}:`, err?.message);
@@ -393,7 +453,7 @@ export class JobRunner {
             items: rows,
             columns: job!.columns(state!.columns),
             source_url: state!.urls[0]?.url || '',
-            count: state!.rows.length,
+            count: state!.rowCount,
             timestamp: new Date().toISOString(),
         };
     }
@@ -402,7 +462,7 @@ export class JobRunner {
     private async savePreview() {
         const { state } = this;
         if (!state) return;
-        const fresh = state.rows.slice(this.previewSaved);
+        const fresh = state.rows.slice();
         if (fresh.length === 0) return;
         const finished = state.urls.filter(u => u.status === 'done' || u.status === 'error').length;
         if (fresh.length < PREVIEW_BATCH && finished < state.urls.length) return;
@@ -413,7 +473,8 @@ export class JobRunner {
             name, jobId: state.jobId, preview: true, ...(this.previewTableId !== null ? { tableId: this.previewTableId } : {}),
         });
         if (this.previewTableId === null) this.previewTableId = id;
-        this.previewSaved = state.rows.length;
+        // Rows read while this saved stay for the next save.
+        state.rows.splice(0, fresh.length);
         this.broadcast();
     }
 
@@ -421,6 +482,7 @@ export class JobRunner {
         const status = this.state?.urls.find(u => u.tabId === tabId && (u.status === 'extracting' || u.status === 'waiting'));
         if (!status) return;
         // Closed by a stop: not read, not failed.
+        if (!this.stopping) this.easeOff('a run tab was closed (Chrome may have run out of memory)');
         status.status = this.stopping ? 'queued' : 'error';
         status.error = this.stopping ? undefined : 'Tab was closed during extraction';
         status.tabId = undefined;
@@ -440,7 +502,7 @@ export class JobRunner {
         await unregisterShim();
         await this.previewChain.catch(() => undefined);
 
-        const { jobId, urls, rows, startTime } = state;
+        const { jobId, urls, rows, rowCount, startTime } = state;
         const done = urls.filter(u => u.status === 'done').length;
         const errors = urls.filter(u => u.status === 'error').length;
         // Every page failed: the run failed, with the first page's reason (never "completed, 0 rows").
@@ -449,13 +511,14 @@ export class JobRunner {
             error = errors === urls.length && first ? `Every page failed. First error: ${first}` : `No page could be read (${errors} failed).`;
         }
         let tableId: number | undefined;
+        // The final statuses before "complete": no progress message after it.
+        this.sendProgress();
 
         try {
-            if (rows.length > 0) {
+            if (rowCount > 0) {
                 const name = buildFinalName(urls.map(u => u.url), done);
                 if (this.previewTableId !== null) {
-                    const unsaved = rows.slice(this.previewSaved);
-                    if (unsaved.length > 0) await db.tables.appendRows(this.previewTableId, unsaved);
+                    if (rows.length > 0) await db.tables.appendRows(this.previewTableId, rows);
                     await db.tables.setColumns(this.previewTableId, job.columns(state.columns));
                     await db.tables.update(this.previewTableId, {
                         name,
@@ -473,14 +536,15 @@ export class JobRunner {
                 tableId,
                 ...(error ? { error } : {}),
                 stats: {
-                    startTime, endTime: Date.now(), itemsExtracted: rows.length, pagesVisited: done, errors, stoppedByUser, verdicts: this.verdictCounts(),
+                    startTime, endTime: Date.now(), itemsExtracted: rowCount, pagesVisited: done, errors, stoppedByUser, verdicts: this.verdictCounts(),
                     ...(urls.some(u => u.steps) ? { steps: stepStats(urls.filter(u => u.steps)) } : {}),
+                    ...(this.eased ? { eased: this.eased } : {}),
                 },
             });
-            void send(MESSAGES[this.kind].complete, { jobId, tableId, totalItems: rows.length, success: !error && !stoppedByUser, error, stoppedByUser });
+            void send(MESSAGES[this.kind].complete, { jobId, tableId, totalItems: rowCount, success: !error && !stoppedByUser, error, stoppedByUser });
         } catch (e) {
             console.error(`[${this.kind} run] Finishing failed:`, e);
-            void send(MESSAGES[this.kind].complete, { jobId, tableId, totalItems: rows.length, success: false, error: String(e), stoppedByUser });
+            void send(MESSAGES[this.kind].complete, { jobId, tableId, totalItems: rowCount, success: false, error: String(e), stoppedByUser });
         } finally {
             chrome.alarms.clear(this.alarmName);
             if (this.tabPool) {
@@ -491,13 +555,26 @@ export class JobRunner {
             this.job = null;
             this.state = null;
             this.previewTableId = null;
-            this.previewSaved = 0;
         }
     }
 
+    /**
+     * Progress to the side panel, at most every BROADCAST_MS: each message carries every URL's
+     * status, so on a long run (thousands of URLs, several tabs) a message per event is a lot of
+     * copying for a slow computer. The latest state always follows within BROADCAST_MS.
+     */
     private broadcast() {
+        if (!this.state) return;
+        const wait = BROADCAST_MS - (Date.now() - this.lastBroadcast);
+        if (wait <= 0) { this.sendProgress(); return; }
+        this.broadcastTimer ??= setTimeout(() => { this.broadcastTimer = null; this.sendProgress(); }, wait);
+    }
+
+    private sendProgress() {
         const { state } = this;
+        if (this.broadcastTimer) { clearTimeout(this.broadcastTimer); this.broadcastTimer = null; }
         if (!state) return;
+        this.lastBroadcast = Date.now();
         void send(MESSAGES[this.kind].progress, {
             jobId: state.jobId,
             completedUrls: state.urls.filter(u => u.status === 'done').length,

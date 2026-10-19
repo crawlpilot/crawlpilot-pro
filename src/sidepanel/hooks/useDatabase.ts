@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { downloadText } from '../services/download';
+import { csvText } from '@/shared/utils/csv';
 import { db } from '@/shared/db';
 import { Table, Row } from '@/shared/types/database';
 import type { JobWithRecipe } from '@/shared/db';
@@ -101,26 +102,7 @@ export function useExportData() {
 
     const exportToCSV = (columns: { id: string, name: string }[], data: any[], fileName: string) => {
         try {
-            const headers = columns.map((col) => col.name).join(',');
-            const csvRows = data.map((row) => {
-                return columns
-                    .map((col) => {
-                        const raw = row[col.id];
-                        if (raw === undefined || raw === null) return '';
-                        // Arrays/objects (e.g. image_array columns) must be stringified before
-                        // quoting — passed through raw they'd implicitly join with commas via
-                        // Array.prototype.toString, silently shifting every column after them.
-                        const value = typeof raw === 'string' ? raw : JSON.stringify(raw);
-                        const escaped = value.replace(/"/g, '""');
-                        if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
-                            return `"${escaped}"`;
-                        }
-                        return value;
-                    })
-                    .join(',');
-            });
-            const csv = [headers, ...csvRows].join('\n');
-            downloadFile(csv, `${fileName}.csv`, 'text/csv;charset=utf-8;');
+            downloadFile(csvText(columns, data), `${fileName}.csv`, 'text/csv;charset=utf-8;');
         } catch (err) {
             console.error('Export CSV failed:', err);
             throw err;

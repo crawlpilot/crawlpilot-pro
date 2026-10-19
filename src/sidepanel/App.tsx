@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ThemeProvider, CssBaseline, Box, Button, Typography } from '@mui/material';
 import { Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { muiTheme } from './theme/muiTheme';
+import { createAppTheme } from './theme/muiTheme';
+import { useColorMode } from './theme/colorMode';
 import HomePage from './pages/HomePage';
 import ListExtractorPage from './pages/ListExtractorPage';
 import PageExtractorPage from './pages/PageExtractorPage';
@@ -15,7 +16,6 @@ import SettingsPage from './pages/SettingsPage';
 import TextSummarizerPage from './pages/TextSummarizerPage';
 import AiExtractPage from './pages/AiExtractPage';
 import WelcomePage from './pages/WelcomePage';
-import MetadataExtractorPage from './pages/MetadataExtractorPage';
 import ToolkitPage from './pages/ToolkitPage';
 
 import Header from './components/ui/Header';
@@ -26,6 +26,8 @@ function App() {
     const [isGlobalExtracting, setIsGlobalExtracting] = useState(false);
     const { isTabConnected, isConnecting, connectTab } = useTabSync();
     const { t } = useTranslation('common');
+    const { mode } = useColorMode();
+    const theme = useMemo(() => createAppTheme(mode), [mode]);
 
 
     useEffect(() => {
@@ -47,7 +49,8 @@ function App() {
             case 'page-extractor':
                 return <PageExtractorPage onBack={() => setCurrentView('home')} />;
             case 'metadata-extractor':
-                return <MetadataExtractorPage onBack={() => setCurrentView('home')} />;
+                // Merged into "Same details from many pages": the article details, starting from this page.
+                return <PageExtractorPage onBack={() => setCurrentView('home')} preset="article" />;
             case 'ai-extract':
                 return <AiExtractPage onBack={() => setCurrentView('home')} />;
             case 'text-summarizer':
@@ -82,7 +85,7 @@ function App() {
 
 
     return (
-        <ThemeProvider theme={muiTheme}>
+        <ThemeProvider theme={theme}>
             <CssBaseline />
             <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
                 {/* Global Connection Banner */}

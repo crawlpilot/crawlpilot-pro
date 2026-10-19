@@ -23,9 +23,9 @@ import { selectorFamily } from '../../../shared/selectors/grade';
 const StyledDialog = styled(Dialog)(() => ({
     '& .MuiDialog-paper': {
         borderRadius: '20px',
-        backgroundColor: '#0f172a',
-        backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05))',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'var(--cp-surface)',
+        backgroundImage: 'linear-gradient(rgb(var(--cp-ink-rgb) / 0.05), rgb(var(--cp-ink-rgb) / 0.05))',
+        border: '1px solid rgb(var(--cp-ink-rgb) / 0.1)',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
         maxWidth: '600px',
         width: '100%'
@@ -34,13 +34,13 @@ const StyledDialog = styled(Dialog)(() => ({
 
 const SelectorItemRow = styled(Paper)(() => ({
     padding: '16px',
-    backgroundColor: 'rgba(2, 6, 23, 0.5)',
-    border: '1px solid rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgb(var(--cp-surface-rgb) / 0.5)',
+    border: '1px solid rgb(var(--cp-ink-rgb) / 0.05)',
     borderRadius: '12px',
     transition: 'all 0.2s',
     '&:hover': {
-        border: '1px solid rgba(6, 182, 212, 0.3)',
-        backgroundColor: 'rgba(2, 6, 23, 0.8)'
+        border: '1px solid rgb(var(--cp-accent-rgb) / 0.3)',
+        backgroundColor: 'rgb(var(--cp-surface-rgb) / 0.8)'
     }
 }));
 
@@ -116,7 +116,7 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+                borderBottom: '1px solid rgb(var(--cp-ink-rgb) / 0.05)'
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Box sx={{
@@ -129,15 +129,15 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
                         <Settings2 size={18} />
                     </Box>
                     <Box>
-                        <Typography variant="h6" sx={{ color: 'white', fontWeight: 700, lineHeight: 1.2 }}>
+                        <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 700, lineHeight: 1.2 }}>
                             {title}
                         </Typography>
-                        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.4)', fontWeight: 500 }}>
+                        <Typography variant="caption" sx={{ color: 'rgb(var(--cp-ink-rgb) / 0.4)', fontWeight: 500 }}>
                             Configuration for structural data detection
                         </Typography>
                     </Box>
                 </Box>
-                <IconButton onClick={onCancel} size="small" sx={{ color: 'rgba(255, 255, 255, 0.3)' }}>
+                <IconButton onClick={onCancel} size="small" sx={{ color: 'rgb(var(--cp-ink-rgb) / 0.3)' }}>
                     <X size={20} />
                 </IconButton>
             </DialogTitle>
@@ -149,7 +149,7 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     <GripVertical size={14} className="text-slate-600" />
-                                    <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    <Typography variant="caption" sx={{ color: 'rgb(var(--cp-ink-rgb) / 0.3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                         Selector {index + 1}
                                     </Typography>
                                     {sel.value.trim() && (
@@ -157,9 +157,9 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
                                             px: 1,
                                             py: 0.25,
                                             borderRadius: '4px',
-                                            bgcolor: 'rgba(6, 182, 212, 0.1)',
-                                            border: '1px solid rgba(6, 182, 212, 0.2)',
-                                            color: '#06b6d4',
+                                            bgcolor: 'rgb(var(--cp-accent-rgb) / 0.1)',
+                                            border: '1px solid rgb(var(--cp-accent-rgb) / 0.2)',
+                                            color: 'var(--cp-accent)',
                                             fontSize: '9px',
                                             fontWeight: 800,
                                             textTransform: 'uppercase'
@@ -187,11 +187,11 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
                                     onChange={(e) => handleTypeChange(sel.id, e.target.value as 'CSS' | 'XPath')}
                                     sx={{
                                         minWidth: '90px',
-                                        bgcolor: 'rgba(0, 0, 0, 0.2)',
+                                        bgcolor: 'rgb(var(--cp-ink-rgb) / 0.05)',
                                         borderRadius: '8px',
                                         fontSize: '0.75rem',
                                         fontWeight: 700,
-                                        '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.1)' }
+                                        '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgb(var(--cp-ink-rgb) / 0.1)' }
                                     }}
                                 >
                                     <MenuItem value="CSS" sx={{ fontSize: '0.75rem' }}>CSS</MenuItem>
@@ -209,12 +209,12 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
                                         sx: {
                                             fontFamily: 'monospace',
                                             fontSize: '0.8rem',
-                                            bgcolor: 'rgba(0, 0, 0, 0.2)',
+                                            bgcolor: 'rgb(var(--cp-ink-rgb) / 0.05)',
                                             borderRadius: '8px',
                                             color: 'cyan.100'
                                         }
                                     }}
-                                    sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.1)' } }}
+                                    sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgb(var(--cp-ink-rgb) / 0.1)' } }}
                                 />
 
                                 <Tooltip title="Verify on page">
@@ -225,8 +225,8 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
                                         sx={{
                                             minWidth: '40px',
                                             borderRadius: '8px',
-                                            borderColor: 'rgba(255, 255, 255, 0.1)',
-                                            color: 'rgba(255, 255, 255, 0.5)',
+                                            borderColor: 'rgb(var(--cp-ink-rgb) / 0.1)',
+                                            color: 'rgb(var(--cp-ink-rgb) / 0.5)',
                                             '&:hover': { borderColor: 'primary.main', color: 'primary.main' }
                                         }}
                                     >
@@ -246,13 +246,13 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
                             py: 1.5,
                             borderStyle: 'dashed',
                             borderRadius: '12px',
-                            borderColor: 'rgba(255, 255, 255, 0.1)',
-                            color: 'rgba(255, 255, 255, 0.4)',
+                            borderColor: 'rgb(var(--cp-ink-rgb) / 0.1)',
+                            color: 'rgb(var(--cp-ink-rgb) / 0.4)',
                             textTransform: 'none',
                             fontWeight: 600,
                             '&:hover': {
                                 borderColor: 'primary.main',
-                                bgcolor: 'rgba(6, 182, 212, 0.05)',
+                                bgcolor: 'rgb(var(--cp-accent-rgb) / 0.05)',
                                 color: 'primary.main'
                             }
                         }}
@@ -262,10 +262,10 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
                 </Stack>
             </DialogContent>
 
-            <DialogActions sx={{ p: 3, pt: 1, borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+            <DialogActions sx={{ p: 3, pt: 1, borderTop: '1px solid rgb(var(--cp-ink-rgb) / 0.05)' }}>
                 <Button
                     onClick={onCancel}
-                    sx={{ color: 'rgba(255, 255, 255, 0.5)', textTransform: 'none', fontWeight: 600 }}
+                    sx={{ color: 'rgb(var(--cp-ink-rgb) / 0.5)', textTransform: 'none', fontWeight: 600 }}
                 >
                     Cancel
                 </Button>
@@ -280,7 +280,7 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
                         textTransform: 'none',
                         fontWeight: 700,
                         background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
-                        boxShadow: '0 10px 20px -5px rgba(6, 182, 212, 0.3)'
+                        boxShadow: '0 10px 20px -5px rgb(var(--cp-accent-rgb) / 0.3)'
                     }}
                 >
                     Apply Changes

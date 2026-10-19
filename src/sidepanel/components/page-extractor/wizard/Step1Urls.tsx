@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Check, Compass, Database, Upload, X } from 'lucide-react';
+import { Check, Compass, Database, FileText, Upload, X } from 'lucide-react';
+import { pageTabId } from '../../../hooks/usePageTab';
 import Badge from '../../ui/Badge';
 import SiteDiscoveryDialog from '../SiteDiscoveryDialog';
 
@@ -47,6 +48,12 @@ export function Step1Urls({
         // Reset so same file can be re-uploaded if needed
         e.target.value = '';
     };
+    const addThisPage = async () => {
+        const id = await pageTabId();
+        const url = id ? (await chrome.tabs.get(id)).url : undefined;
+        if (url && /^https?:/.test(url)) setSelectedUrls(Array.from(new Set([...selectedUrls, url])));
+    };
+
     return (
         <div className="space-y-4 animate-fade-in-up">
             <div className={`card transition-all duration-300 ${selectedUrls.length > 0 ? 'border-accent-success/30' : ''}`}>
@@ -110,6 +117,19 @@ export function Step1Urls({
                         </p>
 
                         <div className="space-y-2">
+                            <button
+                                className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border-subtle hover:border-primary/50 hover:bg-surface-lighter transition-all text-left group"
+                                onClick={addThisPage}
+                            >
+                                <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center">
+                                    <FileText className="w-5 h-5 text-primary" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-semibold text-text-primary group-hover:text-primary transition-colors">This page</h3>
+                                    <p className="text-xs text-text-muted mt-0.5">The page open in this tab</p>
+                                </div>
+                            </button>
+
                             <button
                                 className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashed border-border-subtle hover:border-primary/50 hover:bg-surface-lighter transition-all text-left group"
                                 onClick={() => csvInputRef.current?.click()}

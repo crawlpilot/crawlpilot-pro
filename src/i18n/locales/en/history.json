@@ -45,5 +45,21 @@
   "noMatches": "Nothing here",
   "noMatchesHint": "No saved data with this status.",
   "startFirst": "Get data from this page",
-  "allTables": "All tables"
+  "allTables": "All tables",
+  "status": {
+    "ready": "Ready",
+    "running": "Running",
+    "stopped": "Stopped early",
+    "failed": "Failed"
+  },
+  "rows_one": "{{count}} row",
+  "rows_other": "{{count}} rows",
+  "runningRows": "{{count}} so far",
+  "open": "Open",
+  "download": "Download",
+  "more": "More",
+  "remove": "Remove",
+  "removeConfirm": "Remove “{{name}}” and its rows?",
+  "failedHint": "This run stopped with an error before saving. Run it again, or open the details.",
+  "unknownSite": "Unknown site"
 }

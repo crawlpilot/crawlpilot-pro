@@ -35,10 +35,10 @@ export default function Input({
                 '& .MuiOutlinedInput-root': {
                     bgcolor: 'background.paper',
                     '& fieldset': {
-                        borderColor: 'rgba(148, 163, 184, 0.12)',
+                        borderColor: 'rgb(var(--cp-ink-rgb) / 0.12)',
                     },
                     '&:hover fieldset': {
-                        borderColor: 'rgba(148, 163, 184, 0.3)',
+                        borderColor: 'rgb(var(--cp-ink-rgb) / 0.3)',
                     },
                 }
             }}

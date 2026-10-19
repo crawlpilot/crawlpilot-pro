@@ -34,4 +34,19 @@ test('point at one card, then one click gets all three pages', async ({ panel, e
     await expect(ui.getByText('Done · 12 items from 3 pages')).toBeVisible({ timeout: 60_000 });
     await expect(ui.getByRole('button', { name: 'See your table' })).toBeVisible();
     if (SHOTS) await ui.screenshot({ path: `${SHOTS}/list-quick-done.png` });
+
+    // My data has it as one card: open, download (CSV with every row), run again.
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=history&tabId=${tabId}`);
+    // Other tests in this worker saved data too: this run's card is the one with 12 rows, newest first.
+    const rows = ui.getByText(/12 rows/).first();
+    await expect(rows).toBeVisible({ timeout: 10_000 });
+    const saved = rows.locator('xpath=ancestor::div[.//button[normalize-space()="Open"]][1]');
+    await expect(saved.getByRole('button', { name: 'Open' })).toBeVisible();
+    await expect(saved.getByRole('button', { name: 'Run again' })).toBeVisible();
+    const download = ui.waitForEvent('download');
+    await saved.getByRole('button', { name: 'Download' }).click();
+    const file = await download;
+    const csv = await (await import('node:fs/promises')).readFile((await file.path())!, 'utf8');
+    expect(csv.trim().split('\n')).toHaveLength(13);
+    if (SHOTS) await ui.screenshot({ path: `${SHOTS}/my-data.png` });
 });

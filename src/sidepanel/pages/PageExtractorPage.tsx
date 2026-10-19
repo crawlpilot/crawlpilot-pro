@@ -9,9 +9,16 @@ import { WizardLayout } from '../components/wizard/WizardLayout';
 import { Step1Urls } from '../components/page-extractor/wizard/Step1Urls';
 import { Step2Schema } from '../components/page-extractor/wizard/Step2Schema';
 import { Step3Review } from '../components/page-extractor/wizard/Step3Review';
+import { DetailsChoice } from '../components/page-extractor/wizard/DetailsChoice';
+import { MetadataStep2Run } from '../components/metadata-extractor/MetadataStep2Run';
+import { useMetadataExtraction } from '../hooks/useMetadataExtraction';
+import type { MetadataExtractOptions } from '../../shared/types/metadata';
+import { pageTabId } from '../hooks/usePageTab';
 
 interface PageExtractorPageProps {
     onBack: () => void;
+    /** `article`: the ready-made article details, starting from the open page (the old Metadata Extractor). */
+    preset?: 'article';
 }
 
 /** The picked list's fields (columns that carry readers), if the pick was a list. */
@@ -21,9 +28,15 @@ function listFields(payload: any): any[] | undefined {
     return isList && Array.isArray(cols) && cols.some((c: any) => c?.reader) ? cols : undefined;
 }
 
-export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
+export default function PageExtractorPage({ onBack, preset }: PageExtractorPageProps) {
     const { t } = useTranslation('pageExtractor');
     const [step, setStep] = useState(1);
+    // Which details: not chosen yet, the article set (metadata run), or fields the user points at.
+    const [details, setDetails] = useState<'choose' | 'article' | 'fields'>(preset === 'article' ? 'article' : 'choose');
+    const [articleOptions, setArticleOptions] = useState<MetadataExtractOptions>({
+        includeLinks: true, includeTables: true, includeImages: false, includeMetadata: true, outputText: false,
+    });
+    const article = useMetadataExtraction();
     const [showDataSourceSelector, setShowDataSourceSelector] = useState(false);
     const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
     const [isTabLoading, setIsTabLoading] = useState(false);
@@ -104,6 +117,8 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
 
     const handleReset = useCallback(() => {
         setStep(1);
+        setDetails(preset === 'article' ? 'article' : 'choose');
+        article.resetState();
         setSelectedUrls([]);
         setElements([]);
         setExtractionViewport(null);
@@ -119,7 +134,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         setPauseOnChallenge(true);
         setListOutput('nested');
         resetStoppedState();
-    }, [resetStoppedState]);
+    }, [resetStoppedState, preset, article]);
 
     const handleViewPartialResults = useCallback((tableId: number) => {
         const targetUrl = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${tableId}`);
@@ -276,6 +291,21 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
     };
 
 
+    /** One step back: from the run to the choice of details (or to the pages, for the article preset). */
+    const goBack = () => {
+        if (step === 3 && details === 'article') { setStep(preset === 'article' ? 1 : 2); if (preset !== 'article') setDetails('choose'); return; }
+        if (step === 2 && details === 'fields') { setDetails('choose'); return; }
+        setStep(step - 1);
+    };
+
+    useEffect(() => {
+        if (preset !== 'article') return;
+        void pageTabId().then(async id => {
+            const url = id ? (await chrome.tabs.get(id)).url : undefined;
+            if (url && /^https?:/.test(url)) setSelectedUrls(prev => (prev.length ? prev : [url]));
+        });
+    }, [preset]);
+
     const handleRemoveUrl = (index: number) => {
         setSelectedUrls(prev => prev.filter((_, i) => i !== index));
     };
@@ -301,19 +331,23 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                         setSelectedUrls={setSelectedUrls}
                         setShowDataSourceSelector={setShowDataSourceSelector}
                         handleRemoveUrl={handleRemoveUrl}
-                        onNext={() => {
-                            if (selectedUrls.length > 0) {
-                                chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                                    if (tabs.length > 0 && tabs[0].id) {
-                                        chrome.tabs.update(tabs[0].id, { url: selectedUrls[0] });
-                                    }
-                                });
-                            }
-                            setStep(2);
-                        }}
+                        onNext={() => setStep(details === 'article' ? 3 : 2)}
                     />
                 );
             case 2:
+                if (details !== 'fields') {
+                    return (
+                        <DetailsChoice pages={selectedUrls.length}
+                            onArticle={() => { setDetails('article'); setStep(3); }}
+                            onFields={() => {
+                                // Fields are picked on the first page: open it in this tab.
+                                if (selectedUrls.length > 0) {
+                                    void pageTabId().then(id => { if (id) void chrome.tabs.update(id, { url: selectedUrls[0] }); });
+                                }
+                                setDetails('fields');
+                            }} />
+                    );
+                }
                 return (
                     <Step2Schema
                         elements={elements}
@@ -335,7 +369,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                         setElementName={setElementName}
                         elementAction={elementAction}
                         handleSaveElement={handleSaveElement}
-                        onBack={() => setStep(1)}
+                        onBack={() => setDetails('choose')}
                         onNext={() => setStep(3)}
                         onCancel={stopSelection}
                         sendHighlightMessage={sendHighlightMessage}
@@ -346,6 +380,35 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                     />
                 );
             case 3:
+                if (details === 'article') {
+                    return (
+                        <MetadataStep2Run
+                            selectedUrls={selectedUrls}
+                            options={articleOptions}
+                            setOptions={setArticleOptions}
+                            maxConcurrent={maxConcurrent}
+                            setMaxConcurrent={setMaxConcurrent}
+                            requestDelay={requestDelay}
+                            setRequestDelay={setRequestDelay}
+                            isExtracting={article.isExtracting}
+                            isStopping={article.isStopping}
+                            hasStopped={article.hasStopped}
+                            hasCompleted={article.hasCompleted}
+                            completedTableId={article.completedTableId}
+                            stoppedTableId={article.stoppedTableId}
+                            completedCount={article.completedCount}
+                            totalCount={article.totalCount}
+                            activeTabs={article.activeTabs}
+                            urlStatuses={article.urlStatuses}
+                            previewTableId={article.previewTableId}
+                            onStart={() => article.startMetadataExtraction(selectedUrls, articleOptions, { maxConcurrent, requestDelay })}
+                            onStop={article.stopMetadataExtraction}
+                            onBack={goBack}
+                            onViewResults={id => chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${id}`) })}
+                            onReset={handleReset}
+                        />
+                    );
+                }
                 return (
                     <Step3Review
                         elements={elements}
@@ -407,8 +470,8 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             currentStep={step}
             totalSteps={3}
             stepLabels={t('stepLabels', { returnObjects: true }) as string[]}
-            onBack={step === 1 ? onBack : () => setStep(step - 1)}
-            isLoading={isTabLoading && step <= 2}
+            onBack={step === 1 ? onBack : goBack}
+            isLoading={isTabLoading && step === 2 && details === 'fields'}
         >
             {renderStep()}
         </WizardLayout>

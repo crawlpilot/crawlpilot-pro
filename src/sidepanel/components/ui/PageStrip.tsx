@@ -7,16 +7,16 @@ export default function PageStrip({ page, message }: { page: PageTab; message?: 
     if (!page.web) {
         return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.75, borderRadius: '12px', bgcolor: 'rgba(244,63,94,0.08)', border: 1, borderColor: 'rgba(244,63,94,0.3)' }}>
-                <AlertCircle size={15} style={{ color: '#F43F5E', flexShrink: 0 }} />
+                <AlertCircle size={15} style={{ color: 'var(--cp-error)', flexShrink: 0 }} />
                 <Typography variant="caption" sx={{ color: 'text.primary' }}>{message ?? 'Open a web page (http or https) to use CrawlPilot on it.'}</Typography>
             </Box>
         );
     }
     return (
         <Tooltip title={page.url} placement="bottom-start">
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.6, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.03)', border: 1, borderColor: 'divider', minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.6, borderRadius: '12px', bgcolor: 'rgb(var(--cp-ink-rgb) / 0.03)', border: 1, borderColor: 'divider', minWidth: 0 }}>
                 <Avatar src={page.favIconUrl} variant="rounded" sx={{ width: 16, height: 16, bgcolor: 'transparent' }}>
-                    <Globe size={13} color="#94A3B8" />
+                    <Globe size={13} color="var(--cp-text-2)" />
                 </Avatar>
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                     <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 600, display: 'block', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

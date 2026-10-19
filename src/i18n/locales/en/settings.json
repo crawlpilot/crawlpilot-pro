@@ -10,7 +10,7 @@
     "calculating": "Calculating...",
     "autoClear": "Auto-Clear Old Data",
     "autoClearDescription": "Remove data older than the selected timeframe.",
-    "clearButton": "Clear Data Older Than {{days}} Days ({{count}} Jobs)",
+    "clearButton": "Clear data older than {{days}} days ({{count}})",
     "daysLabel": "{{count}} Days"
   },
   "integrations": {
@@ -49,5 +49,11 @@
     "github": "GitHub Repository",
     "githubSub": "Star us on GitHub",
     "version": "Version"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "Match system"
   }
 }

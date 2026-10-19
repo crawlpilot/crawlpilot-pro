@@ -33,9 +33,9 @@ function ResponseRow({ e, hits, selected, onClick }: { e: NetEntry; hits?: Value
     const { host, path } = splitUrl(e.url);
     return (
         <Box onClick={onClick} role="button" aria-pressed={selected}
-            sx={{ border: 1, borderColor: selected ? 'primary.main' : hits ? 'rgba(16,185,129,0.4)' : 'divider', bgcolor: selected ? 'rgba(6,182,212,0.06)' : undefined, borderRadius: '10px', px: 1, py: 0.75, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}>
+            sx={{ border: 1, borderColor: selected ? 'primary.main' : hits ? 'rgba(16,185,129,0.4)' : 'divider', bgcolor: selected ? 'rgb(var(--cp-accent-rgb) / 0.06)' : undefined, borderRadius: '10px', px: 1, py: 0.75, cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                <Chip size="small" label={e.method} sx={{ height: 18, fontSize: '0.58rem', fontWeight: 800, bgcolor: e.method === 'GET' ? 'rgba(6,182,212,0.15)' : 'rgba(139,92,246,0.18)' }} />
+                <Chip size="small" label={e.method} sx={{ height: 18, fontSize: '0.58rem', fontWeight: 800, bgcolor: e.method === 'GET' ? 'rgb(var(--cp-accent-rgb) / 0.15)' : 'rgba(139,92,246,0.18)' }} />
                 <Typography variant="caption" sx={{ fontFamily: 'monospace', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.primary' }} title={e.url}>{path}</Typography>
                 <Typography variant="caption" sx={{ color: e.status >= 400 ? 'error.main' : 'text.secondary', fontWeight: 600 }}>{e.status}</Typography>
                 <Typography variant="caption">{e.size >= 1024 ? `${(e.size / 1024).toFixed(0)} KB` : `${e.size} B`}</Typography>
@@ -215,7 +215,7 @@ export default function ApiFinderPanel() {
                     </Stack>
                 ) : (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, border: 1, borderColor: 'rgba(244,63,94,0.4)', bgcolor: 'rgba(244,63,94,0.06)', borderRadius: '12px', px: 1.25, py: 0.75 }}>
-                        <Circle size={10} fill="#F43F5E" color="#F43F5E" style={{ animation: 'blink 1.2s ease-in-out infinite' }} />
+                        <Circle size={10} fill="currentColor" style={{ color: 'var(--cp-error)', animation: 'blink 1.2s ease-in-out infinite' }} />
                         <style>{'@keyframes blink { 50% { opacity: .25 } }'}</style>
                         <Typography variant="caption" sx={{ flex: 1, color: 'text.primary' }}>
                             Recording · <b>{entries.length}</b> JSON response{entries.length !== 1 ? 's' : ''}. Use the page now: scroll, filter, load more.
@@ -275,9 +275,9 @@ export default function ApiFinderPanel() {
 
                     {selectedEntry && (
                         <Stack spacing={1} sx={{ mt: 1.25 }}>
-                            <Box sx={{ border: 1, borderColor: 'primary.main', borderRadius: '12px', p: 1.25, bgcolor: 'rgba(6,182,212,0.04)' }}>
+                            <Box sx={{ border: 1, borderColor: 'primary.main', borderRadius: '12px', p: 1.25, bgcolor: 'rgb(var(--cp-accent-rgb) / 0.04)' }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <Link2 size={13} style={{ color: '#06B6D4', flexShrink: 0 }} />
+                                    <Link2 size={13} style={{ color: 'var(--cp-accent)', flexShrink: 0 }} />
                                     <Typography variant="caption" sx={{ fontFamily: 'monospace', wordBreak: 'break-all', flex: 1, color: 'text.primary' }}>{selectedEntry.method} {selectedEntry.url}</Typography>
                                     <CopyButton text={selectedEntry.url} label="Copy URL" />
                                 </Box>
@@ -302,7 +302,7 @@ export default function ApiFinderPanel() {
                                             const gen = generalisePath(h.path);
                                             const count = gen ? resolvePath(parsed(selectedEntry), gen).length : 0;
                                             return (
-                                                <Box key={i} sx={{ p: 0.9, bgcolor: 'rgba(0,0,0,0.25)', borderRadius: '8px' }}>
+                                                <Box key={i} sx={{ p: 0.9, bgcolor: 'rgb(var(--cp-ink-rgb) / 0.05)', borderRadius: '8px' }}>
                                                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                                         <Typography variant="caption" sx={{ fontFamily: 'monospace', flex: 1, wordBreak: 'break-all', color: 'text.primary' }}>{formatPath(h.path)}</Typography>
                                                         <CopyButton text={formatPath(h.path)} label="Copy path" size={13} />
@@ -330,7 +330,7 @@ export default function ApiFinderPanel() {
                             )}
 
                             <DetailSection icon={<Code2 size={14} />} title="Call it from code" summary={REQUEST_TARGET_LABELS[target]} defaultOpen>
-                                <ToggleButtonGroup size="small" exclusive value={target} onChange={(_, v) => v && setTarget(v)} sx={{ flexWrap: 'wrap', mb: 0.75, gap: 0.5, '& .MuiToggleButtonGroup-grouped': { border: '1px solid rgba(255,255,255,0.08) !important', borderRadius: '6px !important' } }}>
+                                <ToggleButtonGroup size="small" exclusive value={target} onChange={(_, v) => v && setTarget(v)} sx={{ flexWrap: 'wrap', mb: 0.75, gap: 0.5, '& .MuiToggleButtonGroup-grouped': { border: '1px solid rgb(var(--cp-ink-rgb) / 0.08) !important', borderRadius: '6px !important' } }}>
                                     {(Object.keys(REQUEST_TARGET_LABELS) as RequestTarget[]).map(k => (
                                         <ToggleButton key={k} value={k} sx={{ py: 0.2, px: 0.9, fontSize: '0.64rem', textTransform: 'none' }}>{REQUEST_TARGET_LABELS[k]}</ToggleButton>
                                     ))}
@@ -345,7 +345,7 @@ export default function ApiFinderPanel() {
                                 </Stack>
                                 {(includeAuth || cookie) && (
                                     <Box sx={{ display: 'flex', gap: 0.75, mb: 0.75 }}>
-                                        <ShieldAlert size={13} style={{ color: '#F59E0B', marginTop: 1, flexShrink: 0 }} />
+                                        <ShieldAlert size={13} style={{ color: 'var(--cp-warning)', marginTop: 1, flexShrink: 0 }} />
                                         <Typography variant="caption" color="warning.main">This code now contains your session secrets. Don't share it. Cookies the page can't read (HttpOnly) are not included.</Typography>
                                     </Box>
                                 )}

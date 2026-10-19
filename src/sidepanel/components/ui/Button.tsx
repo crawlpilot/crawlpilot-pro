@@ -25,7 +25,7 @@ export default function Button({
         muiVariant = 'outlined';
         color = 'primary';
         customSx = {
-            borderColor: 'rgba(148, 163, 184, 0.2)',
+            borderColor: 'rgb(var(--cp-ink-rgb) / 0.2)',
             color: 'text.primary',
             '&:hover': {
                 borderColor: 'primary.main',
@@ -37,7 +37,7 @@ export default function Button({
         color = 'inherit';
         customSx = {
             color: 'text.secondary',
-            '&:hover': { color: 'text.primary', bgcolor: 'rgba(255,255,255,0.04)' }
+            '&:hover': { color: 'text.primary', bgcolor: 'rgb(var(--cp-ink-rgb) / 0.04)' }
         };
     } else if (variant === 'danger') {
         muiVariant = 'outlined';

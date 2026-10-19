@@ -35,16 +35,16 @@ function Steps({ labels, current }: { labels: string[]; current: number }) {
                         <Box sx={{
                             width: 18, height: 18, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
                             fontSize: 10.5, fontWeight: 700,
-                            bgcolor: active ? 'primary.main' : done ? 'rgba(6,182,212,0.18)' : 'rgba(255,255,255,0.06)',
-                            color: active ? '#04141a' : done ? 'primary.light' : 'text.secondary',
+                            bgcolor: active ? 'primary.main' : done ? 'rgb(var(--cp-accent-rgb) / 0.18)' : 'rgb(var(--cp-ink-rgb) / 0.06)',
+                            color: active ? 'primary.contrastText' : done ? 'var(--cp-accent)' : 'text.secondary',
                         }}>
                             {done ? <Check size={11} strokeWidth={3} /> : n}
                         </Box>
                         <Typography variant="caption" noWrap sx={{
                             fontSize: '0.72rem', fontWeight: active ? 700 : 500,
-                            color: active ? 'text.primary' : done ? 'text.secondary' : '#64748B',
+                            color: active ? 'text.primary' : done ? 'text.secondary' : 'var(--cp-text-3)',
                         }}>{label}</Typography>
-                        {n < labels.length && <Box sx={{ flex: 1, height: '1px', minWidth: 8, bgcolor: done ? 'rgba(6,182,212,0.4)' : 'divider' }} />}
+                        {n < labels.length && <Box sx={{ flex: 1, height: '1px', minWidth: 8, bgcolor: done ? 'rgb(var(--cp-accent-rgb) / 0.4)' : 'divider' }} />}
                     </Box>
                 );
             })}

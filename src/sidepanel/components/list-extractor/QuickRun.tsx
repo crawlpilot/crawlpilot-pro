@@ -39,7 +39,7 @@ export function QuickRun({ pick, pages, maxPages, onMaxPages, onRun, onCustomize
     );
 
     return (
-        <Box sx={{ border: 1, borderColor: 'rgba(6,182,212,0.4)', borderRadius: '14px', overflow: 'hidden', background: 'linear-gradient(180deg, rgba(6,182,212,0.07) 0%, rgba(6,182,212,0.01) 100%)' }}>
+        <Box sx={{ border: 1, borderColor: 'rgb(var(--cp-accent-rgb) / 0.4)', borderRadius: '14px', overflow: 'hidden', background: 'linear-gradient(180deg, rgb(var(--cp-accent-rgb) / 0.07) 0%, rgb(var(--cp-accent-rgb) / 0.01) 100%)' }}>
             <Box sx={{ p: 1.75, pb: 1.25 }}>
                 <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: 'text.primary' }}>
                     {t('quick.found', { count: pick.count })}
@@ -48,7 +48,7 @@ export function QuickRun({ pick, pages, maxPages, onMaxPages, onRun, onCustomize
             </Box>
 
             {columns.length > 0 && rows.length > 0 && (
-                <Box sx={{ mx: 1.75, mb: 1.25, border: 1, borderColor: 'divider', borderRadius: '8px', overflow: 'hidden', bgcolor: 'rgba(0,0,0,0.25)' }}>
+                <Box sx={{ mx: 1.75, mb: 1.25, border: 1, borderColor: 'divider', borderRadius: '8px', overflow: 'hidden', bgcolor: 'rgb(var(--cp-ink-rgb) / 0.05)' }}>
                     <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '0.68rem' }}>
                         <thead>
                             <tr>{columns.map(c => (

@@ -49,7 +49,7 @@ export function Step3Review({
             {ended && (
                 <Box sx={{ border: 1, borderColor: 'rgba(16,185,129,0.4)', bgcolor: 'rgba(16,185,129,0.06)', borderRadius: '14px', p: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CheckCircle2 size={20} color="#10B981" />
+                        <CheckCircle2 size={20} style={{ color: 'var(--cp-success)' }} />
                         <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: 'text.primary' }}>
                             {status.status === 'stopped' ? t('step3.stoppedTitle', { count: status.itemsSaved ?? 0 }) : t('step3.doneTitle', { count: status.itemsSaved ?? 0 })}
                             {status.pagesVisited ? ` ${t('step3.donePages', { count: status.pagesVisited })}` : ''}
@@ -102,7 +102,7 @@ export function Step3Review({
                             <Typography variant="subtitle2" color="text.secondary">
                                 {t('step3.crawlSpeed')}
                             </Typography>
-                            <Gauge size={16} className="text-gray-400" />
+                            <Gauge size={16} className="text-text-secondary" />
                         </Box>
                         <Box sx={{ p: 2 }}>
                             <FormControl fullWidth size="small">

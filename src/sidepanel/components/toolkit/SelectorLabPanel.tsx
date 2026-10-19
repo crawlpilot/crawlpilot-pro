@@ -209,7 +209,7 @@ export default function SelectorLabPanel() {
                         {result.count === 0 && !result.error ? 'Nothing matches. Check the spelling, or pick the element instead.' : result.grade.reason}
                     </Typography>
                     {result.samples.length > 0 && (
-                        <Stack spacing={0.25} sx={{ bgcolor: 'rgba(0,0,0,0.25)', borderRadius: '6px', p: 0.75 }}>
+                        <Stack spacing={0.25} sx={{ bgcolor: 'rgb(var(--cp-ink-rgb) / 0.05)', borderRadius: '6px', p: 0.75 }}>
                             {result.samples.map((s, i) => (
                                 <Box key={i} sx={{ display: 'flex', gap: 0.75, minWidth: 0 }}>
                                     <Typography variant="caption" sx={{ color: '#F59E0B', fontWeight: 700, minWidth: 14, textAlign: 'right' }}>{i + 1}</Typography>
@@ -239,7 +239,7 @@ export default function SelectorLabPanel() {
 
             {snippet && (
                 <DetailSection icon={<Code2 size={14} />} title="Use it in code" summary={SNIPPET_LABELS[target]} defaultOpen>
-                    <ToggleButtonGroup size="small" exclusive value={target} onChange={(_, v) => v && setTarget(v)} sx={{ flexWrap: 'wrap', mb: 0.75, gap: 0.5, '& .MuiToggleButtonGroup-grouped': { border: '1px solid rgba(255,255,255,0.08) !important', borderRadius: '6px !important' } }}>
+                    <ToggleButtonGroup size="small" exclusive value={target} onChange={(_, v) => v && setTarget(v)} sx={{ flexWrap: 'wrap', mb: 0.75, gap: 0.5, '& .MuiToggleButtonGroup-grouped': { border: '1px solid rgb(var(--cp-ink-rgb) / 0.08) !important', borderRadius: '6px !important' } }}>
                         {(Object.keys(SNIPPET_LABELS) as SnippetTarget[]).map(k => (
                             <ToggleButton key={k} value={k} sx={{ py: 0.2, px: 0.9, fontSize: '0.64rem', textTransform: 'none' }}>{SNIPPET_LABELS[k]}</ToggleButton>
                         ))}
@@ -251,7 +251,7 @@ export default function SelectorLabPanel() {
             {pick && (
                 <DetailSection icon={<Database size={14} />} title="What a saved recipe stores" summary={`${pick.stored.length} backups`}>
                     <Box sx={{ display: 'flex', gap: 0.75, mb: 1 }}>
-                        <Info size={13} style={{ color: '#64748B', marginTop: 2, flexShrink: 0 }} />
+                        <Info size={13} style={{ color: 'var(--cp-text-3)', marginTop: 2, flexShrink: 0 }} />
                         <Typography variant="caption">Recipes keep several ways to find each element, best first. If the site changes and the first stops working, a run falls back to the next.</Typography>
                     </Box>
                     <Stack spacing={1.25}>

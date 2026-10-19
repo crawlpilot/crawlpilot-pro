@@ -10,8 +10,8 @@ export const TONE = {
     good: { fg: 'success.main', bg: 'rgba(16, 185, 129, 0.08)', border: 'rgba(16, 185, 129, 0.35)' },
     warn: { fg: 'warning.main', bg: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.35)' },
     bad: { fg: 'error.main', bg: 'rgba(244, 63, 94, 0.08)', border: 'rgba(244, 63, 94, 0.35)' },
-    info: { fg: 'primary.main', bg: 'rgba(6, 182, 212, 0.08)', border: 'rgba(6, 182, 212, 0.35)' },
-    neutral: { fg: 'text.secondary', bg: 'rgba(148, 163, 184, 0.06)', border: 'divider' },
+    info: { fg: 'primary.main', bg: 'rgb(var(--cp-accent-rgb) / 0.08)', border: 'rgb(var(--cp-accent-rgb) / 0.35)' },
+    neutral: { fg: 'text.secondary', bg: 'rgb(var(--cp-ink-rgb) / 0.06)', border: 'divider' },
 } as const;
 export type Tone = keyof typeof TONE;
 
@@ -38,7 +38,7 @@ export function CodeBlock({ code, maxHeight = 240 }: { code: string; maxHeight?:
         <Box sx={{ position: 'relative' }}>
             <Box component="pre" sx={{
                 m: 0, p: 1.25, pr: 4.5, fontSize: 11, lineHeight: 1.5, maxHeight, overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                bgcolor: 'rgba(0,0,0,0.35)', border: 1, borderColor: 'divider', borderRadius: '10px', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'text.primary',
+                bgcolor: 'rgb(var(--cp-ink-rgb) / 0.05)', border: 1, borderColor: 'divider', borderRadius: '10px', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'text.primary',
             }}>{code}</Box>
             <Box sx={{ position: 'absolute', top: 4, right: 4 }}><CopyButton text={code} /></Box>
         </Box>
@@ -100,7 +100,7 @@ export function DetailSection({ icon, title, summary, defaultOpen = false, child
                 <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>
                 <Typography variant="subtitle2" sx={{ flex: 1 }}>{title}</Typography>
                 {summary && <Typography variant="caption" sx={{ color: 'text.secondary', maxWidth: '55%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{summary}</Typography>}
-                <ChevronDown size={15} style={{ color: '#64748B', transform: open ? 'rotate(180deg)' : undefined, transition: 'transform .15s', flexShrink: 0 }} />
+                <ChevronDown size={15} style={{ color: 'var(--cp-text-3)', transform: open ? 'rotate(180deg)' : undefined, transition: 'transform .15s', flexShrink: 0 }} />
             </ButtonBase>
             <Collapse in={open} unmountOnExit>
                 <Box sx={{ px: 1.5, pb: 1.5, pt: 0.25 }}>{children}</Box>
@@ -112,7 +112,7 @@ export function DetailSection({ icon, title, summary, defaultOpen = false, child
 /** A label/value line inside a section. */
 export function InfoRow({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {
     return (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, py: 0.4, borderBottom: '1px dashed rgba(255,255,255,0.05)', '&:last-of-type': { borderBottom: 0 } }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, py: 0.4, borderBottom: '1px dashed rgb(var(--cp-ink-rgb) / 0.05)', '&:last-of-type': { borderBottom: 0 } }}>
             <Typography variant="caption" sx={{ flexShrink: 0 }}>{label}</Typography>
             <Typography variant="caption" sx={{ textAlign: 'right', wordBreak: 'break-all', color: 'text.primary', fontFamily: mono ? 'monospace' : undefined }}>{value}</Typography>
         </Box>

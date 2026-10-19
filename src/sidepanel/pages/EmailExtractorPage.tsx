@@ -28,7 +28,7 @@ export default function EmailExtractorPage({ onBack }: EmailExtractorPageProps) 
                         </div>
                         <div className="flex-1">
                             <h1 className="text-3xl font-bold mb-1">Email Extractor</h1>
-                            <p className="text-gray-400">Find and extract email addresses with precision</p>
+                            <p className="text-text-secondary">Find and extract email addresses with precision</p>
                         </div>
                         <Badge variant="warning">
                             Coming Soon
@@ -36,16 +36,16 @@ export default function EmailExtractorPage({ onBack }: EmailExtractorPageProps) 
                     </div>
 
                     {/* Features Card */}
-                    <Card className="bg-surface-darker border-gray-700">
+                    <Card className="bg-surface-darker border-border-subtle">
                         <div className="p-6">
                             <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                                 <Sparkles className="w-5 h-5 text-accent-green" />
                                 Upcoming Features
                             </h3>
-                            <p className="text-sm text-gray-400 mb-4">
+                            <p className="text-sm text-text-secondary mb-4">
                                 This powerful tool will automatically:
                             </p>
-                            <ul className="space-y-3 text-sm text-gray-400">
+                            <ul className="space-y-3 text-sm text-text-secondary">
                                 <li className="flex items-start gap-2">
                                     <CheckCircle2 className="w-5 h-5 text-accent-green flex-shrink-0 mt-0.5" />
                                     <span>Scan current page for email addresses using advanced regex</span>
@@ -69,11 +69,11 @@ export default function EmailExtractorPage({ onBack }: EmailExtractorPageProps) 
             </Card>
 
             {/* Info Card */}
-            <Card className="border-gray-800 mb-6">
+            <Card className="border-border-subtle mb-6">
                 <div className="p-6 text-center">
                     <div className="text-4xl mb-3">🚧</div>
                     <h3 className="text-lg font-semibold mb-2">Under Development</h3>
-                    <p className="text-sm text-gray-400">
+                    <p className="text-sm text-text-secondary">
                         We're working hard to bring you this feature. Check back soon for updates!
                     </p>
                 </div>

@@ -79,7 +79,7 @@ export function renderCell(value: unknown, col: Column, showImages: boolean, onM
                 href={strValue}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-accent-ai hover:text-white underline decoration-dotted underline-offset-2 block w-full truncate text-xs"
+                className="text-accent-ai hover:text-text-primary underline decoration-dotted underline-offset-2 block w-full truncate text-xs"
                 title={strValue}
             >
                 {strValue}

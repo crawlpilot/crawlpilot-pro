@@ -5,7 +5,7 @@
  *
  * - `/corpus/<name>` serves `src/test/fixtures/corpus/<name>.html.gz` with page scripts blocked
  *   (saved retail pages would otherwise try to boot their apps); content scripts are not affected.
- * - `/site/<file>` serves `e2e/site/<file>` as is, scripts allowed.
+ * - `/site/<file>` serves `e2e/site/<file>` as is, scripts allowed; `?delay=ms` sends it that much later.
  * - `/img/<name>-<w>x<h>.<ext>` and `/cdn/<name>?id=&w=&h=` serve a generated PNG of that size (any
  *   extension: the bytes are PNG, which browsers sniff), for the Image Downloader: one picture per
  *   name (or per `?pic=`), at whatever size is asked. Names starting
@@ -111,6 +111,9 @@ function serve(): Promise<{ server: Server; origin: string }> {
                 return;
             }
             if (url.pathname.startsWith('/site/')) {
+                // `?delay=ms`: a page slow to arrive (a struggling computer or a slow site).
+                const delay = Number(url.searchParams.get('delay') || 0);
+                if (delay > 0) await new Promise(r => setTimeout(r, Math.min(delay, 60_000)));
                 const body = await readFile(path.join(SITE, path.basename(url.pathname)));
                 res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
                 res.end(body);

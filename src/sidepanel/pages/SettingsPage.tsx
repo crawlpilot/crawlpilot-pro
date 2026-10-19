@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import ToolHeader from '../components/ui/ToolHeader';
+import { setAppearance, useColorMode } from '../theme/colorMode';
+import type { Appearance } from '@/shared/storage';
+import { Monitor, Moon, Palette, Sun } from 'lucide-react';
 import {
+    ToggleButton,
+    ToggleButtonGroup,
     Box,
     Typography,
     Paper,
@@ -49,6 +54,7 @@ interface SettingsPageProps {
 }
 
 export default function SettingsPage({ onBack }: SettingsPageProps) {
+    const { appearance } = useColorMode();
     const { t } = useTranslation('settings');
     const { jobs, deleteJob, refresh } = useJobHistory();
     const [currentLang, setCurrentLang] = useState<SupportedLang>(i18n.language as SupportedLang);
@@ -177,6 +183,19 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                             ))}
                         </Select>
                     </Paper>
+                </Section>
+
+                {/* Appearance */}
+                <Section title={t('appearance.title')} icon={<Palette size={18} />}>
+                    <ToggleButtonGroup exclusive fullWidth size="small" value={appearance}
+                        onChange={(_, v: Appearance | null) => { if (v) void setAppearance(v); }}>
+                        {(['light', 'dark', 'system'] as const).map(a => (
+                            <ToggleButton key={a} value={a} sx={{ textTransform: 'none', fontWeight: 600, gap: 0.75 }}>
+                                {a === 'light' ? <Sun size={15} /> : a === 'dark' ? <Moon size={15} /> : <Monitor size={15} />}
+                                {t(`appearance.${a}`)}
+                            </ToggleButton>
+                        ))}
+                    </ToggleButtonGroup>
                 </Section>
 
                 {/* Storage Management */}
@@ -352,7 +371,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                 <Section title={t('dangerZone.title')} icon={<AlertTriangle size={18} />}>
                     <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper', borderColor: 'error.dark', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                            <AlertTriangle size={20} color="#f44336" style={{ flexShrink: 0, marginTop: 2 }} />
+                            <AlertTriangle size={20} style={{ color: 'var(--cp-error)', flexShrink: 0, marginTop: 2 }} />
                             <Box>
                                 <Typography variant="subtitle2" fontWeight={700} color="error.main">{t('dangerZone.deleteAll')}</Typography>
                                 <Typography variant="caption" color="text.secondary">{t('dangerZone.deleteAllDescription')}</Typography>
@@ -428,7 +447,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 function Section({ title, icon, children }: { title: string, icon: React.ReactNode, children: React.ReactNode }) {
     return (
         <Box>
-            <Typography variant="overline" color="text.secondary" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, px: 1 }}>
+            <Typography variant="subtitle2" color="text.secondary" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, px: 0.5, fontSize: '0.8rem' }}>
                 {icon}
                 {title}
             </Typography>
@@ -450,10 +469,10 @@ function IntegrationInput({ label, value, onChange, placeholder, disabled, type 
                 style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgb(var(--cp-ink-rgb) / 0.1)',
                     borderRadius: 6,
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    color: disabled ? 'rgba(255, 255, 255, 0.3)' : 'inherit',
+                    background: 'rgb(var(--cp-ink-rgb) / 0.03)',
+                    color: disabled ? 'rgb(var(--cp-ink-rgb) / 0.3)' : 'inherit',
                     fontSize: 12,
                     outline: 'none',
                     boxSizing: 'border-box'

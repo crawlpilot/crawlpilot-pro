@@ -41,9 +41,13 @@ export interface PaginationResume {
     timestamp: number;
 }
 
+export type Appearance = 'light' | 'dark' | 'system';
+
 interface StorageSchema {
     /** The UI language chosen in Settings ('' follows the browser). */
     language: string;
+    /** Light (the default), dark, or whatever the system uses. */
+    appearance: Appearance;
     integrations: Integrations;
     bulk_extraction_state: RunRecovery;
     metadata_extraction_state: RunRecovery;

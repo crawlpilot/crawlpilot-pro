@@ -29,5 +29,18 @@
     "Pages",
     "Details",
     "Run"
-  ]
+  ],
+  "details": {
+    "title": "Which details do you want?",
+    "subtitle_one": "From {{count}} page.",
+    "subtitle_other": "From each of {{count}} pages.",
+    "article": {
+      "title": "Article text & details",
+      "hint": "Title, author, date, full text, links and tables. Nothing to set up."
+    },
+    "fields": {
+      "title": "Pick the fields yourself",
+      "hint": "Point at them on one page; CrawlPilot gets the same from every page."
+    }
+  }
 }

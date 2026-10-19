@@ -5,31 +5,34 @@
     "subtitle": "Which pages should CrawlPilot read?"
   },
   "step2": {
-    "title": "Metadata Extraction",
-    "subtitle": "Check, then get the article text",
-    "extract": "Extract {{count}} URL(s)"
+    "title": "Article text & details",
+    "subtitle": "Title, author, date and full text",
+    "extract_one": "Get 1 page",
+    "extract_other": "Get {{count}} pages"
   },
   "options": {
-    "title": "Extraction Options",
-    "includeLinks": "Preserve links in markdown",
-    "includeImages": "Include images in markdown",
-    "outputText": "Also output plain text",
-    "concurrency": "Concurrent tabs",
-    "concurrencyHint": "Max tabs open at once (1–5)",
-    "requestDelay": "Delay between pages (ms)",
-    "requestDelayHint": "Pause between requests"
+    "title": "Options",
+    "includeLinks": "Keep links in the text",
+    "includeImages": "Keep images in the text",
+    "outputText": "Also add plain text",
+    "concurrency": "Pages at once",
+    "concurrencyHint": "1–5 tabs",
+    "requestDelay": "Pause between pages (ms)",
+    "requestDelayHint": "Gentler on the site"
   },
   "results": {
-    "extracting": "Extracting…",
-    "complete": "Extraction Complete",
+    "extracting": "Reading pages…",
+    "complete": "Done",
     "activeTabs": "active tabs",
-    "viewResults": "View Results",
-    "previewResults": "Preview live results",
-    "stop": "Stop Extraction",
+    "viewResults": "See your table",
+    "previewResults": "See what’s done so far",
+    "stop": "Stop",
     "stopping": "Stopping…",
-    "reset": "Start Over",
-    "completeSummary": "Extracted metadata from {{count}} page(s)",
-    "stoppedSummary": "Stopped after {{count}} page(s)"
+    "reset": "Start over",
+    "completeSummary_one": "Done · text from 1 page",
+    "completeSummary_other": "Done · text from {{count}} pages",
+    "stoppedSummary_one": "Stopped after 1 page",
+    "stoppedSummary_other": "Stopped after {{count}} pages"
   },
   "stepLabels": [
     "Pages",

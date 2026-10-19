@@ -222,6 +222,8 @@ export interface Job {
         coverage?: { name: string; fill: number }[];
         /** Page Extractor runs: each step's result over the pages (`shared/listing/stepStats.ts`). */
         steps?: import('../listing/stepStats').StepStat[];
+        /** Runs: the computer struggled, so the run went on with fewer tabs at once (`JobRunner.easeOff`). */
+        eased?: { to: number; reason: string };
     };
 
     /** The table the run wrote. */
