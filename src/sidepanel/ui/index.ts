@@ -19,6 +19,7 @@ export { Select, type SelectOption } from './Select';
 export { Switch, Checkbox, Radio } from './Toggle';
 export { Segmented, type SegmentOption } from './Segmented';
 export { Slider } from './Slider';
+export { Stepper } from './Stepper';
 export { Dialog } from './Dialog';
 export { Menu, MenuItem, MenuDivider } from './Menu';
 export { Tooltip } from './Tooltip';

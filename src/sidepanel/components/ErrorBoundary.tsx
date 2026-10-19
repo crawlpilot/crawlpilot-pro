@@ -1,4 +1,6 @@
 import React, { Component, ReactNode } from 'react';
+import { RotateCw } from 'lucide-react';
+import { Button, Notice } from '../ui';
 
 interface Props {
     children: ReactNode;
@@ -26,21 +28,11 @@ export default class ErrorBoundary extends Component<Props, State> {
     render() {
         if (this.state.hasError) {
             return (
-                <div className="min-h-screen bg-background-app flex items-center justify-center p-6">
-                    <div className="max-w-md w-full bg-red-900/20 border border-red-500/50 rounded-lg p-6">
-                        <h2 className="text-xl font-bold text-red-400 mb-4">
-                            Something went wrong
-                        </h2>
-                        <p className="text-text-primary mb-4">
-                            {this.state.error?.message || 'An unexpected error occurred'}
-                        </p>
-                        <button
-                            onClick={() => window.location.reload()}
-                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-                        >
-                            Reload Extension
-                        </button>
-                    </div>
+                <div className="flex min-h-screen items-center justify-center bg-bg p-6">
+                    <Notice tone="danger" title="Something went wrong" className="w-full max-w-md"
+                        action={<Button size="sm" variant="primary" icon={<RotateCw />} onClick={() => window.location.reload()}>Reload</Button>}>
+                        {this.state.error?.message || 'An unexpected error occurred'}
+                    </Notice>
                 </div>
             );
         }

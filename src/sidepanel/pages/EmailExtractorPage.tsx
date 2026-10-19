@@ -1,83 +1,33 @@
-import { ArrowLeft, Mail, Sparkles, CheckCircle2 } from 'lucide-react';
-import Button from '../components/ui/Button';
-import Card from '../components/ui/Card';
-import Badge from '../components/ui/Badge';
+import { Check, Mail } from 'lucide-react';
+import ToolHeader from '../components/ui/ToolHeader';
+import { Card, Chip, EmptyState, Text } from '../ui';
 
 interface EmailExtractorPageProps {
     onBack: () => void;
 }
 
+const COMING = [
+    'Find every email address on the page',
+    'Collect them across many pages, following Next',
+    'Drop duplicates and export as CSV',
+    'Check the format and filter by domain',
+];
+
 export default function EmailExtractorPage({ onBack }: EmailExtractorPageProps) {
     return (
-        <div className="p-6 max-w-4xl mx-auto animate-fade-in">
-            <Button
-                onClick={onBack}
-                variant="ghost"
-                icon={<ArrowLeft className="w-4 h-4" />}
-                className="mb-6"
-            >
-                Back to Home
-            </Button>
-
-            {/* Hero Card */}
-            <Card className="mb-6 overflow-hidden border-green-500/20 bg-gradient-to-br from-green-900/20 to-emerald-900/20">
-                <div className="p-8">
-                    <div className="flex items-center gap-4 mb-6">
-                        <div className="p-4 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl shadow-lg">
-                            <Mail className="w-8 h-8 text-white" />
+        <div className="flex h-full flex-col overflow-hidden bg-bg">
+            <ToolHeader title="Email Extractor" subtitle="Find email addresses on pages" onBack={onBack} actions={<Chip tone="warning">Coming soon</Chip>} />
+            <div className="flex-1 overflow-y-auto p-4">
+                <EmptyState icon={<Mail />} title="On its way">We're building this one. Here's what it will do:</EmptyState>
+                <Card tone="mint" className="flex flex-col gap-2.5">
+                    {COMING.map(c => (
+                        <div key={c} className="flex items-start gap-2">
+                            <Check size={15} strokeWidth={3} className="mt-0.5 shrink-0 text-ink" />
+                            <Text size="small">{c}</Text>
                         </div>
-                        <div className="flex-1">
-                            <h1 className="text-3xl font-bold mb-1">Email Extractor</h1>
-                            <p className="text-text-secondary">Find and extract email addresses with precision</p>
-                        </div>
-                        <Badge variant="warning">
-                            Coming Soon
-                        </Badge>
-                    </div>
-
-                    {/* Features Card */}
-                    <Card className="bg-surface-darker border-border-subtle">
-                        <div className="p-6">
-                            <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                                <Sparkles className="w-5 h-5 text-accent-green" />
-                                Upcoming Features
-                            </h3>
-                            <p className="text-sm text-text-secondary mb-4">
-                                This powerful tool will automatically:
-                            </p>
-                            <ul className="space-y-3 text-sm text-text-secondary">
-                                <li className="flex items-start gap-2">
-                                    <CheckCircle2 className="w-5 h-5 text-accent-green flex-shrink-0 mt-0.5" />
-                                    <span>Scan current page for email addresses using advanced regex</span>
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <CheckCircle2 className="w-5 h-5 text-accent-green flex-shrink-0 mt-0.5" />
-                                    <span>Extract from multiple pages in bulk with pagination support</span>
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <CheckCircle2 className="w-5 h-5 text-accent-green flex-shrink-0 mt-0.5" />
-                                    <span>Remove duplicates automatically and export as CSV</span>
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <CheckCircle2 className="w-5 h-5 text-accent-green flex-shrink-0 mt-0.5" />
-                                    <span>Validate email format and filter by domain</span>
-                                </li>
-                            </ul>
-                        </div>
-                    </Card>
-                </div>
-            </Card>
-
-            {/* Info Card */}
-            <Card className="border-border-subtle mb-6">
-                <div className="p-6 text-center">
-                    <div className="text-4xl mb-3">🚧</div>
-                    <h3 className="text-lg font-semibold mb-2">Under Development</h3>
-                    <p className="text-sm text-text-secondary">
-                        We're working hard to bring you this feature. Check back soon for updates!
-                    </p>
-                </div>
-            </Card>
+                    ))}
+                </Card>
+            </div>
         </div>
     );
 }

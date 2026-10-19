@@ -1,8 +1,8 @@
-import { X, Database, ChevronRight, ChevronLeft } from 'lucide-react';
+import { X, Database, ChevronRight } from 'lucide-react';
 import { useAllTableData, useTableData } from '../hooks/useDatabase';
-import Badge from './ui/Badge';
 import { useState, useEffect, useMemo } from 'react';
-import Select from './ui/Select';
+import ToolHeader from './ui/ToolHeader';
+import { Button, Chip, EmptyState, IconButton, Notice, Select, Spinner, Stack, Text } from '../ui';
 
 interface DataSourceSelectorProps {
     onClose: () => void;
@@ -115,210 +115,76 @@ export default function DataSourceSelector({ onClose, onSelect }: DataSourceSele
     }, [selectedTableId, tableDatas]);
 
     return (
-        <div className="fixed inset-0 z-50 bg-background-app flex flex-col animate-fade-in text-text-primary">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-border-subtle bg-app">
-                <div className="flex items-center gap-3">
-                    <div className="w-1 h-6 bg-primary rounded-full"></div>
-                    <h2 className="font-semibold text-sm text-text-primary uppercase tracking-wide">Select Source Data</h2>
-                </div>
-                <button
-                    onClick={onClose}
-                    className="btn btn-ghost p-2"
-                >
-                    <X className="w-4 h-4" />
-                </button>
-            </div>
+        <div className="fixed inset-0 z-50 flex flex-col bg-bg text-ink animate-fade-in">
+            <ToolHeader title="A list you saved" subtitle={step === 1 ? 'Pick the table with the links' : selectedTableName} onBack={handleBack}
+                steps={{ labels: ['Table', 'Column'], current: step }}
+                actions={<IconButton label="Close" onClick={onClose}><X /></IconButton>} />
 
-            {/* Stepper */}
-            <div className="flex items-center justify-between px-8 py-4 border-b border-border-subtle bg-background-card">
-                <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold transition-all duration-300 ${step === 1
-                        ? 'bg-primary text-white shadow-soft'
-                        : 'bg-accent-success text-white'
-                        }`}>
-                        {step === 1 ? '1' : '✓'}
-                    </div>
-                    <span className={`text-xs font-medium uppercase tracking-wide transition-colors ${step === 1 ? 'text-primary' : 'text-text-muted'}`}>Select Table</span>
-                </div>
-
-                <div className="flex-1 mx-6 h-[1px] bg-border-subtle relative">
-                    <div className={`absolute top-1/2 left-0 -translate-y-1/2 h-[2px] bg-primary rounded-full transition-all duration-500 ${step === 2 ? 'w-full' : 'w-1/2'}`}></div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold border transition-all duration-300 ${step === 2
-                        ? 'bg-primary text-white border-primary shadow-soft'
-                        : 'bg-surface-lighter text-text-muted border-border-subtle'
-                        }`}>
-                        2
-                    </div>
-                    <span className={`text-xs font-medium uppercase tracking-wide transition-colors ${step === 2 ? 'text-primary' : 'text-text-muted'}`}>Select Columns</span>
-                </div>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-background-app">
+            <div className="flex-1 overflow-y-auto p-4">
                 {step === 1 ? (
-                    <>
-                        <p className="text-xs text-text-muted mb-4 px-1">Choose a previous extraction to use as source:</p>
-
-                        {loadingAll ? (
-                            <div className="flex flex-col items-center justify-center py-12 text-text-muted">
-                                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2"></div>
-                                <span className="text-xs">Loading data...</span>
-                            </div>
-                        ) : errorAll ? (
-                            <div className="p-3 rounded bg-accent-error/10 border border-accent-error/20 text-accent-error text-xs text-center border-l-2 border-l-accent-error">
-                                {errorAll}
-                            </div>
-                        ) : tableDatas.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-12 text-text-muted border border-dashed border-border-subtle rounded-lg bg-surface-lighter/30">
-                                <Database className="w-8 h-8 opacity-20 mb-3" />
-                                <p className="text-xs">No extraction history found</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {tableDatas.map((table: any) => (
-                                    <button
-                                        key={table.id}
-                                        onClick={() => table.id && handleTableSelect(table.id)}
-                                        className="w-full card cursor-pointer hover:border-primary/50 transition-all duration-200 group text-left p-3"
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <div className="w-8 h-8 rounded bg-surface-lighter flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                                                    <Database className="w-4 h-4 text-text-muted group-hover:text-primary transition-colors" />
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <h3 className="font-medium text-text-primary text-sm truncate group-hover:text-primary transition-colors">
-                                                        {table.name || 'Untitled Extraction'}
-                                                    </h3>
-                                                    <p className="text-[10px] text-text-muted font-mono mt-0.5">
-                                                        {formatDate(table.createdAt || table.updatedAt || new Date().toISOString())}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-3 flex-shrink-0">
-                                                <Badge variant="primary" className="text-[10px] px-1.5 py-0.5 bg-surface-lighter text-text-secondary border-border-subtle">
-                                                    {table.rowCount} rows
-                                                </Badge>
-                                                <ChevronRight className="w-3.5 h-3.5 text-text-muted group-hover:text-text-primary transition-colors" />
-                                            </div>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </>
+                    loadingAll ? (
+                        <div className="flex flex-col items-center justify-center gap-2 py-12 text-ink-2"><Spinner size={20} /><Text size="caption" tone="muted">Loading your tables…</Text></div>
+                    ) : errorAll ? (
+                        <Notice tone="danger">{errorAll}</Notice>
+                    ) : tableDatas.length === 0 ? (
+                        <EmptyState icon={<Database />} title="No saved tables yet">Get a list first; its links can then feed this tool.</EmptyState>
+                    ) : (
+                        <Stack gap={1.5}>
+                            {tableDatas.map((table: any) => (
+                                <button key={table.id} type="button" onClick={() => table.id && handleTableSelect(table.id)}
+                                    className="flex w-full cursor-pointer items-center gap-3 rounded-card border border-line bg-surface p-3 text-left transition-[border-color,box-shadow] hover:border-line-strong hover:shadow-press">
+                                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-tile-butter text-ink"><Database size={16} /></span>
+                                    <span className="min-w-0 flex-1">
+                                        <Text weight="semibold" truncate>{table.name || 'Untitled table'}</Text>
+                                        <Text size="caption" tone="faint">{formatDate(table.createdAt || table.updatedAt || new Date().toISOString())}</Text>
+                                    </span>
+                                    <Chip>{table.rowCount} rows</Chip>
+                                    <ChevronRight size={15} className="shrink-0 text-ink-3" />
+                                </button>
+                            ))}
+                        </Stack>
+                    )
+                ) : loadingTable ? (
+                    <div className="flex justify-center py-8"><Spinner size={20} /></div>
                 ) : (
-                    <div className="space-y-4">
-                        <div className="mb-2">
-                            <h3 className="font-semibold text-text-primary text-sm">{selectedTableName}</h3>
-                            <p className="text-xs text-text-muted">Select column containing URLs:</p>
+                    <Stack gap={3}>
+                        <Select label="Column with the page addresses" value={selectedColumnId} onChange={setSelectedColumnId}
+                            options={[{ value: '', label: 'Pick a column…' }, ...columnOptions]} />
+                        <div className="flex items-center gap-2">
+                            <Text size="small" tone="muted">Addresses found</Text>
+                            <Chip tone="brand">{activeUrls.length}</Chip>
                         </div>
-
-                        {loadingTable ? (
-                            <div className="py-8 text-center text-xs text-text-muted">Loading columns...</div>
-                        ) : (
-                            <>
-                                <div className="mb-4">
-                                    <Select
-                                        value={selectedColumnId}
-                                        onChange={(val) => setSelectedColumnId(val)}
-                                        className="w-full text-xs"
-                                    >
-                                        <option value="">Select a column...</option>
-                                        {columnOptions.map((opt: any) => (
-                                            <option key={opt.value} value={opt.value}>
-                                                {opt.label}
-                                            </option>
-                                        ))}
-                                    </Select>
-                                </div>
-
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-text-muted text-xs">URLs found</span>
-                                    <Badge variant="primary" className="bg-surface-lighter text-text-primary border-border-subtle">
-                                        {activeUrls.length}
-                                    </Badge>
-                                </div>
-
-                                <div className="border border-border-subtle rounded-lg bg-surface-lighter/30 overflow-hidden max-h-[300px] overflow-y-auto custom-scrollbar">
-                                    {activeUrls.length > 0 ? (
-                                        <div className="divide-y divide-border-subtle/50">
-                                            {extractedUrls.map((url, idx) => {
-                                                if (removedIndices.has(idx)) return null;
-                                                const activeIdx = activeUrls.indexOf(url);
-                                                if (!showAllUrls && activeIdx >= URL_DISPLAY_LIMIT) return null;
-                                                return (
-                                                    <div key={idx} className="p-2 flex items-center justify-between hover:bg-surface-lighter group">
-                                                        <span className="text-xs text-primary truncate max-w-[90%] font-mono">
-                                                            {url}
-                                                        </span>
-                                                        <button
-                                                            onClick={() => handleRemoveUrl(idx)}
-                                                            className="text-text-muted hover:text-accent-error opacity-0 group-hover:opacity-100 transition-all"
-                                                        >
-                                                            <X className="w-3 h-3" />
-                                                        </button>
-                                                    </div>
-                                                );
-                                            })}
-                                            {!showAllUrls && activeUrls.length > URL_DISPLAY_LIMIT && (
-                                                <div className="p-2 text-center">
-                                                    <button onClick={() => setShowAllUrls(true)} className="text-xs text-accent-primary hover:underline">
-                                                        Show all {activeUrls.length} URLs
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div className="p-8 text-center text-text-muted text-xs">
-                                            {selectedColumnId ? 'No URLs found in this column' : 'Select a column to preview URLs'}
-                                        </div>
+                        <div className="max-h-[320px] overflow-y-auto rounded-field border border-line bg-surface">
+                            {activeUrls.length > 0 ? (
+                                <div>
+                                    {extractedUrls.map((url, idx) => {
+                                        if (removedIndices.has(idx)) return null;
+                                        const activeIdx = activeUrls.indexOf(url);
+                                        if (!showAllUrls && activeIdx >= URL_DISPLAY_LIMIT) return null;
+                                        return (
+                                            <div key={idx} className="group flex items-center justify-between gap-2 border-b border-line px-3 py-1 last:border-b-0">
+                                                <span className="min-w-0 flex-1 truncate font-mono text-caption text-ink-2">{url}</span>
+                                                <IconButton size="sm" label="Remove" noTooltip className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" onClick={() => handleRemoveUrl(idx)}><X /></IconButton>
+                                            </div>
+                                        );
+                                    })}
+                                    {!showAllUrls && activeUrls.length > URL_DISPLAY_LIMIT && (
+                                        <div className="p-2 text-center"><Button size="sm" variant="ghost" onClick={() => setShowAllUrls(true)}>Show all {activeUrls.length}</Button></div>
                                     )}
                                 </div>
-                            </>
-                        )}
-                    </div>
+                            ) : (
+                                <Text size="small" tone="muted" className="p-8 text-center">{selectedColumnId ? 'No addresses in this column' : 'Pick a column to see its addresses'}</Text>
+                            )}
+                        </div>
+                    </Stack>
                 )}
             </div>
 
-            {/* Footer */}
-            <div className="p-4 border-t border-border-subtle bg-background-card pb-6">
+            <div className="border-t border-line bg-surface p-4">
                 {step === 2 ? (
-                    <div className="space-y-3">
-                        <button
-                            onClick={handleConfirm}
-                            disabled={activeUrls.length === 0}
-                            className={`w-full btn h-10 ${activeUrls.length > 0
-                                ? 'btn-primary'
-                                : 'bg-surface-lighter text-text-muted cursor-not-allowed'
-                                }`}
-                        >
-                            Use {activeUrls.length} URLs
-                        </button>
-
-                        <button
-                            onClick={handleBack}
-                            className="w-full btn btn-ghost text-xs h-8 gap-2"
-                        >
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                            Back
-                        </button>
-                    </div>
+                    <Button variant="primary" size="lg" fullWidth onClick={handleConfirm} disabled={activeUrls.length === 0}>Use {activeUrls.length} addresses</Button>
                 ) : (
-                    <div className="flex justify-center">
-                        <button
-                            onClick={onClose}
-                            className="btn btn-ghost text-xs text-text-muted hover:text-text-primary gap-2"
-                        >
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                            Cancel
-                        </button>
-                    </div>
+                    <Button variant="ghost" fullWidth onClick={onClose}>Cancel</Button>
                 )}
             </div>
         </div>
