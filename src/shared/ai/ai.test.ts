@@ -2,21 +2,24 @@ import { describe, it, expect } from 'vitest';
 import { parseSchemaInput, SCHEMA_PRESETS } from './schemaIntake';
 import { buildResponseSchema, buildExtractPrompt, buildListPrompt, buildListSchema, parseListOutput, parseModelOutput, isGrounded } from './extractPrompt';
 
+/** What a field means, without the extras the plan adds (label, enum, many). */
+const core = (f: { name: string; type: string; description?: string; required?: boolean }) => ({ name: f.name, type: f.type, description: f.description, required: !!f.required });
+
 describe('parseSchemaInput', () => {
     it('reads field lines with descriptions and infers url/image', () => {
         const r = parseSchemaInput('- Title: the heading\nprice = selling price\nimage\nproduct url: link');
         expect(r.source).toBe('lines');
-        expect(r.fields).toEqual([
-            { name: 'title', description: 'the heading', type: 'string' },
-            { name: 'price', description: 'selling price', type: 'string' },
-            { name: 'image', description: undefined, type: 'image' },
-            { name: 'product_url', description: 'link', type: 'url' },
+        expect(r.fields.map(core)).toEqual([
+            { name: 'title', description: 'the heading', type: 'string', required: false },
+            { name: 'price', description: 'selling price', type: 'string', required: false },
+            { name: 'image', description: undefined, type: 'image', required: false },
+            { name: 'product_url', description: 'link', type: 'url', required: false },
         ]);
     });
     it('reads a JSON Schema', () => {
         const r = parseSchemaInput(JSON.stringify({ type: 'object', required: ['title'], properties: { title: { type: 'string', description: 'Name' }, rating: { type: ['number', 'null'] }, link: { type: 'string', format: 'uri' } } }));
         expect(r.source).toBe('json-schema');
-        expect(r.fields).toEqual([
+        expect(r.fields.map(core)).toEqual([
             { name: 'title', description: 'Name', type: 'string', required: true },
             { name: 'rating', description: undefined, type: 'number', required: false },
             { name: 'link', description: undefined, type: 'url', required: false },
@@ -38,19 +41,19 @@ describe('parseSchemaInput', () => {
     it('splits entity lists from single answers: lines, JSON Schema, example', () => {
         const lines = parseSchemaInput('category: page heading\nproducts[]:\n  title: name\n  image\nsellers[]: name, rating\nfooter_note');
         expect(lines.fields.map(f => f.name)).toEqual(['category', 'footer_note']);
-        expect(lines.lists).toEqual([
-            { name: 'products', fields: [{ name: 'title', description: 'name', type: 'string' }, { name: 'image', description: undefined, type: 'image' }] },
-            { name: 'sellers', fields: [{ name: 'name', description: undefined, type: 'string' }, { name: 'rating', description: undefined, type: 'string' }] },
+        expect(lines.lists.map(l => ({ name: l.name, fields: l.fields.map(core) }))).toEqual([
+            { name: 'products', fields: [{ name: 'title', description: 'name', type: 'string', required: false }, { name: 'image', description: undefined, type: 'image', required: false }] },
+            { name: 'sellers', fields: [{ name: 'name', description: undefined, type: 'string', required: false }, { name: 'rating', description: undefined, type: 'string', required: false }] },
         ]);
         const schema = parseSchemaInput(JSON.stringify({
             type: 'object',
             properties: { total: { type: 'integer' }, products: { type: 'array', description: 'results', items: { $ref: '#/$defs/p' } } },
             $defs: { p: { type: 'object', required: ['title'], properties: { title: { type: 'string' }, url: { type: 'string', format: 'uri' } } } },
         }));
-        expect(schema.fields).toEqual([{ name: 'total', type: 'integer', required: false, description: undefined }]);
-        expect(schema.lists).toEqual([{ name: 'products', description: 'results', fields: [{ name: 'title', type: 'string', required: true, description: undefined }, { name: 'url', type: 'url', required: false, description: undefined }] }]);
+        expect(schema.fields.map(core)).toEqual([{ name: 'total', type: 'integer', required: false, description: undefined }]);
+        expect(schema.lists.map(l => ({ name: l.name, description: l.description, fields: l.fields.map(core) }))).toEqual([{ name: 'products', description: 'results', fields: [{ name: 'title', type: 'string', required: true, description: undefined }, { name: 'url', type: 'url', required: false, description: undefined }] }]);
         const example = parseSchemaInput('[{"title": "Lamp", "price": 9.5}]');
-        expect(example.lists).toEqual([{ name: 'items', fields: [{ name: 'title', type: 'string', description: 'e.g. Lamp' }, { name: 'price', type: 'number', description: undefined }] }]);
+        expect(example.lists.map(l => ({ name: l.name, fields: l.fields.map(core) }))).toEqual([{ name: 'items', fields: [{ name: 'title', type: 'string', description: 'e.g. Lamp', required: false }, { name: 'price', type: 'number', description: undefined, required: false }] }]);
     });
     it('reports errors', () => {
         expect(parseSchemaInput('').error).toBeTruthy();

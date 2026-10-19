@@ -71,7 +71,7 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
             .filter(f => chosen.has(f.name) && usable(result.single[f.name]))
             .map((f, i) => {
                 const v = result.single[f.name];
-                return { id: `${now}_${i}`, name: f.name, selectors: v.selectors!, action: 'extract', type: v.elementType ?? 'text', value: v.text, source: 'ai' };
+                return { id: `${now}_${i}`, name: f.label || f.name, selectors: v.selectors!, action: 'extract', type: v.elementType ?? 'text', value: v.text, source: 'ai' };
             });
         onAddElements(elements);
         onClose();

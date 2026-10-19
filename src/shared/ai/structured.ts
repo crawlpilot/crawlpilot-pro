@@ -93,11 +93,13 @@ function at(entity: Record<string, any>, path: string): unknown {
 
 const typeOf = (e: Record<string, any>) => (Array.isArray(e['@type']) ? e['@type'][0] : e['@type']) as string | undefined;
 
-/** Paths to try for a field: its synonyms, then the field itself as a property. */
+/** Paths to try for a field: its synonyms, then the field itself as a property. A nested field
+ * (`dimensions__width`) is also tried by its own name (`width`). */
 function pathsFor(field: SchemaField): string[] {
-    const name = norm(field.name);
-    const paths = SYNONYMS.filter(([re]) => re.test(name)).flatMap(([, p]) => p);
-    return [...paths, camel(field.name), field.name];
+    const own = field.name.includes('__') ? field.name.split('__').pop()! : field.name;
+    const names = own === field.name ? [field.name] : [field.name, own];
+    const paths = names.flatMap(n => SYNONYMS.filter(([re]) => re.test(norm(n))).flatMap(([, p]) => p));
+    return [...new Set([...paths, ...names.flatMap(n => [camel(n), n])])];
 }
 
 function answer(entity: Record<string, any>, field: SchemaField): StructuredHit | null {

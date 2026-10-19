@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, Notice, Progress, Stack, Text, TextArea, TextField, ToggleChip, Tooltip, cx, type ChipTone } from '../ui';
-import { Copy, Database, Sparkles } from 'lucide-react';
+import { Copy, Database, Download, Sparkles } from 'lucide-react';
 import ToolHeader from '../components/ui/ToolHeader';
 import { parseSchemaInput, SCHEMA_PRESETS } from '../../shared/ai/schemaIntake';
 import { modelStatus, type ModelStatus } from '../services/ai/modelHost';
 import { runPageExtract, ExtractStopped, type ExtractOutcome, type ExtractedValue, type ValueStatus } from '../services/ai/extractRun';
-import { outcomeJson, outcomeTables } from '../services/ai/extractTables';
+import { outcomeDocument, outcomeJson, outcomeTables } from '../services/ai/extractTables';
+import { downloadJson } from '../services/download';
+import { slug } from '../../shared/utils/text';
 import { db } from '../../shared/db';
 import { EXTRACT_DRAFT_KEY } from '../services/ai/extractDraft';
 
@@ -92,6 +94,8 @@ export default function AiExtractPage({ onBack }: { onBack: () => void }) {
     };
 
     const copyJson = () => { if (outcome) void navigator.clipboard.writeText(JSON.stringify(outcomeJson(outcome, intake), null, 2)); };
+    /** The data in the schema's shape, with sources per value, problems and warnings. */
+    const downloadResult = () => { if (outcome) downloadJson(outcomeDocument(outcome, intake), `${slug(outcome.title || 'extract', '-', 'extract')}.json`); };
 
     const unavailable = model?.availability === 'unavailable';
     const [whyOpen, setWhyOpen] = useState(false);
@@ -122,6 +126,11 @@ export default function AiExtractPage({ onBack }: { onBack: () => void }) {
                         placeholder={'One field per line, e.g.\nprice: current selling price\n\nA list:\nproducts[]:\n  title: product name\n  price: price\n\nor paste a JSON Schema / an example JSON object'}
                         error={intake.error}
                         hint={`${counts} field${counts !== 1 ? 's' : ''}${intake.lists.length ? ` · ${intake.lists.length} list${intake.lists.length !== 1 ? 's' : ''}` : ''} (${intake.source === 'json-schema' ? 'JSON Schema' : intake.source === 'example' ? 'example' : 'lines'})`} />
+                    {!!intake.problems?.length && (
+                        <Notice tone="warning" title="Read in a simpler way">
+                            <ul className="m-0 list-disc pl-4">{intake.problems.map(p => <li key={p}>{p}</li>)}</ul>
+                        </Notice>
+                    )}
                     <TextField size="sm" value={instructions} disabled={running} onChange={e => setInstructions(e.target.value)} placeholder="Optional instructions, e.g. only items in stock" />
 
                     <div className="flex flex-wrap gap-1.5">
@@ -131,7 +140,8 @@ export default function AiExtractPage({ onBack }: { onBack: () => void }) {
                         {outcome && !running && (
                             <>
                                 <Button onClick={save} icon={<Database />} disabled={saved.length > 0}>{saved.length ? 'Saved' : 'Save to Data'}</Button>
-                                <Button variant="ghost" onClick={copyJson} icon={<Copy />}>JSON</Button>
+                                <Button variant="ghost" onClick={copyJson} icon={<Copy />}>Copy JSON</Button>
+                                <Button variant="ghost" onClick={downloadResult} icon={<Download />}>JSON with sources</Button>
                             </>
                         )}
                     </div>
@@ -152,7 +162,7 @@ export default function AiExtractPage({ onBack }: { onBack: () => void }) {
                                     <Stack gap={1.5}>
                                         {intake.fields.map(f => (
                                             <div key={f.name} className="grid grid-cols-[110px_1fr] items-baseline gap-2">
-                                                <Text size="caption" weight="bold" className="break-words">{f.name}</Text>
+                                                <Text size="caption" weight="bold" className="break-words">{f.label || f.name}</Text>
                                                 <Text size="small"><Value v={outcome.single[f.name]} /></Text>
                                             </div>
                                         ))}
@@ -166,7 +176,7 @@ export default function AiExtractPage({ onBack }: { onBack: () => void }) {
                                         <Text size="small" weight="semibold" className="px-3 pt-2.5 pb-1.5">{l.name} · {items.length} item{items.length !== 1 ? 's' : ''}</Text>
                                         <table className="w-full border-collapse text-caption">
                                             <thead>
-                                                <tr>{l.fields.map(f => <th key={f.name} className="border-b border-line bg-surface-2 px-3 py-1.5 text-left font-bold text-ink-2">{f.name}</th>)}</tr>
+                                                <tr>{l.fields.map(f => <th key={f.name} className="border-b border-line bg-surface-2 px-3 py-1.5 text-left font-bold text-ink-2">{f.label || f.name}</th>)}</tr>
                                             </thead>
                                             <tbody>
                                                 {items.slice(0, ROWS_SHOWN).map((item, i) => (

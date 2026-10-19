@@ -5,7 +5,8 @@
  * and where it came from (hidden from the columns, outside the row's identity).
  */
 import type { Column, ColumnType, ExtractionResult } from '../../../shared/types/database';
-import type { SchemaField, SchemaList } from '../../../shared/ai/schemaIntake';
+import type { IntakeResult, SchemaField, SchemaList } from '../../../shared/ai/schemaIntake';
+import { assemble, sourcesByPointer, validate, type Problem } from '../../../shared/ai/assemble';
 import type { ExtractOutcome, ExtractedValue } from './extractRun';
 
 export const SOURCES_KEY = '_sources';
@@ -19,7 +20,7 @@ function columnType(f: SchemaField): ColumnType {
     }
 }
 
-const columns = (fields: SchemaField[]): Column[] => fields.map((f, order) => ({ id: f.name, name: f.name, type: columnType(f), order }));
+const columns = (fields: SchemaField[]): Column[] => fields.map((f, order) => ({ id: f.name, name: f.label || f.name, type: columnType(f), order }));
 const cell = (v: ExtractedValue | undefined) => (v && v.status !== 'empty' && v.status !== 'needs_model' ? v.value : null);
 const source = (v: ExtractedValue) => ({ status: v.status, tier: v.tier, ...(v.source ? { source: v.source } : {}) });
 
@@ -48,10 +49,41 @@ export function outcomeTables(outcome: ExtractOutcome, intake: { fields: SchemaF
     });
 }
 
-/** The outcome in the schema's own shape: single answers as keys, each list as an array of objects. */
-export function outcomeJson(outcome: ExtractOutcome, intake: { fields: SchemaField[]; lists: SchemaList[] }): Record<string, unknown> {
+/** A value as the assembler takes it: several values from their page text, the rest typed. */
+const raw = (f: SchemaField, v: ExtractedValue | undefined) => (v && v.status !== 'empty' && v.status !== 'needs_model' ? (f.many ? v.text : v.value) : null);
+const rawValues = (fields: SchemaField[], values: Record<string, ExtractedValue>) => Object.fromEntries(fields.map(f => [f.name, raw(f, values[f.name])]));
+
+/** The outcome in the schema's own shape: nested objects, arrays of values, lists of objects. */
+export function outcomeJson(outcome: ExtractOutcome, intake: Pick<IntakeResult, 'fields' | 'lists' | 'plan'>): unknown {
+    if (intake.plan) {
+        return assemble(intake.plan, {
+            single: rawValues(intake.fields, outcome.single),
+            lists: Object.fromEntries(intake.lists.map(l => [l.name, (outcome.lists[l.name] ?? []).map(item => rawValues(l.fields, item))])),
+        });
+    }
     const out: Record<string, unknown> = {};
     for (const f of intake.fields) out[f.name] = cell(outcome.single[f.name]);
     for (const l of intake.lists) out[l.name] = (outcome.lists[l.name] ?? []).map(item => Object.fromEntries(l.fields.map(f => [f.name, cell(item[f.name])])));
     return out;
+}
+
+export interface OutcomeDocument {
+    url: string;
+    /** In the schema's shape. */
+    data: unknown;
+    /** Per JSON pointer of a value in `data`: its status, tier and where it came from. */
+    sources: Record<string, ReturnType<typeof source>>;
+    /** Where `data` doesn't meet the schema (a required value not found, a value not in the enum). */
+    problems: Problem[];
+    warnings: string[];
+}
+
+/** The whole result as thenos returns an extraction: data in shape, sources by pointer, problems, warnings. */
+export function outcomeDocument(outcome: ExtractOutcome, intake: Pick<IntakeResult, 'fields' | 'lists' | 'plan' | 'schema'>): OutcomeDocument {
+    const data = outcomeJson(outcome, intake);
+    const meta = (values: Record<string, ExtractedValue>) => Object.fromEntries(Object.entries(values).filter(([, v]) => v.status !== 'empty' && v.status !== 'needs_model').map(([k, v]) => [k, source(v)]));
+    const sources = intake.plan
+        ? sourcesByPointer(intake.plan, meta(outcome.single), Object.fromEntries(intake.lists.map(l => [l.name, (outcome.lists[l.name] ?? []).map(meta)])))
+        : {};
+    return { url: outcome.url, data, sources, problems: intake.schema ? validate(data, intake.schema) : [], warnings: outcome.warnings };
 }
