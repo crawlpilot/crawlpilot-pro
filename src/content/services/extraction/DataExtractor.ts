@@ -4,6 +4,7 @@ import { hashString } from '../../../shared/utils/hash';
 import { inferFields, readRow, hasReaders, structuredColumns, ReaderColumn } from './fields';
 import { findStructuredSource } from './structuredRows';
 import { pickProblems } from './pickCheck';
+import { backfill } from './fields/backfill';
 
 export interface RowsResult {
     columns: ReaderColumn[];
@@ -27,8 +28,13 @@ export class DataExtractor {
     }
 
     private extractList({ siblings }: ListMatch) {
-        const { columns, items, duplicates, problems } = this.extractRows(siblings);
+        const first = this.extractRows(siblings);
         const structured = this.structuredAlternative(siblings);
+        // The page's data backs up the fields that mean the same (a price block that never rendered).
+        const backed = structured ? withAtomCache(() => backfill(first.columns, structured.columns, siblings)) : first.columns;
+        const { columns, items, duplicates, problems } = backed === first.columns || backed.every((c, i) => c === first.columns[i])
+            ? first
+            : { ...this.extractRows(siblings, backed), problems: first.problems };
 
         return {
             type: 'list',

@@ -4,11 +4,12 @@
  * state (`__NEXT_DATA__`, JSON scripts) holds an array whose items are the list's rows, its keys
  * become named fields with no guessing.
  *
- * The run stays row-driven: each DOM row is matched to its JSON item by an anchor (the item's URL or
- * name, found in the row), and the field reads that item. So pagination, auto-scroll and bulk runs
+ * The run stays row-driven: each DOM row is matched to its JSON item by an anchor (the item's ID in
+ * the row's `data-*` attributes or link, its URL, or its name, found in the row), and the field reads
+ * that item. So pagination, auto-scroll and bulk runs
  * need nothing new, and each row still comes from what the page shows.
  */
-import { atomScope, shapeOf } from './atoms';
+import { atomScope, readValue, shapeOf } from './atoms';
 import { requestNetEntries } from '../../features/network/NetworkRelay';
 
 export type JsonPath = (string | number)[];
@@ -24,6 +25,8 @@ export interface JsonSpec {
     /** Dotted path, inside an item, of this field's value. */
     key: string;
     anchorIsUrl: boolean;
+    /** The anchor is an ID: matched against the row's ID attributes and the ID-like parts of its links. */
+    anchorKind?: 'id';
 }
 
 export interface StructuredSource {
@@ -32,6 +35,7 @@ export interface StructuredSource {
     path: JsonPath;
     anchor: string;
     anchorIsUrl: boolean;
+    anchorKind?: 'id';
     fields: { key: string; name: string; type: string }[];
     matched: number;
     sampled: number;
@@ -211,7 +215,12 @@ function norm(s: string): string {
     return s.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
-interface RowProbe { urls: Set<string>; text: string }
+interface RowProbe { urls: Set<string>; ids: Set<string>; text: string }
+
+/** `data-*` attributes that hold an item's ID: `data-sku`, `data-item-id`, `data-product-id`, `data-asin`. */
+const ID_ATTR = /^data-(?:[a-z]+-){0,2}(?:id|sku|asin|pid|upc|gtin|item-?id|product-?id|sku-?id)$/i;
+/** A path segment or query value that looks like an ID: letters and digits, with a digit. */
+const ID_TOKEN = /^(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{4,24}$/;
 
 /** Probes by row within one scan (`withAtomCache`): a row's JSON fields are read one after another. */
 const probes = new WeakMap<Element, { scope: number; probe: RowProbe }>();
@@ -227,29 +236,53 @@ function probe(row: Element): RowProbe {
 
 function scanProbe(row: Element): RowProbe {
     const urls = new Set<string>();
+    const ids = new Set<string>();
     const links = row.tagName === 'A' ? [row] : Array.from(row.querySelectorAll('a[href]'));
-    links.forEach(a => { const k = urlKey(a.getAttribute('href') || ''); if (k) urls.add(k); });
-    return { urls, text: norm(row.textContent || '') };
+    links.forEach(a => {
+        // The link as read (a click tracker's destination, not the tracker).
+        const href = readValue(a, 'href');
+        const k = urlKey(href);
+        if (k) urls.add(k);
+        try {
+            const u = new URL(href);
+            u.pathname.split('/').forEach(seg => { if (ID_TOKEN.test(seg)) ids.add(seg); });
+            u.searchParams.forEach(v => { if (ID_TOKEN.test(v)) ids.add(v); });
+        } catch { /* not a URL */ }
+    });
+    for (const el of [row, ...Array.from(row.querySelectorAll('*'))].slice(0, 400)) {
+        for (const at of Array.from(el.attributes)) {
+            const v = at.value.trim();
+            // An ID has a digit: `data-test-id="gpt-main"` names a part, not an item.
+            if (ID_ATTR.test(at.name) && v.length >= 3 && v.length <= 40 && /\d/.test(v)) ids.add(v);
+        }
+    }
+    return { urls, ids, text: norm(row.textContent || '') };
 }
 
-function anchorMatches(p: RowProbe, value: string, isUrl: boolean): boolean {
-    return isUrl ? p.urls.has(urlKey(value)) : p.text.includes(norm(value));
+type AnchorKind = 'url' | 'id' | 'text';
+
+function anchorMatches(p: RowProbe, value: string, kind: AnchorKind): boolean {
+    return kind === 'url' ? p.urls.has(urlKey(value)) : kind === 'id' ? p.ids.has(value) : p.text.includes(norm(value));
 }
+
+const kindOf = (spec: { anchorIsUrl: boolean; anchorKind?: 'id' }): AnchorKind => (spec.anchorKind === 'id' ? 'id' : spec.anchorIsUrl ? 'url' : 'text');
 
 /** Index of an array's items by anchor value, for matching rows at read time. */
 const indexCache = new WeakMap<object, Map<string, Map<string, Record<string, unknown>>>>();
 
-function itemIndex(items: Record<string, unknown>[], anchor: string, isUrl: boolean): Map<string, Record<string, unknown>> {
+function itemIndex(items: Record<string, unknown>[], anchor: string, kind: AnchorKind): Map<string, Record<string, unknown>> {
     let byAnchor = indexCache.get(items);
     if (!byAnchor) { byAnchor = new Map(); indexCache.set(items, byAnchor); }
-    let idx = byAnchor.get(anchor);
+    let idx = byAnchor.get(`${kind}:${anchor}`);
     if (!idx) {
         idx = new Map();
         for (const item of items) {
-            const v = getDotted(item, anchor);
-            if (typeof v === 'string' && v) idx.set(isUrl ? urlKey(v) : norm(v), item);
+            const raw = getDotted(item, anchor);
+            const v = typeof raw === 'number' ? String(raw) : raw;
+            const key = typeof v === 'string' && v ? (kind === 'url' ? urlKey(v) : kind === 'id' ? v.trim() : norm(v)) : '';
+            if (key && !idx.has(key)) idx.set(key, item);
         }
-        byAnchor.set(anchor, idx);
+        byAnchor.set(`${kind}:${anchor}`, idx);
     }
     return idx;
 }
@@ -266,12 +299,13 @@ function findArrays(kind: SourceKind, path: JsonPath): Record<string, unknown>[]
 }
 
 /** The JSON item behind a DOM row, if any. */
-function itemFor(row: Element, spec: Pick<JsonSpec, 'kind' | 'path' | 'anchor' | 'anchorIsUrl'>): Record<string, unknown> | undefined {
+function itemFor(row: Element, spec: Pick<JsonSpec, 'kind' | 'path' | 'anchor' | 'anchorIsUrl' | 'anchorKind'>): Record<string, unknown> | undefined {
     const p = probe(row);
+    const kind = kindOf(spec);
     for (const items of findArrays(spec.kind, spec.path)) {
-        const idx = itemIndex(items, spec.anchor, spec.anchorIsUrl);
-        if (spec.anchorIsUrl) {
-            for (const u of p.urls) { const hit = idx.get(u); if (hit) return hit; }
+        const idx = itemIndex(items, spec.anchor, kind);
+        if (kind === 'url' || kind === 'id') {
+            for (const u of kind === 'url' ? p.urls : p.ids) { const hit = idx.get(u); if (hit) return hit; }
             continue;
         }
         let best: Record<string, unknown> | undefined;
@@ -292,6 +326,21 @@ export function readJsonField(row: Element, spec: JsonSpec): string | undefined 
 }
 
 // ------------------------------------------------------------------------------------- finding
+
+/**
+ * What a JSON key holds, by its words (the last two segments): the meanings DOM fields have
+ * (`fields/meaning.ts`), so a JSON field can back up the DOM field that means the same.
+ */
+export function jsonMeaning(key: string): string | undefined {
+    const words = key.split('.').filter(p => !/^\d+$/.test(p)).slice(-2).join(' ')
+        .replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase();
+    if (/\b(was|list|regular|original|strike|msrp|compare at)\b.*\bprice\b/.test(words)) return 'Was Price';
+    if (/\b(review count|number of reviews|num reviews|reviews count|rating count|total reviews)\b/.test(words)) return 'Review Count';
+    if (/\b(average rating|rating value|customer rating|star rating)\b|^rating$/.test(words)) return 'Rating';
+    if (/\b(price|current price|sale price|amount)$/.test(words) && !/\b(unit|per|range|display|savings)\b/.test(words)) return 'Price';
+    if (/\bbrand( name)?$/.test(words)) return 'Brand';
+    return undefined;
+}
 
 function fieldName(key: string): string {
     const parts = key.split('.').filter(p => !/^\d+$/.test(p) && p !== 'item');
@@ -322,6 +371,7 @@ export function findStructuredSource(rowEls: Element[]): StructuredSource | null
     if (rows.length < 2) return null;
     const probes = rows.map(probe);
     let best: StructuredSource | null = null;
+    let bestRank = -1;
 
     for (const source of pageSources()) {
         for (const { path, items } of objectArrays(source.data)) {
@@ -331,23 +381,33 @@ export function findStructuredSource(rowEls: Element[]): StructuredSource | null
             itemLeaves.forEach(l => l.forEach((v, k) => { const vs = keys.get(k) ?? []; vs.push(v); keys.set(k, vs); }));
 
             for (const [anchor, values] of keys) {
-                const strings = values.filter((v): v is string => typeof v === 'string' && v.trim().length >= 4);
-                if (strings.length < items.length * 0.8 || new Set(strings).size < strings.length) continue;
-                const isUrl = strings.every(looksUrl);
-                const used = new Set<string>();
-                let matched = 0;
-                for (const p of probes) {
-                    const hit = strings.find(v => !used.has(v) && anchorMatches(p, v, isUrl));
-                    if (hit) { used.add(hit); matched++; }
-                }
-                if (matched < Math.max(2, rows.length * 0.6)) continue;
-                if (best && (matched < best.matched || (matched === best.matched && !isUrl))) continue;
+                // IDs may be numbers; an anchor is a value of ≥ 3 characters, unique across the items.
+                const strings = values.map(v => (typeof v === 'number' && Number.isInteger(v) ? String(v) : v))
+                    .filter((v): v is string => typeof v === 'string' && v.trim().length >= 3);
+                // Nearly unique: a results array may repeat an item (a sponsored copy); the first is used.
+                if (strings.length < items.length * 0.8 || new Set(strings).size < strings.length * 0.9) continue;
+                const kinds: AnchorKind[] = strings.every(looksUrl) ? ['url'] : strings.every(v => v.trim().length >= 4) ? ['id', 'text'] : ['id'];
+                for (const kind of kinds) {
+                    const used = new Set<string>();
+                    let matched = 0;
+                    for (const p of probes) {
+                        const hit = strings.find(v => !used.has(v) && anchorMatches(p, v, kind));
+                        if (hit) { used.add(hit); matched++; }
+                    }
+                    if (matched < Math.max(2, rows.length * 0.6)) continue;
+                    // More rows matched wins; on a tie an ID beats a URL beats a name.
+                    const rank = { id: 2, url: 1, text: 0 }[kind];
+                    if (best && (matched < best.matched || (matched === best.matched && rank <= bestRank))) continue;
+                    bestRank = rank;
 
-                const fields = [...keys.entries()]
-                    .filter(([, vs]) => vs.length >= items.length * 0.3)
-                    .slice(0, 40)
-                    .map(([key, vs]) => ({ key, name: fieldName(key), type: fieldType(key, vs) }));
-                best = { kind: source.kind, label: source.label, path, anchor, anchorIsUrl: isUrl, fields, matched, sampled: rows.length };
+                    // Keys that say what they hold (price, rating, reviews, brand…) first: an item has hundreds.
+                    const fields = [...keys.entries()]
+                        .filter(([, vs]) => vs.length >= items.length * 0.3)
+                        .sort(([a], [b]) => (jsonMeaning(a) ? 0 : 1) - (jsonMeaning(b) ? 0 : 1))
+                        .slice(0, 40)
+                        .map(([key, vs]) => ({ key, name: fieldName(key), type: fieldType(key, vs) }));
+                    best = { kind: source.kind, label: source.label, path, anchor, anchorIsUrl: kind === 'url', ...(kind === 'id' ? { anchorKind: 'id' as const } : {}), fields, matched, sampled: rows.length };
+                }
             }
         }
     }

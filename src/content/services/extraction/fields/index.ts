@@ -18,7 +18,7 @@
  *   6 meaning one column per meaning: precise readings kept, layouts joined, badges listed
  */
 import { collectAtoms, withAtomCache } from '../atoms';
-import type { StructuredSource } from '../structuredRows';
+import { jsonMeaning, type StructuredSource } from '../structuredRows';
 import type { ColumnType } from '../../../../shared/types/database';
 import { gateRows } from './gate';
 import { groupFields } from './group';
@@ -167,7 +167,8 @@ export function structuredColumns(source: StructuredSource): ReaderColumn[] {
                 chain: [],
                 attr: 'text',
                 shape: 'text',
-                json: { kind: source.kind, path: source.path, anchor: source.anchor, anchorIsUrl: source.anchorIsUrl, key: f.key },
+                json: { kind: source.kind, path: source.path, anchor: source.anchor, anchorIsUrl: source.anchorIsUrl, ...(source.anchorKind ? { anchorKind: source.anchorKind } : {}), key: f.key },
+                meaning: jsonMeaning(f.key),
             },
         };
     });

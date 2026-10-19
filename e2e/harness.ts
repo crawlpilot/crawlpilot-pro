@@ -151,8 +151,18 @@ export class Panel {
         }, url);
     }
 
+    /** Sends to a tab's content script; on a page that just loaded it may not be listening yet, so retry for up to 5 s. */
     toTab(tabId: number, type: string, payload?: unknown): Promise<any> {
-        return this.page.evaluate(([id, t, p]) => chrome.tabs.sendMessage(id as number, { type: t, payload: p }), [tabId, type, payload] as const);
+        return this.page.evaluate(async ([id, t, p]) => {
+            for (let tries = 0; ; tries++) {
+                try {
+                    return await chrome.tabs.sendMessage(id as number, { type: t, payload: p });
+                } catch (e) {
+                    if (tries >= 50 || !/Receiving end does not exist/.test(String(e))) throw e;
+                    await new Promise(r => setTimeout(r, 100));
+                }
+            }
+        }, [tabId, type, payload] as const);
     }
 
     toExtension(type: string, payload?: unknown): Promise<any> {
