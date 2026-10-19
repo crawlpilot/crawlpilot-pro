@@ -17,7 +17,7 @@ export function bulkJob(start: BulkStart): RunJob {
         urls: start.urls,
         maxConcurrent: start.maxConcurrent,
         settings: config,
-        // Clicks need a focusable window so animations run at full speed.
+        // Clicks run in hidden tabs made to behave as visible ones (`visible-shim.js`).
         interactive: clicks.length > 0,
         jobId: start.jobId,
         name: start.customName,
@@ -39,9 +39,10 @@ export function bulkJob(start: BulkStart): RunJob {
                 config: { ...config, actionSpeed, ...(clicks.length > 0 ? { clickWaitMs } : {}) },
             });
             if (!response.success) throw new Error(response.error);
-            const { item, items, columns } = response.result;
+            const { item, items, columns, steps } = response.result as typeof response.result & { steps?: { action: string; status: string }[] };
             const rows = Array.isArray(items) ? items : item ? [item] : [];
-            return { rows, columns };
+            const needsWindow = (steps ?? []).some(s => s.action === 'click' && s.status === 'no-effect');
+            return { rows, columns, needsWindow };
         },
     };
 }

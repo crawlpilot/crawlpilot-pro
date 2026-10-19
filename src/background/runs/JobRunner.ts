@@ -44,7 +44,10 @@ export interface RunJob {
     urls: string[];
     maxConcurrent?: number;
     settings: RunSettings;
-    /** Open pages in a focusable popup window (needed for clicks) instead of a background tab. */
+    /**
+     * The run clicks: its hidden tabs get `visible-shim.js` (they animate and load as visible ones),
+     * and a page whose clicks had no effect there is read again in a parked window.
+     */
     interactive?: boolean;
     /** Continue an existing job instead of creating one. */
     jobId?: number;
@@ -56,12 +59,38 @@ export interface RunJob {
     /** The table's columns, from the columns the pages reported so far. */
     columns(found: Column[]): Column[];
     /** The page's rows (each gets `source_url`); null when it yielded nothing. Throw to fail the page. */
-    extract(tabId: number, url: string, ctx: RunContext): Promise<{ rows: Row[]; columns?: Column[] } | null>;
+    extract(tabId: number, url: string, ctx: RunContext): Promise<{ rows: Row[]; columns?: Column[]; needsWindow?: boolean } | null>;
 }
 
 interface UrlState extends UrlStatus {
     tabId?: number;
     attempts?: number;
+    /** Read in a parked window: its clicks did nothing in a hidden tab. */
+    window?: boolean;
+}
+
+const SHIM_ID = 'crawlpilot-visible-shim';
+/** Pages whose clicks needed a window before every later page of the run opens in one. */
+const WINDOW_AFTER = 2;
+
+/** Registers the visible-tab shim for the run's hosts (`public/visible-shim.js`); false without access. */
+async function registerShim(urls: string[]): Promise<void> {
+    await unregisterShim();
+    const hosts = [...new Set(urls.map(u => { try { const x = new URL(u); return `${x.protocol}//${x.hostname}/*`; } catch { return ''; } }).filter(Boolean))];
+    if (hosts.length === 0) return;
+    try {
+        await chrome.scripting.registerContentScripts([{
+            id: SHIM_ID, js: ['visible-shim.js'], matches: hosts, runAt: 'document_start', world: 'MAIN', allFrames: false, persistAcrossSessions: false,
+        } as chrome.scripting.RegisteredContentScript]);
+    } catch (e) {
+        console.warn('[run] Visible-tab shim not registered (no access to these hosts?):', e);
+    }
+}
+
+async function unregisterShim(): Promise<void> {
+    try {
+        if ((await chrome.scripting.getRegisteredContentScripts({ ids: [SHIM_ID] })).length > 0) await chrome.scripting.unregisterContentScripts({ ids: [SHIM_ID] });
+    } catch { /* nothing registered */ }
 }
 
 interface RunState {
@@ -118,6 +147,9 @@ export class JobRunner {
     private get storageKey() { return `${this.kind}_extraction_state` as const; }
     private get alarmName() { return `${this.kind}_extraction_keepalive`; }
 
+    /** Pages of this run that needed a window; past WINDOW_AFTER, every page opens in one. */
+    private windowPages = 0;
+
     get running(): boolean {
         return this.job !== null;
     }
@@ -142,6 +174,8 @@ export class JobRunner {
             const s = job.settings;
             this.tabPool = new TabPool(job.maxConcurrent ?? defaultConcurrency(), s.viewportWidth || 800, s.viewportHeight || 600, s.loadTimeout || 30000, s.waitForLoad !== false);
             this.tabPool.setOnTabRemoved(tabId => this.tabClosed(tabId));
+            this.windowPages = 0;
+            if (job.interactive) await registerShim(urls);
 
             this.run().catch(err => {
                 console.error(`[${this.kind} run] Fatal error:`, err);
@@ -282,11 +316,12 @@ export class JobRunner {
         let tabId: number | null = null;
 
         try {
-            tabId = await tabPool.acquireTab(url, job.interactive);
+            const mode = status.window || this.windowPages >= WINDOW_AFTER ? 'window' : 'background';
+            tabId = await tabPool.acquireTab(url, mode);
             if (tabId === null && !this.stopping) {
                 // Pool full or content script not ready: one more try.
                 await sleep(2000);
-                tabId = await tabPool.acquireTab(url, job.interactive);
+                tabId = await tabPool.acquireTab(url, mode);
             }
             if (tabId === null) {
                 throw new Error(this.stopping ? 'Extraction stopped' : 'Could not open a tab (the content script may be blocked on this host)');
@@ -305,6 +340,13 @@ export class JobRunner {
             }
 
             const page = await job.extract(tabId, url, { stopped: () => this.stopping, message: tabPool.sendMessage.bind(tabPool) });
+            // Its clicks did nothing in a hidden tab: read it again in a parked window (once).
+            if (page?.needsWindow && mode === 'background' && job.interactive) {
+                status.window = true;
+                this.windowPages++;
+                status.status = 'queued';
+                return 'retry';
+            }
             if (!page || page.rows.length === 0) {
                 status.status = 'error';
                 status.error = 'No data extracted';
@@ -381,6 +423,7 @@ export class JobRunner {
     private async finish(stoppedByUser: boolean, error?: string) {
         const { state, job } = this;
         if (!state || !job) return;
+        await unregisterShim();
         await this.previewChain.catch(() => undefined);
 
         const { jobId, urls, rows, startTime } = state;

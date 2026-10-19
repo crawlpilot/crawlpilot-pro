@@ -1,17 +1,13 @@
 import { MessageType, Payload, Reply, sendToTab } from '../../shared/messages';
 /**
- * TabPool — manages a pool of browser tabs for background extraction.
+ * TabPool — the browser tabs a run reads its pages in (`docs/plans/page-extractor-background-plan.md` P4).
  *
- * Two tab modes, matching the reference (background-readable.js):
+ *   'background' (every run): a tab opened with active:false, never discarded while in use. A run with
+ *     click steps also gets `visible-shim.js` (JobRunner), so the hidden tab animates and loads its
+ *     sections as a visible one would. Nothing is put on the user's screen.
  *
- *   needsInteraction: true  — popup window (focused:false, type:'popup').
- *     The tab is active within its own window → Chrome runs rAF at full speed,
- *     real click events work, no visibility spoofing needed.
- *     Window is closed on releaseTab. User's focus is never stolen.
- *
- *   needsInteraction: false — silent background tab (active:false).
- *     For read-only extraction. rAF is throttled but no clicks are fired, so
- *     it doesn't matter. Tab is closed on releaseTab.
+ *   'window' (last resort): a small unfocused popup parked in the screen's bottom-right corner, for
+ *     a site whose clicks have no effect in a hidden tab. It is never placed over the user's window.
  *
  * Max pool size: 5 tabs (configurable, hard cap at 5)
  */
@@ -20,20 +16,19 @@ const MAX_POOL_SIZE = 5;
 const CONTENT_SCRIPT_PING_RETRIES = 20;
 const CONTENT_SCRIPT_PING_INTERVAL = 500;
 const CONTENT_SCRIPT_INIT_WAIT_FRESH = 1500;  // first load — wait for dynamic import
-const POPUP_WIDTH = 1280;
-const POPUP_HEIGHT = 900;
+const POPUP_WIDTH = 480;
+const POPUP_HEIGHT = 360;
 
 /**
- * An unfocused popup for interactive pages, placed over the user's last window and no larger than it.
- * Chrome rejects bounds that are under 50% on screen (a small or rearranged display), so a rejected
- * placement is retried with Chrome's own.
+ * A small unfocused popup in the bottom-right corner of the user's screen (Chrome rejects bounds less
+ * than half on screen: a rejected placement is retried with Chrome's own).
  */
 async function createPopup(url: string): Promise<chrome.windows.Window | undefined> {
     const base = { url, type: 'popup' as const, focused: false };
     const last = await chrome.windows.getLastFocused().catch(() => undefined);
-    const bounds = last?.width && last?.height
-        ? { width: Math.min(POPUP_WIDTH, last.width), height: Math.min(POPUP_HEIGHT, last.height), left: last.left ?? 0, top: last.top ?? 0 }
-        : { width: POPUP_WIDTH, height: POPUP_HEIGHT };
+    const right = (last?.left ?? 0) + (last?.width ?? POPUP_WIDTH);
+    const bottom = (last?.top ?? 0) + (last?.height ?? POPUP_HEIGHT);
+    const bounds = { width: POPUP_WIDTH, height: POPUP_HEIGHT, left: Math.max(0, right - POPUP_WIDTH), top: Math.max(0, bottom - POPUP_HEIGHT) };
     try {
         return await chrome.windows.create({ ...base, ...bounds });
     } catch (e) {
@@ -93,25 +88,14 @@ export class TabPool {
         return this.maxSize - this.tabs.size;
     }
 
-    /**
-     * Acquires a tab for extraction.
-     *
-     * needsInteraction: true  → popup window (focused:false). The tab is active
-     *   within its own window so Chrome runs rAF at full speed and real clicks work.
-     *   Matches the reference pattern: active:true tabs for interactive automation.
-     *
-     * needsInteraction: false → silent background tab (active:false). For read-only
-     *   extraction where no clicks are fired and rAF speed doesn't matter.
-     */
-    async acquireTab(url: string, needsInteraction = false): Promise<number | null> {
+    /** Opens `url` in a hidden background tab, or (`window`) in a parked popup: see the header. */
+    async acquireTab(url: string, mode: 'background' | 'window' = 'background'): Promise<number | null> {
         if (this.tabs.size >= this.maxSize) {
             console.warn(`[TabPool] Pool full (${this.tabs.size}/${this.maxSize}) — returning null for ${url}`);
             return null;
         }
 
-        if (needsInteraction) {
-            // Popup window: focused:false keeps user focus, but the tab IS active in its
-            // own window → full-speed rAF → React accordion clicks work correctly.
+        if (mode === 'window') {
             const win = await createPopup(url);
             if (!win) return null;
             const tab = win.tabs?.[0];
@@ -123,9 +107,10 @@ export class TabPool {
             return this._finishAcquire(tab.id, url, win.id, true);
         }
 
-        // Background tab: silent, no popup. rAF is throttled but no clicks are needed.
         const tab = await chrome.tabs.create({ url, active: false });
         if (!tab.id) return null;
+        // Chrome may discard a hidden tab under memory pressure: not while a run reads it.
+        await chrome.tabs.update(tab.id, { autoDiscardable: false }).catch(() => undefined);
         console.log(`[TabPool] Created background tab ${tab.id} for ${url}`);
         return this._finishAcquire(tab.id, url, tab.windowId!, false);
     }

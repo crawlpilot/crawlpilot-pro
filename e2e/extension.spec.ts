@@ -157,6 +157,50 @@ test('Page Extractor bulk run reads closed sections without clicking: a hidden t
     expect(lamp2.Note ?? lamp2.note).toBe('Shade fabric is washable');
 });
 
+// Headless Chromium shows every tab as visible, so this checks the run opens no window and reads a
+// frame-animated section; the hidden-tab behaviour itself is tested in `visibleShim.test.ts`.
+test('Page Extractor bulk run with a click step runs in background tabs: no window opens, an animated section opens', async ({ panel, origin }) => {
+    const urls = [1, 2, 3].map(n => `${origin}/site/product-anim.html?id=${n}`);
+    const elements = [
+        { id: 'title', name: 'Title', action: 'extract', type: 'text', selectors: ['h1'] },
+        { id: 'open', name: 'Warranty', action: 'click', type: 'button', selectors: ['#toggle'] },
+        { id: 'warranty', name: 'Warranty text', action: 'extract', type: 'text', selectors: ['p.warranty'] },
+    ];
+    await panel.clear();
+    await panel.page.evaluate(() => { (window as any).__windows = 0; chrome.windows.onCreated.addListener(() => { (window as any).__windows++; }); });
+    const start = await panel.toExtension('BULK_EXTRACTION_START', { urls, elements, config: { requestDelay: 0, clickWaitMs: 500 }, maxConcurrent: 3, customName: 'e2e hidden tabs' });
+    expect(start?.success).toBe(true);
+    const done = await panel.next('BULK_EXTRACTION_COMPLETE', 60_000);
+    expect(done.success).toBe(true);
+    expect(await panel.page.evaluate(() => (window as any).__windows)).toBe(0);
+    const rows = (await panel.store('rows')).filter(r => r.tableId === done.tableId).map(r => r.data);
+    const byTitle = Object.fromEntries(rows.map(r => [r.Title ?? r.title, r['Warranty text'] ?? r.warranty]));
+    expect(byTitle).toEqual({ 'Lamp model 1': '1 year warranty', 'Lamp model 2': '2 year warranty', 'Lamp model 3': '3 year warranty' });
+});
+
+test('a page whose click does nothing in a background tab is read again in a parked window', async ({ panel, origin }) => {
+    const urls = [1, 2].map(n => `${origin}/site/product-anim.html?id=${n}`);
+    const elements = [
+        { id: 'title', name: 'Title', action: 'extract', type: 'text', selectors: ['h1'] },
+        { id: 'noop', name: 'Description', action: 'click', type: 'text', selectors: ['p.description'] },
+    ];
+    await panel.clear();
+    await panel.page.evaluate(() => {
+        (window as any).__windows = [];
+        chrome.windows.onCreated.addListener(w => { (window as any).__windows.push({ type: w.type, focused: w.focused, width: w.width }); });
+    });
+    const start = await panel.toExtension('BULK_EXTRACTION_START', { urls, elements, config: { requestDelay: 0, clickWaitMs: 500 }, maxConcurrent: 2, customName: 'e2e window fallback' });
+    expect(start?.success).toBe(true);
+    const done = await panel.next('BULK_EXTRACTION_COMPLETE', 90_000);
+    expect(done.success).toBe(true);
+    const windows = await panel.page.evaluate(() => (window as any).__windows);
+    expect(windows).toHaveLength(2);
+    // Unfocused popups (their size is the browser's to settle: headless gives every window 800 px).
+    expect(windows.every((w: any) => w.type === 'popup' && !w.focused)).toBe(true);
+    const rows = (await panel.store('rows')).filter(r => r.tableId === done.tableId).map(r => r.data);
+    expect(rows.map(r => r.Title ?? r.title).sort()).toEqual(['Lamp model 1', 'Lamp model 2']);
+});
+
 test('a bulk run where every page fails is reported as failed, not completed', async ({ panel }) => {
     // Nothing listens on port 9: every page load fails.
     const urls = ['http://127.0.0.1:9/a', 'http://127.0.0.1:9/b'];
