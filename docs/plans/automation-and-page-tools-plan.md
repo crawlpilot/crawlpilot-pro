@@ -1,6 +1,6 @@
 # Automation, page tools and developer aids
 
-Status: T1 and T2 done (2026-10-19). All decisions made (§9). The other steps are GitHub issues #39–#49. Next: T3 (Data on this page).
+Status: T1–T3 done (2026-10-20). All decisions made (§9). The other steps are GitHub issues #40–#49. Next: T4 (Load everything).
 
 This plan adds 12 features in three groups:
 
@@ -390,7 +390,7 @@ Suggested order: T1–T4 (small, visible), then M1–M4 (the biggest value; M1 f
 |---|---|---|
 | T1 Tables | **Done** | |
 | T2 Markdown | **Done** | #38 |
-| T3 Data on this page | Open | #39 |
+| T3 Data on this page | **Done** | #39 |
 | T4 Load everything | Open | #40 |
 | M1 Background list runs | Open | #41 |
 | M2 Monitors | Open | #42 |
@@ -442,3 +442,28 @@ What T2 built:
 - **Tests:**
   - `markdownExport.test.ts` (4).
   - `e2e/markdown.spec.ts` (2): this page with front matter, hidden sections read, the download, and switches off; a 3-URL metadata run exported as a zip of 3 `.md` files and a 3-line `.jsonl`.
+
+What T3 built:
+
+- **`content/services/structured/pageData.ts`, `collectPageData`.** It reads:
+  - each JSON-LD block, with its parse error when invalid;
+  - top-level microdata and RDFa-lite items;
+  - meta tags grouped as Open Graph, Twitter, `product:`/`article:…` and named;
+  - app state: `__NEXT_DATA__` and JSON scripts, plus `window.__INITIAL_STATE__`-style assignments when they are plain JSON. Over 2 MB, a source is listed as "too large".
+- **`shared/structured/pageData.ts`:**
+  - dotted paths and JSON pointers;
+  - `entitiesOf`;
+  - `checkSources`: required (`!`) and recommended properties for Product, Article, JobPosting, Recipe, Event, LocalBusiness, Organization, BreadcrumbList, FAQPage and VideoObject, plus invalid JSON;
+  - `searchTree`;
+  - `schemaLines`: an entity as AI Extract lines, `offers.price: e.g. 158.89`, at most 25.
+- **T0:** a nested field is now also tried as its dotted path, with keys matched ignoring case. AI Extract turns `aggregateRating.ratingValue` into the key `aggregaterating__ratingvalue`, which now finds `aggregateRating.ratingValue`.
+- **Toolkit → Data** (`StructuredDataPanel.tsx`):
+  - one tree per source: collapsible, typed, entities labelled with their `@type`, 100 children at a time;
+  - search over keys and values, which opens the matches;
+  - problems at the top, recommended properties in one line;
+  - a selected-node bar with Copy value, Copy path and Copy JSON pointer, and **Use in AI Extract** for an entity, which opens AI Extract with its lines.
+- **Toolkit tabs** are now Recon, Selectors, API and Data, so four fit. Recon's "Embedded data" lists what's there and hands off to the Data tab, and so does its "See the embedded JSON" step.
+- **On the corpus:** Uniqlo and Zara publish a schema.org `Product`; its "Use in AI Extract" schema is answered fully from page data with the model off (10 of 10 and 11 of 11 fields). Walmart has no `Product`, but its price is found by search in `__NEXT_DATA__`. Amazon has only meta tags. The plan's "4 product pages" expectation assumed all four had a `Product`.
+- **Tests:**
+  - `pageData.test.ts` (6): every source kind on a fixture, checks, search, paths, and the 4 corpus product pages.
+  - `e2e/page-data.spec.ts` (1): the tree, search, select path, and Use in AI Extract.
