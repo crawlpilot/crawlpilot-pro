@@ -51,5 +51,10 @@
   "modeFolderHint": "Files in Downloads/CrawlPilot/<site>",
   "fileNames": "File names",
   "templateHelp": "{name} {n} {site} {page} {alt} {heading} {width} {height} {date} · / makes folders",
-  "openInTab": "Open in a tab (bigger grid)"
+  "openInTab": "Open in a tab (bigger grid)",
+  "fullSize": "Full-size originals",
+  "fullSizeSearching": "Looking for originals… {{found}} found, {{pending}} to check",
+  "fullSizeFound": "{{count}} found larger than shown",
+  "fullSizeTip": "Full size {{full}} (shown {{shown}})",
+  "downgraded": "{{count}} saved at the size shown: the original was refused"
 }

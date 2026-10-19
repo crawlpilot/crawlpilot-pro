@@ -21,6 +21,7 @@ export function SaveReportCard({ report, onRetry, onDismiss }: { report: SaveRep
             <Typography variant="body2" fontWeight={600}>
                 {t('savedSummary', { done: report.done, total: report.total, size: megabytes(report.bytes), target: report.target })}
             </Typography>
+            {report.downgraded > 0 && <Typography variant="caption" component="div">{t('downgraded', { count: report.downgraded })}</Typography>}
             {report.failures.length > 0 && (
                 <>
                     <Stack direction="row" spacing={1} sx={{ mt: 0.75 }}>

@@ -9,6 +9,7 @@ import type { Page } from '@playwright/test';
 import fs from 'node:fs';
 import { unzipSync } from 'fflate';
 import { sniffType } from '../src/shared/images/sniff';
+import { imageDimensions } from '../src/shared/images/dimensions';
 
 const path = (src: string) => src.startsWith('http') ? new URL(src).pathname + new URL(src).search : src.slice(0, 22);
 
@@ -111,6 +112,30 @@ test('save as zip from the UI: protected, login-only and blob images saved, fail
     const entries = unzipSync(new Uint8Array(fs.readFileSync(zip.filename)));
     expect(Object.keys(entries).sort()).toEqual(['image.png', 'image.svg', 'plain-400x300.png', 'private-320x200.png', 'protected-500x500.png']);
     expect(sniffType(entries['protected-500x500.png'])).toBe('image/png');
+    await ui.close();
+    await page.close();
+});
+
+test('full size: the linked original and a WordPress original are found, shown and saved', async ({ panel, ext, origin, extensionId }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/fullsize.html`);
+    const tabId = await panel.tabId(page.url());
+
+    const ui = await ext.newPage();
+    await ui.goto(`chrome-extension://${extensionId}/sidepanel.html?view=image-downloader&tabId=${tabId}`);
+    await ui.evaluate(() => { localStorage.setItem('crawlpilot.images.mode', 'zip'); localStorage.setItem('crawlpilot.images.template', '{name}-{width}x{height}'); });
+    await ui.reload();
+    // Two HD badges: the third image has no larger original.
+    await expect(ui.getByText('HD', { exact: true })).toHaveCount(2, { timeout: 15_000 });
+    await expect(ui.getByText('2000×1500')).toBeVisible();
+    await expect(ui.getByText('2400×1600')).toBeVisible();
+
+    await ui.getByRole('button', { name: /Download All \(3\)/ }).click();
+    await expect(ui.getByText(/Saved 3 of 3/)).toBeVisible({ timeout: 30_000 });
+    const zips = await ui.evaluate(() => chrome.downloads.search({ mime: 'application/zip', state: 'complete', orderBy: ['-startTime'] }));
+    const entries = unzipSync(new Uint8Array(fs.readFileSync(zips[0].filename)));
+    expect(Object.keys(entries).sort()).toEqual(['alone-400x400-400x400.png', 'original-2000x1500-2000x1500.png', 'photo-2400x1600.png']);
+    expect(imageDimensions(entries['photo-2400x1600.png'])).toEqual({ width: 2400, height: 1600 });
     await ui.close();
     await page.close();
 });

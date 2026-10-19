@@ -2,12 +2,17 @@ import type { FoundImage } from '../../../shared/images/types';
 import { guessType, typeLabel } from '../../../shared/images/type';
 
 /** The short type of an image (`jpg`, `webp`, …), or '' when neither the URL nor a fetch has said. */
-export function imageType(img: Pick<FoundImage, 'src' | 'type'>): string {
-    return typeLabel(img.type || guessType(img.src));
+export function imageType(img: Pick<FoundImage, 'src' | 'type' | 'full'>): string {
+    return typeLabel(img.full?.type || img.type || guessType(img.src));
+}
+
+/** The size that will be saved: the full-size original's when one was found. */
+export function savedSize(img: Pick<FoundImage, 'width' | 'height' | 'full'>): { width: number; height: number } {
+    return img.full ?? img;
 }
 
 /** A file extension for saving it: its type, else `jpg`. */
-export function getExtension(img: Pick<FoundImage, 'src' | 'type'>): string {
+export function getExtension(img: Pick<FoundImage, 'src' | 'type' | 'full'>): string {
     return imageType(img) || 'jpg';
 }
 
@@ -39,7 +44,7 @@ export interface ImageFilters {
 export function filterImages(images: FoundImage[], f: ImageFilters): FoundImage[] {
     const q = f.searchQuery.toLowerCase();
     return images.filter(img => {
-        const { width: w, height: h } = img;
+        const { width: w, height: h } = savedSize(img);
         const sized = w > 0 && h > 0;
         if (sized && w < TINY && h < TINY) return false;
         if (!f.includeHidden && img.hidden) return false;
@@ -67,8 +72,7 @@ export interface SizeGroup {
 export function buildSizeGroups(images: FoundImage[]): SizeGroup[] {
     const groups: SizeGroup[] = [];
     for (const img of images) {
-        const w = img.width;
-        const h = img.height;
+        const { width: w, height: h } = savedSize(img);
         if (w === 0 && h === 0) continue;
         const group = groups.find(g => Math.abs(g.width - w) / Math.max(g.width, 1) <= 0.2 && Math.abs(g.height - h) / Math.max(g.height, 1) <= 0.2);
         if (group) group.images.push(img);

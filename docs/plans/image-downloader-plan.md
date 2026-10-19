@@ -360,7 +360,7 @@ device.
 | G0 | Done: `e2e/site/gallery.html` + generated images in the harness, `e2e/images.spec.ts` (quick, deep, sizes, Amazon timing), `collect.test.ts`. The `Referer`/cookie/slow routes move to G2, which they test |
 | G1 | Done: `content/services/images/` (`source.ts`, `collect.ts`, `session.ts`), `shared/images/`. Not done: cross-origin iframes (needs on-demand frame injection), grouping by list item (moved to G4) |
 | G2 | Done: `sidepanel/services/images/` (`fetchImage`, `pool`, `zip`, `naming`, `save`), `shared/images/sniff.ts`, `FETCH_IMAGE` in the content script, `useImageSave`, `SaveOptions`, `SaveReportCard`; the downloader opens in its own tab (`?view=image-downloader&tabId=`). JSZip and file-saver removed. Not measured: memory on a 2,000-image run (the zip spills to Blobs every 16 MB; needs a large real-bytes fixture) |
-| G3 | Not started |
+| G3 | Done: `shared/images/fullsize.ts` (16 rules: Shopify, WordPress, Cloudinary, Amazon, Wix, Squarespace, Pinterest, Twitter, Etsy, eBay, Flickr, Google, YouTube, Medium, Gravatar, generic size parameters), `shared/images/dimensions.ts`, `probe.ts`, `fullSize.ts`, `useFullSize`; HD badge, a toggle, saves fall back to the shown file. Not done: probing originals that only the page may fetch (hotlink-protected originals are not upgraded); click-to-open lightboxes stay in G6 |
 | G4 | Not started |
 | G5 | Not started |
 | G6 | Not started |

@@ -24,8 +24,9 @@ import {
 import type { FoundImage } from '../../shared/images/types';
 import { styled } from '@mui/material/styles';
 import { useImageScan } from '../hooks/useImageScan';
-import { buildSizeGroups, filterImages, imageType } from '../components/images/imageFilters';
+import { buildSizeGroups, filterImages, imageType, savedSize } from '../components/images/imageFilters';
 import { useImageSave } from '../hooks/useImageSave';
+import { useFullSize } from '../hooks/useFullSize';
 import { SaveOptions } from '../components/images/SaveOptions';
 import { SaveReportCard, megabytes } from '../components/images/SaveReportCard';
 
@@ -54,6 +55,9 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
     const { images, page, scanning, progress, liveWatching, error, quickScan, deepScan, cancelScan, toggleLiveWatch } = useImageScan();
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const saver = useImageSave(page.tabId, page.title);
+    const fullSize = useFullSize(images);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const sized = useMemo(() => fullSize.apply(images), [images, fullSize.enabled, fullSize.found]);
     const downloading = saver.progress !== null;
     const [showFilters, setShowFilters] = useState(false);
 
@@ -82,8 +86,8 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
     }, []);
 
     const filteredImages = useMemo(
-        () => filterImages(images, { includeHidden, searchQuery, minWidth, maxWidth, minHeight, maxHeight, fileTypes, sizeCategories }),
-        [images, searchQuery, minWidth, maxWidth, minHeight, maxHeight, fileTypes, sizeCategories, includeHidden]);
+        () => filterImages(sized, { includeHidden, searchQuery, minWidth, maxWidth, minHeight, maxHeight, fileTypes, sizeCategories }),
+        [images, searchQuery, minWidth, maxWidth, minHeight, maxHeight, fileTypes, sizeCategories, includeHidden, sized]);
 
     const sizeGroups = useMemo(() => buildSizeGroups(filteredImages), [filteredImages]);
 
@@ -248,6 +252,12 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                 <FormControlLabel control={<Switch checked={includeHidden} onChange={(e) => setIncludeHidden(e.target.checked)} size="small" />} label={<Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>{t('includeHidden')}</Typography>} sx={{ ml: 0 }} />
                             </Box>
+                            <Box>
+                                <FormControlLabel control={<Switch checked={fullSize.enabled} onChange={(e) => fullSize.setEnabled(e.target.checked)} size="small" />} label={<Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>{t('fullSize')}</Typography>} sx={{ ml: 0 }} />
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.62rem' }}>
+                                    {fullSize.pending > 0 ? t('fullSizeSearching', { found: fullSize.found, pending: fullSize.pending }) : t('fullSizeFound', { count: fullSize.found })}
+                                </Typography>
+                            </Box>
                             <SaveOptions mode={saver.mode} onMode={saver.setMode} template={saver.template} onTemplate={saver.setTemplate} />
                         </Stack>
                     </Box>
@@ -327,7 +337,12 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                                         </Box>
                                     </Box>
                                     <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, px: 0.5, py: 0.25, background: 'linear-gradient(transparent, rgba(0,0,0,0.75))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Typography sx={{ color: 'white', fontWeight: 700, fontSize: '8px' }}>{img.width && img.height ? `${img.width}\u00d7${img.height}` : '?'}</Typography>
+                                        <Tooltip title={img.full ? t('fullSizeTip', { full: `${img.full.width}\u00d7${img.full.height}`, shown: img.width ? `${img.width}\u00d7${img.height}` : '?' }) : ''}>
+                                            <Typography sx={{ color: 'white', fontWeight: 700, fontSize: '8px' }}>
+                                                {img.full && <Box component="span" sx={{ mr: 0.5, px: 0.4, borderRadius: '3px', bgcolor: '#f59e0b', color: '#111', fontSize: '7px', fontWeight: 900 }}>HD</Box>}
+                                                {savedSize(img).width && savedSize(img).height ? `${savedSize(img).width}\u00d7${savedSize(img).height}` : '?'}
+                                            </Typography>
+                                        </Tooltip>
                                         <Box sx={{ px: 0.5, borderRadius: '3px', bgcolor: 'rgba(255,255,255,0.12)', fontSize: '7px', fontWeight: 800, color: 'white', textTransform: 'uppercase' }}>{imageType(img) || '?'}</Box>
                                     </Box>
                                     <IconButton className="download-btn" size="small" onClick={(e) => downloadSingle(img, e)} sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', bgcolor: 'rgba(6, 182, 212, 0.9)', color: 'white', opacity: 0, transition: 'opacity 0.15s', width: 28, height: 28, '&:hover': { bgcolor: '#06b6d4' } }}>

@@ -32,6 +32,19 @@ export interface FoundImage {
     /** Distance from the top of the page, in CSS pixels. */
     top?: number;
     pageUrl: string;
+    /** A larger original found for it (side panel only: set by the full-size search, checked by a probe). */
+    full?: FullSize;
+}
+
+export interface FullSize {
+    src: string;
+    width: number;
+    height: number;
+    type: string;
+    /** File size, when the server said. */
+    bytes?: number;
+    /** How it was found: `link` (the link around the image) or a CDN rule's name. */
+    via: string;
 }
 
 /** Images new to the scan, and known images with better information (a size, a link). */

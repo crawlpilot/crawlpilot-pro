@@ -9,7 +9,8 @@
  * - `/img/<name>-<w>x<h>.<ext>` and `/cdn/<name>?w=&h=` serve a generated PNG of that size (any
  *   extension: the bytes are PNG, which browsers sniff), for the Image Downloader. Names starting
  *   `protected-` need this site as Referer, `private-` a `session=1` cookie; `missing-` is a 404 and
- *   `notimage-` an HTML page.
+ *   `notimage-` an HTML page. `/wp-content/uploads/<name>-<w>x<h>.<ext>` is that size and
+ *   `/wp-content/uploads/<name>.<ext>` the 2400×1600 original, like WordPress.
  */
 import { test as base, chromium, type BrowserContext, type Page, type Worker } from '@playwright/test';
 import { createServer, type Server } from 'node:http';
@@ -74,6 +75,13 @@ function serve(): Promise<{ server: Server; origin: string }> {
             if (name.startsWith('private-') && !/(^|;\s*)session=1/.test(req.headers.cookie ?? '')) { res.writeHead(401).end('Log in'); return; }
             if (name.startsWith('missing-')) { res.writeHead(404).end(); return; }
             if (name.startsWith('notimage-')) { res.writeHead(200, { 'content-type': 'text/html' }).end('<html><body>Hotlinking not allowed</body></html>'); return; }
+            // A WordPress uploads folder: `photo-300x200.jpg` is that size, `photo.jpg` the 2400×1600 original.
+            if (url.pathname.startsWith('/wp-content/uploads/')) {
+                const wp = /-(\d+)x(\d+)\.\w+$/.exec(url.pathname);
+                res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' });
+                res.end(png(wp ? Number(wp[1]) : 2400, wp ? Number(wp[2]) : 1600));
+                return;
+            }
             const sized = /^\/img\/[\w-]*?-(\d+)x(\d+)\.\w+$/.exec(url.pathname);
             if (sized || url.pathname.startsWith('/cdn/')) {
                 const w = Number(sized?.[1] ?? url.searchParams.get('w') ?? 100);
