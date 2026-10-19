@@ -146,3 +146,7 @@ chrome-extension.zip
 
 # Decompiled reference bundles — never commit these
 *-readable.js
+
+# Playwright e2e
+test-results/
+playwright-report/

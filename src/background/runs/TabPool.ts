@@ -20,6 +20,27 @@ const MAX_POOL_SIZE = 5;
 const CONTENT_SCRIPT_PING_RETRIES = 20;
 const CONTENT_SCRIPT_PING_INTERVAL = 500;
 const CONTENT_SCRIPT_INIT_WAIT_FRESH = 1500;  // first load — wait for dynamic import
+const POPUP_WIDTH = 1280;
+const POPUP_HEIGHT = 900;
+
+/**
+ * An unfocused popup for interactive pages, placed over the user's last window and no larger than it.
+ * Chrome rejects bounds that are under 50% on screen (a small or rearranged display), so a rejected
+ * placement is retried with Chrome's own.
+ */
+async function createPopup(url: string): Promise<chrome.windows.Window | undefined> {
+    const base = { url, type: 'popup' as const, focused: false };
+    const last = await chrome.windows.getLastFocused().catch(() => undefined);
+    const bounds = last?.width && last?.height
+        ? { width: Math.min(POPUP_WIDTH, last.width), height: Math.min(POPUP_HEIGHT, last.height), left: last.left ?? 0, top: last.top ?? 0 }
+        : { width: POPUP_WIDTH, height: POPUP_HEIGHT };
+    try {
+        return await chrome.windows.create({ ...base, ...bounds });
+    } catch (e) {
+        console.warn('[TabPool] Popup bounds rejected, using the default placement:', e);
+        return chrome.windows.create(base);
+    }
+}
 
 export interface PoolTab {
     tabId: number;
@@ -91,15 +112,7 @@ export class TabPool {
         if (needsInteraction) {
             // Popup window: focused:false keeps user focus, but the tab IS active in its
             // own window → full-speed rAF → React accordion clicks work correctly.
-            const win = await chrome.windows.create({
-                url,
-                type: 'popup',
-                focused: false,
-                width: 1280,
-                height: 900,
-                left: 0,
-                top: 0,
-            });
+            const win = await createPopup(url);
             if (!win) return null;
             const tab = win.tabs?.[0];
             if (!tab?.id || !win.id) {

@@ -5,8 +5,13 @@
     "src/content/element-selector.ts",
     "src/content/readable-extract.ts",
     "src/sidepanel/index.tsx",
-    "public/net-hook.js"
+    "public/net-hook.js",
+    "e2e/*.spec.ts"
   ],
-  "project": ["src/**/*.{ts,tsx}", "public/*.js"],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "public/*.js",
+    "e2e/**/*.ts"
+  ],
   "ignoreExportsUsedInFile": true
 }

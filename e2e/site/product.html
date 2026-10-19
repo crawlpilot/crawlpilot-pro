@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Product</title>
+<style>body{font:14px sans-serif;margin:24px}.specs[hidden]{display:none}button{padding:8px 16px}</style>
+</head><body>
+  <header><nav><a href="/">Home</a> <a href="/site/list-1.html">Lamps</a> <a href="/site/list-2.html">More lamps</a></nav></header>
+  <main>
+    <h1 class="product-title" id="title"></h1>
+    <p class="product-price" id="price"></p>
+    <p class="description">A warm, dimmable desk lamp with a weighted base and a two-metre fabric cable.</p>
+    <button type="button" class="show-specs">Show specifications</button>
+    <dl class="specs" hidden><dt>SKU</dt><dd class="sku" id="sku"></dd></dl>
+  </main>
+  <script>
+    const id = new URLSearchParams(location.search).get('id') || '0';
+    document.getElementById('title').textContent = 'Lamp model ' + id;
+    document.getElementById('price').textContent = '$' + (10 * id) + '.99';
+    // The SKU is only filled after the click, a moment later (what a click step is for).
+    document.querySelector('.show-specs').addEventListener('click', () => {
+      setTimeout(() => {
+        document.getElementById('sku').textContent = 'SKU-' + id;
+        document.querySelector('.specs').hidden = false;
+      }, 300);
+    });
+  </script>
+</body></html>

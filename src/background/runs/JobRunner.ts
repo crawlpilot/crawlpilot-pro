@@ -386,6 +386,11 @@ export class JobRunner {
         const { jobId, urls, rows, startTime } = state;
         const done = urls.filter(u => u.status === 'done').length;
         const errors = urls.filter(u => u.status === 'error').length;
+        // Every page failed: the run failed, with the first page's reason (never "completed, 0 rows").
+        if (!error && !stoppedByUser && done === 0 && errors > 0) {
+            const first = urls.find(u => u.status === 'error')?.error;
+            error = errors === urls.length && first ? `Every page failed. First error: ${first}` : `No page could be read (${errors} failed).`;
+        }
         let tableId: number | undefined;
 
         try {
@@ -407,8 +412,9 @@ export class JobRunner {
             }
 
             await db.jobs.update(jobId, {
-                status: stoppedByUser ? 'stopped' : 'completed',
+                status: stoppedByUser ? 'stopped' : error ? 'failed' : 'completed',
                 tableId,
+                ...(error ? { error } : {}),
                 stats: { startTime, endTime: Date.now(), itemsExtracted: rows.length, pagesVisited: done, errors, stoppedByUser, verdicts: this.verdictCounts() },
             });
             void send(MESSAGES[this.kind].complete, { jobId, tableId, totalItems: rows.length, success: !error && !stoppedByUser, error, stoppedByUser });

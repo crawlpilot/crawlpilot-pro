@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "zip": "npm run build && rm -rf dist/.vite && rm -f chrome-extension.zip && cd dist && zip -r ../chrome-extension.zip . -x '*.DS_Store' -x '*.map'",
-    "deadcode": "npx --yes knip@5 --no-progress"
+    "deadcode": "npx --yes knip@5 --no-progress",
+    "e2e": "npm run build && playwright test"
   },
   "repository": {
     "type": "git",
@@ -24,6 +25,7 @@
   "homepage": "https://github.com/RahulBisht/crawlPilot#readme",
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.3.0",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/chrome": "^0.1.35",
     "@types/node": "^25.0.9",
