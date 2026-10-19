@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { loadPage } from './measure';
 import { buildPageView, viewBlocks } from '../../content/services/ai-view/pageView';
 import { checkPageClaims, rangeOf } from '../../content/services/ai-view/claims';
-import { BRIEFS, briefSchema, detectKind, mergeBriefs, parseBrief, type PageKind } from '../../shared/ai/brief';
+import { BRIEFS, briefColumns, briefRow, briefSchema, detectKind, mergeBriefs, parseBrief, parseTable, tableCsv, type PageKind } from '../../shared/ai/brief';
 import { checkClaims, citedSentences, claimSupport, quoteIn, stripMarkers } from '../../shared/ai/cite';
 
 const PAGES: [string, string, PageKind][] = [
@@ -128,5 +128,31 @@ describe('the brief', () => {
             { text: 'Ages 3 to 8', refs: ['b43'] },
         ]);
         expect(stripMarkers(answer)).toBe('It reaches 3 mph. It carries 66 lb.\n- Ages 3 to 8');
+    });
+});
+
+describe('answers become data', () => {
+    it('a brief is a row of the Briefs table: found points joined, unsupported ones left out', () => {
+        const brief = parseBrief(JSON.stringify({
+            gist: [{ text: 'A kids ATV', quote: 'Kids ATV', ref: 'b1' }],
+            points: [{ text: 'Fast', quote: 'x', ref: 'b2' }, { text: 'Made up', quote: 'y', ref: 'b3' }],
+            facts: [], angle: [{ text: 'The seller’s view' }],
+        }), 'article');
+        const row = briefRow(brief, { url: 'https://a.test/x', title: 'X' }, (section, i) => !(section === 'points' && i === 1));
+        expect(row).toEqual({ source_url: 'https://a.test/x', title: 'X', kind: 'Article', gist: 'A kids ATV', points: 'Fast', angle: "The seller’s view (the model's reading)" });
+        const ids = briefColumns().map(c => c.id);
+        expect(ids.slice(0, 3)).toEqual(['source_url', 'title', 'kind']);
+        expect(new Set(ids).size).toBe(ids.length);
+        for (const spec of Object.values(BRIEFS)) for (const f of spec.fields) expect(ids).toContain(f.key);
+    });
+
+    it('an answer as a table: rows as wide as the columns, bad refs and empty rows dropped, CSV quoted', () => {
+        const table = parseTable(JSON.stringify({
+            columns: ['Spec', 'Value'],
+            rows: [{ cells: ['Speed', '3 mph'], ref: 'b4' }, { cells: ['', ''], ref: 'b5' }, { cells: ['Load, max'], ref: 'x' }],
+        }));
+        expect(table).toEqual({ columns: ['Spec', 'Value'], rows: [{ cells: ['Speed', '3 mph'], ref: 'b4' }, { cells: ['Load, max', ''], ref: '' }] });
+        expect(tableCsv(table)).toBe('Spec,Value\nSpeed,3 mph\n"Load, max",');
+        expect(() => parseTable('{"columns":[],"rows":[]}')).toThrow();
     });
 });

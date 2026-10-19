@@ -7,7 +7,7 @@
  */
 import { modelHost, CALL_ERROR_MESSAGES, type CallError, type CallResult } from './modelHost';
 import { relax } from '../../../shared/ai/constraint';
-import { BRIEFS, BRIEF_SYSTEM, briefPrompt, briefSchema, detectKind, mergeBriefs, parseBrief, type Brief, type PageKind } from '../../../shared/ai/brief';
+import { BRIEFS, BRIEF_SYSTEM, briefColumns, briefPrompt, briefRow, briefSchema, detectKind, mergeBriefs, parseBrief, type AnswerTable, type Brief, type PageKind } from '../../../shared/ai/brief';
 import type { ClaimRequest, ClaimResult } from '../../../shared/ai/cite';
 import type { PageView } from '../../../shared/ai/page';
 import { sendToPage } from '../../../shared/messages';
@@ -150,4 +150,41 @@ export async function askReference(view: PageView, system: string): Promise<stri
         page += (page ? '\n' : '') + c;
     }
     return page || view.chunks[0].slice(0, budget);
+}
+
+// ── Answers become data (docs/plans/summarize-ask-plan.md A3) ──
+
+const BRIEFS_TABLE = 'Briefs';
+const BRIEFS_SOURCE = 'brief';
+
+/** Adds the brief to the one "Briefs" table (made on first use). Returns the table's id. */
+export async function saveBrief(outcome: BriefOutcome): Promise<number> {
+    const { db } = await import('../../../shared/db');
+    const found = (status?: string) => status === 'verified' || status === 'relocated';
+    const row = briefRow(outcome.brief, { url: outcome.view.url, title: outcome.view.title }, (section, i) => found(outcome.checks[pointKey(section, i)]?.status));
+    const existing = (await db.tables.list(200)).find(t => t.source === BRIEFS_SOURCE && !t.preview);
+    const id = existing?.id ?? await db.tables.create({
+        name: BRIEFS_TABLE, source: BRIEFS_SOURCE, sourceUrl: outcome.view.url, columns: [], rowCount: 0, preview: false, view: {},
+    });
+    await db.tables.appendRows(id, [row]);
+    await db.tables.setColumns(id, briefColumns());
+    return id;
+}
+
+/** An answer's table as a dataset in My data. Returns its id. */
+export async function saveTable(table: AnswerTable, name: string, url: string): Promise<number> {
+    const { db } = await import('../../../shared/db');
+    const ids = table.columns.map((c, i) => c.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_|_$/g, '') || `column_${i + 1}`)
+        .map((id, i, all) => (all.indexOf(id) === i ? id : `${id}_${i + 1}`));
+    return db.tables.save({
+        type: 'ai-assistant',
+        source_url: url,
+        columns: [...table.columns.map((name, i) => ({ id: ids[i], name, type: 'text' as const })), { id: 'source_url', name: 'URL', type: 'url' as const }],
+        items: table.rows.map(r => ({ ...Object.fromEntries(ids.map((id, i) => [id, r.cells[i]])), source_url: url })),
+    }, { name });
+}
+
+/** Opens a dataset in the data table (its own tab). */
+export function openTable(id: number) {
+    void chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${id}`) });
 }

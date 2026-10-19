@@ -5,13 +5,15 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { AlertTriangle, CheckCircle2, Copy, Download, Lock, MapPin, RotateCcw, Send, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, Copy, Database, Download, Lock, MapPin, RotateCcw, Send, Sparkles, Table2 } from 'lucide-react';
 import { Button, Card, Chip, Heading, IconButton, Notice, Progress, Skeleton, Spinner, Text, ToggleChip, Tooltip, cx } from '../../ui';
 import { usePageAssistant, type BriefStatus } from '../../hooks/usePageAssistant';
 import { useAskSession, type AskMessage } from '../../hooks/useAskSession';
 import { usePageTab } from '../../hooks/usePageTab';
-import { briefMarkdown, pointKey, type BriefOutcome } from '../../services/ai/assistant';
-import { BRIEFS } from '../../../shared/ai/brief';
+import { briefMarkdown, openTable, pointKey, saveBrief, saveTable, type BriefOutcome } from '../../services/ai/assistant';
+import { setExtractDraft } from '../../services/ai/extractDraft';
+import { SCHEMA_PRESETS } from '../../../shared/ai/schemaIntake';
+import { BRIEFS, EXTRACT_PRESET, tableCsv, type AnswerTable } from '../../../shared/ai/brief';
 import type { CiteStatus } from '../../../shared/ai/cite';
 
 const STATUS: Record<CiteStatus, { icon: ReactNode; label: string; tone: string }> = {
@@ -28,8 +30,25 @@ function statusText(s: BriefStatus | null): string {
     return 'Checking each point against the page…';
 }
 
-function BriefCard({ outcome, onShow }: { outcome: BriefOutcome; onShow: (ref: string, quote?: string) => void }) {
+/** What to do next with this kind of page, in CrawlPilot's own tools. */
+function NextStep({ outcome, onNavigate }: { outcome: BriefOutcome; onNavigate?: (view: string) => void }) {
+    if (!onNavigate) return null;
+    if (outcome.kind === 'listing') {
+        return <Button size="sm" variant="secondary" iconEnd={<ArrowRight />} onClick={() => onNavigate('list-extractor')}>Extract all items</Button>;
+    }
+    const preset = EXTRACT_PRESET[outcome.kind];
+    if (!preset || !SCHEMA_PRESETS[preset]) return null;
+    return (
+        <Button size="sm" variant="secondary" iconEnd={<ArrowRight />} onClick={() => { setExtractDraft(SCHEMA_PRESETS[preset].text); onNavigate('ai-extract'); }}>
+            Get these details as data
+        </Button>
+    );
+}
+
+function BriefCard({ outcome, onShow, onNavigate }: { outcome: BriefOutcome; onShow: (ref: string, quote?: string) => void; onNavigate?: (view: string) => void }) {
     const [copied, setCopied] = useState(false);
+    const [saved, setSaved] = useState<number | null>(null);
+    const [saving, setSaving] = useState(false);
     const sections = outcome.brief.sections.filter(s => s.points.length > 0);
     const checked = Object.values(outcome.checks);
     const found = checked.filter(c => c.status === 'verified' || c.status === 'relocated').length;
@@ -80,8 +99,14 @@ function BriefCard({ outcome, onShow }: { outcome: BriefOutcome; onShow: (ref: s
                     {checked.length > 0 ? `${found} of ${checked.length} points found on the page` : 'Nothing to check'}
                     {outcome.partial ? ' · long page: the brief covers its first parts' : ''}
                 </Text>
-                <Button size="sm" variant="ghost" icon={<Copy />} onClick={copy}>{copied ? 'Copied' : 'Copy'}</Button>
+                <span className="flex items-center gap-1">
+                    <Button size="sm" variant="ghost" icon={<Copy />} onClick={copy}>{copied ? 'Copied' : 'Copy'}</Button>
+                    {saved === null
+                        ? <Button size="sm" variant="ghost" icon={<Database />} loading={saving} onClick={async () => { setSaving(true); try { setSaved(await saveBrief(outcome)); } finally { setSaving(false); } }}>Save</Button>
+                        : <Button size="sm" variant="ghost" icon={<Database />} onClick={() => openTable(saved)} data-testid="brief-saved">Saved · Open Briefs</Button>}
+                </span>
             </div>
+            <div className="flex flex-wrap gap-2 border-t border-line px-3.5 py-2.5 empty:hidden"><NextStep outcome={outcome} onNavigate={onNavigate} /></div>
         </Card>
     );
 }
@@ -127,6 +152,39 @@ function Answer({ message, onShow }: { message: AskMessage; onShow: (ref: string
     );
 }
 
+function TableView({ table, rows, name, url }: { table: AnswerTable; rows: CiteStatus[]; name: string; url: string }) {
+    const [saved, setSaved] = useState<number | null>(null);
+    const [copied, setCopied] = useState(false);
+    const found = rows.filter(s => s === 'verified' || s === 'relocated').length;
+    return (
+        <div className="mt-2 flex flex-col gap-1.5" data-testid="answer-table">
+            <div className="overflow-x-auto rounded-lg border border-line">
+                <table className="w-full border-collapse text-small">
+                    <thead><tr className="bg-surface-2/60">
+                        <th className="w-5 px-1.5" aria-label="Checked" />
+                        {table.columns.map(c => <th key={c} className="px-2 py-1.5 text-left font-semibold text-ink-2">{c}</th>)}
+                    </tr></thead>
+                    <tbody>
+                        {table.rows.map((r, i) => (
+                            <tr key={i} className="border-t border-line" data-status={rows[i]}>
+                                <td className={cx('px-1.5 align-top', STATUS[rows[i] ?? 'unchecked'].tone)} title={STATUS[rows[i] ?? 'unchecked'].label}>{STATUS[rows[i] ?? 'unchecked'].icon}</td>
+                                {r.cells.map((c, k) => <td key={k} className={cx('px-2 py-1.5 align-top', rows[i] === 'not_on_page' && 'text-ink-3 italic')}>{c}</td>)}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <span className="flex flex-wrap items-center gap-1">
+                <Text size="caption" tone="muted" className="mr-auto">{found} of {rows.length} rows found on the page</Text>
+                <Button size="sm" variant="ghost" icon={<Copy />} onClick={async () => { await navigator.clipboard.writeText(tableCsv(table)).catch(() => undefined); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>{copied ? 'Copied' : 'Copy CSV'}</Button>
+                {saved === null
+                    ? <Button size="sm" variant="ghost" icon={<Database />} onClick={async () => setSaved(await saveTable(table, name, url))}>Save to My data</Button>
+                    : <Button size="sm" variant="ghost" icon={<Database />} onClick={() => openTable(saved)} data-testid="table-saved">Saved · Open</Button>}
+            </span>
+        </div>
+    );
+}
+
 function AskPanel({ outcome, page, onShow }: { outcome: BriefOutcome; page: ReturnType<typeof usePageAssistant>['page']; onShow: (ref: string) => void }) {
     const session = useAskSession(outcome.view, page, BRIEFS[outcome.kind].questions);
     const [input, setInput] = useState('');
@@ -145,6 +203,12 @@ function AskPanel({ outcome, page, onShow }: { outcome: BriefOutcome; page: Retu
             ) : (
                 <div key={i} className="mr-4 rounded-2xl rounded-tl-md border border-line bg-surface px-3.5 py-2.5" data-testid="answer">
                     {m.content ? <Answer message={m} onShow={onShow} /> : <Text size="small" tone="muted" className="flex items-center gap-2"><Spinner size={12} /> Reading the page…</Text>}
+                    {m.table && <TableView table={m.table.data} rows={m.table.rows} url={outcome.view.url}
+                        name={`${outcome.view.title || 'Page'}: ${[...session.messages.slice(0, i)].reverse().find(x => x.role === 'user')?.content ?? 'table'}`.slice(0, 120)} />}
+                    {m.tableError && <Text size="caption" tone="muted" className="mt-1">{m.tableError}</Text>}
+                    {!m.streaming && !m.table && m.content && !/^the page doesn'?t say/i.test(m.content.trim()) && !/^error:/i.test(m.content) && (
+                        <Button size="sm" variant="ghost" className="mt-1 -ml-2" icon={<Table2 />} loading={m.tabling} disabled={session.thinking} onClick={() => session.asTable(i)}>As a table</Button>
+                    )}
                 </div>
             ))}
             {!session.thinking && (
@@ -166,7 +230,7 @@ function AskPanel({ outcome, page, onShow }: { outcome: BriefOutcome; page: Retu
     );
 }
 
-export function PageAssistant({ initialTabId, onSummary }: { initialTabId: number; onSummary: () => void }) {
+export function PageAssistant({ initialTabId, onSummary, onNavigate }: { initialTabId: number; onSummary: () => void; onNavigate?: (view: string) => void }) {
     const a = usePageAssistant(initialTabId);
     const current = usePageTab();
     const elsewhere = a.phase === 'ready' && current.web && current.tab?.id !== undefined && current.tab.id !== a.tabId;
@@ -230,7 +294,7 @@ export function PageAssistant({ initialTabId, onSummary }: { initialTabId: numbe
 
             {a.phase === 'ready' && a.outcome && (
                 <>
-                    <BriefCard outcome={a.outcome} onShow={a.show} />
+                    <BriefCard outcome={a.outcome} onShow={a.show} onNavigate={onNavigate} />
                     <AskPanel outcome={a.outcome} page={a.page} onShow={ref => a.show(ref)} />
                 </>
             )}

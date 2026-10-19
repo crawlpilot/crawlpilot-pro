@@ -9,6 +9,8 @@ import type { ExtractedContent } from '@/shared/types/summarizer';
 
 interface TextSummarizerPageProps {
     onBack?: () => void;
+    /** Opens another tool (a brief's next step: the List Extractor, AI Extract). */
+    onNavigate?: (view: string) => void;
 }
 
 /** The plain summary (Chrome's Summarizer API, with chat): the page read with Readability first. */
@@ -41,7 +43,7 @@ function SummaryMode({ onBack }: { onBack?: () => void }) {
  * The Page assistant (docs/plans/summarize-ask-plan.md): a brief of the page with checked citations
  * and questions (the default), or a plain summary.
  */
-export default function TextSummarizerPage({ onBack }: TextSummarizerPageProps) {
+export default function TextSummarizerPage({ onBack, onNavigate }: TextSummarizerPageProps) {
     const { t } = useTranslation('summarizer');
     const [mode, setMode] = useState<'brief' | 'summary'>('brief');
     const [tabId, setTabId] = useState<number | null | undefined>(undefined);
@@ -63,7 +65,7 @@ export default function TextSummarizerPage({ onBack }: TextSummarizerPageProps) 
                 ) : (
                     <>
                         {/* Kept while the summary shows: back to the brief costs no new model run. */}
-                        <div hidden={mode !== 'brief'}><PageAssistant initialTabId={tabId} onSummary={() => setMode('summary')} /></div>
+                        <div hidden={mode !== 'brief'}><PageAssistant initialTabId={tabId} onSummary={() => setMode('summary')} onNavigate={onNavigate} /></div>
                         {mode === 'summary' && <SummaryMode onBack={onBack} />}
                     </>
                 )}

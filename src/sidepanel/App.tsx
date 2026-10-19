@@ -56,7 +56,7 @@ function App() {
             case 'ai-extract':
                 return <AiExtractPage onBack={() => setCurrentView('home')} />;
             case 'text-summarizer':
-                return <TextSummarizerPage onBack={() => setCurrentView('home')} />;
+                return <TextSummarizerPage onBack={() => setCurrentView('home')} onNavigate={setCurrentView} />;
             case 'image-downloader':
                 return <ImageDownloaderPage onBack={() => setCurrentView('home')} />;
             case 'email-extractor':

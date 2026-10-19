@@ -188,6 +188,16 @@ The assistant works on the current tab only (decided 2026-10-19).
   - suggested questions.
 - **Still to do for P1:** scoring briefs with the real Gemini Nano in Chrome on the saved pages. The target is at least 90% of claims found on the page.
 
+**P2, built (2026-10-19):**
+- **Save the brief** to the one "Briefs" table (`saveBrief`). It keeps the points found on the page and the model's readings (marked as such), and leaves out the rest.
+- **"As a table" on an answer.** The model makes rows copied from the page, in a clone of the conversation so the table doesn't join it.
+  - Each row is checked against the block it cites, and the table says "2 of 3 rows found on the page".
+  - The table can be copied as CSV or saved to My data (source `ai-assistant`).
+- **Next step for each kind:**
+  - a results list → "Extract all items" in the List Extractor;
+  - product, article and job → "Get these details as data", which opens AI Extract with that kind's schema filled in (`extractDraft.ts`).
+- **e2e:** `e2e/assistant.spec.ts` covers all of these.
+
 ## Phases
 
 Each phase is committed on its own and can be used by itself.

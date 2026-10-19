@@ -23,6 +23,16 @@ function fakeModel() {
         async prompt(text: string, opts?: any) {
             const schema = opts?.responseConstraint;
             if (schema?.type === 'array') return JSON.stringify(['Is it in stock?', 'How long does the battery last?', 'What age is it for?']);
+            // "As a table": in a clone of the conversation, which holds the page.
+            if (schema?.properties?.columns) {
+                const list = blocks(this.page);
+                const at = (re: RegExp) => list.find(b => re.test(b.text))!.ref;
+                return JSON.stringify({ columns: ['Spec', 'Value'], rows: [
+                    { cells: ['Maximum speed', '3 mph'], ref: at(/mph/) },
+                    { cells: ['Maximum load', '66 lb'], ref: at(/66 lb/) },
+                    { cells: ['Range', '20 miles'], ref: at(/mph/) },
+                ] });
+            }
             const list = blocks(text);
             const out: Record<string, unknown[]> = {};
             let i = 0;
@@ -95,13 +105,38 @@ test('a brief made for a product page: points checked on the page, shown with a 
     await expect(answer).toContainText('1 sentence not found on the page');
     await expect(ui.getByTestId('suggestions')).toContainText('How long does the battery last?');
 
-    // ASSISTANT_SHOT=<file.png>: the side panel as it looks now (for reviewing the UI).
-    if (process.env.ASSISTANT_SHOT) await ui.screenshot({ path: process.env.ASSISTANT_SHOT, fullPage: true });
+    // The answer as a table: rows the page has, and the invented one marked; saved to My data.
+    await answer.getByRole('button', { name: 'As a table' }).click();
+    const table = answer.getByTestId('answer-table');
+    await expect(table).toBeVisible();
+    expect(await table.locator('tbody tr').evaluateAll(rows => rows.map(r => r.getAttribute('data-status')))).toEqual(['verified', 'verified', 'not_on_page']);
+    await expect(table).toContainText('2 of 3 rows found on the page');
+    await table.getByRole('button', { name: 'Save to My data' }).click();
+    await expect(table.getByTestId('table-saved')).toBeVisible();
+
+    // The brief into the one Briefs table.
+    await brief.getByRole('button', { name: 'Save' }).click();
+    await expect(brief.getByTestId('brief-saved')).toBeVisible();
+    const tables = await panel.store('tables');
+    const briefs = tables.find(t => t.source === 'brief');
+    expect(briefs).toMatchObject({ name: 'Briefs', rowCount: 1 });
+    expect(tables.find(t => t.source === 'ai-assistant')).toMatchObject({ rowCount: 3 });
+    const briefRow = (await panel.store('rows')).find(r => r.tableId === briefs.id).data;
+    expect(briefRow).toMatchObject({ kind: 'Product', source_url: product.url() });
+    expect(Object.values(briefRow).join(' ')).not.toContain('drive over water');
 
     // A citation in an answer shows its block on the page.
     await product.evaluate(() => (CSS as any).highlights.delete('crawlpilot-cite'));
     await answer.getByTestId('cite').first().click();
     await expect.poll(() => product.evaluate(() => [...((CSS as any).highlights?.get('crawlpilot-cite') ?? [])][0]?.toString() ?? '')).toContain('3 mph');
+
+    // Next step for a product: the same details as data, in AI Extract with its product schema.
+    await ui.bringToFront();
+    // ASSISTANT_SHOT=<file.png>: the side panel as it looks now (for reviewing the UI).
+    if (process.env.ASSISTANT_SHOT) await ui.screenshot({ path: process.env.ASSISTANT_SHOT, fullPage: true });
+    await brief.getByRole('button', { name: 'Get these details as data' }).click();
+    expect(await ui.evaluate(() => localStorage.getItem('crawlpilot.aiExtract.draft'))).toContain('price:');
+    await expect(ui.getByRole('textbox').first()).toHaveValue(/price:/);
     await ui.close();
     await product.close();
 });

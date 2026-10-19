@@ -7,8 +7,9 @@ import { modelStatus, type ModelStatus } from '../services/ai/modelHost';
 import { runPageExtract, ExtractStopped, type ExtractOutcome, type ExtractedValue, type ValueStatus } from '../services/ai/extractRun';
 import { outcomeJson, outcomeTables } from '../services/ai/extractTables';
 import { db } from '../../shared/db';
+import { EXTRACT_DRAFT_KEY } from '../services/ai/extractDraft';
 
-const DRAFT_KEY = 'crawlpilot.aiExtract.draft';
+const DRAFT_KEY = EXTRACT_DRAFT_KEY;
 const ROWS_SHOWN = 50;
 
 export const STATUS: Record<ValueStatus, { label: string; color: ChipTone }> = {

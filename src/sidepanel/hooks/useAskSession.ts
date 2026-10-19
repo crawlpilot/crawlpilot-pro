@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { modelHost, CALL_ERROR_MESSAGES } from '../services/ai/modelHost';
 import { askReference, type AssistantPage } from '../services/ai/assistant';
-import { ASK_SYSTEM } from '../../shared/ai/brief';
+import { ASK_SYSTEM, parseTable, tablePrompt, tableSchema, type AnswerTable } from '../../shared/ai/brief';
 import { citedSentences, type CiteStatus } from '../../shared/ai/cite';
 import type { PageView } from '../../shared/ai/page';
 
@@ -21,6 +21,10 @@ export interface AskMessage {
     unsupported?: number;
     /** Still being written. */
     streaming?: boolean;
+    /** "As a table": the answer's items as rows, each row checked against the page. */
+    table?: { data: AnswerTable; rows: CiteStatus[] };
+    tabling?: boolean;
+    tableError?: string;
 }
 
 export interface AskSessionApi {
@@ -28,6 +32,8 @@ export interface AskSessionApi {
     thinking: boolean;
     suggestions: string[];
     ask(question: string): void;
+    /** Turns the answer at `index` into a table of rows copied from the page. */
+    asTable(index: number): void;
 }
 
 export function useAskSession(view: PageView | null, page: AssistantPage | null, starters: string[]): AskSessionApi {
@@ -122,5 +128,20 @@ export function useAskSession(view: PageView | null, page: AssistantPage | null,
         if (mounted.current && res.ok && res.value.length > 0) setSuggestions(res.value);
     };
 
-    return { messages, thinking, suggestions, ask };
+    const asTable = useCallback(async (index: number) => {
+        const s = session.current;
+        const question = [...messages.slice(0, index)].reverse().find(m => m.role === 'user')?.content;
+        if (!s || !question || thinking) return;
+        const set = (patch: Partial<AskMessage>) => setMessages(prev => prev.map((m, i) => (i === index ? { ...m, ...patch } : m)));
+        set({ tabling: true, tableError: undefined });
+        // A clone of the conversation: it knows the page and the answer, and the table doesn't join the history.
+        const res = await modelHost.runOn(s, { prompt: tablePrompt(question), schema: tableSchema(), parse: parseTable, timeoutMs: 90_000 });
+        if (!mounted.current) return;
+        if (!res.ok) { set({ tabling: false, tableError: res.code === 'invalid_output' ? "The answer couldn't be made into a table." : CALL_ERROR_MESSAGES[res.code] }); return; }
+        const results = page ? await page.check(res.value.rows.map((r, i) => ({ key: String(i), text: r.cells.join(' '), refs: r.ref ? [r.ref] : [] }))).catch(() => []) : [];
+        if (!mounted.current) return;
+        set({ tabling: false, table: { data: res.value, rows: res.value.rows.map((_, i) => results[i]?.status ?? 'unchecked') } });
+    }, [messages, thinking, page]);
+
+    return { messages, thinking, suggestions, ask, asTable };
 }
