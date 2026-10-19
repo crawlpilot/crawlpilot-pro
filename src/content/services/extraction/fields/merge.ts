@@ -41,6 +41,8 @@ function sameField(a: Field, b: Field): boolean {
 /** Never in the same row, same kind of value: one field in two card layouts. */
 function variantOf(a: Field, b: Field): boolean {
     if (a.attr !== b.attr || a.shape !== b.shape || a.many !== b.many) return false;
+    // A component's kinds are told apart by their words, never by the rows they're in.
+    if (a.kinds || b.kinds) return false;
     for (const r of b.values.keys()) if (a.values.has(r)) return false;
     if (a.shape !== 'text') return true;
     const leaf = (f: Field) => nodeStep(f.atoms[0].el).label;

@@ -14,6 +14,12 @@ export interface FieldReader {
     /** For nodes that repeat inside a row: which slot of `template` this field is. */
     slot?: number;
     template?: Shape[];
+    /**
+     * For a repeated component holding several phrases per card: each kind's words, and which kind
+     * this field is. A match is read when `kindOf` puts it in this kind (see `fields/component`).
+     */
+    kinds?: string[][];
+    kind?: number;
     /** Every match is a value: images → JSON array, links → JSON array, text → joined. */
     many?: boolean;
     shape: Shape;
@@ -63,6 +69,10 @@ export interface Field {
     slot?: number;
     template?: Shape[];
     many?: boolean;
+    kinds?: string[][];
+    kind?: number;
+    /** A name the stage that made the field found for it (a component kind's words). */
+    label?: string;
     /** Row index → value, for checks and naming. */
     values: Map<number, string>;
     atoms: Atom[];

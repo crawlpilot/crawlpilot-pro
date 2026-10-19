@@ -1,6 +1,7 @@
 /** Reading rows with frozen fields: the same on the preview, every later page and every run. */
 import { alignToTemplate, collectAtoms, isAtomRoot, readValue, Shape, shapeOf, withAtomCache } from '../atoms';
 import { readJsonField } from '../structuredRows';
+import { kindOf } from './component';
 import { rowFitsGate } from './gate';
 import { tableHeaders } from './table';
 import { FIELD_SCHEMA_VERSION, FieldReader, query, ReaderColumn } from './types';
@@ -49,6 +50,11 @@ function readOne(row: Element, r: Omit<FieldReader, 'alternates'>, onlyShape?: S
             const uniq = [...new Set(values.filter(ofShape))];
             if (uniq.length === 0) continue;
             return r.attr === 'src' || r.attr === 'href' ? JSON.stringify(uniq) : uniq.join('; ');
+        }
+        if (r.kinds && r.kind !== undefined) {
+            const v = values.find(x => kindOf(x, r.kinds!) === r.kind && ofShape(x));
+            if (v !== undefined) return v;
+            continue;
         }
         if (r.slot !== undefined && r.template) {
             const slots = alignToTemplate(values.map(v => shapeOf(v, r.attr)), r.template);

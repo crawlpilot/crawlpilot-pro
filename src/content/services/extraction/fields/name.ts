@@ -110,6 +110,8 @@ function baseName(f: Field, all: Field[]): string {
     if (f.attr === 'src') return f.many ? 'Images' : 'Image';
     if (f.attr === 'href') return f.many ? 'Links' : 'URL';
     if (f.attr === 'datetime') return 'Date';
+    // A component kind is named by its own words: "Pickup today" is pickup, not a date.
+    if (f.label) return f.label;
     switch (f.shape) {
         case 'price':
             if (sample.some(v => /deliver|shipping/i.test(v))) return 'Delivery Price';

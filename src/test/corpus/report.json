@@ -184,7 +184,7 @@
         "columns": [
           "Image ← [data-testid=\"productTileImage\"]",
           "URL ← a",
-          "Badge Tag ← [data-testid=\"badgeTagComponent\"]",
+          "Badge Tag ← [data-test-id=\"gpt-product-flag-container\"] [data-testid=\"badgeTagComponent\"]",
           "Badge ← [data-test-id=\"gpt-sponsored-tag-container\"] > div > div > div",
           "Title ← [data-automation-id=\"product-title\"]",
           "Price ← :scope > div > [data-test-id=\"gpt-main\"] > [data-test-id=\"gpt-product-tile-grid-container\"] > [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > [data-testid=\"unified-global-product-price\"] > [data-testid=\"ugpp-reduced-price\"] > span",
@@ -192,7 +192,11 @@
           "Was Price ← [data-testid=\"ugpp-was-price\"]",
           "Rating 2 ← :scope > div > [data-test-id=\"gpt-main\"] > [data-test-id=\"gpt-product-tile-grid-container\"] > [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span",
           "Price (Ugpp Range Price) ← [data-testid=\"ugpp-range-price\"]",
-          "Product Reviews ← [data-testid=\"product-reviews\"]"
+          "Save ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] [data-testid=\"badgeTagComponent\"]",
+          "Product Reviews ← [data-testid=\"product-reviews\"]",
+          "Shipping ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] [data-testid=\"badgeTagComponent\"]",
+          "Delivery ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] [data-testid=\"badgeTagComponent\"]",
+          "Pickup Today ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] [data-testid=\"badgeTagComponent\"]"
         ],
         "fields": [
           {
@@ -299,12 +303,13 @@
         "columns": [
           "Image ← [data-testid=\"productTileImage\"]",
           "URL ← a",
-          "Badge Tag ← [data-testid=\"badgeTagComponent\"]",
+          "Deal ← [data-test-id=\"gpt-product-flag-container\"] [data-testid=\"badgeTagComponent\"]",
           "Price Flex ← [data-test-id=\"gpt-price-flex-container\"] > span",
           "Was Price ← [data-test-id=\"gpt-was-price-container\"]",
           "Title ← [data-automation-id=\"product-title\"]",
           "Rating ← [data-testid=\"rating-container\"] > span",
-          "Rating 2 ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span"
+          "Rating 2 ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span",
+          "Shipping ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] [data-testid=\"badgeTagComponent\"]"
         ],
         "fields": [
           {

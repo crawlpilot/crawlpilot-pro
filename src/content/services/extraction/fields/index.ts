@@ -49,6 +49,7 @@ function readerOf(f: Field): Omit<FieldReader, 'alternates'> {
         attr: f.attr,
         shape: f.shape,
         ...(f.slot !== undefined ? { slot: f.slot, template: f.template } : {}),
+        ...(f.kinds ? { kinds: f.kinds, kind: f.kind } : {}),
         ...(f.many ? { many: true } : {}),
     };
 }

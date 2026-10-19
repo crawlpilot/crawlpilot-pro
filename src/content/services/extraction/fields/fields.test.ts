@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { inferFields, readRow, hasReaders, unmappedCount } from '.';
 import { alignToTemplate, atomText, collectAtoms } from '../atoms';
+import { loadPage } from '../../../../test/corpus/measure';
 
 function rowsOf(html: string, selector = '.card'): Element[] {
     document.body.innerHTML = html;
@@ -219,6 +220,63 @@ describe('Amazon-style search results', () => {
         expect(items[1][id('Badge')]).toBe('Top Brand');
         expect(items[3]).toEqual({}); // the video ad
         expect(items[9]).toEqual({}); // "Need help?"
+    });
+});
+
+describe('repeated components', () => {
+    // A hook repeated inside each card, in two places (a flag over the image, chips under the price),
+    // its text split over spans, with a different set and order of chips per card.
+    const chip = (text: string) => `<span data-qa="chip">${text.split('|').map(t => `<span class="t">${t}</span>`).join(' ')}</span>`;
+    const tile = (i: number, flag: string | null, chips: string[]) => `<li class="tile">
+        <div data-qa="media">${flag ? `<div class="flags">${chip(flag)}</div>` : ''}<img src="/i/${i}.jpg"></div>
+        <a href="/p/${i}"><h3>Toy ${i}</h3></a>
+        <div data-qa="offer"><div class="row">${chips.map(chip).join('')}</div></div>
+    </li>`;
+    const page = (tiles: string[]) => `<ul>${tiles.join('')}</ul>`;
+    const first = page([
+        tile(1, 'Best|seller', ['Free shipping,|arrives in 3+ days']),
+        tile(2, null, ['Members|save', 'Shipping,|arrives today', 'Pickup|today']),
+        tile(3, 'Flash|Deal', ['Members|save', 'Courier|in 12 mins', 'Shipping,|arrives tomorrow', 'Pickup|as soon as 9am']),
+        tile(4, null, ['Courier|in 30 mins', 'Free shipping,|arrives Tue, Oct 20', 'Low|stock']),
+        tile(5, 'Clearance', ['Members|save', 'Shipping,|arrives today', 'Low|stock']),
+    ]);
+
+    it('gives each place and each kind of phrase its own column, whatever the order and the set per card', () => {
+        const rows = rowsOf(first, '.tile');
+        const { columns } = inferFields(rows);
+        const names = columns.map(c => c.name);
+        expect(names).toEqual(expect.arrayContaining(['Members Save', 'Courier', 'Shipping', 'Pickup', 'Low Stock']));
+        const items = rows.map(r => readRow(r, columns));
+        const id = (n: string) => columns.find(c => c.name === n)!.id;
+        const flag = columns.find(c => items[0][c.id] === 'Best seller')!.id;
+        expect(items.map(i => i[flag])).toEqual(['Best seller', undefined, 'Flash Deal', undefined, 'Clearance']);
+        expect(items[2]).toMatchObject({ [id('Members Save')]: 'Members save', [id('Courier')]: 'Courier in 12 mins', [id('Shipping')]: 'Shipping, arrives tomorrow', [id('Pickup')]: 'Pickup as soon as 9am' });
+        expect(items[3]).toMatchObject({ [id('Courier')]: 'Courier in 30 mins', [id('Shipping')]: 'Free shipping, arrives Tue, Oct 20', [id('Low Stock')]: 'Low stock' });
+        // Never two phrases glued into one cell.
+        items.forEach(i => Object.values(i).forEach(v => expect(v).not.toContain('; ')));
+
+        // A later page: other cards, other orders, read into the same columns.
+        const later = rowsOf(page([tile(9, 'Overall|pick', ['Pickup|today', 'Members|save', 'Free shipping,|arrives in 2 days'])]), '.tile');
+        expect(readRow(later[0], columns)).toMatchObject({
+            [flag]: 'Overall pick', [id('Pickup')]: 'Pickup today', [id('Members Save')]: 'Members save', [id('Shipping')]: 'Free shipping, arrives in 2 days',
+        });
+    });
+
+    it('splits Walmart search tiles into a flag, save, shipping, delivery and pickup column (walmart.com/search?q=cars)', () => {
+        loadPage('corpus/walmart-search.html.gz');
+        const rows = Array.from(document.querySelector('[data-testid="item-stack"]')!.children);
+        const { columns } = inferFields(rows);
+        const items = rows.map(r => readRow(r, columns));
+        const col = (n: string) => columns.find(c => c.name === n)!.id;
+        const badges = ['Badge Tag', 'Save', 'Shipping', 'Delivery', 'Pickup Today'].map(col);
+        items.forEach(i => badges.forEach(b => expect(i[b] ?? '').not.toMatch(/; /)));
+        expect(items[0]).toMatchObject({ [col('Badge Tag')]: 'Reduced price', [col('Shipping')]: 'Free shipping, arrives in 3+ days' });
+        expect(items[4]).toMatchObject({
+            [col('Badge Tag')]: 'Overall pick', [col('Save')]: 'Save with', [col('Delivery')]: 'Delivery as soon as 13 mins',
+            [col('Shipping')]: 'Shipping, arrives today', [col('Pickup Today')]: 'Pickup today',
+        });
+        expect(items[9]).toMatchObject({ [col('Badge Tag')]: "In 1K+ people's carts", [col('Save')]: 'Save with', [col('Delivery')]: 'Delivery as soon as 13 mins' });
+        expect(items[9][col('Shipping')]).toBeUndefined();
     });
 });
 
