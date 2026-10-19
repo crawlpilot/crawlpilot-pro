@@ -362,7 +362,10 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                 setStatus(prev => ({
                     ...prev,
                     isExtracting: false,
-                    status: finalStatus
+                    status: finalStatus,
+                    tableId,
+                    itemsSaved: finalExtraction.items.length,
+                    pagesVisited: pagesVisitedRef.current,
                 }));
             }, 1000);
 

@@ -55,7 +55,7 @@ export function Step1Urls({
                         <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white transition-colors ${selectedUrls.length > 0 ? 'bg-accent-success' : 'bg-primary'}`}>
                             {selectedUrls.length > 0 ? <Check className="w-4 h-4" /> : '1'}
                         </div>
-                        <h2 className="font-semibold text-sm text-text-primary">Pages to Scrape</h2>
+                        <h2 className="font-semibold text-sm text-text-primary">Which pages?</h2>
                     </div>
                     {selectedUrls.length > 0 && (
                         <Badge variant="success">
@@ -106,7 +106,7 @@ export function Step1Urls({
                 ) : (
                     <>
                         <p className="text-xs text-center text-text-muted mb-4 px-4">
-                            Provide a list of page URLs to extract structured data from each one
+                            Choose where the page addresses come from
                         </p>
 
                         <div className="space-y-2">
@@ -118,8 +118,8 @@ export function Step1Urls({
                                     <Upload className="w-5 h-5 text-primary" />
                                 </div>
                                 <div>
-                                    <h3 className="text-sm font-semibold text-text-primary group-hover:text-primary transition-colors">Upload CSV</h3>
-                                    <p className="text-xs text-text-muted mt-0.5">Import URLs from a file</p>
+                                    <h3 className="text-sm font-semibold text-text-primary group-hover:text-primary transition-colors">Upload a file</h3>
+                                    <p className="text-xs text-text-muted mt-0.5">A CSV with one page address per row</p>
                                 </div>
                             </button>
                             <input
@@ -130,7 +130,7 @@ export function Step1Urls({
                                 onChange={handleCsvUpload}
                             />
                             <details className="text-[10px] text-text-muted px-1">
-                                <summary className="cursor-pointer select-none hover:text-text-primary transition-colors">Expected CSV format</summary>
+                                <summary className="cursor-pointer select-none hover:text-text-primary transition-colors">What the file should look like</summary>
                                 <div className="mt-1.5 pl-2 border-l border-border-subtle space-y-0.5">
                                     <p>One URL per line, or comma-separated with a header row.</p>
                                     <p className="font-mono text-text-muted/80">https://example.com/product/1</p>
@@ -146,8 +146,8 @@ export function Step1Urls({
                                     <Database className="w-5 h-5 text-accent-ai" />
                                 </div>
                                 <div>
-                                    <h3 className="text-sm font-semibold text-text-primary group-hover:text-accent-ai transition-colors">Select Data Source</h3>
-                                    <p className="text-xs text-text-muted mt-0.5">Use links from existing tables</p>
+                                    <h3 className="text-sm font-semibold text-text-primary group-hover:text-accent-ai transition-colors">A list you saved</h3>
+                                    <p className="text-xs text-text-muted mt-0.5">The links in a table you already have</p>
                                 </div>
                             </button>
 
@@ -159,8 +159,8 @@ export function Step1Urls({
                                     <Compass className="w-5 h-5 text-accent-warning" />
                                 </div>
                                 <div>
-                                    <h3 className="text-sm font-semibold text-text-primary group-hover:text-accent-warning transition-colors">Discover from this site</h3>
-                                    <p className="text-xs text-text-muted mt-0.5">Read sitemaps and group pages by type</p>
+                                    <h3 className="text-sm font-semibold text-text-primary group-hover:text-accent-warning transition-colors">Find pages on this site</h3>
+                                    <p className="text-xs text-text-muted mt-0.5">From its sitemap, grouped by kind of page</p>
                                 </div>
                             </button>
                         </div>
@@ -180,7 +180,7 @@ export function Step1Urls({
                     disabled={selectedUrls.length === 0}
                     className="btn btn-primary px-6"
                 >
-                    Next step
+                    {selectedUrls.length === 0 ? 'Add at least one page' : `Next: ${selectedUrls.length} page${selectedUrls.length === 1 ? '' : 's'}`}
                 </button>
             </div>
         </div>

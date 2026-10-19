@@ -4,6 +4,7 @@ import { PaginationMode } from '../../../../shared/types/extraction';
 import { NextButtonCard } from '../NextButtonCard';
 import { SelectorEditDialog } from '../../shared/SelectorEditDialog';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Step2NavigationProps {
     paginationMode: PaginationMode;
@@ -33,6 +34,7 @@ export function Step2Navigation({
     onBack,
     onCancel
 }: Step2NavigationProps) {
+    const { t } = useTranslation('listExtractor');
 
     const [isEditing, setIsEditing] = useState(false);
 
@@ -87,26 +89,26 @@ export function Step2Navigation({
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, animation: 'fadeIn 0.3s ease-out' }}>
             <Box>
-                <Typography variant="h6" gutterBottom>How should we load more items?</Typography>
-                <Typography variant="body2" color="text.secondary">Pick the navigation method that matches this site.</Typography>
+                <Typography variant="h6" gutterBottom>{t('step2.howToLoadMore')}</Typography>
+                <Typography variant="body2" color="text.secondary">{t('step2.pickNavigationMethod')}</Typography>
             </Box>
 
             {/* Strategy Options */}
             <Stack spacing={2}>
                 <StrategyOption
                     mode="pagination"
-                    title='Numbered Pagination'
-                    description="Site uses page numbers or a Next button (e.g. 1, 2, 3... or Next ›)"
+                    title={t('step2.numberedPagination.title')}
+                    description={t('step2.numberedPagination.description')}
                 />
                 <StrategyOption
                     mode="loadMore"
-                    title='"Load More" Button'
-                    description="A button appends more items to the current page without navigating"
+                    title={t('step2.loadMoreButton.title')}
+                    description={t('step2.loadMoreButton.description')}
                 />
                 <StrategyOption
                     mode="auto"
-                    title="Infinite Scroll / Single Page"
-                    description="Items load as you scroll, or everything is already on one page"
+                    title={t('step2.infiniteScroll.title')}
+                    description={t('step2.infiniteScroll.description')}
                 />
             </Stack>
 
@@ -114,7 +116,7 @@ export function Step2Navigation({
             {(paginationMode === 'pagination' || paginationMode === 'loadMore') && (
                 <Box sx={{ mt: 1, pt: 3, borderTop: '1px solid', borderColor: 'divider', animation: 'slideUp 0.3s ease-out' }}>
                     <Typography variant="subtitle2" gutterBottom sx={{ mb: 2 }}>
-                        Point to the {paginationMode === 'loadMore' ? '"Load More"' : '"Next"'} Button on Page
+                        {paginationMode === 'loadMore' ? t('step2.pointToLoadMore') : t('step2.pointToNext')}
                     </Typography>
 
                     {selectingFor === 'nextButton' ? (
@@ -132,7 +134,7 @@ export function Step2Navigation({
                         >
                             <MousePointer2 size={24} className="text-blue-500 mb-2 mx-auto" style={{ display: 'block' }} />
                             <Typography variant="body2" color="primary.main" fontWeight="500">
-                                Click the button on the page...
+                                {t('step2.clickTheButton')}
                             </Typography>
                             <Button
                                 variant="text"
@@ -140,13 +142,13 @@ export function Step2Navigation({
                                 onClick={onCancel}
                                 sx={{ mt: 1, textDecoration: 'underline', fontSize: '0.75rem' }}
                             >
-                                Press ESC to cancel
+                                {t('step2.pressEscToCancel')}
                             </Button>
                         </Card>
                     ) : next.length > 0 ? (
                         <NextButtonCard
                             chain={next}
-                            title={paginationMode === 'loadMore' ? 'Load More Button' : 'Next Button'}
+                            title={paginationMode === 'loadMore' ? t('step2.loadMoreButtonLabel') : t('step2.nextButton')}
                             onRemove={onRemoveNextButton}
                             onTest={onTestSelector}
                             onEdit={() => setIsEditing(true)}
@@ -159,7 +161,7 @@ export function Step2Navigation({
                             onClick={() => onStartSelection('nextButton')}
                             sx={{ borderStyle: 'dashed', py: 2 }}
                         >
-                            Pick the Navigation Button
+                            {t('step2.pickNavigationButton')}
                         </Button>
                     )}
                 </Box>
@@ -171,7 +173,7 @@ export function Step2Navigation({
                     onClick={onBack}
                     color="inherit"
                 >
-                    Back
+                    {t('step2.back')}
                 </Button>
                 <Button
                     variant="contained"
@@ -179,7 +181,7 @@ export function Step2Navigation({
                     disabled={!isReady}
                     endIcon={<ArrowRight size={16} />}
                 >
-                    Review & Run
+                    {t('step2.reviewAndRun')}
                 </Button>
             </Box>
 

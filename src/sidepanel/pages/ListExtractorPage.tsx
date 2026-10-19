@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { on, sendToTab } from '../../shared/messages';
 import { useTranslation } from 'react-i18next';
 import { useSelectorManager } from '../hooks/useSelectorManager';
@@ -7,6 +7,7 @@ import { useExtractionProcess } from '../hooks/useExtractionProcess';
 import type { ListPick, PaginationMode } from '../../shared/types/extraction';
 import { db } from '../../shared/db';
 import { WizardLayout } from '../components/wizard/WizardLayout';
+import { QuickRun } from '../components/list-extractor/QuickRun';
 import { Step1Selection } from '../components/list-extractor/wizard/Step1Selection';
 import { Step2Navigation } from '../components/list-extractor/wizard/Step2Navigation';
 import { Step3Review } from '../components/list-extractor/wizard/Step3Review';
@@ -62,6 +63,12 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
     const [speed, setSpeed] = useState<PaginationSpeed>(DEFAULT_PAGINATION_SPEED);
     const [maxPages, setMaxPages] = useState<number>(3);
     const [previewTableId, setPreviewTableId] = useState<number | null>(null);
+    // How more items load, found on the page after the first pick (undefined: still looking; null: none).
+    const [pages, setPages] = useState<{ mode: PaginationMode; label: string } | null | undefined>(undefined);
+    // Once the user sets pagination in the Pages step, the found control no longer overrides it.
+    const userSetPages = useRef(false);
+    const choosePaginationMode = (mode: PaginationMode) => { userSetPages.current = true; setPaginationMode(mode); };
+    const chooseNext = (selectors: string[]) => { userSetPages.current = true; setNext(selectors); };
 
     // 3. Message Listener (The Bridge)
     useEffect(() => {
@@ -73,6 +80,7 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                 const isNextButton = selectingFor === 'nextButton';
 
                 if (isNextButton) {
+                    userSetPages.current = true;
                     setNext(payload.selectors ?? []);
                     setSelectionStatus('ready');
                 } else {
@@ -89,6 +97,20 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                     };
                     addSelector(pick);
                     setSelectionStatus('ready');
+
+                    // The first list: find its Next or "Load more" control, so it can run in one click.
+                    if (selectors.length === 0 && tabId) {
+                        setPages(undefined);
+                        sendToTab(tabId, 'FIND_NEXT')
+                            .then(res => {
+                                const control = res && 'control' in res ? res.control : null;
+                                setPages(control ? { mode: control.mode, label: control.label } : null);
+                                if (userSetPages.current) return;
+                                setPaginationMode(control ? control.mode : 'auto');
+                                setNext(control ? control.selectors : []);
+                            })
+                            .catch(() => setPages(null));
+                    }
 
                     // Save preview data
                     if (payload.data && payload.data.items && payload.data.items.length > 0) {
@@ -113,15 +135,6 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                                     replace: !!previewTableId
                                 });
                                 setPreviewTableId(tableId);
-
-                                // Auto-open preview
-                                const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${tableId}`);
-                                chrome.windows.create({
-                                    url: url,
-                                    type: 'popup',
-                                    width: 1000,
-                                    height: 800
-                                });
                             } catch (e) {
                                 console.error('Failed to save preview', e);
                             }
@@ -184,18 +197,30 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                         onTestSelector={handleVerifySelector}
                         onNext={() => setStep(2)}
                         onCancel={stopSelection}
+                        quickRun={selectors[0] && (
+                            <QuickRun
+                                pick={selectors[0]}
+                                pages={pages}
+                                maxPages={maxPages}
+                                onMaxPages={setMaxPages}
+                                onRun={() => { handleStart(); setStep(3); }}
+                                onCustomize={() => setStep(2)}
+                                onOpenPreview={previewTableId ? () => chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${previewTableId}`) }) : undefined}
+                                busy={selectionStatus === 'selecting'}
+                            />
+                        )}
                     />
                 );
             case 2:
                 return (
                     <Step2Navigation
                         paginationMode={paginationMode}
-                        setPaginationMode={setPaginationMode}
+                        setPaginationMode={choosePaginationMode}
                         next={next}
                         selectingFor={selectionStatus === 'selecting' && selectingFor === 'nextButton' ? 'nextButton' : null}
                         onStartSelection={() => startSelection('nextButton')}
-                        onRemoveNextButton={() => setNext([])}
-                        onUpdateNextButton={setNext}
+                        onRemoveNextButton={() => chooseNext([])}
+                        onUpdateNextButton={chooseNext}
                         onTestSelector={handleVerifySelector}
                         onNext={() => setStep(3)}
                         onBack={() => setStep(1)}
@@ -236,6 +261,7 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
             subtitle={step === 1 ? t('step1.subtitle') : step === 2 ? t('step2.subtitle') : t('step3.subtitle')}
             currentStep={step}
             totalSteps={3}
+            stepLabels={t('stepLabels', { returnObjects: true }) as string[]}
             onBack={step === 1 ? onBack : () => setStep(step - 1)}
         >
             {renderStep()}

@@ -16,11 +16,11 @@ export default function EmptyState({ icon, title, description, action }: EmptySt
                     {typeof icon === 'string' ? <span className="text-4xl">{icon}</span> : icon}
                 </div>
             )}
-            <h3 className="text-sm font-semibold text-text-primary mb-1 uppercase tracking-wide">
+            <h3 className="text-sm font-semibold text-text-primary mb-1">
                 {title}
             </h3>
             {description && (
-                <p className="text-xs text-text-muted mb-6 max-w-xs">
+                <p className="text-sm text-text-muted mb-5 max-w-xs">
                     {description}
                 </p>
             )}

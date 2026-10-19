@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert, Box, Button, Chip, IconButton, LinearProgress, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Tooltip, Typography,
+    Alert, Box, Button, Chip, LinearProgress, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Tooltip, Typography,
 } from '@mui/material';
-import { ChevronLeft, Copy, Database, Sparkles } from 'lucide-react';
+import { Copy, Database, Sparkles } from 'lucide-react';
+import ToolHeader from '../components/ui/ToolHeader';
 import { parseSchemaInput, SCHEMA_PRESETS } from '../../shared/ai/schemaIntake';
 import { modelStatus, type ModelStatus } from '../services/ai/modelHost';
 import { runPageExtract, ExtractStopped, type ExtractOutcome, type ExtractedValue, type ValueStatus } from '../services/ai/extractRun';
@@ -93,26 +94,21 @@ export default function AiExtractPage({ onBack }: { onBack: () => void }) {
     const copyJson = () => { if (outcome) void navigator.clipboard.writeText(JSON.stringify(outcomeJson(outcome, intake), null, 2)); };
 
     const unavailable = model?.availability === 'unavailable';
+    const [whyOpen, setWhyOpen] = useState(false);
     const counts = intake.fields.length + intake.lists.reduce((n, l) => n + l.fields.length, 0);
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden' }}>
-            <Paper elevation={0} sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <IconButton onClick={onBack} size="small"><ChevronLeft size={20} /></IconButton>
-                    <Box>
-                        <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.1, display: 'flex', alignItems: 'center', gap: 0.75 }}><Sparkles size={18} /> AI Extract</Typography>
-                        <Typography variant="caption" color="text.secondary">Describe the data; Chrome's on-device model fills it from this page</Typography>
-                    </Box>
-                </Box>
-            </Paper>
+            <ToolHeader title="AI Extract" icon={<Sparkles size={17} />} onBack={onBack}
+                subtitle="Describe what you want; AI in Chrome fills it from this page" />
 
             <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
                 <Stack spacing={1.5}>
                     {unavailable && (
-                        <Alert severity="info" variant="outlined">
-                            Chrome's on-device model isn't available, so only values the page publishes as structured data (JSON-LD, microdata) can be filled.
-                            {model?.reason && <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>{model.reason}</Typography>}
+                        <Alert severity="info" variant="outlined"
+                            action={model?.reason ? <Button size="small" color="inherit" onClick={() => setWhyOpen(o => !o)}>{whyOpen ? 'Hide' : 'Why?'}</Button> : undefined}>
+                            AI isn't available in this Chrome, so CrawlPilot fills only what the page itself publishes.
+                            {whyOpen && model?.reason && <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>{model.reason}</Typography>}
                         </Alert>
                     )}
                     {model?.availability === 'downloadable' && (

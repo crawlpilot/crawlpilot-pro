@@ -10,6 +10,8 @@ import type { MetadataExtractOptions, MetadataExtractResult } from './types/meta
 import type { ExtractedContent } from './types/summarizer';
 import type { PageVerdict } from './verdict/classifyPage';
 import type { ReconReport } from './recon/types';
+import type { PageSummary } from './types/pageSummary';
+import type { NextControl } from '../content/services/pagination/findNext';
 import type { NetEntry } from './network/types';
 import type { LabEval, LabPick } from '../content/features/lab/SelectorLab';
 import type { GroundRequest, Grounded, PageView } from './ai/page';
@@ -143,6 +145,10 @@ export interface Messages {
     CMD_EXTRACT_PAGE_BACKGROUND: { payload: { url: string; elements: any[]; config: any }; reply: Res<{ result: { columns: any[]; item: any; items?: any[]; url: string } }> };
     CMD_EXTRACT_METADATA: { payload: { url: string; options: MetadataExtractOptions }; reply: Res<{ result: MetadataExtractResult }> };
     CMD_RECON: { reply: Res<{ report: ReconReport }> };
+    /** What the page is (a list, a product, an article): Home's suggestion. */
+    PAGE_SUMMARY: { reply: Res<{ summary: PageSummary }> };
+    /** The list's Next or "Load more" control, found without a pick (null: none on this page). */
+    FIND_NEXT: { reply: Res<{ control: NextControl | null }> };
     LAB_EVAL: { payload: { selector: string; expected?: number; highlight?: boolean }; reply: Res<{ result: LabEval }> };
     LAB_CLEAR: { reply: Res };
     LAB_PICK_START: { reply: Res };

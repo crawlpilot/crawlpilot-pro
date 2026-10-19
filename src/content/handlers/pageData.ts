@@ -2,6 +2,8 @@
 import { extractPage } from '../services/page/extractPage';
 import { extractMetadata } from '../services/metadata/MetadataExtractionService';
 import { fail, ok, on } from '../../shared/messages';
+import { summarizePage } from '../services/pageSummary';
+import { findNextControl } from '../services/pagination/findNext';
 
 /** Resolves once the DOM has been quiet for `stableMs` (SPA hydration, API data), or after `timeoutMs`. */
 function waitForDomStability(stableMs = 1500, timeoutMs = 12000): Promise<void> {
@@ -39,6 +41,9 @@ async function scrollToRevealLazyContent(): Promise<void> {
 }
 
 export function registerPageDataHandlers() {
+    on('PAGE_SUMMARY', () => ok({ summary: summarizePage() }));
+    on('FIND_NEXT', () => ok({ control: findNextControl() }));
+
     on('CMD_EXTRACT_PAGE_BACKGROUND', async ({ url, elements, config }) => {
         const record = await extractPage(elements || [], config || {});
         return ok({ result: { ...record, url } });

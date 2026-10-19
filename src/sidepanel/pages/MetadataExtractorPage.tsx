@@ -127,6 +127,7 @@ export default function MetadataExtractorPage({ onBack }: MetadataExtractorPageP
             subtitle={step === 1 ? t('step1.subtitle') : t('step2.subtitle')}
             currentStep={step}
             totalSteps={2}
+            stepLabels={t('stepLabels', { returnObjects: true }) as string[]}
             onBack={step === 1 ? onBack : () => setStep(step - 1)}
         >
             {renderStep()}

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { sendToTab } from '../../shared/messages';
 import {
-    Box, Typography, Paper, IconButton, Stack, Chip, Switch,
+    Box, Typography, Stack, Chip, Switch,
      Card, CardContent, Fade
 } from '@mui/material';
-import { ChevronLeft, Unlock, MousePointer, Shield, Zap, Wrench } from 'lucide-react';
+import { Unlock, MousePointer, Shield, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import ToolHeader from '../components/ui/ToolHeader';
 
 interface UtilitiesPageProps {
     onBack: () => void;
@@ -36,36 +37,7 @@ export default function UtilitiesPage({ onBack }: UtilitiesPageProps) {
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden' }}>
-            {/* Header */}
-            <Paper
-                elevation={0}
-                sx={{
-                    p: 2,
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
-                    bgcolor: 'background.paper',
-                    zIndex: 10,
-                    background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)',
-                    backdropFilter: 'blur(10px)'
-                }}
-            >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <IconButton onClick={onBack} size="small" sx={{ color: 'text.secondary', bgcolor: 'rgba(255,255,255,0.03)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: 'white' } }}>
-                        <ChevronLeft size={20} />
-                    </IconButton>
-                    <Box sx={{ flex: 1 }}>
-                        <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em' }}>
-                            {t('title')}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, mt: 0.5, display: 'block', opacity: 0.8 }}>
-                            {t('subtitle')}
-                        </Typography>
-                    </Box>
-                    <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Wrench size={18} />
-                    </Box>
-                </Box>
-            </Paper>
+            <ToolHeader title={t('title')} subtitle={t('subtitle')} onBack={onBack} />
 
             {/* Content */}
             <Box sx={{ flex: 1, overflowY: 'auto', p: 2, '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.08)', borderRadius: 4 } }}>

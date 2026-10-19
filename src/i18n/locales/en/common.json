@@ -34,17 +34,20 @@
     "days": "{{count}} Days"
   },
   "connection": {
-    "notConnected": "Extension not connected to this tab",
-    "notConnectedHint": "Navigate to a webpage, then click Connect to enable scraping",
-    "connect": "Connect",
-    "connecting": "Connecting..."
+    "notConnected": "CrawlPilot can't see this page yet",
+    "notConnectedHint": "Allow access once so CrawlPilot can read and pick from this tab",
+    "connect": "Allow",
+    "connecting": "Allowing…"
   },
   "nav": {
     "home": "Home",
-    "homeTooltip": "All tools and features",
+    "homeTooltip": "Back to the start",
     "runs": "Runs",
     "runsTooltip": "Previous extraction jobs you can re-run",
     "data": "Data",
-    "dataTooltip": "Browse and export your extracted datasets"
+    "dataTooltip": "Browse and export your extracted datasets",
+    "myData": "My data",
+    "myDataTooltip": "Everything you have scraped: open, download or run again",
+    "settings": "Settings"
   }
 }

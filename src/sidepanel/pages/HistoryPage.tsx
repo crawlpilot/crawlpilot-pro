@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, Clock, Database, PauseCircle, Play, RefreshCcw, Search, X, XCircle } from 'lucide-react';
-import { AppBar, Box, Chip, CircularProgress, IconButton, InputAdornment, Stack, TextField, Toolbar, Tooltip, Typography, alpha, useTheme } from '@mui/material';
+import { CheckCircle2, Database, PauseCircle, Play, RefreshCcw, Search, Table2, X, XCircle } from 'lucide-react';
+import { Box, Button, Chip, CircularProgress, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography, alpha, useTheme } from '@mui/material';
+import ToolHeader from '../components/ui/ToolHeader';
 import EmptyState from '../components/ui/EmptyState';
 import { useJobHistory } from '../hooks/useDatabase';
 import { useJobRerun } from '../hooks/useJobRerun';
@@ -15,7 +16,7 @@ interface HistoryPageProps {
     onViewData: (tableId: number) => void;
 }
 
-export default function HistoryPage({ onViewData }: HistoryPageProps) {
+export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
     const theme = useTheme();
     const { t } = useTranslation('history');
     const { jobs, loading: jobsLoading, refresh, deleteJob } = useJobHistory();
@@ -45,25 +46,18 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden' }}>
-            <AppBar position="static" color="transparent" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
-                <Toolbar sx={{ px: 2, gap: 1 }}>
-                    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                        <Typography variant="h6" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, lineHeight: 1.2 }}>
-                            <Clock size={18} color={theme.palette.secondary.main} />
-                            {t('title')}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                            {t('jobsFound', { count: stats.all })}
-                        </Typography>
-                    </Box>
+            <ToolHeader title={t('title')} subtitle={jobs.length ? t('jobsFound', { count: stats.all }) : undefined} onBack={onBack}
+                actions={<>
+                    <Button size="small" startIcon={<Table2 size={14} />} onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html?view=data-table') })}>
+                        {t('allTables')}
+                    </Button>
                     <Tooltip title={t('refresh')}>
-                        <IconButton onClick={() => refresh()} size="small">
-                            <RefreshCcw size={18} />
+                        <IconButton onClick={() => refresh()} size="small" aria-label={t('refresh')}>
+                            <RefreshCcw size={16} />
                         </IconButton>
                     </Tooltip>
-                </Toolbar>
-
-                <Box sx={{ px: 2, pb: 2, pt: 0 }}>
+                </>}>
+                {jobs.length > 0 && <Box sx={{ pt: 1.25 }}>
                     <TextField
                         fullWidth
                         placeholder={t('searchPlaceholder')}
@@ -101,8 +95,8 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                         <FilterChip label={t('filter.stopped')} count={stats.stopped} active={filter === 'stopped'} onClick={() => setFilter('stopped')} icon={<PauseCircle size={12} />} />
                         <FilterChip label={t('filter.failed')} count={stats.failed} active={filter === 'failed'} onClick={() => setFilter('failed')} icon={<XCircle size={12} />} color="error" />
                     </Stack>
-                </Box>
-            </AppBar>
+                </Box>}
+            </ToolHeader>
 
             <Box sx={{
                 flex: 1,
@@ -136,11 +130,20 @@ export default function HistoryPage({ onViewData }: HistoryPageProps) {
                     ))
                 ) : (
                     <Box sx={{ mt: 8 }}>
-                        <EmptyState
-                            title={t('noJobsFound')}
-                            description={searchQuery ? t('noSearchResults') : t('noJobsYet')}
-                            icon={<Search className="w-12 h-12 text-blue-500" />}
-                        />
+                        {jobs.length === 0 ? (
+                            <EmptyState
+                                title={t('noJobsFound')}
+                                description={t('noJobsYet')}
+                                icon={<Database size={40} color={theme.palette.text.secondary} style={{ opacity: 0.5 }} />}
+                                action={<Button variant="contained" onClick={onBack}>{t('startFirst')}</Button>}
+                            />
+                        ) : (
+                            <EmptyState
+                                title={t('noMatches')}
+                                description={searchQuery ? t('noSearchResults') : t('noMatchesHint')}
+                                icon={<Search size={40} color={theme.palette.text.secondary} style={{ opacity: 0.5 }} />}
+                            />
+                        )}
                     </Box>
                 )}
             </Box>

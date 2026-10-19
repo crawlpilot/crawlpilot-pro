@@ -42,6 +42,10 @@ export interface ExtractionStatus {
     duplicates?: number;
     /** Why a listing run ended (see shared/listing/runStats STOP_REASON_LABELS). */
     stopReason?: string;
+    /** When the run has ended: the table it saved, its rows and the pages it read. */
+    tableId?: number;
+    itemsSaved?: number;
+    pagesVisited?: number;
 }
 
 

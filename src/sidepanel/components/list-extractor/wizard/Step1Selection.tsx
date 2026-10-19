@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { MousePointer2, Plus } from 'lucide-react';
 import { Box, Button, Typography, Paper, Stack } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { SelectorCard } from '../SelectorCard';
 import { ListPick } from '../../../../shared/types/extraction';
 
@@ -16,6 +17,8 @@ interface Step1SelectionProps {
     onTestSelector: (selector: string) => void;
     onNext: () => void;
     onCancel?: () => void;
+    /** The one-click run card, shown once a list is picked. */
+    quickRun?: ReactNode;
 }
 
 export function Step1Selection({
@@ -27,9 +30,11 @@ export function Step1Selection({
     onUpdateSelector,
     onTestSelector,
     onNext,
-    onCancel
+    onCancel,
+    quickRun
 }: Step1SelectionProps) {
 
+    const { t } = useTranslation('listExtractor');
     const hasSelection = selectors.length > 0;
     const [showHint, setShowHint] = useState(() => !localStorage.getItem(HINT_KEY));
 
@@ -72,10 +77,10 @@ export function Step1Selection({
                     </Box>
 
                     <Typography variant="h6" gutterBottom fontWeight="600">
-                        Pick a Repeating Item
+                        {t('step1.pickRepeatingItem')}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" paragraph sx={{ maxWidth: 280, mx: 'auto', mb: 3 }}>
-                        Click any item in the list or table you want to scrape — we'll detect the pattern and find all similar items automatically.
+                        {t('step1.pickDescription')}
                     </Typography>
 
                     <Button
@@ -85,7 +90,7 @@ export function Step1Selection({
                         startIcon={<MousePointer2 size={18} />}
                         sx={{ borderRadius: 2, px: 4, py: 1.5 }}
                     >
-                        Select on Page
+                        {t('step1.selectOnPage')}
                     </Button>
 
                     {showHint && (
@@ -97,7 +102,7 @@ export function Step1Selection({
                             '@keyframes fadeIn': { from: { opacity: 0, transform: 'translateY(4px)' }, to: { opacity: 1, transform: 'translateY(0)' } }
                         }}>
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.6 }}>
-                                Click any repeating item on the page — a product card, search result, or table row. We'll find the rest automatically.
+                                {t('step1.hint')}
                             </Typography>
                         </Box>
                     )}
@@ -133,10 +138,10 @@ export function Step1Selection({
                         <MousePointer2 size={40} />
                     </Box>
                     <Typography variant="subtitle1" color="primary.main" fontWeight="600" gutterBottom>
-                        Listening for Click...
+                        {t('step1.listeningForClick')}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                        Click any repeating item on the page (e.g. a product card, a row, a post).
+                        {t('step1.clickAnyRepeating')}
                     </Typography>
                     <Button
                         variant="text"
@@ -144,7 +149,7 @@ export function Step1Selection({
                         onClick={onCancel}
                         sx={{ mt: 2, textDecoration: 'underline' }}
                     >
-                        Press ESC to cancel
+                        {t('step1.pressEscToCancel')}
                     </Button>
                 </Paper>
             )}
@@ -152,9 +157,10 @@ export function Step1Selection({
             {/* Selected Items List */}
             {hasSelection && (
                 <Stack spacing={2}>
+                    {quickRun}
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Typography variant="subtitle2" color="text.secondary" fontWeight="600">
-                            {selectors.length} {selectors.length === 1 ? 'Field' : 'Fields'} Selected
+                            {t('step1.fieldsSelected', { count: selectors.length })}
                         </Typography>
                         <Button
                             startIcon={<Plus size={16} />}
@@ -162,7 +168,7 @@ export function Step1Selection({
                             onClick={onStartSelection}
                             disabled={selectionStatus === 'selecting'}
                         >
-                            Add Another Field
+                            {t('step1.addAnotherField')}
                         </Button>
                     </Box>
 
@@ -180,13 +186,12 @@ export function Step1Selection({
 
                     <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'flex-end' }}>
                         <Button
-                            variant="contained"
-                            size="large"
+                            variant={quickRun ? 'text' : 'contained'}
                             onClick={onNext}
                             disabled={selectionStatus === 'selecting'}
-                            sx={{ borderRadius: 2, px: 4 }}
+                            sx={{ borderRadius: 2, px: quickRun ? 1.5 : 4 }}
                         >
-                            Configure Pagination
+                            {t('step1.configurePagination')}
                         </Button>
                     </Box>
                 </Stack>

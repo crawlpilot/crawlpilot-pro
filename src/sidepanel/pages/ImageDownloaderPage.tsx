@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import ToolHeader from '../components/ui/ToolHeader';
 import {
     Box, Button, Chip, Collapse, Fade, FormControlLabel, IconButton, InputAdornment, LinearProgress, ListItemText, Menu, MenuItem,
     Paper, Select, Slider, Stack, Switch, TextField, Tooltip, Typography,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
-    ArrowDownToLine, CheckSquare, ChevronLeft, Copy, Database, Download, Filter, Image as ImageIcon, Loader,
+    ArrowDownToLine, CheckSquare, Copy, Database, Download, Filter, Image as ImageIcon, Loader,
     Maximize2, MoreVertical, Radio, RefreshCw, Search, Square,
 } from 'lucide-react';
 import type { FoundImage } from '../../shared/images/types';
@@ -152,13 +153,7 @@ export default function ImageDownloaderPage({ onBack }: { onBack: () => void }) 
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden', position: 'relative' }}>
-            <Paper elevation={0} sx={{ p: 2, pb: 1.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper', zIndex: 10 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                    <IconButton onClick={onBack} size="small" sx={iconButton}><ChevronLeft size={20} /></IconButton>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.1 }}>{t('title')}</Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }} noWrap>{statusText}</Typography>
-                    </Box>
+            <ToolHeader title={t('title')} subtitle={statusText} onBack={onBack} actions={<>
                     <Stack direction="row" spacing={0.5}>
                         <Tooltip title={t('deepScan')}>
                             <span><IconButton onClick={() => void deepScan()} disabled={!!scanning} size="small" sx={iconButton}><ArrowDownToLine size={18} /></IconButton></span>
@@ -183,8 +178,8 @@ export default function ImageDownloaderPage({ onBack }: { onBack: () => void }) 
                             </MenuItem>
                         )}
                     </Menu>
-                </Box>
-
+                </>}>
+                <Box sx={{ mt: 1.25 }} />
                 {error && <Typography variant="caption" color="warning.main" sx={{ display: 'block', mb: 1 }}>{error}</Typography>}
                 {lookalikes.progress && <LinearProgress variant="determinate" value={lookalikes.progress.done / lookalikes.progress.total * 100} sx={{ height: 3, borderRadius: 2, mb: 1.5 }} />}
                 {scanning && <LinearProgress variant={scanning === 'quick' ? 'indeterminate' : 'determinate'} value={progress} sx={{ height: 3, borderRadius: 2, mb: 1.5 }} />}
@@ -233,7 +228,7 @@ export default function ImageDownloaderPage({ onBack }: { onBack: () => void }) 
                     </FiltersPanel>
                     </Box>
                 </Collapse>
-            </Paper>
+            </ToolHeader>
 
             <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5, pb: 10 }}>
                 {saver.report && <SaveReportCard report={saver.report} onRetry={saver.retryFailed} onDismiss={saver.dismiss} />}

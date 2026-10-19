@@ -406,6 +406,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
             }
             currentStep={step}
             totalSteps={3}
+            stepLabels={t('stepLabels', { returnObjects: true }) as string[]}
             onBack={step === 1 ? onBack : () => setStep(step - 1)}
             isLoading={isTabLoading && step <= 2}
         >

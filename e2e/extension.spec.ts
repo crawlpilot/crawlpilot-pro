@@ -7,7 +7,7 @@ import { test, expect, pickList, pickElement } from './harness';
 test('loads: service worker, side panel, content script', async ({ panel, ext, origin }) => {
     const errors: string[] = [];
     panel.page.on('pageerror', e => errors.push(e.message));
-    await expect(panel.page.locator('body')).toContainText(/Extract a List/i);
+    await expect(panel.page.locator('body')).toContainText(/Or choose what you want/i);
 
     const page = await ext.newPage();
     await page.goto(`${origin}/site/list-1.html`);

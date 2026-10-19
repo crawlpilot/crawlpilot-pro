@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
+import ToolHeader from '../components/ui/ToolHeader';
 import {
     Box,
     Typography,
     Paper,
     Divider,
     Button,
-    IconButton,
     Slider,
     Dialog,
     DialogTitle,
@@ -21,7 +21,6 @@ import {
     alpha
 } from '@mui/material';
 import {
-    ChevronLeft,
     Trash2,
     Github,
     Mail,
@@ -152,23 +151,8 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
             bgcolor: 'background.default',
             overflowY: 'auto'
         }}>
-            {/* Header */}
-            <Box sx={{
-                p: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                borderBottom: 1,
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
-                position: 'sticky',
-                top: 0,
-                zIndex: 10
-            }}>
-                <IconButton onClick={onBack} size="small">
-                    <ChevronLeft size={20} />
-                </IconButton>
-                <Typography variant="h6" fontWeight="bold">{t('title')}</Typography>
+            <Box sx={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                <ToolHeader title={t('title')} onBack={onBack} />
             </Box>
 
             <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>

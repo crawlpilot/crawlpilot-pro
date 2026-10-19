@@ -1,45 +1,85 @@
 {
   "tagline": "Point-and-click web scraping — no code needed",
-  "recentRuns": "Recent Runs",
-  "savedData": "Saved Data",
+  "recentRuns": "My data",
+  "savedData": "All tables",
   "listExtractor": {
-    "title": "Extract a List",
-    "description": "Turn any product listing, job board or table into a spreadsheet",
+    "title": "Get a list from this page",
+    "description": "Products, jobs, results or table rows, as a spreadsheet",
     "tooltip": "Click any repeating element on a page — products, jobs, prices, news — and export a clean spreadsheet or JSON in seconds"
   },
   "aiExtract": {
     "title": "AI Extract",
-    "description": "Describe the data you want; on-device AI fills it from the page",
+    "description": "Describe the data you want; AI in Chrome fills it from the page",
     "tooltip": "Give a schema (fields, lists, a JSON Schema or an example) and Chrome's built-in model fills it from the current page. Every value is checked against the page; nothing leaves your browser."
   },
   "textSummarizer": {
-    "title": "Text Summarizer",
-    "description": "Instantly summarize any page and ask questions about it with AI",
+    "title": "Summarize & ask",
+    "description": "A short summary of this page, and answers to your questions",
     "tooltip": "Browse any article, report or docs page — get a concise summary and ask follow-up questions powered by AI"
   },
   "pageExtractor": {
-    "title": "Page Extractor",
-    "description": "Paste a URL list and pull the same fields from every page at once",
+    "title": "Same details from many pages",
+    "description": "Give a list of pages; get the same fields from each",
     "tooltip": "Define your fields once, then CrawlPilot visits each URL automatically — great for lead research, pricing audits and content collection at scale"
   },
   "metadataExtractor": {
-    "title": "Metadata Extractor",
-    "description": "Bulk-collect title, author & full article text from any URL list",
+    "title": "Article text from many pages",
+    "description": "Title, author, date and full text from a list of pages",
     "tooltip": "No selectors needed — supply URLs and get back structured data: title, author, publish date, keywords and the full page content in Markdown"
   },
   "imageDownloader": {
-    "title": "Image Downloader",
-    "description": "Find and save every image on a page — one click, any site",
+    "title": "Download images",
+    "description": "Every image on this page, ready to save",
     "tooltip": "Preview all images on the current page, pick the ones you need, and batch-download product photos, gallery assets or design references instantly"
   },
   "browserUtilities": {
-    "title": "Browser Utilities",
+    "title": "Copy & right-click unlock",
     "description": "Re-enable right-click & text selection on sites that block them",
     "tooltip": "Unlock copy, paste and right-click menus on sites that restrict them — ideal for copying quotes, URLs and content from protected pages"
   },
   "scraperToolkit": {
     "title": "Scraper Toolkit",
-    "description": "Page recon, selector lab and API finder",
+    "description": "For developers: how to scrape a page, selectors, its API",
     "tooltip": "Page Recon, Selector Lab and API Finder: learn how to scrape a page, find selectors that last, and the API behind its data"
-  }
+  },
+  "page": {
+    "checking": "Looking at this page…",
+    "list": "{{count}} {{noun}} on this page",
+    "listHint": "Get them all as a table you can download",
+    "listAction": "Get them as a table",
+    "product": "A product page",
+    "productAction": "Get this product's details",
+    "article": "An article",
+    "articleAction": "Summarize it",
+    "articleSecondary": "Get its text",
+    "none": "What do you want from this page?",
+    "noneHint": "Point at a list on the page and CrawlPilot finds the rest",
+    "noneAction": "Point at a list",
+    "notWeb": "Open a web page to get its data"
+  },
+  "intents": {
+    "title": "Or choose what you want",
+    "list": {
+      "title": "A list",
+      "hint": "Products, results, rows"
+    },
+    "details": {
+      "title": "This page's details",
+      "hint": "Name, price, any field"
+    },
+    "images": {
+      "title": "Images",
+      "hint": "Every picture, ready to save"
+    },
+    "summary": {
+      "title": "Summarize & ask",
+      "hint": "A summary and answers"
+    }
+  },
+  "recent": {
+    "title": "Recent",
+    "rows": "{{count}} rows",
+    "all": "All my data"
+  },
+  "moreTools": "More tools"
 }

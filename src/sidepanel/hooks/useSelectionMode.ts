@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { sendToTab } from '../../shared/messages';
+import { pageTabId } from './usePageTab';
 
 export function useSelectionMode() {
     const [status, setStatus] = useState<'idle' | 'selecting' | 'ready'>('idle');
@@ -12,11 +13,11 @@ export function useSelectionMode() {
         setError(null);
 
         try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (!tab.id) throw new Error('No active tab found');
+            const tabId = await pageTabId();
+            if (!tabId) throw new Error('No active tab found');
 
             try {
-                await sendToTab(tab.id, 'START_PICKER', {
+                await sendToTab(tabId, 'START_PICKER', {
                     mode: mode === 'nextButton' ? 'single' : mode,
                     action: mode === 'nextButton' ? 'click' : action
                 });
@@ -33,10 +34,8 @@ export function useSelectionMode() {
 
     const stopSelection = useCallback(async () => {
         try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tab?.id) {
-                await sendToTab(tab.id, 'STOP_PICKER');
-            }
+            const tabId = await pageTabId();
+            if (tabId) await sendToTab(tabId, 'STOP_PICKER');
         } catch (e) {
             console.warn('Failed to stop picker:', e);
         } finally {

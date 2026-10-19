@@ -1,8 +1,9 @@
 import { ListPick, PaginationMode } from '../../../../shared/types/extraction';
-import { Settings2, Play, ChevronDown, Gauge, RotateCcw } from 'lucide-react';
+import { Settings2, Play, ChevronDown, Gauge, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { ExtractionStatusBar } from '../ExtractionStatusBar';
 import { Box, Typography, Button, Paper, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemText, Divider, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent, Stack, TextField } from '@mui/material';
 import { PaginationSpeed, PAGINATION_PROFILES } from '../../../../shared/constants/paginationConfig';
+import { useTranslation } from 'react-i18next';
 
 interface Step3ReviewProps {
     paginationMode: PaginationMode;
@@ -34,33 +35,49 @@ export function Step3Review({
     onMaxPagesChange
 }: Step3ReviewProps) {
 
+    const { t } = useTranslation('listExtractor');
     const handleSpeedChange = (event: SelectChangeEvent<PaginationSpeed>) => {
         onSpeedChange(event.target.value as PaginationSpeed);
     };
 
     const currentProfile = PAGINATION_PROFILES[speed];
+    const ended = !isExtracting && (status?.status === 'completed' || status?.status === 'stopped');
+    const fieldCount = selectors[0]?.data?.columns?.length ?? selectors.length;
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, animation: 'fadeIn 0.3s ease-out' }}>
-            {!isExtracting && (
+            {ended && (
+                <Box sx={{ border: 1, borderColor: 'rgba(16,185,129,0.4)', bgcolor: 'rgba(16,185,129,0.06)', borderRadius: '14px', p: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CheckCircle2 size={20} color="#10B981" />
+                        <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: 'text.primary' }}>
+                            {status.status === 'stopped' ? t('step3.stoppedTitle', { count: status.itemsSaved ?? 0 }) : t('step3.doneTitle', { count: status.itemsSaved ?? 0 })}
+                            {status.pagesVisited ? ` ${t('step3.donePages', { count: status.pagesVisited })}` : ''}
+                        </Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>{t('step3.doneHint')}</Typography>
+                </Box>
+            )}
+
+            {!isExtracting && !ended && (
                 <Box>
-                    <Typography variant="h6" gutterBottom>Review & Run</Typography>
-                    <Typography variant="body2" color="text.secondary">Check your configuration below, then start extraction.</Typography>
+                    <Typography variant="h6" gutterBottom>{t('step3.reviewAndRun')}</Typography>
+                    <Typography variant="body2" color="text.secondary">{t('step3.checkConfig')}</Typography>
                 </Box>
             )}
 
             {/* Config Summary */}
-            <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+            {!ended && <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
                 <Box sx={{ bgcolor: 'background.paper', p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <Typography variant="subtitle2" textTransform="uppercase" letterSpacing={1} color="text.secondary">
-                        Summary
+                    <Typography variant="subtitle2" color="text.secondary">
+                        {t('step3.summary')}
                     </Typography>
                 </Box>
                 <List dense disablePadding>
                     <ListItem>
                         <ListItemText
-                            primary="Fields Selected"
-                            secondary={`${selectors.length} fields · ${selectors[0]?.count || 0} items per page`}
+                            primary={t('step3.fieldsSelected')}
+                            secondary={t('step3.fieldsDetail', { count: fieldCount, items: selectors[0]?.count || 0 })}
                             primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                             secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
                         />
@@ -68,41 +85,41 @@ export function Step3Review({
                     <Divider component="li" />
                     <ListItem>
                         <ListItemText
-                            primary="Page Limit"
-                            secondary={paginationMode === 'pagination' ? `${maxPages} pages` : 'Single Page'}
+                            primary={t('step3.pageLimit')}
+                            secondary={paginationMode === 'pagination' ? t('step3.pages', { count: maxPages }) : t('step3.singlePage')}
                             primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                             secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
                         />
                     </ListItem>
                 </List>
-            </Paper>
+            </Paper>}
 
             {/* Speed Configuration */}
             {
-                !isExtracting && (
+                !isExtracting && !ended && (
                     <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
                         <Box sx={{ bgcolor: 'background.paper', p: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="subtitle2" textTransform="uppercase" letterSpacing={1} color="text.secondary">
-                                Crawl Speed
+                            <Typography variant="subtitle2" color="text.secondary">
+                                {t('step3.crawlSpeed')}
                             </Typography>
                             <Gauge size={16} className="text-gray-400" />
                         </Box>
                         <Box sx={{ p: 2 }}>
                             <FormControl fullWidth size="small">
-                                <InputLabel id="speed-select-label">Speed</InputLabel>
+                                <InputLabel id="speed-select-label">{t('step3.speed')}</InputLabel>
                                 <Select
                                     labelId="speed-select-label"
                                     value={speed}
-                                    label="Speed"
+                                    label={t('step3.speed')}
                                     onChange={handleSpeedChange}
                                 >
-                                    <MenuItem value="slow">Careful — heavy or protected sites</MenuItem>
-                                    <MenuItem value="normal">Balanced — default for most sites</MenuItem>
-                                    <MenuItem value="fast">Aggressive — fast, simple pages only</MenuItem>
+                                    <MenuItem value="slow">{t('step3.careful')}</MenuItem>
+                                    <MenuItem value="normal">{t('step3.balanced')}</MenuItem>
+                                    <MenuItem value="fast">{t('step3.aggressive')}</MenuItem>
                                 </Select>
                             </FormControl>
                             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                                Wait time between actions: {currentProfile.navigationDelay}ms
+                                {t('step3.waitTime', { ms: currentProfile.navigationDelay })}
                             </Typography>
                         </Box>
                     </Paper>
@@ -111,7 +128,7 @@ export function Step3Review({
 
             {/* Advanced Settings (Accordion) */}
             {
-                !isExtracting && (
+                !isExtracting && !ended && (
                     <Accordion elevation={0} sx={{
                         bgcolor: 'transparent',
                         border: '1px solid',
@@ -122,15 +139,15 @@ export function Step3Review({
                         <AccordionSummary expandIcon={<ChevronDown size={16} />}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                 <Settings2 size={16} />
-                                <Typography variant="body2" fontWeight="500">Advanced Settings</Typography>
+                                <Typography variant="body2" fontWeight="500">{t('step3.advancedSettings')}</Typography>
                             </Box>
                         </AccordionSummary>
                         <AccordionDetails>
                             <Stack spacing={2} sx={{ pt: 1 }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <Box>
-                                        <Typography variant="body2" fontWeight="500">Wait Delay</Typography>
-                                        <Typography variant="caption" color="text.secondary">Based on speed profile</Typography>
+                                        <Typography variant="body2" fontWeight="500">{t('step3.waitDelay')}</Typography>
+                                        <Typography variant="caption" color="text.secondary">{t('step3.basedOnSpeed')}</Typography>
                                     </Box>
                                     <Typography variant="body2" fontFamily="monospace">{currentProfile.navigationDelay}ms</Typography>
                                 </Box>
@@ -139,7 +156,7 @@ export function Step3Review({
                                     <>
                                         <Divider />
                                         <Box>
-                                            <Typography variant="body2" fontWeight="500" sx={{ mb: 1 }}>Max Pages to Extract</Typography>
+                                            <Typography variant="body2" fontWeight="500" sx={{ mb: 1 }}>{t('step3.maxPagesToExtract')}</Typography>
                                             <TextField
                                                 type="number"
                                                 size="small"
@@ -147,7 +164,7 @@ export function Step3Review({
                                                 value={maxPages}
                                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => onMaxPagesChange(Math.max(1, parseInt(e.target.value) || 1))}
                                                 InputProps={{ inputProps: { min: 1 } }}
-                                                helperText="Extraction halts after reaching this limit"
+                                                helperText={t('step3.maxPagesHelper')}
                                             />
                                         </Box>
                                     </>
@@ -192,8 +209,8 @@ export function Step3Review({
                         }}
                     >
                         <Box>
-                            <Typography variant="subtitle2" fontWeight="bold">Extraction Failed</Typography>
-                            <Typography variant="body2">{status.error || "An unknown error occurred."}</Typography>
+                            <Typography variant="subtitle2" fontWeight="bold">{t('step3.extractionFailed')}</Typography>
+                            <Typography variant="body2">{status.error || t('step3.unknownError')}</Typography>
                         </Box>
                     </Paper>
                 )
@@ -207,7 +224,7 @@ export function Step3Review({
                             onClick={onBack}
                             color="inherit"
                         >
-                            Back
+                            {t('step3.back')}
                         </Button>
                         <Button
                             variant="contained"
@@ -216,7 +233,7 @@ export function Step3Review({
                             color="success"
                             size="large"
                         >
-                            Start Extraction
+                            {t('step3.startExtraction')}
                         </Button>
                     </Box>
                 )
@@ -230,9 +247,9 @@ export function Step3Review({
                             variant="contained"
                             fullWidth
                             color="primary"
-                            onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html?view=data-table') })}
+                            onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=data-table${status?.tableId ? `&tableId=${status.tableId}` : ''}`) })}
                         >
-                            Open Results Table
+                            {t('step3.openResultsTable')}
                         </Button>
                         <Button
                             variant="outlined"
@@ -241,7 +258,7 @@ export function Step3Review({
                             onClick={onReset}
                             startIcon={<RotateCcw size={16} />}
                         >
-                            New Extraction
+                            {t('step3.newExtraction')}
                         </Button>
                     </Box>
                 )

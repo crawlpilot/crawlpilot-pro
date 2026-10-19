@@ -1,12 +1,12 @@
 {
-  "title": "Metadata Extractor",
+  "title": "Article text from many pages",
   "back": "Back",
   "step1": {
-    "subtitle": "Add URLs to extract metadata from"
+    "subtitle": "Which pages should CrawlPilot read?"
   },
   "step2": {
     "title": "Metadata Extraction",
-    "subtitle": "Configure and run extraction",
+    "subtitle": "Check, then get the article text",
     "extract": "Extract {{count}} URL(s)"
   },
   "options": {
@@ -30,5 +30,9 @@
     "reset": "Start Over",
     "completeSummary": "Extracted metadata from {{count}} page(s)",
     "stoppedSummary": "Stopped after {{count}} page(s)"
-  }
+  },
+  "stepLabels": [
+    "Pages",
+    "Run"
+  ]
 }

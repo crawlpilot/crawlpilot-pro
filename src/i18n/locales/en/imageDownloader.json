@@ -1,5 +1,5 @@
 {
-  "title": "Image Downloader",
+  "title": "Download images",
   "scanning": "Scrolling the page — {{progress}}%",
   "liveWatching": "Live watching for new images...",
   "imagesCount": "{{filtered}} of {{total}} images",

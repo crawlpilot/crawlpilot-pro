@@ -4,7 +4,7 @@
  */
 import { test, expect, Panel } from './harness';
 
-test('a v5 database migrates to v7 when the extension opens it, and Runs shows the old run', async ({ ext, panel, extensionId }) => {
+test('a v5 database migrates to v7 when the extension opens it, and My data shows the old run', async ({ ext, panel, extensionId }) => {
     // Replace the database with a v5 one. The extension's open connections close on `versionchange`.
     await panel.page.evaluate(async () => {
         await new Promise<void>((resolve, reject) => {
@@ -54,10 +54,10 @@ test('a v5 database migrates to v7 when the extension opens it, and Runs shows t
         db.close();
     });
 
-    // A fresh side panel opens the database on the Runs page and upgrades it (the service worker's
+    // A fresh side panel opens the database on the My data page and upgrades it (the service worker's
     // connection closed on the version change; whichever context opens it next runs the upgrade).
     const fresh = await Panel.open(ext, extensionId);
-    await fresh.page.getByText('Runs', { exact: true }).first().click();
+    await fresh.page.getByText('My data', { exact: true }).first().click();
     await fresh.page.waitForFunction(() => new Promise(resolve => {
         const open = indexedDB.open('crawl-pilot');
         open.onsuccess = () => { const v = open.result.version; open.result.close(); resolve(v === 7); };

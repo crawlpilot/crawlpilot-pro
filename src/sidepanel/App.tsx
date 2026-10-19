@@ -145,7 +145,8 @@ function App() {
                         </Button>
                     </Box>
                 )}
-                {currentView !== 'data-table' && <Header onNavigate={setCurrentView} activeView={currentView} disabled={isGlobalExtracting} />}
+                {/* Home and Welcome have the brand header; every other view has its own header with back. */}
+                {(currentView === 'home' || currentView === 'welcome') && <Header onNavigate={setCurrentView} activeView={currentView} disabled={isGlobalExtracting} />}
                 <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
                     {renderView()}
                 </Box>
