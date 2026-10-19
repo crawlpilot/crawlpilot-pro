@@ -14,6 +14,7 @@ import type { ReconReport } from './recon/types';
 import type { PageSummary } from './types/pageSummary';
 import type { NextControl } from '../content/services/pagination/findNext';
 import type { PageTable } from '../content/services/tables/findTables';
+import type { PageDataSource } from './structured/pageData';
 import type { NetEntry } from './network/types';
 import type { LabEval, LabPick } from '../content/features/lab/SelectorLab';
 import type { GroundRequest, Grounded, PageView, PickedRegion } from './ai/page';
@@ -217,6 +218,8 @@ export interface Messages {
     /** Every data table on the page (Tables tool), and showing one of them. */
     TABLES_FIND: { reply: Res<{ tables: PageTable[] }> };
     TABLES_SHOW: { payload: { index: number }; reply: Res<{ shown: boolean }> };
+    /** What the page publishes as data (Toolkit → Data on this page). */
+    PAGE_DATA: { reply: Res<{ sources: PageDataSource[] }> };
     AI_PAGE_VIEW: { payload: { chunkChars: number; maxChunks: number; reveal?: RevealMode }; reply: Res<{ view: PageView }> };
     AI_GROUND: { payload: { requests: GroundRequest[] }; reply: Res<{ results: Grounded[] }> };
     /** Page assistant: checks claims against the last page view's blocks, and shows a cited block. */

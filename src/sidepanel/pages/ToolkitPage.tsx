@@ -1,27 +1,29 @@
 import { useCallback, useState } from 'react';
 import PageStrip from '../components/ui/PageStrip';
 import ToolHeader from '../components/ui/ToolHeader';
-import { Radar, Crosshair, Network } from 'lucide-react';
+import { Radar, Crosshair, Network, Braces } from 'lucide-react';
 import ReconPanel from '../components/toolkit/ReconPanel';
 import SelectorLabPanel from '../components/toolkit/SelectorLabPanel';
 import ApiFinderPanel from '../components/toolkit/ApiFinderPanel';
+import StructuredDataPanel from '../components/toolkit/StructuredDataPanel';
 import { ToolkitProvider, ToolkitTool, usePageTab } from '../components/toolkit/context';
 import { Segmented } from '../ui';
 
 const TAB_KEY = 'crawlpilot.toolkit.tab';
 
 const TOOLS: { id: ToolkitTool; label: string; icon: React.ReactElement; hint: string }[] = [
-    { id: 'recon', label: 'Page Recon', icon: <Radar size={15} />, hint: 'How to scrape this page: HTTP, JSON or a browser' },
-    { id: 'lab', label: 'Selector Lab', icon: <Crosshair size={15} />, hint: 'Find and test selectors that survive site changes' },
-    { id: 'api', label: 'API Finder', icon: <Network size={15} />, hint: 'Find the JSON API behind the data you see' },
+    { id: 'recon', label: 'Recon', icon: <Radar size={15} />, hint: 'How to scrape this page: HTTP, JSON or a browser' },
+    { id: 'lab', label: 'Selectors', icon: <Crosshair size={15} />, hint: 'Find and test selectors that survive site changes' },
+    { id: 'api', label: 'API', icon: <Network size={15} />, hint: 'Find the JSON API behind the data you see' },
+    { id: 'data', label: 'Data', icon: <Braces size={15} />, hint: 'What this page publishes as data: JSON-LD, meta tags, app state' },
 ];
 
 function initialTab(): ToolkitTool {
     const asked = new URLSearchParams(window.location.search).get('tool');
-    if (asked === 'recon' || asked === 'lab' || asked === 'api') return asked;
+    if (asked === 'recon' || asked === 'lab' || asked === 'api' || asked === 'data') return asked;
     try {
         const v = localStorage.getItem(TAB_KEY);
-        if (v === 'recon' || v === 'lab' || v === 'api') return v;
+        if (v === 'recon' || v === 'lab' || v === 'api' || v === 'data') return v;
     } catch { /* storage blocked */ }
     return 'recon';
 }
@@ -50,6 +52,7 @@ export default function ToolkitPage({ onBack, onNavigate }: { onBack: () => void
                     <div key={`recon-${page.tab?.id}`} className={tool === 'recon' ? 'block' : 'hidden'}><ReconPanel /></div>
                     {tool === 'lab' && <SelectorLabPanel />}
                     <div key={`api-${page.tab?.id}`} className={tool === 'api' ? 'block' : 'hidden'}><ApiFinderPanel /></div>
+                    {tool === 'data' && <StructuredDataPanel />}
                 </div>
             </div>
         </ToolkitProvider>

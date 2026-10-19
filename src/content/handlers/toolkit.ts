@@ -10,6 +10,7 @@ import { checkPageClaims, showCitation } from '../services/ai-view/claims';
 import { pickRegion } from '../services/ai-view/pickRegion';
 import { siteContacts } from '../services/contacts/site';
 import { findTables, showTable } from '../services/tables/findTables';
+import { collectPageData } from '../services/structured/pageData';
 
 const labPicker = new LabPicker();
 
@@ -37,6 +38,7 @@ export function registerToolkitHandlers() {
 
     on('TABLES_FIND', () => ok({ tables: findTables() }));
     on('TABLES_SHOW', ({ index }) => ok({ shown: showTable(index) }));
+    on('PAGE_DATA', () => ok({ sources: collectPageData() }));
 
     on('NET_LIST', async () => ok(await requestNetEntries()));
     on('NET_CLEAR', () => { clearNetEntries(); return ok(); });

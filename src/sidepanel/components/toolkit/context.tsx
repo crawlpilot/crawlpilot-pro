@@ -8,7 +8,7 @@ import type { PageTab } from '../../hooks/usePageTab';
 export { usePageTab } from '../../hooks/usePageTab';
 import { sendToPage, type MessageType, type Payload, type Reply } from '../../../shared/messages';
 
-export type ToolkitTool = 'recon' | 'lab' | 'api';
+export type ToolkitTool = 'recon' | 'lab' | 'api' | 'data';
 
 export type ToolkitPageTab = PageTab;
 

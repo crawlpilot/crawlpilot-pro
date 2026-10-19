@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button, Chip, Collapse, IconButton, Notice, Progress, Stack, Text, Tooltip, cx } from '../../ui';
 import {
-    Radar, ChevronDown, Code2, Globe, Shield, FileJson, ListOrdered, Zap, MonitorSmartphone, ShieldAlert, FileCode2,
+    Radar, Code2, Globe, Shield, FileJson, ListOrdered, Zap, MonitorSmartphone, ShieldAlert, FileCode2,
     Crosshair, Network, List, RotateCw, ClipboardCopy, Check, Lightbulb,
 } from 'lucide-react';
 import type { ReconReport, Recommendation } from '../../../shared/recon/types';
@@ -9,7 +9,7 @@ import { recommend } from '../../../shared/recon/recommend';
 import { approachLabel, dataFact, paginationFact, protectionFact, reconMarkdown, renderingFact } from '../../../shared/recon/summary';
 import { copyText } from '../../services/clipboard';
 import { samePage, useToolkit } from './context';
-import { CodeBlock, CopyButton, DetailSection, FactTile, GroupLabel, InfoRow, TONE, Tone, ToolIntro } from './ui';
+import { CopyButton, DetailSection, FactTile, GroupLabel, InfoRow, TONE, Tone, ToolIntro } from './ui';
 
 const APPROACH: Record<Recommendation['approach'], { tone: Tone; icon: React.ReactNode }> = {
     'http-json': { tone: 'good', icon: <FileCode2 size={18} /> },
@@ -21,10 +21,10 @@ const APPROACH: Record<Recommendation['approach'], { tone: Tone; icon: React.Rea
 const CHECKS = ['Bot protection and block pages', 'Server HTML vs. what JavaScript renders', 'Embedded JSON (JSON-LD, app state)', 'robots.txt, sitemaps and pagination'];
 
 /** The next things to do for this kind of page, as buttons into the other tools. */
-function NextSteps({ rec, report, onShowData }: { rec: Recommendation; report: ReconReport; onShowData: () => void }) {
+function NextSteps({ rec, report }: { rec: Recommendation; report: ReconReport }) {
     const { openTool, navigate } = useToolkit();
     const steps: { label: string; icon: React.ReactNode; onClick: () => void }[] = [];
-    if (rec.approach === 'http-json') steps.push({ label: 'See the embedded JSON', icon: <FileJson />, onClick: onShowData });
+    if (rec.approach === 'http-json') steps.push({ label: 'See the embedded JSON', icon: <FileJson />, onClick: () => openTool('data') });
     if (rec.approach === 'browser' || report.pagination.loadMore) steps.push({ label: 'Find the API it calls', icon: <Network />, onClick: () => openTool('api') });
     if (rec.approach !== 'blocked') steps.push({ label: 'Test a selector', icon: <Crosshair />, onClick: () => openTool('lab') });
     if (rec.approach !== 'blocked' && navigate) steps.push({ label: 'Extract a list', icon: <List />, onClick: () => navigate('list-extractor') });
@@ -36,29 +36,22 @@ function NextSteps({ rec, report, onShowData }: { rec: Recommendation; report: R
     );
 }
 
+/** What the page embeds, one line each; the data itself is in the Data tab. */
 function EmbeddedList({ report }: { report: ReconReport }) {
-    const [open, setOpen] = useState<number | null>(report.embedded.findIndex(e => e.json));
+    const { openTool } = useToolkit();
     if (report.embedded.length === 0) return <Text size="caption" tone="muted">No JSON-LD, app state or microdata found. The data is only in the page's HTML (or comes from an API: try the API Finder).</Text>;
     return (
         <Stack gap={1.5}>
             {report.embedded.map((e, i) => (
-                <div key={i} className={cx('overflow-hidden rounded-field border', open === i ? 'border-line-strong' : 'border-line')}>
-                    <div className={cx('flex items-center gap-2 py-1 pr-1 pl-3', e.json && 'cursor-pointer')} onClick={() => e.json && setOpen(open === i ? null : i)}>
-                        <div className="min-w-0 flex-1">
-                            <Text size="caption" weight="semibold" truncate>{e.label}</Text>
-                            {e.types && e.types.length > 0 && <Text size="caption" tone="faint" className="text-[10.5px]">{e.types.slice(0, 4).join(' · ')}</Text>}
-                        </div>
-                        <Text size="caption" tone="muted">{e.kind === 'microdata' || e.kind === 'opengraph' ? `${e.size} fields` : `${(e.size / 1024).toFixed(1)} KB`}</Text>
-                        {e.json && <CopyButton text={e.json} label="Copy JSON" />}
-                        {e.json && (
-                            <IconButton size="sm" label={open === i ? 'Hide JSON' : 'Show JSON'} noTooltip>
-                                <ChevronDown className={cx('transition-transform', open === i && 'rotate-180')} />
-                            </IconButton>
-                        )}
+                <div key={i} className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                        <Text size="caption" weight="semibold" truncate>{e.label}</Text>
+                        {e.types && e.types.length > 0 && <Text size="caption" tone="faint" className="text-[10.5px]">{e.types.slice(0, 4).join(' · ')}</Text>}
                     </div>
-                    {open === i && <div className="p-1.5 pt-0"><CodeBlock code={e.json?.slice(0, 20000) ?? ''} maxHeight={260} /></div>}
+                    <Text size="caption" tone="muted">{e.kind === 'microdata' || e.kind === 'opengraph' ? `${e.size} fields` : `${(e.size / 1024).toFixed(1)} KB`}</Text>
                 </div>
             ))}
+            <Button size="sm" icon={<FileJson />} onClick={() => openTool('data')}>Explore it in the Data tab</Button>
         </Stack>
     );
 }
@@ -68,7 +61,6 @@ export default function ReconPanel() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [report, setReport] = useState<ReconReport | null>(null);
-    const [showData, setShowData] = useState(0);
     const [copied, setCopied] = useState(false);
 
     const run = async () => {
@@ -84,10 +76,6 @@ export default function ReconPanel() {
         }
     };
 
-    // A finished report scrolls the data section into view when asked from the verdict card.
-    useEffect(() => {
-        if (showData) document.getElementById('recon-embedded')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, [showData]);
 
     const rec = report ? recommend(report) : null;
     const stale = report && page.url && !samePage(report.url, page.url);
@@ -139,7 +127,7 @@ export default function ReconPanel() {
                     <IconButton size="sm" label="Analyse again" onClick={run} disabled={loading}><RotateCw className={loading ? 'animate-spin' : undefined} /></IconButton>
                 </div>
                 <p className="m-0 font-display text-lead font-bold leading-snug tracking-[-0.01em] text-ink">{rec!.headline}</p>
-                <NextSteps rec={rec!} report={report} onShowData={() => setShowData(n => n + 1)} />
+                <NextSteps rec={rec!} report={report} />
             </div>
             {error && <Notice tone="warning" onClose={() => setError(null)}>{error}</Notice>}
 
@@ -162,8 +150,8 @@ export default function ReconPanel() {
             )}
 
             <GroupLabel>Details</GroupLabel>
-            <div id="recon-embedded" className="-mt-2">
-                <DetailSection key={`data-${showData}`} icon={<FileJson />} title="Embedded data" summary={dataFact(report).value} defaultOpen={showData > 0}>
+            <div className="-mt-2">
+                <DetailSection icon={<FileJson />} title="Embedded data" summary={dataFact(report).value}>
                     <EmbeddedList report={report} />
                 </DetailSection>
             </div>
