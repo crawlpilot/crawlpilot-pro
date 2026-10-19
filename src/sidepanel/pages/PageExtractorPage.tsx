@@ -14,6 +14,7 @@ import { MetadataStep2Run } from '../components/metadata-extractor/MetadataStep2
 import { useMetadataExtraction } from '../hooks/useMetadataExtraction';
 import type { MetadataExtractOptions } from '../../shared/types/metadata';
 import { pageTabId } from '../hooks/usePageTab';
+import { defaultConcurrency } from '@/shared/utils/concurrency';
 
 interface PageExtractorPageProps {
     onBack: () => void;
@@ -102,7 +103,7 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
         resetStoppedState
     } = useBulkExtraction();
 
-    const [maxConcurrent, setMaxConcurrent] = useState(3);
+    const [maxConcurrent, setMaxConcurrent] = useState(defaultConcurrency);
     const [clickWaitMs, setClickWaitMs] = useState(1000);
     const [requestDelay, setRequestDelay] = useState(1000);
     const [loadTimeout, setLoadTimeout] = useState(10000);

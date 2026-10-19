@@ -6,6 +6,7 @@
  * What a job does on each page (and which columns it produces) is a `RunJob`: see bulkJob.ts and
  * metadataJob.ts.
  */
+import { defaultConcurrency } from '../../shared/utils/concurrency';
 import { send } from '../../shared/messages';
 import type { UrlStatus } from '../../shared/messages';
 import { db } from '../../shared/db';
@@ -138,11 +139,6 @@ function hostOf(url: string): string {
 }
 
 /** One tab per GB of RAM, at most half the cores, at most 5. */
-function defaultConcurrency(): number {
-    const memoryGB = (navigator as any).deviceMemory ?? 4;
-    const cores = navigator.hardwareConcurrency ?? 4;
-    return Math.max(1, Math.min(Math.floor(memoryGB), Math.floor(cores / 2), 5));
-}
 
 export class JobRunner {
     private job: RunJob | null = null;

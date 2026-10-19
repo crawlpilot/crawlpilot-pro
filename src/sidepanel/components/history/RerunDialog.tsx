@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, FormHelperText, Stack, Switch, TextField, Typography } from '@mui/material';
 import { Play } from 'lucide-react';
 import { isBulkJob, type JobWithRecipe } from './jobFilters';
+import { defaultConcurrency } from '@/shared/utils/concurrency';
 
 export interface RerunOptions {
     name: string;
@@ -18,7 +19,7 @@ export function RerunDialog({ job, onClose, onStart }: { job: JobWithRecipe | nu
     const [rerunName, setRerunName] = useState('');
     const [rerunMaxPages, setRerunMaxPages] = useState(10);
     const [rerunParallel, setRerunParallel] = useState(false);
-    const [rerunConcurrent, setRerunConcurrent] = useState(3);
+    const [rerunConcurrent, setRerunConcurrent] = useState(defaultConcurrency);
 
     useEffect(() => {
         if (!job) return;
