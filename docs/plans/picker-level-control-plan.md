@@ -1,6 +1,23 @@
 # Picker: the user controls how much is selected
 
-Status: 2026-10-19, **plan** (nothing built).
+Status: 2026-10-19. **L1–L4 built** for every picker (the Page Extractor's readings, the bar, the side panel mirror in the Page Extractor). L5–L7 to do.
+
+Decided by default (the open questions below): the Page Extractor first; the keys as proposed; no sticky offset across elements; "leave out part" later.
+
+**Built:**
+- `picker/path.ts`: visible steps, Narrower back toward the start, siblings, breadcrumbs. A step that stands for same-box wrappers is named by the most telling one ("div.price-block", not "div.wrap").
+- `VisualElementPicker`:
+  - the level holds while the cursor stays inside it, and Space locks it;
+  - keys ↑ ↓ [ ] ← → Space Enter Esc, L / T / V, and Alt+scroll;
+  - the bar (path, "Read as" chips, a button per key);
+  - `PICKER_STATE` to the side panel, at most every 120 ms;
+  - `PICKER_ACTION` names: wider, narrower, prev, next, lock, select, `reading:i`, `step:i`.
+- `DetailSelectionStrategy.readings()`: from the existing detectors, suggested in their old order, and the click saves the reading shown (no re-deciding). For example, a spec row is suggested as "Texts · 2" as before, with "Items like this · 4" and its "Text" one key away.
+- `PickerControls` (side panel): path, Wider / Narrower / Prev / Next, "Save it as" chips, Lock, Select, and the keys forwarded. It is used in the Page Extractor's "Pick the fields".
+- Tests:
+  - `path.test.ts` (4);
+  - `e2e/picker-levels.spec.ts` (4: steps and back, the next row and readings, lock and bar buttons, the side panel protocol).
+  - The picker, list, pagination and run browser tests still pass.
 
 Scope:
 - The Page Extractor's element picker ("attributes": `DetailSelectionStrategy`).
