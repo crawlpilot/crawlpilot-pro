@@ -4,11 +4,26 @@ import type { JsonSpec } from '../structuredRows';
 import type { Derive } from './split';
 import type { Column } from '../../../../shared/types/database';
 
-export const FIELD_SCHEMA_VERSION = 2;
+/**
+ * 3: a reader also stores its meaning and expectations (`fields/health.ts`). A version 2 reader is a
+ * version 3 one with neither: it reads the same and is never healed.
+ */
+export const FIELD_SCHEMA_VERSION = 3;
+
+/** What a field looked like on the rows it was built from: a page far below is broken. */
+export interface FieldExpectations {
+    /** Share of item rows with a value. */
+    fill: number;
+    /** For number and price columns: share of values that parse as one. */
+    parse?: number;
+}
 
 /** How one column is read from a row. Saved on the column, so recipes and later pages reuse it. */
 export interface FieldReader {
-    v: typeof FIELD_SCHEMA_VERSION;
+    v: 2 | typeof FIELD_SCHEMA_VERSION;
+    /** What the value is ("Price", "Review Count"), from `fields/meaning.ts`: a broken field is found again by it. */
+    meaning?: string;
+    expect?: FieldExpectations;
     /** Row-relative selectors, best first; the first that yields a value wins (variant cards). */
     chain: string[];
     attr: AtomAttr;

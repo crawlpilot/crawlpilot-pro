@@ -76,6 +76,10 @@ test('pagination: three pages through the picked Next button, every row once', a
     expect(rows).toHaveLength(12);
     const titles = rows.map(r => Object.values(r).find(v => typeof v === 'string' && v.startsWith('Lamp model')));
     expect(new Set(titles).size).toBe(12);
+    // Page 3 renamed the price's class: the run found the field again by its meaning.
+    const price = (list.data?.columns as { id: string; name: string }[]).find(c => c.name === 'Price')!;
+    expect(rows.every(r => /^\$\d+\.99$/.test(r[price.id]))).toBe(true);
+    expect(updates.find(u => u.healedFields)?.healedFields).toEqual(['Price']);
     expect(page.url()).toContain('list-3.html');
     await page.close();
 });

@@ -13,6 +13,10 @@ export interface PageStat {
     unmapped?: number;
     /** The list was found through a backup selector: its primary no longer matches (fix the recipe before it breaks). */
     fallback?: boolean;
+    /** Fields that broke on this page and were found again by their meaning. */
+    healed?: string[];
+    /** Fields that broke on this page and could not be found again: their cells are empty. */
+    broken?: string[];
 }
 
 export const STOP_REASON_LABELS: Record<string, string> = {
@@ -95,6 +99,15 @@ export class ListingRunTracker {
     markFallback(page: number): void {
         const stat = this.pages.get(page) ?? { page, rows: 0, duplicates: 0 };
         stat.fallback = true;
+        this.pages.set(page, stat);
+    }
+
+    /** Records a page's field check. */
+    markFields(page: number, healed: string[] = [], broken: string[] = []): void {
+        if (healed.length === 0 && broken.length === 0) return;
+        const stat = this.pages.get(page) ?? { page, rows: 0, duplicates: 0 };
+        if (healed.length) stat.healed = [...new Set([...(stat.healed ?? []), ...healed])];
+        if (broken.length) stat.broken = [...new Set([...(stat.broken ?? []), ...broken])];
         this.pages.set(page, stat);
     }
 

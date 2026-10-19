@@ -1,5 +1,5 @@
 import { refreshNetSourcesFor } from '../../services/extraction/structuredRows';
-import { hasReaders, inferFields, readRow, similarSiblings, unmappedCount, ReaderColumn } from '../../services/extraction/fields';
+import { checkPage, hasReaders, inferFields, readWhenReady, similarSiblings, unmappedCount, ReaderColumn } from '../../services/extraction/fields';
 import { withAtomCache } from '../../services/extraction/atoms';
 import { NextButtonSelector } from '../../services/selectors/nextButton';
 import { BaseAction, ActionContext } from '../../core/BaseAction';
@@ -37,6 +37,8 @@ export class PaginationAction extends BaseAction {
     private usedFallback = false;
     /** An item selector re-derived on this run because the stored chain no longer matched: sent once, saved to the recipe. */
     private healedItems: string | undefined;
+    /** This page's field check: fields found again by meaning, and fields that read nothing like before. */
+    private fieldHealth: { healed: string[]; broken: string[] } | undefined;
 
     constructor(private config: PaginationConfig) {
         super();
@@ -274,12 +276,15 @@ export class PaginationAction extends BaseAction {
                 unmapped: pendingUnmapped,
                 fallback: this.usedFallback || undefined,
                 healedItems: this.healedItems,
+                healedFields: this.fieldHealth?.healed.length ? this.fieldHealth.healed : undefined,
+                brokenFields: this.fieldHealth?.broken.length ? this.fieldHealth.broken : undefined,
                 page: pageCount,
                 cumulativeTotal: mode !== 'loadMore' ? newTotal : pageItems.length
             });
             pending = [];
             pendingUnmapped = 0;
             this.healedItems = undefined;
+            this.fieldHealth = undefined;
         };
 
         this.context?.onProgress?.({ type: 'extract', page: pageCount, message: 'Scrolling and extracting data...' });
@@ -313,7 +318,19 @@ export class PaginationAction extends BaseAction {
             }
         }
 
-        // Use 'indexed' strategy: the container is a static DOM element during pagination,
+        // Every page is checked against the fields' expectations; what broke is found again by meaning.
+        if (hasReaders(this.config.columns)) {
+            let rows: Element[] = [];
+            try { rows = resolvedItemSelector ? Array.from(container.querySelectorAll(resolvedItemSelector)) : Array.from(container.children); } catch { /* bad selector */ }
+            const health = checkPage(rows, this.config.columns);
+            if (health.columns !== this.config.columns) this.config.columns = health.columns;
+            if (health.healed.length || health.broken.length) {
+                this.fieldHealth = { healed: health.healed, broken: health.broken };
+                console.log('[PaginationAction] Field check on page', pageCount, this.fieldHealth);
+            }
+        }
+
+                // Use 'indexed' strategy: the container is a static DOM element during pagination,
         // not an infinite feed. MutationAware would wait unnecessarily for new nodes.
         const autoScroll = new AutoScrollAction({
             rootElement: container,
@@ -327,8 +344,9 @@ export class PaginationAction extends BaseAction {
                 const columns = this.fieldsFor(element, container, resolvedItemSelector);
                 lastColumns = columns;
                 await refreshNetSourcesFor(columns);
-                // One scan of the row serves both the read and the unmapped check.
-                const [normalizedItem, unmapped] = withAtomCache(() => [readRow(element, columns), unmappedCount(element, columns)] as const);
+                // A row still loading is read again after the page settles.
+                const { item: normalizedItem } = await readWhenReady(element, columns, () => this.wait(400));
+                const unmapped = withAtomCache(() => unmappedCount(element, columns));
                 if (Object.keys(normalizedItem).length > 0) {
                     processedInPage.add(scrolledToIndex);
 

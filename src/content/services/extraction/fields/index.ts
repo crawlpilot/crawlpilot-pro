@@ -26,12 +26,14 @@ import { collapseComponents } from './component';
 import { mergeFields } from './merge';
 import { baseNames, columnType, uniqueNames } from './name';
 import { refineFields } from './meaning';
+import { parses } from './parse';
 import { pruneFields } from './prune';
 import { splitFields } from './split';
 import { tableFields } from './table';
 import { Field, FIELD_SCHEMA_VERSION, FieldInference, FieldReader, fieldId, ReaderColumn } from './types';
 
 export { hasReaders, readRow, unmappedCount } from './read';
+export { checkPage, isPending, readWhenReady } from './health';
 export type { FieldReader, FieldInference, ReaderColumn, RowGate } from './types';
 
 const MAX_SAMPLE = 40;
@@ -105,14 +107,23 @@ function infer(sampled: Element[]): FieldInference {
 
     const columns: ReaderColumn[] = named.map(({ f, name }, order) => {
         const id = fieldId(name);
+        const meaning = refined.names[fields.indexOf(f)];
+        const type = columnType(f, meaning);
+        const values = [...f.values.values()];
+        const round = (x: number) => Math.round(x * 100) / 100;
         return {
             id,
             name,
-            type: columnType(f, refined.names[fields.indexOf(f)]),
+            type,
             order,
             selector: f.selector,
             reader: {
                 ...readerOf(f),
+                meaning,
+                expect: {
+                    fill: round(f.values.size / n),
+                    ...(type === 'number' || type === 'price' ? { parse: round(values.filter(v => parses(v, type)).length / Math.max(1, values.length)) } : {}),
+                },
                 ...(f.alts?.length ? { alternates: f.alts.map(readerOf) } : {}),
                 ...(gate ? { rowGate: gate } : {}),
             },

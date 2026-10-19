@@ -9,7 +9,7 @@ import { tableHeaders } from './table';
 import { FIELD_SCHEMA_VERSION, FieldReader, query, ReaderColumn } from './types';
 
 export function hasReaders(columns: unknown): columns is ReaderColumn[] {
-    return Array.isArray(columns) && columns.some((c: any) => c?.reader?.v === FIELD_SCHEMA_VERSION);
+    return Array.isArray(columns) && columns.some((c: any) => c?.reader?.v === FIELD_SCHEMA_VERSION || c?.reader?.v === 2);
 }
 
 function readField(row: Element, r: FieldReader): string | undefined {

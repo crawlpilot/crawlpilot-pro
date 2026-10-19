@@ -2,7 +2,7 @@
 import { AutoScrollAction } from '../features/autoscroll/AutoScrollAction';
 import { PaginationAction } from '../features/pagination/PaginationAction';
 import { refreshNetSourcesFor } from '../services/extraction/structuredRows';
-import { hasReaders, inferFields, readRow, similarSiblings, ReaderColumn } from '../services/extraction/fields';
+import { checkPage, hasReaders, inferFields, readWhenReady, similarSiblings, ReaderColumn } from '../services/extraction/fields';
 import { HL_COLOR, HL_GLOW } from '../utils/highlight-tokens';
 import { looksLikeXPath, resolveContainer, resolveItems } from '../../shared/selectors/resolve';
 import { hashString } from '../../shared/utils/hash';
@@ -82,6 +82,7 @@ async function startAutoScroll(req: AutoScrollRequest) {
 
     const results: Record<string, string>[] = [];
     const seen = new Set<string>();
+    let checked = false;
 
     const autoScroll = new AutoScrollAction({
         selector,
@@ -96,6 +97,16 @@ async function startAutoScroll(req: AutoScrollRequest) {
         scrollCallback: async (info: any) => {
             const element: HTMLElement | undefined = info.element;
             if (!element) return;
+            if (scrollColumns && !checked) {
+                // Saved fields: checked once against the rows loaded now, healed by meaning where they broke.
+                checked = true;
+                let rows: Element[] = [];
+                try { rows = selector ? Array.from((root || document).querySelectorAll(selector)) : []; } catch { /* bad selector */ }
+                if (rows.length < 2) rows = similarSiblings(element);
+                const health = checkPage(rows, scrollColumns);
+                scrollColumns = health.columns;
+                if (health.healed.length || health.broken.length) console.log('[AutoScroll] Field check', health.healed, health.broken);
+            }
             if (!scrollColumns) {
                 // No saved fields: infer them once from the rows loaded now, then freeze them.
                 let sample: Element[] = [];
@@ -104,7 +115,7 @@ async function startAutoScroll(req: AutoScrollRequest) {
                 scrollColumns = inferFields(sample).columns;
             }
             await refreshNetSourcesFor(scrollColumns);
-            const row = readRow(element, scrollColumns);
+            const { item: row } = await readWhenReady(element, scrollColumns, () => new Promise(r => setTimeout(r, 400)));
             if (Object.keys(row).length === 0) return;
             const hash = hashString(JSON.stringify(row)).toString();
             if (seen.has(hash)) return;
@@ -144,7 +155,7 @@ async function startPagination(req: PaginationRequest) {
                 // The fields go to the side panel once (they are frozen for the run), so it saves them as the columns.
                 const columns = progress.columns && progress.columns !== sentPaginationColumns ? progress.columns : undefined;
                 if (columns) sentPaginationColumns = columns;
-                void send('PAGINATION_UPDATE', { items: progress.items, page: progress.page, total: progress.cumulativeTotal, columns, unmapped: progress.unmapped, fallback: progress.fallback, healedItems: progress.healedItems });
+                void send('PAGINATION_UPDATE', { items: progress.items, page: progress.page, total: progress.cumulativeTotal, columns, unmapped: progress.unmapped, fallback: progress.fallback, healedItems: progress.healedItems, healedFields: progress.healedFields, brokenFields: progress.brokenFields });
             } else if (progress.type === 'complete') {
                 void send('PAGINATION_COMPLETE', ok({ reason: progress.reason }));
             } else if (progress.type === 'error') {

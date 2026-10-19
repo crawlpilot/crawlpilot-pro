@@ -279,7 +279,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 setStatus(prev => ({ ...prev, stopReason }));
                                 resolve();
                             }),
-                            on('PAGINATION_UPDATE', ({ items, page, columns, unmapped, fallback, healedItems }) => {
+                            on('PAGINATION_UPDATE', ({ items, page, columns, unmapped, fallback, healedItems, healedFields, brokenFields }) => {
                                 if (page) pagesVisitedRef.current = page;
                                 // The fields the run reads every page with (frozen): save them as the columns.
                                 if (Array.isArray(columns) && columns.length > 0) sel.data.columns = columns;
@@ -290,6 +290,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 }
                                 if (unmapped) tracker.addUnmapped(page || pagesVisitedRef.current, unmapped);
                                 if (fallback) tracker.markFallback(page || pagesVisitedRef.current);
+                                tracker.markFields(page || pagesVisitedRef.current, healedFields, brokenFields);
                                 // The stored item chain stopped matching and the page re-derived one: the recipe
                                 // starts with it from now on (a new revision; this job keeps the one it ran).
                                 if (healedItems) void healRecipe(recipe.id, sel.id, healedItems);

@@ -110,8 +110,10 @@ export function JobDetailsDialog({ detailsJob, onClose, onDelete, onRerun }: Pro
                                                 <span title={[
                                                     p.unmapped ? `${p.unmapped} rows had content no field reads: the layout may have changed` : '',
                                                     p.fallback ? 'The list was found through a backup selector: its main selector no longer matches. Re-pick it before the backups stop working too.' : '',
+                                                    p.healed?.length ? `Found again by meaning on this page: ${p.healed.join(', ')}` : '',
+                                                    p.broken?.length ? `Not found on this page (empty cells): ${p.broken.join(', ')}` : '',
                                                 ].filter(Boolean).join('\n') || undefined}>
-                                                    {p.rows}{p.duplicates > 0 ? ` (+${p.duplicates} dup)` : ''}{p.unmapped ? ` · ${p.unmapped} unmapped` : ''}{p.fallback ? ` · ${t('backupSelector', 'backup selector')}` : ''}
+                                                    {p.rows}{p.duplicates > 0 ? ` (+${p.duplicates} dup)` : ''}{p.unmapped ? ` · ${p.unmapped} unmapped` : ''}{p.fallback ? ` · ${t('backupSelector', 'backup selector')}` : ''}{p.healed?.length ? ` · ${t('fieldsHealed', '{{n}} healed', { n: p.healed.length })}` : ''}{p.broken?.length ? ` · ${t('fieldsBroken', '{{n}} broken', { n: p.broken.length })}` : ''}
                                                 </span>
                                             </Box>
                                         ))}
