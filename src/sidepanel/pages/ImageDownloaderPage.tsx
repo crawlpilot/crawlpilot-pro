@@ -18,13 +18,16 @@ import {
     Loader,
     Grid,
     Layers,
-    ArrowDownToLine
+    ArrowDownToLine,
+    Maximize2
 } from 'lucide-react';
 import type { FoundImage } from '../../shared/images/types';
 import { styled } from '@mui/material/styles';
 import { useImageScan } from '../hooks/useImageScan';
 import { buildSizeGroups, filterImages, imageType } from '../components/images/imageFilters';
-import { downloadImage, downloadZip } from '../components/images/imageDownload';
+import { useImageSave } from '../hooks/useImageSave';
+import { SaveOptions } from '../components/images/SaveOptions';
+import { SaveReportCard, megabytes } from '../components/images/SaveReportCard';
 
 const ImageCard = styled(Box)<{ selected?: boolean }>(({ selected }) => ({
     position: 'relative',
@@ -48,9 +51,10 @@ interface ImageDownloaderPageProps {
 
 export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps) {
     const { t } = useTranslation('imageDownloader');
-    const { images, scanning, progress, liveWatching, error, quickScan, deepScan, cancelScan, toggleLiveWatch } = useImageScan();
+    const { images, page, scanning, progress, liveWatching, error, quickScan, deepScan, cancelScan, toggleLiveWatch } = useImageScan();
     const [selected, setSelected] = useState<Set<string>>(new Set());
-    const [downloading, setDownloading] = useState(false);
+    const saver = useImageSave(page.tabId, page.title);
+    const downloading = saver.progress !== null;
     const [showFilters, setShowFilters] = useState(false);
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -97,23 +101,15 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
         setSelected(new Set(sizeGroups[idx].images.map(img => img.src)));
     };
 
-    const downloadAsZip = async (imagesToDownload: FoundImage[], zipName: string) => {
-        setDownloading(true);
-        try { await downloadZip(imagesToDownload, zipName); } finally { setDownloading(false); }
-    };
-
-    const downloadGroup = (idx: number) => {
-        const group = sizeGroups[idx];
-        void downloadAsZip(group.images, `images_${group.label.replace('\u00d7', 'x')}.zip`);
-    };
+    const downloadGroup = (idx: number) => { void saver.save(sizeGroups[idx].images); };
 
     const downloadSingle = (img: FoundImage, e?: React.MouseEvent) => {
         e?.stopPropagation();
-        void downloadImage(img);
+        void saver.save([img], 'folder');
     };
 
-    const downloadSelected = () => downloadAsZip(filteredImages.filter(img => selected.has(img.src)), 'selected_images.zip');
-    const downloadAll = () => downloadAsZip(filteredImages, 'all_images.zip');
+    const downloadSelected = () => saver.save(filteredImages.filter(img => selected.has(img.src)));
+    const downloadAll = () => saver.save(filteredImages);
 
     const toggleSelection = (src: string) => {
         const next = new Set(selected);
@@ -168,6 +164,13 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                                 <ArrowDownToLine size={18} />
                             </IconButton>
                         </Tooltip>
+                        {page.tabId !== null && !new URLSearchParams(window.location.search).get('tabId') && (
+                            <Tooltip title={t('openInTab')}>
+                                <IconButton onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=image-downloader&tabId=${page.tabId}`) })} size="small" sx={{ color: 'text.secondary', bgcolor: 'rgba(255,255,255,0.03)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: '#06b6d4' } }}>
+                                    <Maximize2 size={18} />
+                                </IconButton>
+                            </Tooltip>
+                        )}
                         <Tooltip title={t('rescan')}>
                             <IconButton onClick={startQuickScan} disabled={!!scanning} size="small" sx={{ color: 'text.secondary', bgcolor: 'rgba(255,255,255,0.03)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: '#06b6d4' } }}>
                                 <RefreshCw size={18} className={scanning === 'quick' ? 'animate-spin' : ''} />
@@ -245,6 +248,7 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                 <FormControlLabel control={<Switch checked={includeHidden} onChange={(e) => setIncludeHidden(e.target.checked)} size="small" />} label={<Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>{t('includeHidden')}</Typography>} sx={{ ml: 0 }} />
                             </Box>
+                            <SaveOptions mode={saver.mode} onMode={saver.setMode} template={saver.template} onTemplate={saver.setTemplate} />
                         </Stack>
                     </Box>
                 </Collapse>
@@ -252,6 +256,7 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
 
             {/* Image Grid */}
             <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5, '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.08)', borderRadius: 4 } }}>
+                {saver.report && <SaveReportCard report={saver.report} onRetry={saver.retryFailed} onDismiss={saver.dismiss} />}
                 {filteredImages.length === 0 && !scanning ? (
                     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, textAlign: 'center', opacity: 0.6 }}>
                         <ImageIcon size={48} strokeWidth={1} />
@@ -310,7 +315,7 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                                 </Typography>
                             </Box>
                         )}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 1 }}>
                         {displayImages.slice(0, visibleCount).map((img, i) => {
                             const isSelected = selected.has(img.src);
                             return (
@@ -350,9 +355,20 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
             </Box>
 
             {/* Floating Footer */}
-            <Fade in={selected.size > 0 || scanning === 'deep'}>
+            <Fade in={selected.size > 0 || scanning === 'deep' || downloading}>
                 <Paper elevation={8} sx={{ position: 'absolute', bottom: 12, left: 12, right: 12, zIndex: 30, p: '10px 16px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 12px 32px -8px rgba(0, 0, 0, 0.6)' }}>
-                    {selected.size > 0 ? (
+                    {saver.progress ? (
+                        <>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Loader size={14} className="animate-spin" style={{ color: '#06b6d4' }} />
+                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
+                                    {t('saving', { done: saver.progress.done + saver.progress.failed, total: saver.progress.total, size: megabytes(saver.progress.bytes) })}
+                                    {saver.progress.failed > 0 && ` · ${t('failedCount', { count: saver.progress.failed })}`}
+                                </Typography>
+                            </Box>
+                            <Button size="small" onClick={saver.stop} sx={{ color: 'error.main', fontWeight: 600, textTransform: 'none', fontSize: '0.72rem' }}>{t('stop')}</Button>
+                        </>
+                    ) : selected.size > 0 ? (
                         <>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                 <Box sx={{ minWidth: 26, height: 26, borderRadius: '8px', bgcolor: '#06b6d4', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.75rem', px: 0.5 }}>{selected.size}</Box>
@@ -361,7 +377,7 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                             <Stack direction="row" spacing={1}>
                                 <Button size="small" onClick={clearSelection} sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'none', minWidth: 'auto', fontSize: '0.72rem' }}>{t('clear')}</Button>
                                 <Button variant="contained" size="small" startIcon={downloading ? <Loader size={13} className="animate-spin" /> : <Download size={13} />} disabled={downloading} onClick={downloadSelected} sx={{ borderRadius: '10px', px: 2, fontWeight: 700, textTransform: 'none', fontSize: '0.72rem', background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)' }}>
-                                    {downloading ? t('packing') : t('downloadZip')}
+                                    {t('downloadSelected')}
                                 </Button>
                             </Stack>
                         </>
@@ -377,7 +393,7 @@ export default function ImageDownloaderPage({ onBack }: ImageDownloaderPageProps
                 </Paper>
             </Fade>
 
-            <Fade in={filteredImages.length > 0 && selected.size === 0 && !scanning}>
+            <Fade in={filteredImages.length > 0 && selected.size === 0 && !scanning && !downloading}>
                 <Button variant="contained" startIcon={<Download size={14} />} onClick={downloadAll} disabled={downloading} sx={{ position: 'absolute', bottom: 16, right: 16, zIndex: 20, borderRadius: '12px', px: 2, py: 1, fontWeight: 700, textTransform: 'none', fontSize: '0.75rem', background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)', boxShadow: '0 8px 20px -4px rgba(6, 182, 212, 0.4)', '&:hover': { background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)' } }}>
                     {t('downloadAll', { count: filteredImages.length })}
                 </Button>

@@ -7,7 +7,9 @@
  *   (saved retail pages would otherwise try to boot their apps); content scripts are not affected.
  * - `/site/<file>` serves `e2e/site/<file>` as is, scripts allowed.
  * - `/img/<name>-<w>x<h>.<ext>` and `/cdn/<name>?w=&h=` serve a generated PNG of that size (any
- *   extension: the bytes are PNG, which browsers sniff), for the Image Downloader.
+ *   extension: the bytes are PNG, which browsers sniff), for the Image Downloader. Names starting
+ *   `protected-` need this site as Referer, `private-` a `session=1` cookie; `missing-` is a 404 and
+ *   `notimage-` an HTML page.
  */
 import { test as base, chromium, type BrowserContext, type Page, type Worker } from '@playwright/test';
 import { createServer, type Server } from 'node:http';
@@ -65,6 +67,13 @@ function serve(): Promise<{ server: Server; origin: string }> {
                 res.end(html);
                 return;
             }
+            // Image Downloader failure cases: hotlink protection (needs this site as Referer), a login
+            // (needs the page's cookie), gone, and a web page where an image should be.
+            const name = path.basename(url.pathname);
+            if (name.startsWith('protected-') && !(req.headers.referer ?? '').startsWith(`http://${req.headers.host}/`)) { res.writeHead(403).end('No hotlinking'); return; }
+            if (name.startsWith('private-') && !/(^|;\s*)session=1/.test(req.headers.cookie ?? '')) { res.writeHead(401).end('Log in'); return; }
+            if (name.startsWith('missing-')) { res.writeHead(404).end(); return; }
+            if (name.startsWith('notimage-')) { res.writeHead(200, { 'content-type': 'text/html' }).end('<html><body>Hotlinking not allowed</body></html>'); return; }
             const sized = /^\/img\/[\w-]*?-(\d+)x(\d+)\.\w+$/.exec(url.pathname);
             if (sized || url.pathname.startsWith('/cdn/')) {
                 const w = Number(sized?.[1] ?? url.searchParams.get('w') ?? 100);

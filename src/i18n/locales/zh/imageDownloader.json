@@ -27,8 +27,6 @@
   "discoveringMore": "正在发现更多图片...",
   "selected": "已选择",
   "clear": "清除",
-  "downloadZip": "下载 ZIP",
-  "packing": "打包中...",
   "cancelScan": "取消",
   "downloadAll": "下载全部 ({{count}})"
 }

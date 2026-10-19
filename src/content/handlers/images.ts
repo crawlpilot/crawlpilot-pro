@@ -2,9 +2,15 @@
  * Image Downloader: a quick read of the page, a deep scan (scrolls so lazy images load) and a live
  * watch, streaming `{added, updated}` batches to the side panel. One session per page until the next
  * quick scan; the deep scan and the live watch add to it.
+ *
+ * `FETCH_IMAGE` is the side panel's fallback for images it can't fetch itself: the page's fetch
+ * carries the page's `Referer` and session, and can read the page's `blob:` URLs.
  */
 import { ImageScanSession } from '../services/images/session';
 import { fail, ok, on, send } from '../../shared/messages';
+
+/** Larger files go through the side panel's own fetch (a data URL this size is already slow to pass). */
+const PAGE_FETCH_MAX = 64 * 1024 * 1024;
 
 let session: ImageScanSession | null = null;
 let running: AbortController | null = null;
@@ -53,4 +59,22 @@ export function registerImageHandlers() {
     on('SCAN_IMAGES_LIVE_START', () => { current().watch(true); return ok(); });
 
     on('SCAN_IMAGES_LIVE_STOP', () => { session?.unwatch(); return ok(); });
+
+    on('FETCH_IMAGE', async ({ url }) => {
+        try {
+            const response = await fetch(url, { credentials: 'include' });
+            if (!response.ok) return { ...fail(`HTTP ${response.status}`), status: response.status };
+            const blob = await response.blob();
+            if (blob.size > PAGE_FETCH_MAX) return fail('Too large to pass from the page');
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsDataURL(blob);
+            });
+            return ok({ dataUrl });
+        } catch (error) {
+            return fail(error);
+        }
+    });
 }

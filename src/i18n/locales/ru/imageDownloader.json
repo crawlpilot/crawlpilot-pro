@@ -27,8 +27,6 @@
   "discoveringMore": "Обнаружение дополнительных изображений...",
   "selected": "выбрано",
   "clear": "Очистить",
-  "downloadZip": "Скачать ZIP",
-  "packing": "Упаковка...",
   "cancelScan": "Отмена",
   "downloadAll": "Скачать все ({{count}})"
 }

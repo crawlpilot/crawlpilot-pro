@@ -27,8 +27,6 @@
   "discoveringMore": "Découverte de plus d'images...",
   "selected": "sélectionnées",
   "clear": "Effacer",
-  "downloadZip": "Télécharger ZIP",
-  "packing": "Compression...",
   "cancelScan": "Annuler",
   "downloadAll": "Tout Télécharger ({{count}})"
 }

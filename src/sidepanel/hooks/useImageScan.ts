@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { on, sendToTab } from '../../shared/messages';
 import type { FoundImage, ImageBatch } from '../../shared/images/types';
 
+/** The tab to scan: the one named in the URL (the downloader opened in its own tab), else the active tab. */
 async function activeTabId() {
+    const named = Number(new URLSearchParams(window.location.search).get('tabId'));
+    if (named) return named;
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     return tab?.id;
 }
@@ -18,6 +21,7 @@ export function useImageScan() {
     const [progress, setProgress] = useState(0);
     const [liveWatching, setLiveWatching] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [page, setPage] = useState<{ tabId: number | null; title: string }>({ tabId: null, title: '' });
     const bySrc = useRef(new Map<string, FoundImage>());
     const tabRef = useRef<number | null>(null);
 
@@ -45,6 +49,7 @@ export function useImageScan() {
             const tabId = await activeTabId();
             tabRef.current = tabId ?? null;
             if (!tabId) return;
+            setPage({ tabId, title: (await chrome.tabs.get(tabId)).title ?? '' });
             const response = await sendToTab(tabId, 'SCAN_IMAGES');
             if (response.success) merge({ added: response.images, updated: [] });
             else setError(response.error);
@@ -89,5 +94,5 @@ export function useImageScan() {
         }
     }, [liveWatching]);
 
-    return { images, scanning, progress, liveWatching, error, quickScan, deepScan, cancelScan, toggleLiveWatch };
+    return { images, page, scanning, progress, liveWatching, error, quickScan, deepScan, cancelScan, toggleLiveWatch };
 }

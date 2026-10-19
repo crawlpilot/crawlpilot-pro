@@ -77,22 +77,3 @@ on('METADATA_EXTRACTION_STOP', async () => {
 });
 
 // Fetches an image for the side panel, bypassing the page's CORS restrictions.
-on('DOWNLOAD_IMAGE_PROXY', async ({ url }) => {
-    try {
-        const response = await fetch(url, { mode: 'cors', credentials: 'omit', signal: AbortSignal.timeout(15_000) });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const buffer = await response.arrayBuffer();
-        return ok({ data: Array.from(new Uint8Array(buffer)), contentType: response.headers.get('content-type') || 'image/jpeg' });
-    } catch (error) {
-        return fail(error, 'Fetch failed');
-    }
-});
-
-on('DOWNLOAD_VIA_CHROME', async ({ url, filename }) => {
-    try {
-        const downloadId = await chrome.downloads.download({ url, filename: filename || undefined, saveAs: false });
-        return ok({ downloadId });
-    } catch (error) {
-        return fail(error, 'Download failed');
-    }
-});

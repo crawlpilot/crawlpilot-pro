@@ -331,13 +331,16 @@ device.
 
 ## 6. Open decisions
 
-1. **The `Referer` and cookies route.** Page-context fetch covers most cases with no new permission.
+1. **Resolved (G2): page-context fallback, no new permission.** The side panel fetches directly (host
+   permission, cookies); on a block, login, network error or HTML answer, the page fetches it (its
+   `Referer` and session). Add DNR only if real sites still fail. Was: **The `Referer` and cookies route.** Page-context fetch covers most cases with no new permission.
    Hotlink rules for the background need `declarativeNetRequestWithHostAccess`, a new permission
    (no extra install warning, given the host access we already request). Recommendation: page-context
    first; add DNR only if G0 shows real sites still failing.
-2. **The byte transport:** the content script saves files itself, or chunked base64 over a port.
+2. **Resolved (G2): no transport for the common case.** The side panel fetches the bytes itself; only the
+   page fallback passes a data URL (up to 64 MB). Was: **The byte transport:** the content script saves files itself, or chunked base64 over a port.
    Recommendation: decide from G0's measurements.
-3. **`fflate` for a streamed zip** in place of JSZip, which is a new dependency. The data export's zip
+3. **Resolved (G2): `fflate`**, and JSZip and file-saver are gone. Was: **`fflate` for a streamed zip** in place of JSZip, which is a new dependency. The data export's zip
    could move to it too, leaving one zip library.
 4. **Default output:** a zip or a folder, and the size threshold for switching.
 5. **Whether video is in scope** (posters only today). Recommendation: no direct video download, given
@@ -356,7 +359,7 @@ device.
 |---|---|
 | G0 | Done: `e2e/site/gallery.html` + generated images in the harness, `e2e/images.spec.ts` (quick, deep, sizes, Amazon timing), `collect.test.ts`. The `Referer`/cookie/slow routes move to G2, which they test |
 | G1 | Done: `content/services/images/` (`source.ts`, `collect.ts`, `session.ts`), `shared/images/`. Not done: cross-origin iframes (needs on-demand frame injection), grouping by list item (moved to G4) |
-| G2 | Not started |
+| G2 | Done: `sidepanel/services/images/` (`fetchImage`, `pool`, `zip`, `naming`, `save`), `shared/images/sniff.ts`, `FETCH_IMAGE` in the content script, `useImageSave`, `SaveOptions`, `SaveReportCard`; the downloader opens in its own tab (`?view=image-downloader&tabId=`). JSZip and file-saver removed. Not measured: memory on a 2,000-image run (the zip spills to Blobs every 16 MB; needs a large real-bytes fixture) |
 | G3 | Not started |
 | G4 | Not started |
 | G5 | Not started |

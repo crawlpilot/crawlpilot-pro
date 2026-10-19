@@ -1,10 +1,14 @@
 /**
  * The Image Downloader's scan in a real browser (`e2e/site/gallery.html`): what a quick read finds,
  * what only the deep scan finds (lazy images and an infinite feed inside a scrolling `div`), sizes
- * measured after the scan, and the page's scroll put back.
+ * measured after the scan, and the page's scroll put back. Then a save through the real UI
+ * (`e2e/site/downloads.html`): the zip on disk, and the failures explained.
  */
 import { test, expect, type Panel } from './harness';
 import type { Page } from '@playwright/test';
+import fs from 'node:fs';
+import { unzipSync } from 'fflate';
+import { sniffType } from '../src/shared/images/sniff';
 
 const path = (src: string) => src.startsWith('http') ? new URL(src).pathname + new URL(src).search : src.slice(0, 22);
 
@@ -84,5 +88,29 @@ test('quick scan on a large retail page: the product images, in under 2 seconds'
     console.log(`amazon-search: ${reply.images.length} images (${found} product) in ${took} ms; ${products} product cards`);
     expect(found).toBeGreaterThanOrEqual(products);
     expect(took).toBeLessThan(2000);
+    await page.close();
+});
+
+test('save as zip from the UI: protected, login-only and blob images saved, failures explained', async ({ panel, ext, origin, extensionId }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/downloads.html`);
+    await page.waitForFunction(() => (document.getElementById('blob') as HTMLImageElement).src.startsWith('blob:'));
+    const tabId = await panel.tabId(page.url());
+
+    const ui = await ext.newPage();
+    await ui.goto(`chrome-extension://${extensionId}/sidepanel.html?view=image-downloader&tabId=${tabId}`);
+    await ui.evaluate(() => { localStorage.setItem('crawlpilot.images.mode', 'zip'); localStorage.setItem('crawlpilot.images.template', '{name}'); });
+    await ui.reload();
+    await ui.getByRole('button', { name: /Download All \(7\)/ }).click({ timeout: 10_000 });
+    await expect(ui.getByText(/Saved 5 of 7/)).toBeVisible({ timeout: 30_000 });
+    await ui.getByRole('button', { name: 'Why' }).click();
+    await expect(ui.getByText(/Gone from the server \(404\) · 1/)).toBeVisible();
+    await expect(ui.getByText(/Not an image .* · 1/)).toBeVisible();
+
+    const [zip] = await ui.evaluate(() => chrome.downloads.search({ mime: 'application/zip', state: 'complete' }));
+    const entries = unzipSync(new Uint8Array(fs.readFileSync(zip.filename)));
+    expect(Object.keys(entries).sort()).toEqual(['image.png', 'image.svg', 'plain-400x300.png', 'private-320x200.png', 'protected-500x500.png']);
+    expect(sniffType(entries['protected-500x500.png'])).toBe('image/png');
+    await ui.close();
     await page.close();
 });

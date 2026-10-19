@@ -27,8 +27,6 @@
   "discoveringMore": "さらに画像を検索中...",
   "selected": "選択済み",
   "clear": "クリア",
-  "downloadZip": "ZIP をダウンロード",
-  "packing": "圧縮中...",
   "cancelScan": "キャンセル",
   "downloadAll": "すべてダウンロード ({{count}})"
 }

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Downloads fixture</title></head>
+<body>
+<h1>Downloads</h1>
+<script>document.cookie = 'session=1; path=/';</script>
+<img src="/img/plain-400x300.png" alt="Plain">
+<img src="/img/protected-500x500.png" alt="Protected">
+<img src="/img/private-320x200.png" alt="Private">
+<img src="/img/missing-10x10.png" alt="Missing" width="200" height="200">
+<img src="/img/notimage-10x10.png" alt="Not an image" width="200" height="200">
+<img id="blob" alt="Blob">
+<svg width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="tomato"/></svg>
+<script>
+    fetch('/img/blobsrc-150x150.png').then(r => r.blob()).then(b => { document.getElementById('blob').src = URL.createObjectURL(b); });
+</script>
+</body>
+</html>

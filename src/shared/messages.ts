@@ -129,6 +129,8 @@ export interface Messages {
     SCAN_IMAGES_CANCEL: { reply: Res };
     SCAN_IMAGES_LIVE_START: { reply: Res };
     SCAN_IMAGES_LIVE_STOP: { reply: Res };
+    /** The page's own fetch of an image (its cookies, `Referer` and `blob:` URLs), as a data URL. */
+    FETCH_IMAGE: { payload: { url: string }; reply: { success: true; dataUrl: string } | (Fail & { status?: number }) };
     TOGGLE_RIGHT_CLICK: { payload: { enable: boolean }; reply: Res<{ enabled: boolean }> };
     CMD_EXTRACT_PAGE_BACKGROUND: { payload: { url: string; elements: any[]; config: any }; reply: Res<{ result: { columns: any[]; item: any; items?: any[]; url: string } }> };
     CMD_EXTRACT_METADATA: { payload: { url: string; options: MetadataExtractOptions }; reply: Res<{ result: MetadataExtractResult }> };
@@ -159,8 +161,6 @@ export interface Messages {
     BULK_EXTRACTION_STOP: { reply: Res };
     METADATA_EXTRACTION_START: { payload: MetadataStart; reply: Res<{ jobId: number; uniqueCount: number }> };
     METADATA_EXTRACTION_STOP: { reply: Res };
-    DOWNLOAD_IMAGE_PROXY: { payload: { url: string }; reply: Res<{ data?: number[]; contentType?: string }> };
-    DOWNLOAD_VIA_CHROME: { payload: { url: string; filename?: string }; reply: Res<{ downloadId?: number }> };
 
     // ---- background → side panel (broadcasts)
     BULK_EXTRACTION_PROGRESS: { payload: RunProgress };
