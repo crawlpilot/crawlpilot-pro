@@ -179,6 +179,15 @@ export function imageSrc(img: Element): string {
 
 /** Reads one attribute of one element the way inference read it. */
 export function readValue(el: Element, attr: AtomAttr): string {
+    if (!valueCache) return computeValue(el, attr);
+    let byAttr = valueCache.get(el);
+    if (!byAttr) valueCache.set(el, byAttr = new Map());
+    let v = byAttr.get(attr);
+    if (v === undefined) byAttr.set(attr, v = computeValue(el, attr));
+    return v;
+}
+
+function computeValue(el: Element, attr: AtomAttr): string {
     switch (attr) {
         case 'text': case 'cell': return atomText(el);
         case 'own': return ownText(el);
@@ -204,11 +213,19 @@ export function withAtomCache<T>(fn: () => T): T {
     scope++;
     textAtomCache = new WeakMap();
     atomsCache = new WeakMap();
+    readerCache = new WeakMap();
+    copiesCache = new WeakMap();
+    valueCache = new WeakMap();
     setStepCache(new WeakMap<Element, NodeStep>());
-    try { return fn(); } finally { textAtomCache = null; atomsCache = null; setStepCache(null); }
+    try { return fn(); } finally { textAtomCache = null; atomsCache = null; readerCache = null; copiesCache = null; valueCache = null; setStepCache(null); }
 }
 
 let atomsCache: WeakMap<Element, Atom[]> | null = null;
+/** `isScreenReaderOnly` and `visualCopies` per element in a scan: both read layout, and are asked about the same nodes many times. */
+let readerCache: WeakMap<Element, boolean> | null = null;
+let copiesCache: WeakMap<Element, { blocks: Set<Element>; sentences: Set<Element> }> | null = null;
+/** `readValue` per element and attribute in a scan: the same values are read for each field, selector and row. */
+let valueCache: WeakMap<Element, Map<AtomAttr, string>> | null = null;
 let scope = 0;
 
 /** The current `withAtomCache` scope (0 outside one): other per-scan caches key on it. */
@@ -293,6 +310,14 @@ function hasLayout(): boolean {
  * usual class names where there is no layout (captures without styles).
  */
 function isScreenReaderOnly(el: Element): boolean {
+    const cached = readerCache?.get(el);
+    if (cached !== undefined) return cached;
+    const v = computeScreenReaderOnly(el);
+    readerCache?.set(el, v);
+    return v;
+}
+
+function computeScreenReaderOnly(el: Element): boolean {
     if (SCREEN_READER_ONLY.test(el.getAttribute('class') || '') || SCREEN_READER_ONLY.test(el.getAttribute('data-testid') || '')) return true;
     if (!hasLayout() || !(el.textContent || '').trim()) return false;
     const r = el.getBoundingClientRect();
@@ -321,6 +346,14 @@ function screenReaderTexts(row: Element): Element[] {
  * element of the row repeats ("Now $519.99 · Was $799.99" and "Price Now $519.99 Was $799.99").
  */
 function visualCopies(row: Element): { blocks: Set<Element>; sentences: Set<Element> } {
+    const cached = copiesCache?.get(row);
+    if (cached) return cached;
+    const v = computeVisualCopies(row);
+    copiesCache?.set(row, v);
+    return v;
+}
+
+function computeVisualCopies(row: Element): { blocks: Set<Element>; sentences: Set<Element> } {
     const blocks = new Set<Element>();
     const sentences = new Set<Element>();
     const readers = screenReaderTexts(row);

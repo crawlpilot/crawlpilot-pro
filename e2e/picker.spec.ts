@@ -68,3 +68,33 @@ for (const c of CASES) {
         await page.close();
     });
 }
+
+// A pick takes seconds on a slow computer: the click says so at once, before the fields are read.
+test('a click says the list is being read', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(`${origin}/corpus/walmart-search-live`);
+    const tabId = await panel.tabId(page.url());
+    await panel.clear();
+    await panel.toTab(tabId, 'START_PICKER', { mode: 'list', action: 'extract' });
+    const title = page.locator('[data-testid="item-stack"] [data-item-id] >> nth=2 >> [data-automation-id="product-title"]');
+    await title.evaluate(el => el.scrollIntoView({ block: 'center' }));
+    const box = (await title.boundingBox())!;
+    await page.mouse.move(box.x + 6, box.y + 6);
+    await expect(page.locator('[data-testid="element-picker-tooltip"]')).toContainText('items');
+    // A slow computer: the fields take a while, and the tooltip says what is happening meanwhile.
+    const cdp = await ext.newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 20 });
+    // Every text the tooltip shows, recorded in the page (the pick removes it when done).
+    await page.evaluate(() => {
+        const tip = document.querySelector('[data-testid="element-picker-tooltip"]')!;
+        const seen: string[] = ((window as any).__tips = []);
+        new MutationObserver(() => seen.push(tip.textContent?.replace(/\s+/g, ' ').trim() ?? '')).observe(tip, { subtree: true, childList: true, characterData: true });
+    });
+    await page.mouse.click(box.x + 6, box.y + 6);
+    const picked = await panel.next('ELEMENT_SELECTED', 60_000);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    expect(picked.count).toBeGreaterThan(10);
+    expect((await page.evaluate(() => (window as any).__tips)).join(' | ')).toMatch(/Reading \d+ items/);
+    await page.close();
+});

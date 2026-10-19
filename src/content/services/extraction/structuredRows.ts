@@ -53,7 +53,7 @@ function parse(text: string): unknown {
     try { return JSON.parse(text.trim()); } catch { return undefined; }
 }
 
-let cache: { scripts: Element[]; sources: Source[] } | null = null;
+let cache: { doc: Document; scripts: Element[]; sources: Source[]; scope: number } | null = null;
 
 const STATE_ASSIGN = /(?:window\.)?(__[A-Z0-9_]+__|__remixContext|__APOLLO_STATE__)\s*=\s*/g;
 
@@ -90,8 +90,12 @@ export function jsonValueAt(text: string, start: number): unknown {
  * read for every row and field).
  */
 export function pageSources(doc: Document = document): Source[] {
+    // Inside one scan the DOM doesn't change: the scripts are listed once, not per row and field.
+    const scope = atomScope();
+    if (cache && scope !== 0 && cache.scope === scope && cache.doc === doc) return [...cache.sources, ...netSources];
     const scripts = Array.from(doc.querySelectorAll('script:not([src])'));
-    if (cache && cache.scripts.length === scripts.length && cache.scripts.every((el, i) => el === scripts[i])) {
+    if (cache && cache.doc === doc && cache.scripts.length === scripts.length && cache.scripts.every((el, i) => el === scripts[i])) {
+        cache.scope = scope;
         return [...cache.sources, ...netSources];
     }
     const sources: Source[] = [];
@@ -114,7 +118,7 @@ export function pageSources(doc: Document = document): Source[] {
             }
         }
     }
-    cache = { scripts, sources };
+    cache = { doc, scripts, sources, scope };
     return [...sources, ...netSources];
 }
 

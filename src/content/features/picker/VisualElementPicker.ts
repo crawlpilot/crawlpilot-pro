@@ -19,6 +19,8 @@ export class VisualElementPicker {
     private lastHighlightedElement: HTMLElement | null = null;
     private lastSiblings: HTMLElement[] = [];
     private rafPending = false;
+    /** A pick is being read: the highlight stays put and further clicks wait. */
+    private busy = false;
 
     constructor() {
         this.handleMouseMove = this.handleMouseMove.bind(this);
@@ -44,6 +46,7 @@ export class VisualElementPicker {
     public deactivate() {
         if (!this.isActive) return;
         this.isActive = false;
+        this.busy = false;
         this.strategy = null;
         this.removeUI();
         this.removeEventListeners();
@@ -75,7 +78,7 @@ export class VisualElementPicker {
         }
 
         if (action === 'Enter') {
-            if (this.strategy) {
+            if (this.strategy && !this.busy) {
                 this.strategy.handleClick(this.currentElement, this, reportSelection);
             }
         }
@@ -213,7 +216,7 @@ export class VisualElementPicker {
     }
 
     private handleMouseMove(e: MouseEvent) {
-        if (this.rafPending || !this.overlay || !this.strategy) return;
+        if (this.busy || this.rafPending || !this.overlay || !this.strategy) return;
         this.rafPending = true;
 
         requestAnimationFrame(() => {
@@ -329,6 +332,29 @@ export class VisualElementPicker {
         this.positionTooltip(anchorRect);
     }
 
+    /**
+     * Says a pick is being read ("Reading 45 items…") and resolves once that has been drawn: the
+     * fields are worked out next, which takes seconds on a slow computer.
+     */
+    public showBusy(text: string): Promise<void> {
+        this.busy = true;
+        const line = this.tooltip?.lastElementChild as HTMLElement | null | undefined;
+        if (line) line.textContent = text;
+        this.overlay?.style.setProperty('cursor', 'progress', 'important');
+        // A frame to draw it (a timer too, in case frames don't run).
+        return new Promise(resolve => {
+            const done = () => setTimeout(resolve, 0);
+            requestAnimationFrame(done);
+            setTimeout(done, 100);
+        });
+    }
+
+    /** Back to picking (a pick that failed): the user can click again. */
+    public clearBusy() {
+        this.busy = false;
+        this.overlay?.style.setProperty('cursor', 'crosshair', 'important');
+    }
+
     private positionTooltip(rect: DOMRect) {
         if (!this.tooltip) return;
         const tooltipRect = this.tooltip.getBoundingClientRect();
@@ -379,6 +405,7 @@ export class VisualElementPicker {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
+        if (this.busy) return;
 
         // Use the currentElement identified by handleMouseMove
         // because the overlay captures the actual click event target.

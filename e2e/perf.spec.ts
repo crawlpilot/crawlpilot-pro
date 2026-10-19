@@ -112,6 +112,7 @@ test('picker: hover and pick', async ({ ext, origin, panel }) => {
 test('picker: where a pick spends its time', async ({ ext, origin, panel }) => {
     test.skip(!process.env.PROFILE, 'PROFILE=1 to profile');
     const self = new Map<string, number>();
+    const inclusive = new Map<string, number>();
     let totalMs = 0;
     for (const p of PICKS) {
         const page = await ext.newPage();
@@ -121,7 +122,7 @@ test('picker: where a pick spends its time', async ({ ext, origin, panel }) => {
         await cdp.send('Profiler.enable');
         await cdp.send('Profiler.setSamplingInterval', { interval: 100 });
         await cdp.send('Profiler.start');
-        await pickList(panel, page, p.title);
+        const picked = await pickList(panel, page, p.title);
         const { profile } = await cdp.send('Profiler.stop');
         const byId = new Map(profile.nodes.map(n => [n.id, n]));
         const parent = new Map<number, number>();
@@ -134,15 +135,27 @@ test('picker: where a pick spends its time', async ({ ext, origin, panel }) => {
             // Charged to the nearest extension function: browser work (style, layout) it asked for.
             while (n && !n.callFrame.url.startsWith('chrome-extension://') && parent.has(n.id)) n = byId.get(parent.get(n.id)!)!;
             const ours = n?.callFrame.url.startsWith('chrome-extension://');
-            const key = ours ? `${n.callFrame.functionName || '(anon)'} ${n.callFrame.url.split('/').pop()}:${n.callFrame.lineNumber + 1}${leaf !== n.callFrame.functionName && !byId.get(id)!.callFrame.url ? ` [native ${leaf}]` : ''}` : `· ${leaf}`;
+            const key = ours ? `${n.callFrame.functionName || '(anon)'} ${n.callFrame.url.split('/').pop()}:${n.callFrame.lineNumber + 1}${leaf !== n.callFrame.functionName && !byId.get(id)!.callFrame.url ? ` [native ${leaf}]` : ''}` : `· ${leaf} ${byId.get(id)!.callFrame.url.slice(0, 60)}`;
             self.set(key, (self.get(key) ?? 0) + ms);
             if (ours) totalMs += ms;
+            // Inclusive: every extension function on the stack (once each).
+            const seen = new Set<string>();
+            for (let m: any = byId.get(id); m; m = parent.has(m.id) ? byId.get(parent.get(m.id)!) : undefined) {
+                if (!m.callFrame.url.startsWith('chrome-extension://')) continue;
+                const k = `${m.callFrame.functionName || '(anon)'}:${m.callFrame.lineNumber + 1}`;
+                if (seen.has(k)) continue;
+                seen.add(k);
+                inclusive.set(k, (inclusive.get(k) ?? 0) + ms);
+            }
         });
+        console.log(`${p.page}: pick message ${Math.round(JSON.stringify(picked).length / 1024)} KB, keys ${Object.keys(picked ?? {}).join(',')}`);
         await page.close();
     }
     const top = [...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40);
     console.log(`\nextension self time over ${PICKS.length} picks: ${Math.round(totalMs)} ms`);
     for (const [k, v] of top) console.log(`${v.toFixed(1).padStart(8)} ms  ${k}`);
+    console.log('\ninclusive:');
+    for (const [k, v] of [...inclusive.entries()].sort((a, b) => b[1] - a[1]).slice(0, 45)) console.log(`${v.toFixed(1).padStart(8)} ms  ${k}`);
 });
 
 test('side panel: opening it', async ({ ext, extensionId }) => {

@@ -106,6 +106,27 @@ In order of benefit per effort. Each phase is committed on its own, with the bef
 - **Message size:** measure the `ELEMENT_SELECTED` payload. If it carries more than the panel shows (for example every row's full atoms), send the preview rows only.
 - **Show progress at once.** Highlight the picked section the moment it is clicked and show "Reading 45 items…" while fields are worked out, so a slow machine never looks frozen.
 
+**Done (P1):**
+- **Per-scan caches** in `withAtomCache` for `isScreenReaderOnly`, `visualCopies` and `readValue`.
+- **`pageSources`** lists the page's scripts once per scan.
+- **Picker feedback:** the tooltip says "Reading N items…" from the click until the rows arrive, and further clicks wait (tested in `e2e/picker.spec.ts`).
+- **Pick message size:** 53–211 KB. Not a cost, so nothing to change.
+- **Results:** the listing scorecard is unchanged, and click → rows at 8× is 1.7–2.6× faster:
+
+  | Page | 8× before | 8× after |
+  |---|---|---|
+  | Walmart | 5.7 s | 1.9 s |
+  | Chewy | 4.8 s | 2.6 s |
+  | Amazon | 2.8 s | 1.7 s |
+
+**What's left:** 1.7–2.6 s, still above the 1.5 s target. Profile at 1× for the remaining ~115 ms per pick:
+- field inference (`inferFields`): 55%, most of it grouping and the stray check of each candidate selector;
+- reading the rows: 20%;
+- the page-JSON search (`findStructuredSource`): 15%;
+- list locators: 10%.
+
+Next, if needed: test fewer candidate selectors per group, and give the JSON search an early exit (skip arrays whose first item has no anchor shared with the first row).
+
 ### P2. Hover gives the same answer on every machine
 
 - **Check whether slow machines pick differently.** Add `THROTTLE=4|8` to `e2e/picker.spec.ts` (`Emulation.setCPUThrottlingRate`) and run the scorecard. It checks the section and card count on 8 pages.
@@ -145,8 +166,8 @@ In order of benefit per effort. Each phase is committed on its own, with the bef
 
 | Phase | Status | Before → after (8×) |
 |---|---|---|
-| P1 Faster picks | — | pick 5.7 s (Walmart) |
-| P2 Same hover answer on every machine | — | hover 45 ms, budget 20 ms |
+| P1 Faster picks | done (more possible) | pick 5.7 → 1.9 s (Walmart), 4.8 → 2.6 s (Chewy); "Reading N items…" at once |
+| P2 Same hover answer on every machine | — | hover 34–37 ms (after P1), budget 20 ms |
 | P3 Light side panel | — | home 923 ms, 2.26 MB JS |
 | P4 Runs that fit the machine | — | fixed 3 tabs |
 | P5 Later | — | |

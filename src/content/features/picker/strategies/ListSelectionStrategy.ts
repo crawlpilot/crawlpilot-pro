@@ -47,9 +47,14 @@ export class ListSelectionStrategy implements ISelectionStrategy {
     }
 
     handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {
+        const found = this.lastMatch;
+        const reading = found?.isContainer ? `Reading ${found.siblings.length} items…` : 'Reading…';
         // Recorded API responses (when the API Finder is recording) can back the list's fields:
         // fetch them first, briefly, so the pick can offer them.
-        void refreshNetSources(300).catch(() => undefined).then(() => withAtomCache(() => this.select(element, picker, report)));
+        void picker.showBusy(reading)
+            .then(() => refreshNetSources(300).catch(() => undefined))
+            .then(() => withAtomCache(() => this.select(element, picker, report)))
+            .catch(err => { console.error('[Picker] Reading the pick failed:', err); picker.clearBusy(); });
     }
 
     private select(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {
