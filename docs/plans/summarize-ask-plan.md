@@ -198,6 +198,13 @@ The assistant works on the current tab only (decided 2026-10-19).
   - product, article and job → "Get these details as data", which opens AI Extract with that kind's schema filled in (`extractDraft.ts`).
 - **e2e:** `e2e/assistant.spec.ts` covers all of these.
 
+**P3, built (2026-10-19):**
+- **Detect and read:** Language Detector names the page's language. A page not in English is translated to English line by line, so each `[bN]` stays on its block (`translate.ts`). The brief notes "Read from German".
+- **Checks:** claims on a translated page are checked against the translated blocks (`checkedPage`). "Show on page" highlights the original block whole, since its English quote can't be matched in the original.
+- **Your language:** with the extension in another language, brief points, answers (markers kept), suggested questions and typed questions are translated. A language pack not yet downloaded shows a "Show in …" button, or for the page's language a download prompt, since a download needs a click.
+- **Name:** "Page assistant" in all 9 languages.
+- **Tests:** `e2e/assistant.spec.ts` runs a German page with the extension set to French. The download prompt itself can't be e2e-tested, because Playwright's page already counts as clicked.
+
 ## Phases
 
 Each phase is committed on its own and can be used by itself.

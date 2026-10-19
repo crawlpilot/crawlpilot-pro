@@ -8,7 +8,7 @@
     "tooltip": "Clique em qualquer elemento repetido — produtos, vagas, preços, notícias — e exporte uma planilha limpa ou JSON em segundos"
   },
   "textSummarizer": {
-    "title": "Resumidor de texto",
+    "title": "Assistente de página",
     "description": "Resuma instantaneamente qualquer página e faça perguntas com IA",
     "tooltip": "Abra qualquer artigo, relatório ou documentação — obtenha um resumo conciso e faça perguntas de acompanhamento com IA"
   },

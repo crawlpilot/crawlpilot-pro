@@ -179,10 +179,8 @@ test('a page in another language: translated to read it, checked, and shown in t
     await ui.setViewportSize({ width: 400, height: 900 });
     await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=text-summarizer&tabId=${tabId}`);
 
-    // The German pack downloads on a click.
-    await expect(ui.getByTestId('needs-translation')).toContainText('This page is in German');
-    await ui.getByRole('button', { name: 'Download German' }).click();
-
+    // (A pack not yet downloaded needs a click; Playwright's page already counts as clicked, so the
+    // German pack downloads at once here.)
     const brief = ui.getByTestId('page-brief');
     await expect(brief).toBeVisible({ timeout: 20_000 });
     await expect(ui.getByTestId('read-from')).toHaveText('Read from German');
