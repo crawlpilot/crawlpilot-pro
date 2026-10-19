@@ -1,7 +1,7 @@
 import { ListPick, PaginationMode } from '../../../../shared/types/extraction';
-import { Settings2, Play, ChevronDown, Gauge, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { Settings2, Play, Gauge, RotateCcw, PartyPopper } from 'lucide-react';
 import { ExtractionStatusBar } from '../ExtractionStatusBar';
-import { Box, Typography, Button, Paper, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemText, Divider, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent, Stack, TextField } from '@mui/material';
+import { Button, Card, Disclosure, Divider, Heading, Notice, Row, Select, Stack, Text, TextField } from '../../../ui';
 import { PaginationSpeed, PAGINATION_PROFILES } from '../../../../shared/constants/paginationConfig';
 import { useTranslation } from 'react-i18next';
 
@@ -36,233 +36,115 @@ export function Step3Review({
 }: Step3ReviewProps) {
 
     const { t } = useTranslation('listExtractor');
-    const handleSpeedChange = (event: SelectChangeEvent<PaginationSpeed>) => {
-        onSpeedChange(event.target.value as PaginationSpeed);
-    };
 
     const currentProfile = PAGINATION_PROFILES[speed];
     const ended = !isExtracting && (status?.status === 'completed' || status?.status === 'stopped');
     const fieldCount = selectors[0]?.data?.columns?.length ?? selectors.length;
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, animation: 'fadeIn 0.3s ease-out' }}>
+        <Stack gap={4} className="animate-fade-in">
             {ended && (
-                <Box sx={{ border: 1, borderColor: 'rgba(16,185,129,0.4)', bgcolor: 'rgba(16,185,129,0.06)', borderRadius: '14px', p: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CheckCircle2 size={20} style={{ color: 'var(--cp-success)' }} />
-                        <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: 'text.primary' }}>
-                            {status.status === 'stopped' ? t('step3.stoppedTitle', { count: status.itemsSaved ?? 0 }) : t('step3.doneTitle', { count: status.itemsSaved ?? 0 })}
-                            {status.pagesVisited ? ` ${t('step3.donePages', { count: status.pagesVisited })}` : ''}
-                        </Typography>
-                    </Box>
-                    <Typography variant="body2" sx={{ mt: 0.5 }}>{t('step3.doneHint')}</Typography>
-                </Box>
+                <Card tone="brand" raised className="animate-pop">
+                    <Row gap={2.5} align="start">
+                        <span className="flex size-10 shrink-0 rotate-6 items-center justify-center rounded-xl bg-surface text-ink"><PartyPopper size={20} /></span>
+                        <div className="min-w-0">
+                            <Heading size="heading" className="text-on-brand!">
+                                {status.status === 'stopped' ? t('step3.stoppedTitle', { count: status.itemsSaved ?? 0 }) : t('step3.doneTitle', { count: status.itemsSaved ?? 0 })}
+                                {status.pagesVisited ? ` ${t('step3.donePages', { count: status.pagesVisited })}` : ''}
+                            </Heading>
+                            <Text size="small" tone="inherit" className="mt-0.5 opacity-80">{t('step3.doneHint')}</Text>
+                        </div>
+                    </Row>
+                </Card>
             )}
 
             {!isExtracting && !ended && (
-                <Box>
-                    <Typography variant="h6" gutterBottom>{t('step3.reviewAndRun')}</Typography>
-                    <Typography variant="body2" color="text.secondary">{t('step3.checkConfig')}</Typography>
-                </Box>
+                <div>
+                    <Heading size="heading">{t('step3.reviewAndRun')}</Heading>
+                    <Text size="small" tone="muted" className="mt-0.5">{t('step3.checkConfig')}</Text>
+                </div>
             )}
 
-            {/* Config Summary */}
-            {!ended && <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
-                <Box sx={{ bgcolor: 'background.paper', p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                        {t('step3.summary')}
-                    </Typography>
-                </Box>
-                <List dense disablePadding>
-                    <ListItem>
-                        <ListItemText
-                            primary={t('step3.fieldsSelected')}
-                            secondary={t('step3.fieldsDetail', { count: fieldCount, items: selectors[0]?.count || 0 })}
-                            primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                            secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
-                        />
-                    </ListItem>
-                    <Divider component="li" />
-                    <ListItem>
-                        <ListItemText
-                            primary={t('step3.pageLimit')}
-                            secondary={paginationMode === 'pagination' ? t('step3.pages', { count: maxPages }) : t('step3.singlePage')}
-                            primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                            secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
-                        />
-                    </ListItem>
-                </List>
-            </Paper>}
+            {!ended && (
+                <Card pad="none">
+                    <Text size="small" weight="semibold" tone="muted" className="border-b border-line px-4 py-2.5">{t('step3.summary')}</Text>
+                    <div className="px-4 py-2.5">
+                        <Text size="caption" tone="muted">{t('step3.fieldsSelected')}</Text>
+                        <Text weight="semibold">{t('step3.fieldsDetail', { count: fieldCount, items: selectors[0]?.count || 0 })}</Text>
+                    </div>
+                    <Divider />
+                    <div className="px-4 py-2.5">
+                        <Text size="caption" tone="muted">{t('step3.pageLimit')}</Text>
+                        <Text weight="semibold">{paginationMode === 'pagination' ? t('step3.pages', { count: maxPages }) : t('step3.singlePage')}</Text>
+                    </div>
+                </Card>
+            )}
 
-            {/* Speed Configuration */}
-            {
-                !isExtracting && !ended && (
-                    <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
-                        <Box sx={{ bgcolor: 'background.paper', p: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="subtitle2" color="text.secondary">
-                                {t('step3.crawlSpeed')}
-                            </Typography>
-                            <Gauge size={16} className="text-text-secondary" />
-                        </Box>
-                        <Box sx={{ p: 2 }}>
-                            <FormControl fullWidth size="small">
-                                <InputLabel id="speed-select-label">{t('step3.speed')}</InputLabel>
-                                <Select
-                                    labelId="speed-select-label"
-                                    value={speed}
-                                    label={t('step3.speed')}
-                                    onChange={handleSpeedChange}
-                                >
-                                    <MenuItem value="slow">{t('step3.careful')}</MenuItem>
-                                    <MenuItem value="normal">{t('step3.balanced')}</MenuItem>
-                                    <MenuItem value="fast">{t('step3.aggressive')}</MenuItem>
-                                </Select>
-                            </FormControl>
-                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                                {t('step3.waitTime', { ms: currentProfile.navigationDelay })}
-                            </Typography>
-                        </Box>
-                    </Paper>
-                )
-            }
+            {!isExtracting && !ended && (
+                <Card>
+                    <Row justify="between" className="mb-3">
+                        <Text size="small" weight="semibold" tone="muted">{t('step3.crawlSpeed')}</Text>
+                        <Gauge size={16} className="text-ink-3" />
+                    </Row>
+                    <Select label={t('step3.speed')} value={speed} onChange={onSpeedChange} hint={t('step3.waitTime', { ms: currentProfile.navigationDelay })}
+                        options={[{ value: 'slow', label: t('step3.careful') }, { value: 'normal', label: t('step3.balanced') }, { value: 'fast', label: t('step3.aggressive') }]} />
+                </Card>
+            )}
 
-            {/* Advanced Settings (Accordion) */}
-            {
-                !isExtracting && !ended && (
-                    <Accordion elevation={0} sx={{
-                        bgcolor: 'transparent',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: '12px !important',
-                        '&:before': { display: 'none' }
-                    }}>
-                        <AccordionSummary expandIcon={<ChevronDown size={16} />}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Settings2 size={16} />
-                                <Typography variant="body2" fontWeight="500">{t('step3.advancedSettings')}</Typography>
-                            </Box>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                            <Stack spacing={2} sx={{ pt: 1 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Box>
-                                        <Typography variant="body2" fontWeight="500">{t('step3.waitDelay')}</Typography>
-                                        <Typography variant="caption" color="text.secondary">{t('step3.basedOnSpeed')}</Typography>
-                                    </Box>
-                                    <Typography variant="body2" fontFamily="monospace">{currentProfile.navigationDelay}ms</Typography>
-                                </Box>
+            {!isExtracting && !ended && (
+                <Disclosure icon={<Settings2 />} summary={t('step3.advancedSettings')}>
+                    <Stack gap={3}>
+                        <Row justify="between">
+                            <div>
+                                <Text weight="medium">{t('step3.waitDelay')}</Text>
+                                <Text size="caption" tone="muted">{t('step3.basedOnSpeed')}</Text>
+                            </div>
+                            <Text mono size="small">{currentProfile.navigationDelay}ms</Text>
+                        </Row>
+                        {paginationMode === 'pagination' && (
+                            <>
+                                <Divider />
+                                <TextField type="number" min={1} size="sm" label={t('step3.maxPagesToExtract')} hint={t('step3.maxPagesHelper')} value={maxPages}
+                                    onChange={e => onMaxPagesChange(Math.max(1, parseInt(e.target.value) || 1))} />
+                            </>
+                        )}
+                    </Stack>
+                </Disclosure>
+            )}
 
-                                {paginationMode === 'pagination' && (
-                                    <>
-                                        <Divider />
-                                        <Box>
-                                            <Typography variant="body2" fontWeight="500" sx={{ mb: 1 }}>{t('step3.maxPagesToExtract')}</Typography>
-                                            <TextField
-                                                type="number"
-                                                size="small"
-                                                fullWidth
-                                                value={maxPages}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onMaxPagesChange(Math.max(1, parseInt(e.target.value) || 1))}
-                                                InputProps={{ inputProps: { min: 1 } }}
-                                                helperText={t('step3.maxPagesHelper')}
-                                            />
-                                        </Box>
-                                    </>
-                                )}
-                            </Stack>
-                        </AccordionDetails>
-                    </Accordion>
-                )
-            }
+            {isExtracting && (
+                <div className="animate-slide-up">
+                    <ExtractionStatusBar
+                        status={status}
+                        onStop={onStop}
+                        onStart={onStart}
+                        hasSelectors={selectors.length > 0}
+                        selectorCount={selectors.length}
+                        showStartButton={false}
+                    />
+                </div>
+            )}
 
-            {/* Status Bar (if extracting) */}
-            {
-                isExtracting && (
-                    <Box sx={{ animation: 'slideUp 0.3s ease-out' }}>
-                        <ExtractionStatusBar
-                            status={status}
-                            onStop={onStop}
-                            onStart={onStart}
-                            hasSelectors={selectors.length > 0}
-                            selectorCount={selectors.length}
-                            showStartButton={false}
-                        />
-                    </Box>
-                )
-            }
+            {!isExtracting && status?.status === 'failed' && (
+                <Notice tone="danger" title={t('step3.extractionFailed')}>{status.error || t('step3.unknownError')}</Notice>
+            )}
 
-            {/* Error Message */}
-            {
-                !isExtracting && status?.status === 'failed' && (
-                    <Paper
-                        elevation={0}
-                        sx={{
-                            p: 2,
-                            bgcolor: 'error.lighter',
-                            color: 'error.dark',
-                            border: '1px solid',
-                            borderColor: 'error.light',
-                            borderRadius: 2,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 2
-                        }}
-                    >
-                        <Box>
-                            <Typography variant="subtitle2" fontWeight="bold">{t('step3.extractionFailed')}</Typography>
-                            <Typography variant="body2">{status.error || t('step3.unknownError')}</Typography>
-                        </Box>
-                    </Paper>
-                )
-            }
+            {!isExtracting && (status?.status === 'idle' || !status?.status) && (
+                <div className="mt-auto flex items-center justify-between border-t border-line pt-4">
+                    <Button variant="ghost" onClick={onBack}>{t('step3.back')}</Button>
+                    <Button variant="primary" size="lg" onClick={onStart} icon={<Play />}>{t('step3.startExtraction')}</Button>
+                </div>
+            )}
 
-            {/* Actions */}
-            {
-                !isExtracting && (status?.status === 'idle' || !status?.status) && (
-                    <Box sx={{ mt: 'auto', pt: 3, borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Button
-                            onClick={onBack}
-                            color="inherit"
-                        >
-                            {t('step3.back')}
-                        </Button>
-                        <Button
-                            variant="contained"
-                            onClick={onStart}
-                            startIcon={<Play size={16} />}
-                            color="success"
-                            size="large"
-                        >
-                            {t('step3.startExtraction')}
-                        </Button>
-                    </Box>
-                )
-            }
-
-            {/* Post-Extraction Actions (Finished/Stopped) */}
-            {
-                !isExtracting && (status?.status === 'completed' || status?.status === 'stopped' || status?.status === 'failed') && (
-                    <Box sx={{ mt: 'auto', pt: 3, borderTop: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <Button
-                            variant="contained"
-                            fullWidth
-                            color="primary"
-                            onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=data-table${status?.tableId ? `&tableId=${status.tableId}` : ''}`) })}
-                        >
-                            {t('step3.openResultsTable')}
-                        </Button>
-                        <Button
-                            variant="outlined"
-                            fullWidth
-                            color="inherit"
-                            onClick={onReset}
-                            startIcon={<RotateCcw size={16} />}
-                        >
-                            {t('step3.newExtraction')}
-                        </Button>
-                    </Box>
-                )
-            }
-        </Box >
+            {!isExtracting && (status?.status === 'completed' || status?.status === 'stopped' || status?.status === 'failed') && (
+                <Stack gap={2} className="mt-auto border-t border-line pt-4">
+                    <Button variant="primary" size="lg" fullWidth
+                        onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=data-table${status?.tableId ? `&tableId=${status.tableId}` : ''}`) })}>
+                        {t('step3.openResultsTable')}
+                    </Button>
+                    <Button fullWidth icon={<RotateCcw />} onClick={onReset}>{t('step3.newExtraction')}</Button>
+                </Stack>
+            )}
+        </Stack>
     );
 }

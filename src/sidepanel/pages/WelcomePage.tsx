@@ -1,5 +1,6 @@
-import { Database, List, MousePointerClick } from 'lucide-react';
+import { ArrowRight, List, MousePointerClick, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Button, Card, Heading, Text } from '../ui';
 
 interface WelcomePageProps {
     onNavigate: (view: string) => void;
@@ -8,49 +9,34 @@ interface WelcomePageProps {
 export default function WelcomePage({ onNavigate }: WelcomePageProps) {
     const { t } = useTranslation('welcome');
     return (
-        <div className="flex flex-col items-center justify-center min-h-full p-6 animate-fade-in-up">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-5">
-                <Database className="w-8 h-8 text-primary" />
+        <div className="flex min-h-full flex-col items-center justify-center p-6 animate-slide-up">
+            <div className="mb-5 flex size-16 -rotate-6 items-center justify-center rounded-[20px] border-[1.5px] border-line-strong bg-brand text-on-brand shadow-press">
+                <Sparkles className="size-7" />
             </div>
-            <h1 className="text-xl font-bold text-text-primary mb-2 text-center">{t('title')}</h1>
-            <p className="text-sm text-text-muted text-center mb-8 max-w-xs leading-relaxed">
-                {t('description')}
-            </p>
+            <Heading size="title" className="mb-2 text-center">{t('title')}</Heading>
+            <Text tone="muted" className="mb-7 max-w-xs text-center">{t('description')}</Text>
 
-            <div className="w-full max-w-xs space-y-3 mb-8">
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-surface-lighter border border-border-subtle">
-                    <div className="w-8 h-8 rounded bg-accent-ai/10 flex items-center justify-center flex-shrink-0">
-                        <List className="w-4 h-4 text-accent-ai" />
-                    </div>
+            <div className="mb-7 flex w-full max-w-xs flex-col gap-2.5">
+                <Card tone="lilac" pad="sm" className="flex items-start gap-3">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface/80 text-ink"><List size={16} /></span>
                     <div>
-                        <p className="text-xs font-semibold text-text-primary">{t('listExtractor.title')}</p>
-                        <p className="text-[10px] text-text-muted mt-0.5">{t('listExtractor.description')}</p>
+                        <Text size="small" weight="semibold">{t('listExtractor.title')}</Text>
+                        <Text size="caption" tone="muted">{t('listExtractor.description')}</Text>
                     </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-surface-lighter border border-border-subtle">
-                    <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <MousePointerClick className="w-4 h-4 text-primary" />
-                    </div>
+                </Card>
+                <Card tone="mint" pad="sm" className="flex items-start gap-3">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface/80 text-ink"><MousePointerClick size={16} /></span>
                     <div>
-                        <p className="text-xs font-semibold text-text-primary">{t('pageExtractor.title')}</p>
-                        <p className="text-[10px] text-text-muted mt-0.5">{t('pageExtractor.description')}</p>
+                        <Text size="small" weight="semibold">{t('pageExtractor.title')}</Text>
+                        <Text size="caption" tone="muted">{t('pageExtractor.description')}</Text>
                     </div>
-                </div>
+                </Card>
             </div>
 
-            <button
-                onClick={() => onNavigate('list-extractor')}
-                className="btn btn-primary w-full max-w-xs h-11 text-sm mb-3"
-            >
+            <Button variant="primary" size="lg" fullWidth className="mb-2 max-w-xs" iconEnd={<ArrowRight />} onClick={() => onNavigate('list-extractor')}>
                 {t('tryFirstScrape')}
-            </button>
-            <button
-                onClick={() => onNavigate('home')}
-                className="btn btn-ghost text-sm text-text-muted w-full max-w-xs"
-            >
-                {t('goHome')}
-            </button>
+            </Button>
+            <Button variant="ghost" fullWidth className="max-w-xs" onClick={() => onNavigate('home')}>{t('goHome')}</Button>
         </div>
     );
 }

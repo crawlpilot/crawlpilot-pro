@@ -3,28 +3,7 @@ import ToolHeader from '../components/ui/ToolHeader';
 import { setAppearance, useColorMode } from '../theme/colorMode';
 import type { Appearance } from '@/shared/storage';
 import { Monitor, Moon, Palette, Sun } from 'lucide-react';
-import {
-    ToggleButton,
-    ToggleButtonGroup,
-    Box,
-    Typography,
-    Paper,
-    Divider,
-    Button,
-    Slider,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    List,
-    ListItem,
-    ListItemText,
-    ListItemIcon,
-    ListItemButton,
-    MenuItem,
-    Select,
-    alpha
-} from '@mui/material';
+import { Button, Card, Dialog, Divider, Notice, Progress, Segmented, Select, Slider, Text, TextField } from '../ui';
 import {
     Trash2,
     Github,
@@ -38,7 +17,8 @@ import {
     Link2,
     CheckCircle2,
     Database,
-    MessageSquare
+    MessageSquare,
+    ChevronRight,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import i18n, { SUPPORTED_LANGS, LANG_LABELS, type SupportedLang } from '../../i18n';
@@ -150,334 +130,160 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     };
 
     return (
-        <Box sx={{
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            bgcolor: 'background.default',
-            overflowY: 'auto'
-        }}>
-            <Box sx={{ position: 'sticky', top: 0, zIndex: 10 }}>
+        <div className="flex h-full flex-col overflow-y-auto bg-bg">
+            <div className="sticky top-0 z-10">
                 <ToolHeader title={t('title')} onBack={onBack} />
-            </Box>
+            </div>
 
-            <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-
-                {/* Language */}
-                <Section title={t('language.title')} icon={<Globe size={18} />}>
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper' }}>
-                        <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
-                            {t('language.description')}
-                        </Typography>
-                        <Select
-                            value={currentLang}
-                            onChange={(e) => handleLanguageChange(e.target.value as SupportedLang)}
-                            size="small"
-                            fullWidth
-                            sx={{ borderRadius: 2 }}
-                        >
-                            {SUPPORTED_LANGS.map((lang) => (
-                                <MenuItem key={lang} value={lang}>
-                                    {LANG_LABELS[lang]}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </Paper>
+            <div className="flex flex-1 flex-col gap-6 p-4 pb-8">
+                <Section title={t('language.title')} icon={<Globe />}>
+                    <Card>
+                        <Select label={t('language.description')} value={currentLang} onChange={handleLanguageChange}
+                            options={SUPPORTED_LANGS.map(lang => ({ value: lang, label: LANG_LABELS[lang] }))} />
+                    </Card>
                 </Section>
 
-                {/* Appearance */}
-                <Section title={t('appearance.title')} icon={<Palette size={18} />}>
-                    <ToggleButtonGroup exclusive fullWidth size="small" value={appearance}
-                        onChange={(_, v: Appearance | null) => { if (v) void setAppearance(v); }}>
-                        {(['light', 'dark', 'system'] as const).map(a => (
-                            <ToggleButton key={a} value={a} sx={{ textTransform: 'none', fontWeight: 600, gap: 0.75 }}>
-                                {a === 'light' ? <Sun size={15} /> : a === 'dark' ? <Moon size={15} /> : <Monitor size={15} />}
-                                {t(`appearance.${a}`)}
-                            </ToggleButton>
-                        ))}
-                    </ToggleButtonGroup>
+                <Section title={t('appearance.title')} icon={<Palette />}>
+                    <Segmented fullWidth aria-label={t('appearance.title')} value={appearance} onChange={(v: Appearance) => void setAppearance(v)}
+                        options={(['light', 'dark', 'system'] as const).map(a => ({
+                            value: a,
+                            label: t(`appearance.${a}`),
+                            icon: a === 'light' ? <Sun /> : a === 'dark' ? <Moon /> : <Monitor />,
+                        }))} />
                 </Section>
 
-                {/* Storage Management */}
-                <Section title={t('dataStorage.title')} icon={<HardDrive size={18} />}>
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        <Box>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                <Typography variant="body2" color="text.secondary">{t('dataStorage.storageUsed')}</Typography>
-                                <Typography variant="body2" fontWeight="bold">
-                                    {storageUsage ? formatBytes(storageUsage.usage) : t('dataStorage.calculating')}
-                                </Typography>
-                            </Box>
-                            {storageUsage && (
-                                <Box sx={{ width: '100%', height: 6, bgcolor: 'action.hover', borderRadius: 999, overflow: 'hidden' }}>
-                                    <Box sx={{
-                                        width: `${Math.min((storageUsage.usage / (storageUsage.quota || 1)) * 100, 100)}%`,
-                                        height: '100%',
-                                        bgcolor: 'primary.main'
-                                    }} />
-                                </Box>
-                            )}
-                        </Box>
+                <Section title={t('dataStorage.title')} icon={<HardDrive />}>
+                    <Card className="flex flex-col gap-4">
+                        <div>
+                            <div className="mb-2 flex justify-between">
+                                <Text size="small" tone="muted">{t('dataStorage.storageUsed')}</Text>
+                                <Text size="small" weight="bold">{storageUsage ? formatBytes(storageUsage.usage) : t('dataStorage.calculating')}</Text>
+                            </div>
+                            {storageUsage && <Progress size="sm" value={Math.min((storageUsage.usage / (storageUsage.quota || 1)) * 100, 100)} label={t('dataStorage.storageUsed')} />}
+                        </div>
                         <Divider />
-                        <Box>
-                            <Typography variant="subtitle2" fontWeight="600" gutterBottom>
-                                {t('dataStorage.autoClear')}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" display="block" mb={2}>
-                                {t('dataStorage.autoClearDescription')}
-                            </Typography>
-                            <Box sx={{ px: 1 }}>
-                                <Slider
-                                    value={daysRetain}
-                                    onChange={(_, v) => setDaysRetain(v as number)}
-                                    min={1}
-                                    max={90}
-                                    valueLabelDisplay="auto"
-                                    valueLabelFormat={v => t('dataStorage.daysLabel', { count: v })}
-                                    marks={[
-                                        { value: 7, label: '7d' },
-                                        { value: 30, label: '30d' },
-                                        { value: 60, label: '60d' },
-                                        { value: 90, label: '90d' }
-                                    ]}
-                                />
-                            </Box>
-                            <Button
-                                variant="outlined"
-                                color="error"
-                                fullWidth
-                                startIcon={<Trash2 size={16} />}
-                                onClick={() => setConfirmClearOpen(true)}
-                                disabled={jobsToDelete.length === 0}
-                                sx={{ mt: 2 }}
-                            >
+                        <div className="flex flex-col gap-3">
+                            <div>
+                                <Text weight="semibold">{t('dataStorage.autoClear')}</Text>
+                                <Text size="caption" tone="muted">{t('dataStorage.autoClearDescription')}</Text>
+                            </div>
+                            <Slider value={daysRetain} onChange={setDaysRetain} min={1} max={90} valueLabel={t('dataStorage.daysLabel', { count: daysRetain })} />
+                            <Button variant="danger" fullWidth icon={<Trash2 />} onClick={() => setConfirmClearOpen(true)} disabled={jobsToDelete.length === 0}>
                                 {t('dataStorage.clearButton', { days: daysRetain, count: jobsToDelete.length })}
                             </Button>
-                        </Box>
-                    </Paper>
+                        </div>
+                    </Card>
                 </Section>
 
-                {/* Integrations (PRO) */}
-                <Section title={t('integrations.title')} icon={<Link2 size={18} />}>
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        <Box sx={{ p: 1.5, bgcolor: alpha('#ff9800', 0.1), borderRadius: 2, border: '1px solid', borderColor: alpha('#ff9800', 0.2) }}>
-                            <Typography variant="caption" color="warning.main" fontWeight="bold" display="flex" alignItems="center" gap={1}>
-                                <AlertTriangle size={14} /> {t('integrations.proFeature')}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
-                                {t('integrations.proDescription')}
-                            </Typography>
-                        </Box>
-
-                        <Box>
-                            <Typography variant="subtitle2" fontWeight="600" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Webhook size={16} /> {t('integrations.webhookZapier')}
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
-                                <IntegrationInput
-                                    label={t('integrations.webhookUrl')}
-                                    value={integrations.webhookUrl}
-                                    placeholder="https://your-api.com/webhook"
-                                    disabled
-                                    onChange={(v) => updateIntegration({ webhookUrl: v })}
-                                />
-                                <IntegrationInput
-                                    label={t('integrations.zapierWebhook')}
-                                    value={integrations.zapierUrl}
-                                    placeholder="https://hooks.zapier.com/..."
-                                    disabled
-                                    onChange={(v) => updateIntegration({ zapierUrl: v })}
-                                />
-                            </Box>
-                        </Box>
-
+                <Section title={t('integrations.title')} icon={<Link2 />}>
+                    <Card className="flex flex-col gap-4">
+                        <Notice tone="warning" title={t('integrations.proFeature')}>{t('integrations.proDescription')}</Notice>
+                        <div className="flex flex-col gap-2.5">
+                            <Text weight="semibold" className="flex items-center gap-2"><Webhook size={16} /> {t('integrations.webhookZapier')}</Text>
+                            <TextField size="sm" label={t('integrations.webhookUrl')} value={integrations.webhookUrl} placeholder="https://your-api.com/webhook" disabled
+                                onChange={e => updateIntegration({ webhookUrl: e.target.value })} />
+                            <TextField size="sm" label={t('integrations.zapierWebhook')} value={integrations.zapierUrl} placeholder="https://hooks.zapier.com/..." disabled
+                                onChange={e => updateIntegration({ zapierUrl: e.target.value })} />
+                        </div>
                         <Divider />
-
-                        <Box>
-                            <Typography variant="subtitle2" fontWeight="600" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Database size={16} /> {t('integrations.airtable')}
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
-                                <IntegrationInput
-                                    label={t('integrations.apiKey')}
-                                    value={integrations.airtableApiKey}
-                                    placeholder="pat..."
-                                    type="password"
-                                    disabled
-                                    onChange={(v) => updateIntegration({ airtableApiKey: v })}
-                                />
-                                <Box sx={{ display: 'flex', gap: 1 }}>
-                                    <IntegrationInput
-                                        label={t('integrations.baseId')}
-                                        value={integrations.airtableBaseId}
-                                        placeholder="app..."
-                                        disabled
-                                        onChange={(v) => updateIntegration({ airtableBaseId: v })}
-                                    />
-                                    <IntegrationInput
-                                        label={t('integrations.tableName')}
-                                        value={integrations.airtableTableName}
-                                        placeholder="Records"
-                                        disabled
-                                        onChange={(v) => updateIntegration({ airtableTableName: v })}
-                                    />
-                                </Box>
-                            </Box>
-                        </Box>
-
+                        <div className="flex flex-col gap-2.5">
+                            <Text weight="semibold" className="flex items-center gap-2"><Database size={16} /> {t('integrations.airtable')}</Text>
+                            <TextField size="sm" type="password" label={t('integrations.apiKey')} value={integrations.airtableApiKey} placeholder="pat..." disabled
+                                onChange={e => updateIntegration({ airtableApiKey: e.target.value })} />
+                            <div className="flex gap-2">
+                                <TextField size="sm" className="flex-1" label={t('integrations.baseId')} value={integrations.airtableBaseId} placeholder="app..." disabled
+                                    onChange={e => updateIntegration({ airtableBaseId: e.target.value })} />
+                                <TextField size="sm" className="flex-1" label={t('integrations.tableName')} value={integrations.airtableTableName} placeholder="Records" disabled
+                                    onChange={e => updateIntegration({ airtableTableName: e.target.value })} />
+                            </div>
+                        </div>
                         <Divider />
-
-                        <Box>
-                            <Typography variant="subtitle2" fontWeight="600" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Share2 size={16} /> {t('integrations.googleSheets')}
-                            </Typography>
-                            <Button
-                                variant="outlined"
-                                color={integrations.googleSheetsConnected ? "success" : "inherit"}
-                                fullWidth
-                                size="small"
-                                disabled
-                                startIcon={integrations.googleSheetsConnected ? <CheckCircle2 size={16} /> : <Share2 size={16} />}
-                                onClick={() => {
-                                    alert("Google Sheets Authentication is coming soon.");
-                                }}
-                                sx={{ mt: 1, borderColor: 'divider', textTransform: 'none' }}
-                            >
+                        <div className="flex flex-col gap-2.5">
+                            <Text weight="semibold" className="flex items-center gap-2"><Share2 size={16} /> {t('integrations.googleSheets')}</Text>
+                            <Button size="sm" fullWidth disabled icon={integrations.googleSheetsConnected ? <CheckCircle2 /> : <Share2 />}
+                                onClick={() => alert('Google Sheets Authentication is coming soon.')}>
                                 {integrations.googleSheetsConnected ? t('integrations.connectedSheets') : t('integrations.connectSheets')}
                             </Button>
-                        </Box>
-                    </Paper>
+                        </div>
+                    </Card>
                 </Section>
 
-                {/* Feedback */}
-                <Section title={t('feedback.title')} icon={<MessageSquare size={18} />}>
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper' }}>
-                        <Typography variant="body2" color="text.secondary" mb={2}>
-                            {t('feedback.description')}
-                        </Typography>
-                        <Button
-                            variant="outlined"
-                            fullWidth
-                            startIcon={<MessageSquare size={16} />}
-                            onClick={() => chrome.tabs.create({ url: FEEDBACK_FORM_URL })}
-                            sx={{ textTransform: 'none' }}
-                        >
-                            {t('feedback.openForm')}
-                        </Button>
-                    </Paper>
+                <Section title={t('feedback.title')} icon={<MessageSquare />}>
+                    <Card tone="lilac" className="flex flex-col gap-3">
+                        <Text size="small">{t('feedback.description')}</Text>
+                        <Button variant="primary" icon={<MessageSquare />} onClick={() => chrome.tabs.create({ url: FEEDBACK_FORM_URL })}>{t('feedback.openForm')}</Button>
+                    </Card>
                 </Section>
 
-                {/* Danger Zone */}
-                <Section title={t('dangerZone.title')} icon={<AlertTriangle size={18} />}>
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper', borderColor: 'error.dark', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                            <AlertTriangle size={20} style={{ color: 'var(--cp-error)', flexShrink: 0, marginTop: 2 }} />
-                            <Box>
-                                <Typography variant="subtitle2" fontWeight={700} color="error.main">{t('dangerZone.deleteAll')}</Typography>
-                                <Typography variant="caption" color="text.secondary">{t('dangerZone.deleteAllDescription')}</Typography>
-                            </Box>
-                        </Box>
-                        <Button
-                            variant="contained"
-                            color="error"
-                            fullWidth
-                            startIcon={<Trash2 size={16} />}
-                            onClick={() => { setNukeConfirmText(''); setConfirmNukeOpen(true); }}
-                        >
+                <Section title={t('dangerZone.title')} icon={<AlertTriangle />}>
+                    <Card className="flex flex-col gap-3 border-danger/40!">
+                        <div className="flex items-start gap-3">
+                            <AlertTriangle size={20} className="mt-0.5 shrink-0 text-danger" />
+                            <div>
+                                <Text weight="bold" tone="danger">{t('dangerZone.deleteAll')}</Text>
+                                <Text size="caption" tone="muted">{t('dangerZone.deleteAllDescription')}</Text>
+                            </div>
+                        </div>
+                        <Button variant="danger" fullWidth icon={<Trash2 />} onClick={() => { setNukeConfirmText(''); setConfirmNukeOpen(true); }}>
                             {t('dangerZone.deleteAll')}
                         </Button>
-                    </Paper>
+                    </Card>
                 </Section>
 
-                {/* About & Support */}
-                <Section title={t('support.title')} icon={<Globe size={18} />}>
-                    <Paper variant="outlined" sx={{ borderRadius: 3, bgcolor: 'background.paper', overflow: 'hidden' }}>
-                        <List disablePadding>
-                            <ListItemButton component="a" href="mailto:crawlpilot6365@gmail.com">
-                                <ListItemIcon><Mail size={20} /></ListItemIcon>
-                                <ListItemText primary={t('support.contactSupport')} secondary={t('support.contactSupportSub')} primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
-                            </ListItemButton>
-                            <Divider component="li" />
-                            <ListItemButton component="a" href="https://github.com/crawlpilot/" target="_blank">
-                                <ListItemIcon><Github size={20} /></ListItemIcon>
-                                <ListItemText primary={t('support.github')} secondary={t('support.githubSub')} primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
-                            </ListItemButton>
-                            <Divider component="li" />
-                            <ListItem>
-                                <ListItemIcon><ShieldCheck size={20} /></ListItemIcon>
-                                <ListItemText primary={t('support.version')} secondary={`v${chrome.runtime.getManifest().version}`} primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
-                            </ListItem>
-                        </List>
-                    </Paper>
+                <Section title={t('support.title')} icon={<Globe />}>
+                    <Card pad="none" className="overflow-hidden">
+                        <LinkRow href="mailto:crawlpilot6365@gmail.com" icon={<Mail />} title={t('support.contactSupport')} hint={t('support.contactSupportSub')} />
+                        <LinkRow href="https://github.com/crawlpilot/" icon={<Github />} title={t('support.github')} hint={t('support.githubSub')} />
+                        <div className="flex items-center gap-3 border-t border-line px-4 py-3">
+                            <span className="flex text-ink-2"><ShieldCheck size={18} /></span>
+                            <div>
+                                <Text size="small" weight="semibold">{t('support.version')}</Text>
+                                <Text size="caption" tone="faint">v{chrome.runtime.getManifest().version}</Text>
+                            </div>
+                        </div>
+                    </Card>
                 </Section>
-            </Box>
+            </div>
 
-            {/* Dialogs */}
-            <Dialog open={confirmClearOpen} onClose={() => setConfirmClearOpen(false)}>
-                <DialogTitle>{t('dangerZone.confirmDeletion')}</DialogTitle>
-                <DialogContent>
-                    <Typography>{t('dangerZone.deleteJobsConfirm', { count: jobsToDelete.length })}</Typography>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setConfirmClearOpen(false)} color="inherit">{t('cancel', { ns: 'common' })}</Button>
-                    <Button onClick={handleClearData} color="error" variant="contained" disabled={clearing}>{t('clear', { ns: 'common' })}</Button>
-                </DialogActions>
+            <Dialog open={confirmClearOpen} onClose={() => setConfirmClearOpen(false)} size="sm" title={t('dangerZone.confirmDeletion')}
+                actions={<>
+                    <Button variant="ghost" onClick={() => setConfirmClearOpen(false)}>{t('cancel', { ns: 'common' })}</Button>
+                    <Button variant="danger" onClick={handleClearData} loading={clearing}>{t('clear', { ns: 'common' })}</Button>
+                </>}>
+                <Text>{t('dangerZone.deleteJobsConfirm', { count: jobsToDelete.length })}</Text>
             </Dialog>
 
-            <Dialog open={confirmNukeOpen} onClose={() => setConfirmNukeOpen(false)} maxWidth="xs" fullWidth>
-                <DialogTitle sx={{ color: 'error.main' }}>{t('dangerZone.deleteAll')}?</DialogTitle>
-                <DialogContent>
-                    <Typography variant="body2" mb={2}>{t('dangerZone.typeToConfirm')}</Typography>
-                    <input
-                        autoFocus
-                        value={nukeConfirmText}
-                        onChange={e => setNukeConfirmText(e.target.value.toUpperCase())}
-                        style={{ width: '100%', padding: '8px', border: '1px solid #f44336', borderRadius: 4, background: 'transparent', color: 'inherit' }}
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setConfirmNukeOpen(false)} color="inherit">{t('cancel', { ns: 'common' })}</Button>
-                    <Button onClick={handleNukeAllData} color="error" variant="contained" disabled={nuking || nukeConfirmText !== 'DELETE'}>{t('dangerZone.deleteEverything')}</Button>
-                </DialogActions>
+            <Dialog open={confirmNukeOpen} onClose={() => setConfirmNukeOpen(false)} size="sm" title={`${t('dangerZone.deleteAll')}?`}
+                actions={<>
+                    <Button variant="ghost" onClick={() => setConfirmNukeOpen(false)}>{t('cancel', { ns: 'common' })}</Button>
+                    <Button variant="danger" onClick={handleNukeAllData} loading={nuking} disabled={nukeConfirmText !== 'DELETE'}>{t('dangerZone.deleteEverything')}</Button>
+                </>}>
+                <Text size="small" className="mb-3">{t('dangerZone.typeToConfirm')}</Text>
+                <TextField autoFocus value={nukeConfirmText} onChange={e => setNukeConfirmText(e.target.value.toUpperCase())} error={nukeConfirmText.length > 0 && nukeConfirmText !== 'DELETE'} />
             </Dialog>
-        </Box >
+        </div>
     );
 }
 
 function Section({ title, icon, children }: { title: string, icon: React.ReactNode, children: React.ReactNode }) {
     return (
-        <Box>
-            <Typography variant="subtitle2" color="text.secondary" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, px: 0.5, fontSize: '0.8rem' }}>
-                {icon}
-                {title}
-            </Typography>
+        <section className="flex flex-col gap-2">
+            <h2 className="m-0 flex items-center gap-2 px-0.5 text-small font-semibold text-ink-2 [&_svg]:size-4">{icon}{title}</h2>
             {children}
-        </Box>
+        </section>
     );
 }
 
-function IntegrationInput({ label, value, onChange, placeholder, disabled, type = 'text' }: { label: string, value: string, onChange: (v: string) => void, placeholder?: string, disabled?: boolean, type?: string }) {
+function LinkRow({ href, icon, title, hint }: { href: string; icon: React.ReactNode; title: string; hint: string }) {
     return (
-        <Box sx={{ flex: 1 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block', fontWeight: 600 }}>{label}</Typography>
-            <input
-                value={value}
-                onChange={e => onChange(e.target.value)}
-                placeholder={placeholder}
-                disabled={disabled}
-                type={type}
-                style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid rgb(var(--cp-ink-rgb) / 0.1)',
-                    borderRadius: 6,
-                    background: 'rgb(var(--cp-ink-rgb) / 0.03)',
-                    color: disabled ? 'rgb(var(--cp-ink-rgb) / 0.3)' : 'inherit',
-                    fontSize: 12,
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                }}
-            />
-        </Box>
+        <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noreferrer"
+            className="flex items-center gap-3 border-t border-line px-4 py-3 text-ink no-underline first:border-t-0 hover:bg-ink/4">
+            <span className="flex text-ink-2 [&_svg]:size-[18px]">{icon}</span>
+            <div className="min-w-0 flex-1">
+                <Text size="small" weight="semibold">{title}</Text>
+                <Text size="caption" tone="faint">{hint}</Text>
+            </div>
+            <ChevronRight size={15} className="text-ink-3" />
+        </a>
     );
 }

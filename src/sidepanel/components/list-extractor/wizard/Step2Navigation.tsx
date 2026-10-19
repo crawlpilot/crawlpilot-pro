@@ -1,5 +1,6 @@
 import { MousePointer2, ArrowRight } from 'lucide-react';
-import { Box, Button, Typography, Card, CardActionArea, Stack } from '@mui/material';
+import { Button, CardButton, Heading, Stack, Text, cx } from '../../../ui';
+import { Listening } from './Step1Selection';
 import { PaginationMode } from '../../../../shared/types/extraction';
 import { NextButtonCard } from '../NextButtonCard';
 import { SelectorEditDialog } from '../../shared/SelectorEditDialog';
@@ -46,105 +47,43 @@ export function Step2Navigation({
         setIsEditing(false);
     };
 
-    const StrategyOption = ({
-        mode,
-        title,
-        description
-    }: { mode: PaginationMode; title: string; description: string }) => (
-        <Card
-            elevation={0}
-            sx={{
-                borderRadius: 3,
-                border: '1px solid',
-                borderColor: paginationMode === mode ? 'primary.main' : 'divider',
-                bgcolor: paginationMode === mode ? 'rgba(37, 99, 235, 0.05)' : 'background.paper',
-                transition: 'all 0.2s',
-                position: 'relative',
-                overflow: 'visible'
-            }}
-        >
-            {paginationMode === mode && (
-                <Box sx={{
-                    position: 'absolute',
-                    top: 12,
-                    right: 12,
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    bgcolor: 'primary.main',
-                    boxShadow: '0 0 0 4px rgba(37, 99, 235, 0.2)'
-                }} />
-            )}
-            <CardActionArea onClick={() => setPaginationMode(mode)} sx={{ p: 2 }}>
-                <Typography variant="subtitle2" fontWeight="600" color={paginationMode === mode ? 'primary.main' : 'text.primary'}>
-                    {title}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.3, display: 'block', mt: 0.5 }}>
-                    {description}
-                </Typography>
-            </CardActionArea>
-        </Card>
-    );
+    const StrategyOption = ({ mode, title, description }: { mode: PaginationMode; title: string; description: string }) => {
+        const on = paginationMode === mode;
+        return (
+            <CardButton pad="sm" role="radio" aria-checked={on} onClick={() => setPaginationMode(mode)}
+                className={cx('flex items-start gap-3', on && 'border-[1.5px]! border-line-strong! bg-brand/15! shadow-press')}>
+                <span className={cx('mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px]', on ? 'border-line-strong bg-brand' : 'border-ink/30')}>
+                    {on && <span className="size-2 rounded-full bg-on-brand" />}
+                </span>
+                <span className="min-w-0">
+                    <Text weight="semibold">{title}</Text>
+                    <Text size="caption" tone="muted" className="mt-0.5">{description}</Text>
+                </span>
+            </CardButton>
+        );
+    };
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, animation: 'fadeIn 0.3s ease-out' }}>
-            <Box>
-                <Typography variant="h6" gutterBottom>{t('step2.howToLoadMore')}</Typography>
-                <Typography variant="body2" color="text.secondary">{t('step2.pickNavigationMethod')}</Typography>
-            </Box>
+        <Stack gap={4} className="animate-fade-in">
+            <div>
+                <Heading size="heading">{t('step2.howToLoadMore')}</Heading>
+                <Text size="small" tone="muted" className="mt-0.5">{t('step2.pickNavigationMethod')}</Text>
+            </div>
 
-            {/* Strategy Options */}
-            <Stack spacing={2}>
-                <StrategyOption
-                    mode="pagination"
-                    title={t('step2.numberedPagination.title')}
-                    description={t('step2.numberedPagination.description')}
-                />
-                <StrategyOption
-                    mode="loadMore"
-                    title={t('step2.loadMoreButton.title')}
-                    description={t('step2.loadMoreButton.description')}
-                />
-                <StrategyOption
-                    mode="auto"
-                    title={t('step2.infiniteScroll.title')}
-                    description={t('step2.infiniteScroll.description')}
-                />
+            <Stack gap={2} role="radiogroup" aria-label={t('step2.howToLoadMore')}>
+                {StrategyOption({ mode: 'pagination', title: t('step2.numberedPagination.title'), description: t('step2.numberedPagination.description') })}
+                {StrategyOption({ mode: 'loadMore', title: t('step2.loadMoreButton.title'), description: t('step2.loadMoreButton.description') })}
+                {StrategyOption({ mode: 'auto', title: t('step2.infiniteScroll.title'), description: t('step2.infiniteScroll.description') })}
             </Stack>
 
-            {/* Selection Area (only for button modes) */}
             {(paginationMode === 'pagination' || paginationMode === 'loadMore') && (
-                <Box sx={{ mt: 1, pt: 3, borderTop: '1px solid', borderColor: 'divider', animation: 'slideUp 0.3s ease-out' }}>
-                    <Typography variant="subtitle2" gutterBottom sx={{ mb: 2 }}>
+                <div className="border-t border-line pt-4 animate-slide-up">
+                    <Text weight="semibold" className="mb-3">
                         {paginationMode === 'loadMore' ? t('step2.pointToLoadMore') : t('step2.pointToNext')}
-                    </Typography>
+                    </Text>
 
                     {selectingFor === 'nextButton' ? (
-                        <Card
-                            variant="outlined"
-                            sx={{
-                                p: 3,
-                                borderStyle: 'dashed',
-                                borderWidth: 2,
-                                borderColor: 'primary.main',
-                                bgcolor: 'rgba(37, 99, 235, 0.05)',
-                                textAlign: 'center',
-                                animation: 'pulse 2s infinite'
-                            }}
-                        >
-                            <MousePointer2 size={24} className="text-blue-500 mb-2 mx-auto" style={{ display: 'block' }} />
-                            <Typography variant="body2" color="primary.main" fontWeight="500">
-                                {t('step2.clickTheButton')}
-                            </Typography>
-                            <Button
-                                variant="text"
-                                color="inherit"
-                                onClick={onCancel}
-                                sx={{ mt: 1, textDecoration: 'underline', fontSize: '0.75rem' }}
-                            >
-                                {t('step2.pressEscToCancel')}
-                            </Button>
-                        </Card>
+                        <Listening title={t('step2.clickTheButton')} cancel={t('step2.pressEscToCancel')} onCancel={onCancel} />
                     ) : next.length > 0 ? (
                         <NextButtonCard
                             chain={next}
@@ -154,47 +93,26 @@ export function Step2Navigation({
                             onEdit={() => setIsEditing(true)}
                         />
                     ) : (
-                        <Button
-                            variant="outlined"
-                            fullWidth
-                            startIcon={<MousePointer2 size={16} />}
-                            onClick={() => onStartSelection('nextButton')}
-                            sx={{ borderStyle: 'dashed', py: 2 }}
-                        >
+                        <Button fullWidth size="lg" icon={<MousePointer2 />} onClick={() => onStartSelection('nextButton')} className="border-dashed">
                             {t('step2.pickNavigationButton')}
                         </Button>
                     )}
-                </Box>
+                </div>
             )}
 
-            {/* Next Action */}
-            <Box sx={{ mt: 'auto', pt: 3, borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Button
-                    onClick={onBack}
-                    color="inherit"
-                >
-                    {t('step2.back')}
-                </Button>
-                <Button
-                    variant="contained"
-                    onClick={onNext}
-                    disabled={!isReady}
-                    endIcon={<ArrowRight size={16} />}
-                >
-                    {t('step2.reviewAndRun')}
-                </Button>
-            </Box>
+            <div className="mt-auto flex items-center justify-between border-t border-line pt-4">
+                <Button variant="ghost" onClick={onBack}>{t('step2.back')}</Button>
+                <Button variant="primary" onClick={onNext} disabled={!isReady} iconEnd={<ArrowRight />}>{t('step2.reviewAndRun')}</Button>
+            </div>
 
-            {/* Selector Editor Modal */}
             <SelectorEditDialog
                 isOpen={isEditing}
                 title="Edit Navigation Selectors"
                 selectors={next}
                 onSave={handleSaveSelectors}
                 onCancel={() => setIsEditing(false)}
-                // We pass a simplified verify for now or wrap existing one
                 onVerify={async (s) => onTestSelector(s)}
             />
-        </Box>
+        </Stack>
     );
 }

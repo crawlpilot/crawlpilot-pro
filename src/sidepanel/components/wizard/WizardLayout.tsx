@@ -1,5 +1,4 @@
 import { ReactNode } from 'react';
-import { Box } from '@mui/material';
 import ToolHeader from '../ui/ToolHeader';
 
 interface WizardLayoutProps {
@@ -18,12 +17,12 @@ interface WizardLayoutProps {
 export function WizardLayout({ title, subtitle, currentStep, totalSteps, stepLabels, onBack, isLoading = false, children }: WizardLayoutProps) {
     const labels = stepLabels ?? Array.from({ length: totalSteps }, (_, i) => `Step ${i + 1}`);
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', overflow: 'hidden' }}>
+        <div className="flex h-full flex-col overflow-hidden bg-bg">
             <ToolHeader title={title} subtitle={subtitle} onBack={onBack} loading={isLoading}
                 steps={totalSteps > 1 ? { labels, current: currentStep } : undefined} />
-            <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
-                <div className="animate-fade-in-up">{children}</div>
-            </Box>
-        </Box>
+            <div className="flex-1 overflow-y-auto p-4">
+                <div className="animate-slide-up">{children}</div>
+            </div>
+        </div>
     );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
-import { ThemeProvider, CssBaseline, Box, Button, Typography } from '@mui/material';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import { Button } from './ui';
 import { Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { createAppTheme } from './theme/muiTheme';
@@ -93,73 +94,28 @@ function App() {
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
-            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+            <div className="flex h-screen flex-col overflow-hidden">
                 {/* Global Connection Banner */}
                 {!isTabConnected && currentView !== 'data-table' && (
-                    <Box sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        px: 2,
-                        py: 1,
-                        bgcolor: 'rgba(245, 158, 11, 0.08)',
-                        borderBottom: '1px solid rgba(245, 158, 11, 0.2)',
-                        gap: 1.5,
-                        animation: 'slideDown 0.2s ease-out',
-                        '@keyframes slideDown': {
-                            from: { transform: 'translateY(-100%)', opacity: 0 },
-                            to: { transform: 'translateY(0)', opacity: 1 }
-                        }
-                    }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{
-                                width: 8, height: 8, borderRadius: '50%',
-                                bgcolor: '#F59E0B',
-                                animation: 'pulse 1.5s ease-in-out infinite',
-                                '@keyframes pulse': {
-                                    '0%, 100%': { opacity: 1 },
-                                    '50%': { opacity: 0.4 }
-                                }
-                            }} />
-                            <Box>
-                                <Typography variant="caption" sx={{ color: '#F59E0B', fontWeight: 600, fontSize: '0.7rem', display: 'block' }}>
-                                    {t('connection.notConnected')}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: 'rgba(245, 158, 11, 0.7)', fontSize: '0.6rem', display: 'block' }}>
-                                    {t('connection.notConnectedHint')}
-                                </Typography>
-                            </Box>
-                        </Box>
-                        <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={connectTab}
-                            disabled={isConnecting}
-                            startIcon={<Zap size={12} />}
-                            sx={{
-                                color: '#F59E0B',
-                                borderColor: 'rgba(245, 158, 11, 0.3)',
-                                fontSize: '0.65rem',
-                                py: 0.25,
-                                px: 1.5,
-                                minHeight: 24,
-                                '&:hover': {
-                                    borderColor: '#F59E0B',
-                                    bgcolor: 'rgba(245, 158, 11, 0.1)',
-                                    transform: 'none',
-                                }
-                            }}
-                        >
+                    <div className="flex items-center justify-between gap-3 border-b border-line bg-warning-soft px-4 py-2 animate-slide-up">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                            <span className="size-2 shrink-0 animate-pulse rounded-full bg-warning" />
+                            <div className="min-w-0">
+                                <p className="m-0 text-small font-semibold text-ink">{t('connection.notConnected')}</p>
+                                <p className="m-0 text-caption text-ink-2">{t('connection.notConnectedHint')}</p>
+                            </div>
+                        </div>
+                        <Button size="sm" variant="primary" icon={<Zap />} onClick={connectTab} loading={isConnecting}>
                             {isConnecting ? t('connection.connecting') : t('connection.connect')}
                         </Button>
-                    </Box>
+                    </div>
                 )}
                 {/* Home and Welcome have the brand header; every other view has its own header with back. */}
                 {(currentView === 'home' || currentView === 'welcome') && <Header onNavigate={setCurrentView} activeView={currentView} disabled={isGlobalExtracting} />}
-                <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                <div className="relative flex-1 overflow-hidden">
                     <Suspense fallback={null}>{renderView()}</Suspense>
-                </Box>
-            </Box>
+                </div>
+            </div>
         </ThemeProvider>
     );
 }

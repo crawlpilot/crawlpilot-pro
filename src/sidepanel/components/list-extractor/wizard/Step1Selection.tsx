@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { MousePointer2, Plus } from 'lucide-react';
-import { Box, Button, Typography, Paper, Stack } from '@mui/material';
+import { Button, Card, Heading, Row, Stack, Text } from '../../../ui';
 import { useTranslation } from 'react-i18next';
 import { SelectorCard } from '../SelectorCard';
 import { ListPick } from '../../../../shared/types/extraction';
@@ -46,133 +46,36 @@ export function Step1Selection({
     }, [hasSelection, showHint]);
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {/* Instruction / Empty State */}
+        <Stack gap={4}>
             {!hasSelection && selectionStatus !== 'selecting' && (
-                <Paper
-                    elevation={0}
-                    sx={{
-                        p: 4,
-                        textAlign: 'center',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        bgcolor: 'background.paper',
-                        borderRadius: 3
-                    }}
-                >
-                    <Box sx={{
-                        width: 64,
-                        height: 64,
-                        bgcolor: 'primary.main',
-                        color: 'primary.contrastText',
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        mx: 'auto',
-                        mb: 3,
-                        boxShadow: '0 8px 16px -4px rgba(37, 99, 235, 0.2)'
-                    }}>
-                        <MousePointer2 size={32} />
-                    </Box>
-
-                    <Typography variant="h6" gutterBottom fontWeight="600">
-                        {t('step1.pickRepeatingItem')}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" paragraph sx={{ maxWidth: 280, mx: 'auto', mb: 3 }}>
-                        {t('step1.pickDescription')}
-                    </Typography>
-
-                    <Button
-                        variant="contained"
-                        size="large"
-                        onClick={onStartSelection}
-                        startIcon={<MousePointer2 size={18} />}
-                        sx={{ borderRadius: 2, px: 4, py: 1.5 }}
-                    >
-                        {t('step1.selectOnPage')}
-                    </Button>
-
+                <Card pad="lg" className="text-center">
+                    <div className="mx-auto mb-5 flex size-16 -rotate-6 items-center justify-center rounded-[20px] border-[1.5px] border-line-strong bg-brand text-on-brand shadow-press">
+                        <MousePointer2 size={28} />
+                    </div>
+                    <Heading size="heading" className="mb-1">{t('step1.pickRepeatingItem')}</Heading>
+                    <Text size="small" tone="muted" className="mx-auto mb-5 max-w-[280px]">{t('step1.pickDescription')}</Text>
+                    <Button variant="primary" size="lg" onClick={onStartSelection} icon={<MousePointer2 />}>{t('step1.selectOnPage')}</Button>
                     {showHint && (
-                        <Box sx={{
-                            mt: 3, p: 2, borderRadius: 2,
-                            bgcolor: 'rgba(37, 99, 235, 0.06)',
-                            border: '1px dashed rgba(37, 99, 235, 0.25)',
-                            animation: 'fadeIn 0.6s ease-out',
-                            '@keyframes fadeIn': { from: { opacity: 0, transform: 'translateY(4px)' }, to: { opacity: 1, transform: 'translateY(0)' } }
-                        }}>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.6 }}>
-                                {t('step1.hint')}
-                            </Typography>
-                        </Box>
+                        <div className="mt-5 rounded-2xl border-[1.5px] border-dashed border-line bg-surface-2 p-3 animate-fade-in">
+                            <Text size="caption" tone="muted">{t('step1.hint')}</Text>
+                        </div>
                     )}
-                </Paper>
+                </Card>
             )}
 
-            {/* Active Selection State */}
-            {selectionStatus === 'selecting' && selectingFor === 'list' && (
-                <Paper
-                    variant="outlined"
-                    sx={{
-                        p: 4,
-                        borderStyle: 'dashed',
-                        borderWidth: 2,
-                        borderColor: 'primary.main',
-                        bgcolor: 'rgba(37, 99, 235, 0.05)',
-                        textAlign: 'center',
-                        borderRadius: 3,
-                        // Simple pulse effect without keyframes for now, or could define keyframes in theme
-                    }}
-                >
-                    <Box sx={{
-                        color: 'primary.main',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        mb: 2,
-                        animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        '@keyframes pulse': {
-                            '0%, 100%': { opacity: 1 },
-                            '50%': { opacity: .5 },
-                        }
-                    }}>
-                        <MousePointer2 size={40} />
-                    </Box>
-                    <Typography variant="subtitle1" color="primary.main" fontWeight="600" gutterBottom>
-                        {t('step1.listeningForClick')}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        {t('step1.clickAnyRepeating')}
-                    </Typography>
-                    <Button
-                        variant="text"
-                        color="inherit"
-                        onClick={onCancel}
-                        sx={{ mt: 2, textDecoration: 'underline' }}
-                    >
-                        {t('step1.pressEscToCancel')}
-                    </Button>
-                </Paper>
-            )}
+            {selectionStatus === 'selecting' && selectingFor === 'list' && <Listening title={t('step1.listeningForClick')} hint={t('step1.clickAnyRepeating')} cancel={t('step1.pressEscToCancel')} onCancel={onCancel} />}
 
-            {/* Selected Items List */}
             {hasSelection && (
-                <Stack spacing={2}>
+                <Stack gap={3}>
                     {quickRun}
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Typography variant="subtitle2" color="text.secondary" fontWeight="600">
-                            {t('step1.fieldsSelected', { count: selectors.length })}
-                        </Typography>
-                        <Button
-                            startIcon={<Plus size={16} />}
-                            size="small"
-                            onClick={onStartSelection}
-                            disabled={selectionStatus === 'selecting'}
-                        >
+                    <Row justify="between">
+                        <Text size="small" tone="muted" weight="semibold">{t('step1.fieldsSelected', { count: selectors.length })}</Text>
+                        <Button size="sm" variant="ghost" icon={<Plus />} onClick={onStartSelection} disabled={selectionStatus === 'selecting'}>
                             {t('step1.addAnotherField')}
                         </Button>
-                    </Box>
+                    </Row>
 
-                    <Stack spacing={2}>
+                    <Stack gap={3}>
                         {selectors.map((selector) => (
                             <SelectorCard
                                 key={selector.id}
@@ -184,18 +87,25 @@ export function Step1Selection({
                         ))}
                     </Stack>
 
-                    <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'flex-end' }}>
-                        <Button
-                            variant={quickRun ? 'text' : 'contained'}
-                            onClick={onNext}
-                            disabled={selectionStatus === 'selecting'}
-                            sx={{ borderRadius: 2, px: quickRun ? 1.5 : 4 }}
-                        >
+                    <div className="flex justify-end border-t border-line pt-3">
+                        <Button variant={quickRun ? 'ghost' : 'primary'} onClick={onNext} disabled={selectionStatus === 'selecting'}>
                             {t('step1.configurePagination')}
                         </Button>
-                    </Box>
+                    </div>
                 </Stack>
             )}
-        </Box>
+        </Stack>
+    );
+}
+
+/** Waiting for a click on the page: a dashed box that pulses, and how to stop. */
+export function Listening({ title, hint, cancel, onCancel }: { title: string; hint?: string; cancel: string; onCancel?: () => void }) {
+    return (
+        <div className="rounded-card border-2 border-dashed border-line-strong bg-brand/15 p-6 text-center">
+            <div className="mb-3 flex justify-center text-ink"><MousePointer2 size={36} className="animate-pulse" /></div>
+            <Text weight="semibold">{title}</Text>
+            {hint && <Text size="small" tone="muted" className="mt-0.5">{hint}</Text>}
+            <Button variant="ghost" size="sm" onClick={onCancel} className="mt-3 underline">{cancel}</Button>
+        </div>
     );
 }

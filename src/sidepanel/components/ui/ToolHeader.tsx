@@ -4,8 +4,8 @@
  * Kept compact so the panel's height goes to the content (docs/plans/ux-simplification-plan.md §4.1).
  */
 import { ReactNode } from 'react';
-import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { Check, ChevronLeft } from 'lucide-react';
+import { IconButton, cx } from '../../ui';
 
 interface ToolHeaderProps {
     title: string;
@@ -24,68 +24,45 @@ interface ToolHeaderProps {
 
 function Steps({ labels, current }: { labels: string[]; current: number }) {
     return (
-        <Box component="ol" aria-label="Steps" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, m: 0, mt: 1.25, p: 0, listStyle: 'none' }}>
+        <ol aria-label="Steps" className="m-0 mt-3 flex list-none items-center gap-1 p-0">
             {labels.map((label, i) => {
                 const n = i + 1;
                 const done = n < current;
                 const active = n === current;
                 return (
-                    <Box component="li" key={label} aria-current={active ? 'step' : undefined}
-                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
-                        <Box sx={{
-                            width: 18, height: 18, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 10.5, fontWeight: 700,
-                            bgcolor: active ? 'primary.main' : done ? 'rgb(var(--cp-accent-rgb) / 0.18)' : 'rgb(var(--cp-ink-rgb) / 0.06)',
-                            color: active ? 'primary.contrastText' : done ? 'var(--cp-accent)' : 'text.secondary',
-                        }}>
-                            {done ? <Check size={11} strokeWidth={3} /> : n}
-                        </Box>
-                        <Typography variant="caption" noWrap sx={{
-                            fontSize: '0.72rem', fontWeight: active ? 700 : 500,
-                            color: active ? 'text.primary' : done ? 'text.secondary' : 'var(--cp-text-3)',
-                        }}>{label}</Typography>
-                        {n < labels.length && <Box sx={{ flex: 1, height: '1px', minWidth: 8, bgcolor: done ? 'rgb(var(--cp-accent-rgb) / 0.4)' : 'divider' }} />}
-                    </Box>
+                    <li key={label} aria-current={active ? 'step' : undefined} className="flex min-w-0 flex-1 items-center gap-1.5">
+                        <span className={cx('flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold',
+                            active ? 'border-[1.5px] border-line-strong bg-brand text-on-brand' : done ? 'bg-ink text-bg' : 'bg-ink/7 text-ink-3')}>
+                            {done ? <Check size={11} strokeWidth={3.5} /> : n}
+                        </span>
+                        <span className={cx('truncate text-caption', active ? 'font-bold text-ink' : done ? 'font-medium text-ink-2' : 'font-medium text-ink-3')}>{label}</span>
+                        {n < labels.length && <span className={cx('h-[1.5px] min-w-2 flex-1 rounded-full', done ? 'bg-ink' : 'bg-line')} />}
+                    </li>
                 );
             })}
-        </Box>
+        </ol>
     );
 }
 
 export default function ToolHeader({ title, subtitle, icon, onBack, actions, steps, loading, children }: ToolHeaderProps) {
     return (
-        <Box component="header" sx={{
-            position: 'relative', px: 2, pt: 1.25, pb: 1.25, borderBottom: 1, borderColor: 'divider',
-            bgcolor: 'background.paper', zIndex: 10, flexShrink: 0,
-        }}>
+        <header className="relative z-10 shrink-0 border-b border-line bg-bg px-4 py-3">
             {loading && (
-                <Box sx={{
-                    position: 'absolute', top: 0, left: 0, right: 0, height: 2, overflow: 'hidden',
-                    '&::after': {
-                        content: '""', position: 'absolute', top: 0, left: 0, height: '100%', width: '40%',
-                        background: 'linear-gradient(90deg, transparent, #22D3EE, transparent)',
-                        animation: 'toolHeaderLoading 1.4s ease-in-out infinite',
-                    },
-                    '@keyframes toolHeaderLoading': { '0%': { transform: 'translateX(-150%)' }, '100%': { transform: 'translateX(350%)' } },
-                }} />
+                <div className="absolute inset-x-0 top-0 h-[3px] overflow-hidden" aria-hidden>
+                    <div className="absolute inset-y-0 w-2/5 rounded-full bg-brand animate-[cp-indeterminate_1.2s_ease-in-out_infinite]" />
+                </div>
             )}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {onBack && (
-                    <Tooltip title="Back">
-                        <IconButton onClick={onBack} size="small" aria-label="Back" sx={{ ml: -0.75, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
-                            <ChevronLeft size={20} />
-                        </IconButton>
-                    </Tooltip>
-                )}
-                {icon && <Box sx={{ display: 'flex', color: 'text.secondary' }}>{icon}</Box>}
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography component="h1" variant="h6" noWrap sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.25 }}>{title}</Typography>
-                    {subtitle && <Typography variant="caption" noWrap sx={{ display: 'block', fontSize: '0.72rem', color: 'text.secondary' }} title={subtitle}>{subtitle}</Typography>}
-                </Box>
-                {actions && <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>{actions}</Box>}
-            </Box>
+            <div className="flex items-center gap-2">
+                {onBack && <IconButton label="Back" onClick={onBack} className="-ml-2"><ChevronLeft className="size-5!" /></IconButton>}
+                {icon && <span className="flex text-ink-2">{icon}</span>}
+                <div className="min-w-0 flex-1">
+                    <h1 className="m-0 truncate font-display text-heading font-bold tracking-[-0.02em] text-ink">{title}</h1>
+                    {subtitle && <p className="m-0 truncate text-caption text-ink-2" title={subtitle}>{subtitle}</p>}
+                </div>
+                {actions && <div className="flex shrink-0 items-center gap-0.5">{actions}</div>}
+            </div>
             {steps && steps.labels.length > 1 && <Steps labels={steps.labels} current={steps.current} />}
             {children}
-        </Box>
+        </header>
     );
 }
