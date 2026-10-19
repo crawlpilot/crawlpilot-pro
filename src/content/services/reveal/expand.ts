@@ -7,9 +7,13 @@
  * - never a link that navigates, a submit button, or a control whose text reads like an action
  *   (add to cart, buy, sign in, subscribe, delete, accept…);
  * - a control with a popup (`aria-haspopup`: menus, listboxes) is left alone;
+ * - choosers are left alone: options, swatches and variants (radios, `aria-pressed`, option lists),
+ *   sort and filter controls, sellers and offers, anything showing a price;
+ * - a control repeated on every item (a card's "more colours") is not a section of the page;
+ * - while it clicks, a navigation the page starts (a link, or a single-page app changing its URL) is
+ *   cancelled (Navigation API) and that control skipped; if the URL changes anyway, it stops at once;
  * - one click at a time, waiting for the page to settle; a cap on clicks and on time;
- * - if the URL changes, it stops at once; if a dialog opens, it is closed with Escape and that control
- *   is skipped.
+ * - if a dialog opens, it is closed with Escape and that control is skipped.
  *
  * A lazy tab's panel is cloned while it is open (`captured`), since selecting the next tab removes it.
  * `restore` closes what was opened and selects the tab that was selected, so the page looks as before.
@@ -40,8 +44,12 @@ export interface ExpandResult {
 
 const OUTSIDE = 'nav, header, footer, form, dialog, [role="navigation"], [role="banner"], [role="contentinfo"], [role="dialog"], [aria-modal="true"], [role="menu"], [role="menubar"], [role="listbox"], [role="search"]';
 const EXPANDER = /^(show|read|see|view)\s+(more|all|full|the full|entire|details|description|specs|specifications)\b|^more( details| info(rmation)?)?$|^expand( all)?\b|^(full|see all|all) (description|details|specs|specifications)\b|^(product )?(details|specifications|specs|description)$/i;
-const DENY = /\b(add to|cart|bag|basket|wish ?list|buy|checkout|check out|pay|order|book|reserve|subscribe|sign ?in|log ?in|sign ?up|register|join|delete|remove|accept|agree|allow|decline|reject|follow|like|share|vote|report|unsubscribe|close|dismiss|download|print|apply|contact|call|chat|compare|notify|less)\b/i;
+const DENY = /\b(sort|filters?|refine|options?|sellers?|offers?|variants?|add to|cart|bag|basket|wish ?list|buy|checkout|check out|pay|order|book|reserve|subscribe|sign ?in|log ?in|sign ?up|register|join|delete|remove|accept|agree|allow|decline|reject|follow|like|share|vote|report|unsubscribe|close|dismiss|download|print|apply|contact|call|chat|compare|notify|less)\b/i;
 const MAX_TEXT = 40;
+/** A label on this many controls is a per-item control (each card's), not a section of the page. */
+const REPEATED = 3;
+const CHOOSER = '[role="radio"], [role="radiogroup"], [role="option"], [role="listbox"], [role="switch"], [role="checkbox"], [aria-pressed], [aria-checked], select';
+const PRICE = /[$€£¥₹]\s?\d|\d\s?[$€£¥₹]/;
 const QUIET_MS = 300;
 const SETTLE_MAX_MS = 1500;
 
@@ -76,6 +84,8 @@ export function unsafe(el: Element): string | null {
     const aside = el.closest('aside, [role="complementary"]');
     if (aside?.querySelector('input[type="checkbox"], input[type="radio"]')) return 'in a filter panel';
     if (el.hasAttribute('aria-haspopup') && el.getAttribute('aria-haspopup') !== 'false') return 'opens a menu';
+    if (el.closest(CHOOSER)) return 'chooses an option';
+    if (PRICE.test(text)) return 'shows a price (an offer, not a section)';
     if ((el as HTMLButtonElement).disabled || el.getAttribute('aria-disabled') === 'true') return 'disabled';
     if (el.localName === 'button' && (el as HTMLButtonElement).type === 'submit' && el.closest('form')) return 'submits a form';
     if (navigates(el)) return 'opens another page';
@@ -129,54 +139,79 @@ export async function expandHidden(budget: RevealBudget, doc: Document = documen
     let stopped: ExpandResult['stopped'];
     const tried = new Set<Element>();
 
+    // Navigations the page starts while we click are cancelled before they happen: a control that
+    // turns out to open another page (a router push, a link in a button) is skipped, the page stays.
+    const navigation = (doc.defaultView as unknown as { navigation?: EventTarget } | null)?.navigation;
+    let blocked = 0;
+    const onNavigate = (e: Event & { navigationType?: string }) => {
+        if (e.navigationType === 'reload' || !e.cancelable) return;
+        e.preventDefault();
+        blocked++;
+    };
+    navigation?.addEventListener('navigate', onNavigate);
+
     // Candidates are found again after each click: opening a section can reveal another "Show more".
-    for (let round = 0; round < 3 && !stopped; round++) {
-        const list = candidates(doc, live).filter(c => !tried.has(c.el));
-        if (!list.length) break;
-        for (const { el, kind } of list) {
-            tried.add(el);
-            const label = textOf(el) || kind;
-            const why = unsafe(el);
-            if (why) { skipped.push({ label, reason: why }); continue; }
-            if (clicks >= budget.clicks) { stopped = 'budget'; break; }
-            if (Date.now() - startedAt > budget.ms) { stopped = 'time'; break; }
+    try {
+        for (let round = 0; round < 3 && !stopped; round++) {
+            const list = candidates(doc, live).filter(c => !tried.has(c.el));
+            if (!list.length) break;
+            const counts = new Map<string, number>();
+            for (const c of list) { const t = textOf(c.el); if (t) counts.set(t, (counts.get(t) ?? 0) + 1); }
+            for (const { el, kind } of list) {
+                tried.add(el);
+                const label = textOf(el) || kind;
+                const why = (counts.get(label) ?? 0) >= REPEATED ? 'repeats on every item' : unsafe(el);
+                if (why) { skipped.push({ label, reason: why }); continue; }
+                if (clicks >= budget.clicks) { stopped = 'budget'; break; }
+                if (Date.now() - startedAt > budget.ms) { stopped = 'time'; break; }
 
-            if (kind === 'tab') {
-                const list = el.closest('[role="tablist"]');
-                const current = list?.querySelector('[role="tab"][aria-selected="true"]');
-                if (list && current && !selectedTab.has(list)) selectedTab.set(list, current);
-            }
-            const dialogsBefore = dialogs(doc);
-            (el as HTMLElement).click();
-            clicks++;
-            await settle(doc);
-
-            if ((doc.location?.href ?? '') !== startUrl) { stopped = 'navigated'; skipped.push({ label, reason: 'opened another page' }); break; }
-            if (dialogs(doc) > dialogsBefore) {
-                doc.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-                doc.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-                skipped.push({ label, reason: 'opened a dialog' });
-                continue;
-            }
-            if (kind === 'tab') {
-                for (const panel of controlled(doc, el)) if (filled(panel)) captured.push({ label, el: panel!.cloneNode(true) as Element });
-                if (!captured.some(c => c.label === label)) {
-                    const panel = doc.querySelector(`[role="tabpanel"][aria-labelledby~="${el.id}"]`);
-                    if (el.id && filled(panel)) captured.push({ label, el: panel!.cloneNode(true) as Element });
+                if (kind === 'tab') {
+                    const list = el.closest('[role="tablist"]');
+                    const current = list?.querySelector('[role="tab"][aria-selected="true"]');
+                    if (list && current && !selectedTab.has(list)) selectedTab.set(list, current);
                 }
-            } else {
-                if (el.isConnected && el.getAttribute('aria-expanded') === 'true') toggledOpen.push(el);
-                opened.push(label);
+                const dialogsBefore = dialogs(doc);
+                const blockedBefore = blocked;
+                (el as HTMLElement).click();
+                clicks++;
+                await settle(doc);
+                if (blocked > blockedBefore) { skipped.push({ label, reason: 'tried to open another page' }); continue; }
+
+                if ((doc.location?.href ?? '') !== startUrl) { stopped = 'navigated'; skipped.push({ label, reason: 'opened another page' }); break; }
+                if (dialogs(doc) > dialogsBefore) {
+                    doc.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+                    doc.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+                    skipped.push({ label, reason: 'opened a dialog' });
+                    continue;
+                }
+                if (kind === 'tab') {
+                    for (const panel of controlled(doc, el)) if (filled(panel)) captured.push({ label, el: panel!.cloneNode(true) as Element });
+                    if (!captured.some(c => c.label === label)) {
+                        const panel = doc.querySelector(`[role="tabpanel"][aria-labelledby~="${el.id}"]`);
+                        if (el.id && filled(panel)) captured.push({ label, el: panel!.cloneNode(true) as Element });
+                    }
+                } else {
+                    if (el.isConnected && el.getAttribute('aria-expanded') === 'true') toggledOpen.push(el);
+                    opened.push(label);
+                }
             }
         }
+
+    } finally {
+        navigation?.removeEventListener('navigate', onNavigate);
     }
 
     const restore = async () => {
-        for (const el of toggledOpen.reverse()) {
-            if (el.isConnected && el.getAttribute('aria-expanded') === 'true') { (el as HTMLElement).click(); }
+        navigation?.addEventListener('navigate', onNavigate);
+        try {
+            for (const el of toggledOpen.reverse()) {
+                if (el.isConnected && el.getAttribute('aria-expanded') === 'true') { (el as HTMLElement).click(); }
+            }
+            for (const tab of selectedTab.values()) if (tab.isConnected && tab.getAttribute('aria-selected') !== 'true') (tab as HTMLElement).click();
+            if (toggledOpen.length || selectedTab.size) await settle(doc, 100, 600);
+        } finally {
+            navigation?.removeEventListener('navigate', onNavigate);
         }
-        for (const tab of selectedTab.values()) if (tab.isConnected && tab.getAttribute('aria-selected') !== 'true') (tab as HTMLElement).click();
-        if (toggledOpen.length || selectedTab.size) await settle(doc, 100, 600);
     };
     return { opened, captured, skipped, clicks, ...(stopped ? { stopped } : {}), restore };
 }

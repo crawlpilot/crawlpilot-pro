@@ -106,6 +106,48 @@ describe('clicking only what is safe', () => {
         await capped.restore();
     });
 
+    it('never a chooser: options, swatches, sort, filters, sellers, offers, prices', () => {
+        page(`<main>
+            <div role="radiogroup"><button id="swatch" aria-expanded="false">Jade Forest</button></div>
+            <button id="pressed" aria-pressed="false" aria-expanded="false">Large</button>
+            <button id="sort" aria-expanded="false">Sort by Best Match</button>
+            <button id="facet" aria-expanded="false">Filter by Price not applied</button>
+            <button id="colors" aria-expanded="false">show more color options</button>
+            <button id="offers" aria-expanded="false">Resold offers from $103.00</button>
+            <button id="sellers" aria-expanded="false">More seller options</button>
+            <button id="specs" aria-expanded="false">Specs</button></main>`);
+        const why = (id: string) => unsafe(document.getElementById(id)!);
+        expect(why('swatch')).toMatch(/option/);
+        expect(why('pressed')).toMatch(/option/);
+        for (const id of ['sort', 'facet', 'colors', 'sellers']) expect(why(id)).toMatch(/action/);
+        expect(why('offers')).toBeTruthy();
+        expect(why('specs')).toBeNull();
+    });
+
+    it('a control repeated on every item is skipped; a navigation the page starts is cancelled', async () => {
+        page(`<main>${'<div class="card"><button aria-expanded="false">More colours</button></div>'.repeat(4)}
+            <button id="go" aria-expanded="false" aria-controls="p">Details</button><div id="p"></div></main>`);
+        // A single-page app changing its URL on click: the Navigation API's cancelable "navigate".
+        const navigation = new EventTarget();
+        Object.defineProperty(window, 'navigation', { value: navigation, configurable: true });
+        let navigated = false;
+        document.getElementById('go')!.onclick = () => {
+            const e = Object.assign(new Event('navigate', { cancelable: true }), { navigationType: 'push' });
+            navigation.dispatchEvent(e);
+            if (!e.defaultPrevented) navigated = true;
+        };
+        try {
+            const r = await expandHidden({ clicks: 10, ms: 5000 }, document, false);
+            expect(r.clicks).toBe(1);
+            expect(navigated).toBe(false);
+            expect(r.skipped.filter(s => s.reason === 'repeats on every item')).toHaveLength(4);
+            expect(r.skipped).toContainEqual({ label: 'Details', reason: 'tried to open another page' });
+            expect(r.opened).toEqual([]);
+        } finally {
+            delete (window as any).navigation;
+        }
+    });
+
     it('reveal off changes nothing; the summary is short', async () => {
         page('<main><button aria-expanded="false" aria-controls="a">Materials</button><div id="a" hidden>Oak</div></main>');
         const off = await revealForReading('off', undefined, document, false);
