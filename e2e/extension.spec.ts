@@ -84,6 +84,29 @@ test('pagination: three pages through the picked Next button, every row once', a
     await page.close();
 });
 
+test('scroll run with late content: placeholders fill as they are reached, "Show more" is found and clicked, every row complete', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/late.html`);
+    await page.waitForTimeout(400);
+    const list = await pickList(panel, page, '.card .card-title');
+    const columns = list.data?.columns as { id: string; name: string }[];
+    const price = columns.find(c => c.name === 'Price')!;
+    expect(price).toBeTruthy();
+
+    await panel.clear();
+    await panel.toTab(await panel.tabId(page.url()), 'EXECUTE_AUTO_SCROLL', {
+        container: list.container, items: list.items, enableInfiniteScroll: true,
+        scrollDelay: 50, contentLoadDelay: 800, columns,
+    });
+    const done = await panel.next('AUTO_SCROLL_COMPLETE', 60_000);
+    expect(done.success).toBe(true);
+    const rows = done.items as Record<string, string>[];
+    const titles = rows.map(r => Object.values(r).find(v => v.startsWith('Lamp model')));
+    expect(new Set(titles).size).toBe(18);
+    expect(rows.every(r => /^\$\d+0\.99$/.test(r[price.id]))).toBe(true);
+    await page.close();
+});
+
 test('Page Extractor bulk run with a click step: values revealed by the click are read', async ({ panel, origin }) => {
     const urls = [1, 2, 3].map(n => `${origin}/site/product.html?id=${n}`);
     const elements = [

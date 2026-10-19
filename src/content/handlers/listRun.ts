@@ -1,5 +1,6 @@
 /** List Extractor runs on this page: auto-scroll and next-button pagination, read with the list's frozen fields. */
 import { AutoScrollAction } from '../features/autoscroll/AutoScrollAction';
+import { settle } from '../utils/settle';
 import { PaginationAction } from '../features/pagination/PaginationAction';
 import { refreshNetSourcesFor } from '../services/extraction/structuredRows';
 import { checkPage, hasReaders, inferFields, readWhenReady, similarSiblings, ReaderColumn } from '../services/extraction/fields';
@@ -115,7 +116,7 @@ async function startAutoScroll(req: AutoScrollRequest) {
                 scrollColumns = inferFields(sample).columns;
             }
             await refreshNetSourcesFor(scrollColumns);
-            const { item: row } = await readWhenReady(element, scrollColumns, () => new Promise(r => setTimeout(r, 400)));
+            const { item: row } = await readWhenReady(element, scrollColumns, () => settle(element, 300, 1000));
             if (Object.keys(row).length === 0) return;
             const hash = hashString(JSON.stringify(row)).toString();
             if (seen.has(hash)) return;

@@ -396,8 +396,8 @@ Every row is a pattern, not a site: each appears on at least two of the four, an
 |---|---|
 | L0 | Done for the dev set: `bestbuy-search`, `walmart-search-live`, `homedepot-search` (prepared with `scripts/corpus/prepare-listing.mjs`, stylesheets inlined) + the two Amazon pages; truth in `e2e/listing-truth.ts`; scorecard `e2e/listing.spec.ts` (found vs exact per field), baseline `e2e/listing-baseline.json`, fails on any drop. Not done: a fully loaded BestBuy capture (prices still skeletons), an Amazon capture with buy-box prices, the held-out set (generic plan §6) |
 | L1 | Done as GS1 (`generic-list-selectors-plan.md` §9) |
-| L2 | Not started |
+| L2 | Done: `content/utils/settle.ts`: `settle` (quiet 300 ms, capped), `scrollerFor` (the list, a scrolling pane around it, or the page), `findLoadMore` (a visible, enabled "Show/Load/See/View more…" control or a `data-*show-more*` hook inside or after the list). Scroll runs (`MutationAwareScrollStrategy`): new items found through the item path at any depth, placeholders queued by identity (they used to collapse into one empty fingerprint and the rest were dropped), a settle before reading new items, the page's own "Show more" clicked when nothing is configured, a click that adds nothing ends the run. Pagination (`IndexedScrollStrategy`): scrolls the real scroller and settles. Rows read when ready (GS7 `readWhenReady`, settling on the row itself, ≤ 3 × 1 s). e2e `late.html`: placeholders filled on view, skeleton prices, a "Show more" button: 18/18 rows with prices (12 before). Not done: offering the found "Show more" in the Navigation step; a live BestBuy run |
 | L3 | Mostly done as GS2 + GS3 (`generic-list-selectors-plan.md` §9); hidden subtrees and button badges not yet |
-| L4 | Not started |
+| L4 | Done as GS4 + GS5 (`generic-list-selectors-plan.md` §9) |
 | L5 | Not started |
 | L6 | Not started |

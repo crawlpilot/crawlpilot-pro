@@ -1,5 +1,6 @@
 import { IScrollStrategy, ScrollStrategyConfig, ScrollStrategyResult } from './IScrollStrategy';
 import { resolveOne } from '../../../shared/selectors/resolve';
+import { findLoadMore, scrollerFor, settle } from '../../utils/settle';
 
 /**
  * MutationAwareScrollStrategy — default for infinite/dynamic feeds.
@@ -59,10 +60,9 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
 
         console.log('[MutationAwareScrollStrategy] Container resolved:', container.tagName, container.className);
 
-        // --- 2. Determine scroll target ---
-        const isContainerScrollable = this.isScrollable(container);
-        const scrollTarget: HTMLElement | Window = isContainerScrollable ? container : window;
-        console.log(`[MutationAwareScrollStrategy] Scroll target: ${isContainerScrollable ? 'container' : 'window'}`);
+        // --- 2. Determine scroll target: the list, a scrolling ancestor (an app shell's pane), or the page ---
+        const scrollTarget: HTMLElement | Window = scrollerFor(container);
+        console.log(`[MutationAwareScrollStrategy] Scroll target: ${scrollTarget instanceof Window ? 'window' : (scrollTarget === container ? 'container' : 'ancestor')}`);
 
         // --- 3. Initialize Tracking Queue & Content Fingerprint Set ---
         const seenFingerprints = new Set<string>();
@@ -76,9 +76,19 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
             return `${text}|${img}|${href}`;
         };
 
+        // Placeholders (items not rendered yet) are all alike: each is queued once by identity, and
+        // queued again by its content once it fills. Items with content are queued once per content,
+        // so a virtual list that recycles nodes is read by what they show.
+        const queuedEmpty = new WeakSet<HTMLElement>();
         const addToQueue = (elements: HTMLElement[]) => {
             for (const el of elements) {
                 const fp = fingerprint(el);
+                if (fp === '||') {
+                    if (queuedEmpty.has(el)) continue;
+                    queuedEmpty.add(el);
+                    pendingQueue.push(el);
+                    continue;
+                }
                 if (!seenFingerprints.has(fp)) {
                     seenFingerprints.add(fp);
                     pendingQueue.push(el);
@@ -87,18 +97,21 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
         };
 
         // --- 4. Attach MutationObserver (subtree: true, filtered to relevant depth) ---
+        const itemsMode = selectionMode === 'items' && selectorType === 'selector' && !!parentSelector;
         let newItemsDetected = false;
         const observeTarget = container.children.length > 0 ? container : document.body;
         const observer = new MutationObserver((mutations) => {
             for (const mutation of mutations) {
                 if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                    const addedElements = Array.from(mutation.addedNodes)
-                        .filter(n => n.nodeType === Node.ELEMENT_NODE)
-                        .filter(n => {
-                            // Accept direct children of container or one level deep
-                            const el = n as HTMLElement;
-                            return el.parentElement === container || el.parentElement?.parentElement === container;
-                        }) as HTMLElement[];
+                    const added = Array.from(mutation.addedNodes).filter(n => n.nodeType === Node.ELEMENT_NODE) as HTMLElement[];
+                    // Items found through the list's item path (a grid split over rows), at any depth;
+                    // without one, children of the container or one level deep.
+                    const addedElements = itemsMode
+                        ? added.flatMap(el => {
+                            if (!container!.contains(el)) return [];
+                            try { return el.matches(parentSelector) ? [el] : Array.from(el.querySelectorAll<HTMLElement>(parentSelector)); } catch { return []; }
+                        })
+                        : added.filter(el => el.parentElement === container || el.parentElement?.parentElement === container);
 
                     if (addedElements.length > 0) {
                         newItemsDetected = true;
@@ -187,6 +200,8 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
 
                 if (gotNewItems) {
                     console.log(`[MutationAwareScrollStrategy] New items appeared via MutationObserver.`);
+                    // Let them finish rendering (prices, images) before they are read.
+                    await settle(container, 300, 2000, this.abortSignal);
                     consecutiveNoChanges = 0;
                     currentWaitTime = contentLoadDelay; // Reset backoff
                 } else {
@@ -201,15 +216,18 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
                         continue;
                     }
 
-                    // Try clicking Load More if configured (with retry)
-                    if (config.loadMoreSelectors?.length) {
-                        const clicked = await this.clickLoadMoreWithRetry(config.loadMoreSelectors);
+                    // Click Load More: the configured control, else the page's own "Show more" after the list.
+                    if (config.loadMoreSelectors?.length || findLoadMore(container)) {
+                        const clicked = config.loadMoreSelectors?.length
+                            ? await this.clickLoadMoreWithRetry(config.loadMoreSelectors)
+                            : await this.clickFound(container);
                         if (clicked) {
                             console.log('[MutationAwareScrollStrategy] Clicked Load More, waiting...');
-                            consecutiveNoChanges = 0;
                             await this.wait(currentWaitTime);
+                            const before = pendingQueue.length;
                             addToQueue(getInitialChildren());
-                            continue;
+                            // A control that loads nothing more (the end, or not a Load more at all) ends the run like a scroll that loads nothing.
+                            if (pendingQueue.length > before) { consecutiveNoChanges = 0; continue; }
                         }
                     }
 
@@ -231,17 +249,6 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
                 lastChildHashData: null
             }
         };
-    }
-
-    private isScrollable(el: HTMLElement): boolean {
-        try {
-            const style = window.getComputedStyle(el);
-            const overflow = style.overflow + style.overflowY;
-            if (!/(auto|scroll)/.test(overflow)) return false;
-            return el.scrollHeight > el.clientHeight;
-        } catch {
-            return false;
-        }
     }
 
     /**
@@ -322,6 +329,16 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
             if (attempt < 1) await this.wait(1000);
         }
         return false;
+    }
+
+    /** Clicks the page's own "Show more" control for the list, when there is one. */
+    private async clickFound(container: HTMLElement): Promise<boolean> {
+        const el = findLoadMore(container);
+        if (!el) return false;
+        el.scrollIntoView({ behavior: 'auto', block: 'center' });
+        el.click();
+        await settle(container, 300, 2000, this.abortSignal);
+        return true;
     }
 
     private async clickLoadMore(chain: string[]): Promise<boolean> {

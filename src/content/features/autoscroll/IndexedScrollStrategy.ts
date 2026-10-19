@@ -1,6 +1,7 @@
 import { IScrollStrategy, ScrollStrategyConfig, ScrollStrategyResult } from './IScrollStrategy';
 import { hashString } from '../../../shared/utils/hash';
 import { resolveOne } from '../../../shared/selectors/resolve';
+import { scrollerFor, settle } from '../../utils/settle';
 
 interface ChildHashData {
     hash: string;
@@ -104,13 +105,11 @@ export class IndexedScrollStrategy implements IScrollStrategy {
             if (currentIdx >= children.length) {
                 if (consecutiveNoNewItems < maxNoNewItems) {
                     consecutiveNoNewItems++;
-                    const scrollAmount = container ? Math.max(container.clientHeight / 2, 200) : Math.max(window.innerHeight / 2, 200);
-                    if (container) {
-                        container.scrollTop += scrollAmount;
-                    } else {
-                        window.scrollBy(0, scrollAmount);
-                    }
-                    await this.wait(500);
+                    // Scroll what scrolls (the list, a pane around it, or the page), then wait for quiet.
+                    const scroller = container ? scrollerFor(container) : window;
+                    if (scroller instanceof Window) window.scrollBy(0, Math.max(window.innerHeight / 2, 200));
+                    else scroller.scrollTop += Math.max(scroller.clientHeight / 2, 200);
+                    await settle(container ?? document.body, 300, 1500, this.abortSignal);
                     continue;
                 }
                 break;

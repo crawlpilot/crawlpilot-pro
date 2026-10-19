@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Lamps, loading as you scroll</title>
+<!-- Late content (reliability plan L2): cards render as empty placeholders and fill when scrolled into
+     view; their price arrives later still (a skeleton first); a "Show more" button adds more placeholders. -->
+<style>body{font:14px sans-serif;margin:24px}.grid{list-style:none;padding:0}.card{border:1px solid #ccc;padding:12px;height:160px;margin-bottom:16px}.skeleton{display:inline-block;width:60px;height:14px;background:#eee}</style>
+</head><body>
+  <h1>Lamps</h1>
+  <ul class="grid" id="results"></ul>
+  <button class="more" type="button">Show more</button>
+  <script>
+    const list = document.getElementById('results');
+    const fill = (li, i) => {
+      li.classList.remove('shell');
+      li.innerHTML = `<a href="/site/product.html?id=${i}"><h3 class="card-title">Lamp model ${i}</h3></a><span class="rating">4.${i % 10} out of 5</span> <span class="price skeleton"></span>`;
+      setTimeout(() => { const p = li.querySelector('.price'); p.classList.remove('skeleton'); p.textContent = `$${i}0.99`; }, 250);
+    };
+    const io = new IntersectionObserver(entries => entries.forEach(e => {
+      if (!e.isIntersecting || !e.target.classList.contains('shell')) return;
+      io.unobserve(e.target);
+      setTimeout(() => fill(e.target, Number(e.target.dataset.i)), 150);
+    }));
+    let n = 0;
+    const add = (count, filled) => {
+      for (let k = 0; k < count; k++) {
+        const li = document.createElement('li');
+        li.className = 'card shell';
+        li.dataset.i = String(++n);
+        list.appendChild(li);
+        if (filled) { fill(li, n); } else io.observe(li);
+      }
+    };
+    add(6, true);
+    add(6, false);
+    document.querySelector('.more').addEventListener('click', e => { add(6, false); e.target.remove(); });
+  </script>
+</body></html>

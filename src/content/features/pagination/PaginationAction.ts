@@ -1,4 +1,5 @@
 import { refreshNetSourcesFor } from '../../services/extraction/structuredRows';
+import { settle } from '../../utils/settle';
 import { checkPage, hasReaders, inferFields, readWhenReady, similarSiblings, unmappedCount, ReaderColumn } from '../../services/extraction/fields';
 import { withAtomCache } from '../../services/extraction/atoms';
 import { NextButtonSelector } from '../../services/selectors/nextButton';
@@ -345,7 +346,7 @@ export class PaginationAction extends BaseAction {
                 lastColumns = columns;
                 await refreshNetSourcesFor(columns);
                 // A row still loading is read again after the page settles.
-                const { item: normalizedItem } = await readWhenReady(element, columns, () => this.wait(400));
+                const { item: normalizedItem } = await readWhenReady(element, columns, () => settle(element, 300, 1000));
                 const unmapped = withAtomCache(() => unmappedCount(element, columns));
                 if (Object.keys(normalizedItem).length > 0) {
                     processedInPage.add(scrolledToIndex);
