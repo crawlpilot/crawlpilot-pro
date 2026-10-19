@@ -21,7 +21,8 @@ export function buildResponseSchema(fields: SchemaField[]): object {
     for (const f of fields) {
         properties[f.name] = {
             type: 'object',
-            properties: { value: { type: 'string' }, ref: { type: 'string' } },
+            // A ref is a line reference or empty; `relax` drops the pattern if Chrome can't enforce it.
+            properties: { value: { type: 'string' }, ref: { type: 'string', pattern: '^(e[0-9]+)?$' } },
             required: ['value', 'ref'],
             additionalProperties: false,
         };

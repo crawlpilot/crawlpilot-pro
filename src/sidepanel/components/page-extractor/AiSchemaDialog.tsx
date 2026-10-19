@@ -4,7 +4,7 @@ import {
 } from '@mui/material';
 import { Sparkles } from 'lucide-react';
 import { parseSchemaInput, SCHEMA_PRESETS } from '../../../shared/ai/schemaIntake';
-import { getPromptAvailability, EngineAvailability } from '../../services/ai/promptSession';
+import { modelStatus, type ModelStatus } from '../../services/ai/modelHost';
 import { runSchemaExtraction, SchemaExtractionResult } from '../../services/ai/extractSession';
 import type { VerifiedField } from '../../../content/services/ai-view/ReferencedView';
 
@@ -28,7 +28,8 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
     const [text, setText] = useState(() => {
         try { return localStorage.getItem(DRAFT_KEY) || SCHEMA_PRESETS.product.text; } catch { return SCHEMA_PRESETS.product.text; }
     });
-    const [availability, setAvailability] = useState<EngineAvailability | null>(null);
+    const [model, setModel] = useState<ModelStatus | null>(null);
+    const availability = model?.availability ?? null;
     const [running, setRunning] = useState(false);
     const [status, setStatus] = useState('');
     const [download, setDownload] = useState<number | null>(null);
@@ -40,7 +41,7 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
     const intake = useMemo(() => parseSchemaInput(text), [text]);
 
     useEffect(() => {
-        if (open) getPromptAvailability().then(setAvailability);
+        if (open) modelStatus().then(setModel);
     }, [open]);
 
     useEffect(() => {
@@ -102,6 +103,7 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
                     {unavailable && (
                         <Alert severity="info" variant="outlined">
                             Chrome's built-in AI isn't available here. You can still pick each field with “Select Element”.
+                            {model?.reason && <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>{model.reason}</Typography>}
                         </Alert>
                     )}
                     {availability === 'downloadable' && (
@@ -139,6 +141,11 @@ export default function AiSchemaDialog({ open, onClose, onAddElements }: Props) 
                             {result.truncated && (
                                 <Typography variant="caption" color="warning.main" display="block" sx={{ mb: 0.5 }}>
                                     The page was too long for the model; only the first part was read.
+                                </Typography>
+                            )}
+                            {result.relaxed.length > 0 && (
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                                    This Chrome couldn't enforce part of the answer format ({result.relaxed.join(', ')}); every value is still checked against the page.
                                 </Typography>
                             )}
                             <Stack spacing={0.5}>

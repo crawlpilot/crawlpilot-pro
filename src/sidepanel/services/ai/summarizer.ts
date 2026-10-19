@@ -1,5 +1,5 @@
 import type { SummaryType, SummaryLength } from '@/shared/types/summarizer';
-import { normalizeAvailability, progressFraction, type EngineAvailability } from './promptSession';
+import { progressFraction, type EngineAvailability } from './modelHost';
 
 // Thrown when model download needs a user gesture (create() rejects with
 // NotAllowedError) — the UI shows a "Download AI model" button and retries
@@ -23,7 +23,7 @@ export async function getSummarizerAvailability(): Promise<EngineAvailability> {
     const Summarizer = getSummarizerClass();
     if (!Summarizer) return 'unavailable';
     try {
-        return normalizeAvailability(await Summarizer.availability());
+        return await Summarizer.availability();
     } catch {
         return 'unavailable';
     }

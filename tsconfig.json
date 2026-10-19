@@ -31,7 +31,8 @@
         /* Chrome Extension Types */
         "types": [
             "chrome",
-            "node"
+            "node",
+            "dom-chromium-ai"
         ]
     },
     "include": [

@@ -1,6 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ExtractedContent } from '@/shared/types/summarizer';
-import { createChatSession, isPromptApiSupported, SUGGESTIONS_SCHEMA } from '../services/ai/promptSession';
+import { modelHost, modelSupported, CALL_ERROR_MESSAGES } from '../services/ai/modelHost';
+import { truncateAtBoundary } from '../services/ai/chunking';
+
+const CHAT_SYSTEM = 'You are an intelligent reading assistant. Answer concisely and strictly based on the Reference Document the user gave at the start of this conversation.';
+// Exactly 3 strings as real JSON: the session's "answer only from the document" prompt otherwise
+// makes the model answer in prose.
+const SUGGESTIONS_SCHEMA = { type: 'array', items: { type: 'string' }, minItems: 3, maxItems: 3 };
+/** Share of the context window the document may take; the rest is the conversation. */
+const DOC_SHARE = 0.5;
 
 export const QUICK_REPLIES = [
     "What are the key takeaways?",
@@ -30,7 +38,7 @@ export function useChatSession(doc: ExtractedContent | null, chunkDigest: string
     const [isThinking, setIsThinking] = useState(false);
     const [dynamicReplies, setDynamicReplies] = useState<string[]>(QUICK_REPLIES);
 
-    const sessionRef = useRef<any>(null);
+    const sessionRef = useRef<LanguageModel | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
     const isMountedRef = useRef(true);
     // Read latest values inside the lazy creation without re-creating callbacks.
@@ -42,52 +50,28 @@ export function useChatSession(doc: ExtractedContent | null, chunkDigest: string
         return () => {
             isMountedRef.current = false;
             abortControllerRef.current?.abort();
-            sessionRef.current?.destroy?.();
+            sessionRef.current?.destroy();
             sessionRef.current = null;
         };
     }, []);
 
     const fetchSuggestions = async (contextText: string) => {
-        // Clone the live session instead of creating a new one from scratch:
-        // the clone inherits the Reference Document context for free (no
-        // resend) and its own conversation branch, so it can't pollute or
-        // desync the main chat history.
-        const baseSession = sessionRef.current;
-        if (!baseSession || typeof baseSession.clone !== 'function') return;
-
-        const promptText = `Based on the conversation so far and this latest reply, suggest exactly 3 short follow-up questions the user could ask next.\n\nLatest reply:\n${contextText.substring(0, 1500)}`;
-
-        let suggestionSession: any = null;
-        try {
-            suggestionSession = await baseSession.clone();
-
-            let resp: string;
-            try {
-                // Structured output: guarantees a real JSON array back even
-                // though the cloned session's system prompt says to only
-                // answer from the document.
-                resp = await suggestionSession.prompt(promptText, { responseConstraint: SUGGESTIONS_SCHEMA });
-            } catch {
-                // Older Chrome without responseConstraint support — fall
-                // back to asking for JSON in plain text and parsing loosely.
-                resp = await suggestionSession.prompt(
-                    `${promptText}\n\nReturn ONLY a valid JSON array of strings, nothing else.`
-                );
-            }
-
-            if (!isMountedRef.current) return;
-
-            const jsonMatch = resp.match(/\[([\s\S]*?)\]/);
-            const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : resp);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                setDynamicReplies(parsed.slice(0, 3).map((s: string) => String(s).trim()));
-            }
-        } catch (e) {
-            console.error('Failed to generate suggestions:', e);
-            if (isMountedRef.current) setDynamicReplies(QUICK_REPLIES);
-        } finally {
-            suggestionSession?.destroy?.();
-        }
+        // A clone of the live conversation: it sees the document and the turns so far, and its own
+        // answer never lands in the chat history.
+        const session = sessionRef.current;
+        if (!session) return;
+        const res = await modelHost.runOn(session, {
+            prompt: `Based on the conversation so far and this latest reply, suggest exactly 3 short follow-up questions the user could ask next.\n\nLatest reply:\n${contextText.substring(0, 1500)}`,
+            schema: SUGGESTIONS_SCHEMA,
+            parse: raw => {
+                const parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('not a list');
+                return parsed.slice(0, 3).map((q: unknown) => String(q).trim());
+            },
+        });
+        if (!isMountedRef.current) return;
+        if (res.ok) setDynamicReplies(res.value);
+        else setDynamicReplies(QUICK_REPLIES);
     };
 
     const sendMessage = useCallback(async (text: string) => {
@@ -103,7 +87,16 @@ export function useChatSession(doc: ExtractedContent | null, chunkDigest: string
                 // Long docs seed the chat with the map-pass chunk summaries,
                 // never the raw (potentially 80k-char) text.
                 const seedDocument = digest ?? currentDoc?.text ?? '';
-                sessionRef.current = await createChatSession({ seedDocument });
+                const room = await modelHost.room(CHAT_SYSTEM, 'default', seedDocument);
+                if ('code' in room) throw Object.assign(new Error(CALL_ERROR_MESSAGES[room.code]), { name: 'ModelError' });
+                const reference = truncateAtBoundary(seedDocument, Math.floor(room.tokens * room.charsPerToken * DOC_SHARE));
+                const opened = await modelHost.conversation(CHAT_SYSTEM, `Reference Document:\n---\n${reference}\n---\n\nAnswer all following questions strictly from this document.`, {
+                    onOverflow: () => {
+                        if (isMountedRef.current) setMessages(prev => [...prev, { role: 'model', content: '_Older messages no longer fit the on-device model and were forgotten; the document is kept._' }]);
+                    },
+                });
+                if ('code' in opened) throw Object.assign(new Error(opened.detail && opened.code === 'model_unavailable' ? opened.detail : CALL_ERROR_MESSAGES[opened.code]), { name: 'ModelError' });
+                sessionRef.current = opened.session;
             }
 
             const controller = new AbortController();
@@ -111,12 +104,14 @@ export function useChatSession(doc: ExtractedContent | null, chunkDigest: string
 
             // No manual doc/history replay: the session already remembers the
             // Reference Document and every prior turn.
-            const stream = sessionRef.current.promptStreaming(userMsg, { signal: controller.signal });
+            const reader = sessionRef.current.promptStreaming(userMsg, { signal: controller.signal }).getReader();
 
             let full = '';
             setMessages(prev => [...prev, { role: 'model', content: '' }]);
-            for await (const chunk of stream) {
-                full += chunk;
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                full += value;
                 if (!isMountedRef.current) return;
                 setMessages(prev => {
                     const next = [...prev];
@@ -141,7 +136,7 @@ export function useChatSession(doc: ExtractedContent | null, chunkDigest: string
     return {
         messages,
         isThinking,
-        chatAvailable: isPromptApiSupported(),
+        chatAvailable: modelSupported(),
         dynamicReplies,
         sendMessage
     };

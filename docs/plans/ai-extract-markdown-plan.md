@@ -450,7 +450,7 @@ a visual workflow builder (recipes plus reruns cover it).
 
 | Item | State | Notes |
 |---|---|---|
-| I0 | Open | |
-| X0 | Open | Prompt API docs read 2026-10-19 (§3.9 sources) |
+| I0 | **Done** | `npm run e2e`: Playwright loads `dist/` (with `<all_urls>` granted) into Chromium. 7 tests: load, list pick on Amazon/Walmart (exact items), 3-page pagination, bulk with a click step, every-page-fails → `failed`, v5 → v7 migration + Runs page. Found and fixed: popup bounds rejected on small screens (every interactive bulk page failed); an all-failed run reported as completed. Not covered: the Connect permission prompt, rerunning a migrated job |
+| X0 | **Done** | `modelHost.ts` owns `LanguageModel`: availability with `MODEL_OPTIONS`, activation check, warm base + clone per call, serial queue, measure-before-send, error codes, one recovery on undocumented failures, idle teardown. `shared/ai/constraint.ts` compiles and relaxes schemas. Extraction (preflight + one relaxed retry, no unconstrained fallback), Summarizer fallback (measured chunks, streamed final) and Chat (`append` seed, `contextoverflow` notice, suggestions via `runOn`) moved onto it; `promptSession.ts` deleted. 30 new tests against a fake Prompt API. `samplingMode` used where Chrome exposes it, else `temperature: 0, topK: 1`. Not yet run against the real model: Chromium for Testing has none |
 | M1, M2 | Open | |
 | X1, X2, X3 | Open | Single-page, single-value extraction exists (`extractSession.ts`) and is the starting point |

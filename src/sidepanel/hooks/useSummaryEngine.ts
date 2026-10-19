@@ -7,12 +7,7 @@ import {
     NeedsUserActivationError,
     type SummarizerInstance
 } from '../services/ai/summarizer';
-import {
-    getLanguageModel,
-    getPromptAvailability,
-    docCharBudget,
-    progressFraction
-} from '../services/ai/promptSession';
+import { modelHost, modelSupported, CALL_ERROR_MESSAGES } from '../services/ai/modelHost';
 import { splitIntoChunks, truncateAtBoundary } from '../services/ai/chunking';
 
 export type SummaryPhase =
@@ -51,6 +46,15 @@ function promptInstructionFor(type: SummaryType, length: SummaryLength): string 
         case 'headline':
             return `Write a single ${lengthWord} headline sentence that captures the essence of the document.`;
     }
+}
+
+const PROMPT_SYSTEM = 'You are an expert summarizer. Follow the summary instructions exactly. Respond in markdown.';
+/** Tokens kept free for the summary itself. */
+const SUMMARY_RESERVE = 1024;
+
+/** A model-host failure as an error the summary screen shows (`code` kept for the activation case). */
+function callError(r: { code: keyof typeof CALL_ERROR_MESSAGES; detail?: string }): Error & { code: string } {
+    return Object.assign(new Error(r.code === 'model_unavailable' && r.detail ? r.detail : CALL_ERROR_MESSAGES[r.code]), { code: r.code });
 }
 
 export function useSummaryEngine(doc: ExtractedContent | null): SummaryEngineApi {
@@ -180,88 +184,76 @@ export function useSummaryEngine(doc: ExtractedContent | null): SummaryEngineApi
 
         const runPromptEngine = async () => {
             setEngine('prompt');
-            const LanguageModel = getLanguageModel();
-            const availability = await getPromptAvailability();
-            if (availability === 'unavailable') return false;
-            if (availability !== 'available' && alive()) setPhase('downloading');
+            const ready = await modelHost.prepare(PROMPT_SYSTEM, 'default', onDownloadProgress);
+            if (!ready.ok) {
+                if (ready.code === 'model_unavailable') return false;
+                throw callError(ready);
+            }
+            if (!alive()) return true;
+            setDownloadProgress(null);
 
             const instruction = promptInstructionFor(type, length);
-            const session = await LanguageModel.create({
-                initialPrompts: [{ role: 'system', content: 'You are an expert summarizer. Follow the summary instructions exactly. Respond in markdown.' }],
-                signal,
-                monitor(m: any) {
-                    m.addEventListener('downloadprogress', (e: any) => onDownloadProgress(progressFraction(e)));
-                }
-            });
+            const wrapWhole = (text: string) => `The following is the main content of a web page.\n---\n${text}\n---\n\n${instruction}`;
+            const wrapPart = (text: string, i: number, n: number) =>
+                `Summarize the key points of this section (part ${i + 1} of ${n} of "${doc.title}") as concise markdown bullets:\n\n${text}`;
 
-            try {
-                if (!alive()) return true;
-                setDownloadProgress(null);
+            // Sized by measurement: the whole page when it fits, else chunks that each fit one call.
+            const room = await modelHost.room(PROMPT_SYSTEM, 'default', doc.text, SUMMARY_RESERVE);
+            if ('code' in room) throw callError(room);
+            const maxChars = Math.max(2000, Math.floor(room.tokens * room.charsPerToken * 0.85) - 300);
 
-                const budget = docCharBudget(session);
-                let inputText = doc.text;
-                let notes = '';
+            let inputText = doc.text;
+            let notes = '';
+            const whole = await modelHost.fits({ system: PROMPT_SYSTEM, prompt: wrapWhole(doc.text), reserve: SUMMARY_RESERVE });
+            if ('code' in whole) throw callError(whole);
 
-                if (doc.text.length > budget) {
-                    const { chunks, truncated } = splitIntoChunks(doc.text, budget);
-                    setPhase('mapping');
-
-                    const partSummaries: string[] = [];
-                    for (let i = 0; i < chunks.length; i++) {
-                        if (!alive()) return true;
-                        setChunkProgress({ current: i + 1, total: chunks.length });
-                        // Fresh short-lived session per chunk so context never
-                        // accumulates across the map pass.
-                        const chunkSession = await LanguageModel.create({ signal });
-                        try {
-                            partSummaries.push(await chunkSession.prompt(
-                                `Summarize the key points of this section (part ${i + 1} of ${chunks.length} of "${doc.title}") as concise markdown bullets:\n\n${chunks[i]}`,
-                                { signal }
-                            ));
-                        } catch (chunkErr: any) {
-                            if (chunkErr?.name === 'AbortError') throw chunkErr;
-                            console.error(`Chunk ${i + 1}/${chunks.length} failed:`, chunkErr);
-                            notes = '\n\n*Note: some sections of this very long page could not be included in the summary.*';
-                        } finally {
-                            chunkSession.destroy?.();
-                        }
-                    }
-                    setChunkProgress(null);
-                    if (partSummaries.length === 0) throw new Error('Failed to summarize any section of the document.');
-                    if (truncated) notes = '\n\n*Note: this page was too long to summarize completely; the summary covers the first sections.*';
-
-                    inputText = partSummaries.join('\n\n');
-                    if (alive()) setChunkDigest(inputText);
-                } else {
-                    inputText = truncateAtBoundary(doc.text, budget);
-                }
-
-                if (!alive()) return true;
-                setPhase('streaming');
-                setSummary('');
-
-                const contextLine = doc.text.length > budget
-                    ? 'The following are key points from consecutive parts of one long document.'
-                    : 'The following is the main content of a web page.';
-                const stream = session.promptStreaming(
-                    `${contextLine}\n---\n${inputText}\n---\n\n${instruction}`,
-                    { signal }
-                );
-
-                let full = '';
-                for await (const chunk of stream) {
-                    full += chunk;
+            if (whole.need > whole.available) {
+                const { chunks, truncated } = splitIntoChunks(doc.text, maxChars);
+                setPhase('mapping');
+                const partSummaries: string[] = [];
+                for (let i = 0; i < chunks.length; i++) {
                     if (!alive()) return true;
-                    setSummary(full);
+                    setChunkProgress({ current: i + 1, total: chunks.length });
+                    // Each part in its own clone: context never accumulates across the map pass.
+                    let res = await modelHost.run({ system: PROMPT_SYSTEM, prompt: wrapPart(chunks[i], i, chunks.length), reserve: SUMMARY_RESERVE }, signal);
+                    if (!res.ok && res.code === 'too_large') {
+                        res = await modelHost.run({ system: PROMPT_SYSTEM, prompt: wrapPart(truncateAtBoundary(chunks[i], Math.floor(chunks[i].length / 2)), i, chunks.length), reserve: SUMMARY_RESERVE }, signal);
+                    }
+                    if (!res.ok) {
+                        if (res.code === 'aborted') return true;
+                        if (res.code === 'model_unavailable' || res.code === 'session_lost') throw callError(res);
+                        console.error(`Part ${i + 1}/${chunks.length} failed: ${res.code}`, res.detail);
+                        notes = '\n\n*Note: some sections of this very long page could not be included in the summary.*';
+                        continue;
+                    }
+                    partSummaries.push(res.value);
                 }
-                if (alive()) {
-                    if (notes) setSummary(full + notes);
-                    setPhase('ready');
-                }
-                return true;
-            } finally {
-                session.destroy?.();
+                setChunkProgress(null);
+                if (partSummaries.length === 0) throw new Error('Failed to summarize any section of the document.');
+                if (truncated) notes = '\n\n*Note: this page was too long to summarize completely; the summary covers the first sections.*';
+                inputText = partSummaries.join('\n\n');
+                if (alive()) setChunkDigest(inputText);
             }
+
+            if (!alive()) return true;
+            setPhase('streaming');
+            setSummary('');
+            const prompt = inputText === doc.text
+                ? wrapWhole(inputText)
+                : `The following are key points from consecutive parts of one long document.\n---\n${truncateAtBoundary(inputText, maxChars)}\n---\n\n${instruction}`;
+            const res = await modelHost.run({
+                system: PROMPT_SYSTEM, prompt, reserve: SUMMARY_RESERVE, timeoutMs: 120_000,
+                onText: text => { if (alive()) setSummary(text); },
+            }, signal);
+            if (!res.ok) {
+                if (res.code === 'aborted') return true;
+                throw callError(res);
+            }
+            if (alive()) {
+                setSummary(res.value + notes);
+                setPhase('ready');
+            }
+            return true;
         };
 
         const generate = async () => {
@@ -273,7 +265,7 @@ export function useSummaryEngine(doc: ExtractedContent | null): SummaryEngineApi
 
             try {
                 if (isSummarizerSupported() && await runSummarizerEngine()) return;
-                if (getLanguageModel() && await runPromptEngine()) return;
+                if (modelSupported() && await runPromptEngine()) return;
                 if (alive()) {
                     setEngine(null);
                     setPhase('unavailable');
@@ -282,7 +274,7 @@ export function useSummaryEngine(doc: ExtractedContent | null): SummaryEngineApi
             } catch (err: any) {
                 if (!alive() || err?.name === 'AbortError') return;
                 console.error('Summary generation failed:', err);
-                if (err instanceof NeedsUserActivationError) {
+                if (err instanceof NeedsUserActivationError || err?.code === 'needs_activation') {
                     setPhase('needs-activation');
                 } else {
                     setPhase('error');
