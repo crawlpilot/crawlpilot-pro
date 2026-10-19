@@ -41,7 +41,7 @@ export function registerToolkitHandlers() {
 
     on('AI_PAGE_VIEW', async ({ chunkChars, maxChunks, reveal }) => {
         // Closed sections, inactive tabs and "Show more" text are opened first, then the page is put back.
-        const revealed = await revealForReading(reveal ?? 'open', INTERACTIVE_BUDGET);
+        const revealed = await revealForReading(reveal ?? 'read', INTERACTIVE_BUDGET);
         try {
             const view = buildPageView(chunkChars, maxChunks, { markdown: revealed.markdownOptions });
             return ok({ view: { ...view, revealed: revealed.report } });

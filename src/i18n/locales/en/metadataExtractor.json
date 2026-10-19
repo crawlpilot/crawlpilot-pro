@@ -19,8 +19,8 @@
     "concurrencyHint": "1–5 tabs",
     "requestDelay": "Pause between pages (ms)",
     "requestDelayHint": "Gentler on the site",
-    "reveal": "Open hidden sections first",
-    "revealHint": "Closed accordions, tabs and \"Show more\" text are read too"
+    "reveal": "Read hidden sections too",
+    "revealHint": "Closed accordions and tabs already in the page are read too. Nothing is clicked."
   },
   "results": {
     "extracting": "Reading pages…",

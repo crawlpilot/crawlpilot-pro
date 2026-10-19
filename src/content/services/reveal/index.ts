@@ -29,11 +29,18 @@ export interface Revealed {
 
 const nothing = async () => undefined;
 
-export async function revealForReading(mode: RevealMode = 'open', budget: RevealBudget = INTERACTIVE_BUDGET, doc: Document = document, live = true): Promise<Revealed> {
+/**
+ * Clicking to reveal ('open') is switched off for now: on single-page shops a click could still
+ * swap the page for another view (Walmart's reviews). 'open' reads as 'read': panels already in
+ * the page behind a control are read, nothing is clicked. Turn back on to re-enable `expandHidden`.
+ */
+export const CLICK_TO_REVEAL = false;
+
+export async function revealForReading(mode: RevealMode = 'read', budget: RevealBudget = INTERACTIVE_BUDGET, doc: Document = document, live = true): Promise<Revealed> {
     const empty: RevealReport = { read: [], opened: [], tabs: [], skipped: [], clicks: 0 };
     if (mode === 'off') return { report: empty, markdownOptions: {}, restore: nothing };
     let opened: Awaited<ReturnType<typeof expandHidden>> | null = null;
-    if (mode === 'open') {
+    if (mode === 'open' && CLICK_TO_REVEAL) {
         try { opened = await expandHidden(budget, doc, live); } catch { opened = null; }
     }
     // After the clicks: a panel opened by a click is simply rendered now, the rest are read as if open.

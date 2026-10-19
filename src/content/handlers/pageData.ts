@@ -56,7 +56,7 @@ export function registerPageDataHandlers() {
             await scrollToRevealLazyContent();
             // Closed sections, inactive tabs and "Show more" text are read too (a tighter budget: every
             // page of a bulk run pays it), then the page is put back.
-            const revealed = await revealForReading(options?.reveal ?? 'open', BULK_BUDGET);
+            const revealed = await revealForReading(options?.reveal ?? 'read', BULK_BUDGET);
             try {
                 const result = extractMetadata(options || {}, revealed.markdownOptions);
                 return ok({ result: { ...result, revealed: revealSummary(revealed.report) } });
