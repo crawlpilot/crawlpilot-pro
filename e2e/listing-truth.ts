@@ -57,8 +57,8 @@ export const LISTINGS: ListingTruth[] = [
                 title: card.querySelector('[data-automation-id="product-title"]')?.textContent?.trim(),
                 url,
                 id: card.getAttribute('data-item-id') ?? undefined,
-                price: n(/(?:current price|Price)\s*(?:Now\s*)?\$([\d,.]+)/i.exec(text)?.[1]),
-                was_price: n(/Was \$([\d,.]+)/.exec(text)?.[1]),
+                price: n(/(?:current price|Price)\s*(?:Now\s*)?\$(\d[\d,]*(?:\.\d{2})?)/i.exec(text)?.[1]),
+                was_price: n(/Was \$(\d[\d,]*(?:\.\d{2})?)/.exec(text)?.[1]),
                 rating: n(/([\d.]+) out of 5 Stars/i.exec(text)?.[1]),
                 review_count: n(/Stars\. ([\d,]+) reviews/i.exec(text)?.[1]),
             };

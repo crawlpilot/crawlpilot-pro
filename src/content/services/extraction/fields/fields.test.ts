@@ -113,8 +113,8 @@ describe('inferFields', () => {
         const rating = columns.find(c => c.name === 'Rating')!;
         expect(rating).toBeTruthy();
         const last = readRow(rows[3], columns);
-        // The rating is the number in "2.0 out of 5 stars" (`fields/split.ts`).
-        expect(last[rating.id]).toBe('2.0');
+        // The rating is the number in "2.0 out of 5 stars" (`fields/split.ts`), typed (`fields/parse.ts`).
+        expect(last[rating.id]).toBe('2');
         expect(Object.values(last)).toEqual(expect.arrayContaining(['Mia L']));
         expect(Object.values(last)).toHaveLength(2);
     });
@@ -129,7 +129,7 @@ describe('inferFields', () => {
 
     it('names from itemprop and dt/dd', () => {
         const rows = rowsOf(`<div>${[1, 2].map(i => `<div class="card"><span itemprop="name">N${i}</span><span itemprop="sku">S-${i}</span></div>`).join('')}</div>`);
-        expect(inferFields(rows).columns.map(c => c.name)).toEqual(['Name', 'Sku']);
+        expect(inferFields(rows).columns.map(c => c.name)).toEqual(['Title', 'SKU']);
         const defs = rowsOf(`<dl>${[1, 2, 3].map(i => `<div class="card"><dt>Key ${i}</dt><dd>Val ${i}</dd></div>`).join('')}</dl>`);
         expect(inferFields(defs).columns.map(c => c.name)).toEqual(['Label', 'Value']);
     });
@@ -213,12 +213,12 @@ describe('Amazon-style search results', () => {
     it('reads only the product cards, with one plain column per field', () => {
         const rows = rowsOf(page, '.s-main-slot > div');
         const { columns, problems } = inferFields(rows);
-        expect(columns.map(c => c.name)).toEqual(['Image', 'ASIN', 'URL', 'Badge', 'Title', 'Rating', 'Reviews', 'Sales Volume', 'Price', 'Delivery Price', 'Was Price']);
+        expect(columns.map(c => c.name)).toEqual(['Image', 'ASIN', 'URL', 'Badge', 'Title', 'Rating', 'Review Count', 'Sales Volume', 'Price', 'Delivery Price', 'Was Price']);
         expect(problems[0]).toMatch(/4 of 10 picked elements/);
         const items = rows.map(r => readRow(r, columns));
         expect(items.filter(i => Object.keys(i).length > 0)).toHaveLength(6);
         const id = (n: string) => columns.find(c => c.name === n)!.id;
-        expect(items[2]).toMatchObject({ [id('Title')]: 'Laptop model 2 with 8GB RAM', [id('Price')]: '$299.99', [id('Was Price')]: '$325.99', [id('Reviews')]: '(74)', [id('Rating')]: '4.2' });
+        expect(items[2]).toMatchObject({ [id('Title')]: 'Laptop model 2 with 8GB RAM', [id('Price')]: '$299.99', [id('Was Price')]: '$325.99', [id('Review Count')]: '74', [id('Rating')]: '4.2' });
         expect(items[1][id('Badge')]).toBe('Top Brand');
         expect(items[3]).toEqual({}); // the video ad
         expect(items[9]).toEqual({}); // "Need help?"
@@ -270,14 +270,19 @@ describe('repeated components', { timeout: 30_000 }, () => {
         const { columns } = inferFields(rows);
         const items = rows.map(r => readRow(r, columns));
         const col = (n: string) => columns.find(c => c.name === n)!.id;
-        const badges = ['Badge Tag', 'Save', 'Shipping', 'Delivery', 'Pickup Today'].map(col);
-        items.forEach(i => badges.forEach(b => expect(i[b] ?? '').not.toMatch(/; /)));
-        expect(items[0]).toMatchObject({ [col('Badge Tag')]: 'Reduced price', [col('Shipping')]: 'Free shipping, arrives in 3+ days' });
+        const kinds = ['Save', 'Shipping', 'Delivery', 'Pickup Today'].map(col);
+        items.forEach(i => kinds.forEach(b => expect(i[b] ?? '').not.toMatch(/; /)));
+        // The flag over the image and the "Sponsored" tag are badges: one list.
+        const badges = (i: Record<string, string>) => (i[col('Badges')] ?? '').split('; ');
+        expect(badges(items[0])).toContain('Reduced price');
+        expect(items[0]).toMatchObject({ [col('Shipping')]: 'Free shipping, arrives in 3+ days' });
+        expect(badges(items[4])).toContain('Overall pick');
         expect(items[4]).toMatchObject({
-            [col('Badge Tag')]: 'Overall pick', [col('Save')]: 'Save with', [col('Delivery')]: 'Delivery as soon as 13 mins',
+            [col('Save')]: 'Save with', [col('Delivery')]: 'Delivery as soon as 13 mins',
             [col('Shipping')]: 'Shipping, arrives today', [col('Pickup Today')]: 'Pickup today',
         });
-        expect(items[9]).toMatchObject({ [col('Badge Tag')]: "In 1K+ people's carts", [col('Save')]: 'Save with', [col('Delivery')]: 'Delivery as soon as 13 mins' });
+        expect(badges(items[9])).toContain("In 1K+ people's carts");
+        expect(items[9]).toMatchObject({ [col('Save')]: 'Save with', [col('Delivery')]: 'Delivery as soon as 13 mins' });
         expect(items[9][col('Shipping')]).toBeUndefined();
     });
 });
@@ -352,8 +357,9 @@ describe('Amazon category results (amazon.com/s?i=specialty-aps&bbn=16225005011,
         const { columns, items, values } = load();
         const all = items.flatMap(i => Object.values(i));
         for (const junk of ['See options', 'Add to cart', 'Price, product page']) expect(all).not.toContain(junk);
-        expect(columns.map(c => c.name)).toEqual(expect.arrayContaining(['Title', 'Rating', 'Reviews', 'Sales Volume', 'Price', 'Was Price', 'Delivery', 'Options']));
-        expect(values('Rating').every(v => /^\d\.\d$/.test(v))).toBe(true);
+        expect(columns.map(c => c.name)).toEqual(expect.arrayContaining(['Title', 'Rating', 'Review Count', 'Sales Volume', 'Price', 'Was Price', 'Delivery', 'Options']));
+        // Typed: "4.0 out of 5 stars" is 4.
+        expect(values('Rating').every(v => /^\d(\.\d)?$/.test(v))).toBe(true);
         expect(values('Delivery').every(v => /delivery/.test(v))).toBe(true);
         expect(columns.map(c => c.name).join()).not.toMatch(/Nowrap|Platinum|Column|Button/);
     });

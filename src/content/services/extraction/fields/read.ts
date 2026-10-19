@@ -3,6 +3,7 @@ import { alignToTemplate, collectAtoms, isAtomRoot, labelValue, readValue, Shape
 import { readJsonField } from '../structuredRows';
 import { kindOf } from './component';
 import { applyDerive } from './split';
+import { typedValue } from './parse';
 import { rowFitsGate } from './gate';
 import { tableHeaders } from './table';
 import { FIELD_SCHEMA_VERSION, FieldReader, query, ReaderColumn } from './types';
@@ -12,6 +13,10 @@ export function hasReaders(columns: unknown): columns is ReaderColumn[] {
 }
 
 function readField(row: Element, r: FieldReader): string | undefined {
+    if (r.all) {
+        const vs = [r, ...(r.alternates ?? [])].map(x => readPart(row, x, r.onlyShape)).filter((v): v is string => !!v);
+        return vs.length ? [...new Set(vs)].join('; ') : undefined;
+    }
     const main = readPart(row, r, r.onlyShape);
     if (main !== undefined || !r.alternates) return main;
     for (const alt of r.alternates) {
@@ -91,7 +96,7 @@ function readRowCached(row: Element, columns: ReaderColumn[]): Record<string, st
     for (const col of columns) {
         if (!col.reader) continue;
         const v = readField(row, col.reader);
-        if (v !== undefined && v !== '') out[col.id] = v;
+        if (v !== undefined && v !== '') out[col.id] = typedValue(v, col.type);
     }
     return out;
 }

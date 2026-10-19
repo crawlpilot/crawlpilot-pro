@@ -62,7 +62,8 @@ const MEANINGS: { label: string; before?: RegExp; after?: RegExp }[] = [
     { label: 'Was Price', before: /\b(was|list( price)?|regular|reg|original|msrp|rrp)$/ },
     { label: 'Typical Price', before: /\btypical$/ },
     { label: 'Savings', before: /\b(save|savings|you save)$/, after: /^off\b/ },
-    { label: 'Price', before: /\b(now|price|current price|sale|our price|from)$/ },
+    { label: 'From Price', before: /\b(from|starting at|as low as)$/ },
+    { label: 'Price', before: /\b(now|price|current price|sale|our price)$/ },
     { label: 'Stock', after: /^(in stock|left)\b/, before: /\bonly$/ },
     { label: 'Model', before: /\bmodel( ?#| number| no)?$/ },
     { label: 'SKU', before: /\b(sku|item ?#?)$/ },
@@ -84,6 +85,8 @@ function slotName(template: Token[], at: number, slots: number[], values: string
     const nums = values.map(v => Number(v.replace(/[^\d.]/g, ''))).filter(n => !Number.isNaN(n));
     if (nums.length && nums.every(n => n <= 5) && nums.some(n => !Number.isInteger(n))) return 'Rating';
     if (prev >= 0 && template[prev].kind === 'num' && nums.length && nums.every(Number.isInteger)) return 'Review Count';
+    // "from $199 – $390": the end of a range.
+    if (prev >= 0 && !before && /^[-–—]$|^to$/i.test(template[at - 1].text) && slotName(template, prev, slots, []) === 'From Price') return 'To Price';
     if (before) return title(before);
     return undefined;
 }

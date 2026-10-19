@@ -15,6 +15,7 @@
  *   3b split one value holding several → a field per part (template slots, label/value pairs)
  *   4 prune  drop boilerplate
  *   5 name   evidence-based names
+ *   6 meaning one column per meaning: precise readings kept, layouts joined, badges listed
  */
 import { collectAtoms, withAtomCache } from '../atoms';
 import type { StructuredSource } from '../structuredRows';
@@ -23,7 +24,8 @@ import { gateRows } from './gate';
 import { groupFields } from './group';
 import { collapseComponents } from './component';
 import { mergeFields } from './merge';
-import { columnType, nameFields } from './name';
+import { baseNames, columnType, uniqueNames } from './name';
+import { refineFields } from './meaning';
 import { pruneFields } from './prune';
 import { splitFields } from './split';
 import { tableFields } from './table';
@@ -55,6 +57,7 @@ function readerOf(f: Field): Omit<FieldReader, 'alternates'> {
         ...(f.many ? { many: true } : {}),
         ...(f.first ? { first: true } : {}),
         ...(f.derive ? { derive: f.derive } : {}),
+        ...(f.all ? { all: true } : {}),
     };
 }
 
@@ -82,8 +85,10 @@ function infer(sampled: Element[]): FieldInference {
     const n = rows.length;
 
     // 2–5.
-    const fields = pruneFields(splitFields(mergeFields(collapseComponents(groupFields(rows, rowsAtoms), rows))), n);
-    const names = nameFields(fields);
+    const pruned = pruneFields(splitFields(mergeFields(collapseComponents(groupFields(rows, rowsAtoms), rows))), n);
+    const refined = refineFields(pruned, baseNames(pruned), n);
+    const fields = refined.fields;
+    const names = uniqueNames(fields, refined.names);
 
     // Checks for the review step.
     fields.forEach((f, i) => {
@@ -103,7 +108,7 @@ function infer(sampled: Element[]): FieldInference {
         return {
             id,
             name,
-            type: columnType(f),
+            type: columnType(f, refined.names[fields.indexOf(f)]),
             order,
             selector: f.selector,
             reader: {

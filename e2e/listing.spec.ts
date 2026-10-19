@@ -56,7 +56,7 @@ interface Score {
     matched: number;
     columns: number;
     unmatchedColumns: number;
-    fields: Record<string, { truth: number; found: number; exact: number; column?: string }>;
+    fields: Record<string, { truth: number; found: number; exact: number; column?: string; misses: string[] }>;
 }
 
 function score(truth: TruthRow[], rows: Record<string, unknown>[], columns: { id: string; name: string }[], picked: number): Score {
@@ -80,7 +80,9 @@ function score(truth: TruthRow[], rows: Record<string, unknown>[], columns: { id
             if (exact > best.exact || (exact === best.exact && found > best.found)) best = { column: c.name, found, exact };
         }
         if (best.column) usedColumns.add(best.column);
-        fields[field] = { truth: withTruth.length, found: best.found, exact: best.exact, column: best.column };
+        const col = columns.find(c => c.name === best.column);
+        const misses = col ? withTruth.filter(([t, r]) => !matches(field, r[col.id], t[field]!, 'exact')).slice(0, 3).map(([t, r]) => `${t[field]} ≠ ${JSON.stringify(r[col.id] ?? null)}`) : [];
+        fields[field] = { truth: withTruth.length, found: best.found, exact: best.exact, column: best.column, misses };
     }
     return {
         products: truth.length, picked, matched: pairs.length,
@@ -115,6 +117,15 @@ for (const listing of LISTINGS) {
             ...Object.entries(s.fields).map(([f, v]) => `  ${f.padEnd(13)} found ${String(pct(v.found, v.truth)).padStart(3)}%  exact ${String(pct(v.exact, v.truth)).padStart(3)}%  of ${v.truth}  (${v.column ?? 'no column'})`),
         ];
         console.log(lines.join('\n'));
+        // SHOW_COLUMNS=1: every column with the values of the first rows, to see what a pick made.
+        if (process.env.SHOW_COLUMNS) {
+            Object.entries(s.fields).forEach(([f, v]) => { if (v.misses.length) console.log(`  ✗ ${f}: ${v.misses.join(' · ')}`); });
+            console.log(columns.map(c => {
+                const filled = rows.map(r => r[c.id]).filter(v => v !== undefined && v !== '');
+                const sample = [...new Set(filled.map(v => JSON.stringify(v).slice(0, 60)))].slice(0, 3);
+                return `  · ${c.name} [${filled.length}/${rows.length}] ${(c as { selector?: string }).selector ?? ''}\n      ${sample.join(' | ')}`;
+            }).join('\n'));
+        }
         await page.close();
     });
 }

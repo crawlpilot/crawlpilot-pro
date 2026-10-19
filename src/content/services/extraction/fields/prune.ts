@@ -65,13 +65,17 @@ function isBoilerplate(f: Field, n: number): boolean {
         const w = img.naturalWidth || Number(img.getAttribute('width')) || 0;
         const h = img.naturalHeight || Number(img.getAttribute('height')) || 0;
         if ((w > 0 && w < 32) || (h > 0 && h < 32)) return true;
+        // Drawn small (a badge or icon next to the title), whatever the file's size.
+        if (!f.many && f.atoms.every(a => { const r = a.el.getBoundingClientRect(); return r.width > 0 && r.width <= 48 && r.height <= 48; })) return true;
     }
     return false;
 }
 
 /** The fields worth a column, out of `n` item rows. */
 export function pruneFields(fields: Field[], n: number): Field[] {
-    const kept = fields.filter(f => !isBoilerplate(f, n));
+    // Cards still loading (placeholders) have no text: "every card" means every card with text.
+    const filled = Math.max(0, ...fields.filter(f => TEXTUAL.has(f.attr)).map(f => f.values.size));
+    const kept = fields.filter(f => !isBoilerplate(f, Math.min(n, Math.max(filled, 3))));
     dropComposites(kept);
     return kept;
 }

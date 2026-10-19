@@ -41,6 +41,8 @@ export interface FieldReader {
     derive?: Derive;
     /** Readers tried in order when this one finds nothing (fields the user joined into this one). */
     alternates?: Omit<FieldReader, 'alternates'>[];
+    /** A list read from every place: this reader and each alternate, their values joined (badges). */
+    all?: boolean;
 }
 
 /**
@@ -88,6 +90,8 @@ export interface Field {
     alts?: Field[];
     /** A part of the element's value (`fields/split.ts`). */
     derive?: Derive;
+    /** A list read from this field and every alt (`fields/meaning.ts`). */
+    all?: boolean;
 }
 
 export const TEXTUAL = new Set<AtomAttr>(['text', 'own', 'aria-label', 'title']);

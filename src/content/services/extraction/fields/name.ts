@@ -2,6 +2,7 @@
 import type { ColumnType } from '../../../../shared/types/database';
 import { nodeStep } from '../nodeName';
 import { AUTHOR_ATTRIBUTES } from '../../../../shared/selectors/stability';
+import { meaningOf, typeOfMeaning } from './meaning';
 import { Field, norm } from './types';
 
 /** Words that describe layout, state or a framework, never what a value is. */
@@ -12,7 +13,7 @@ const NOISE_WORDS = new Set(['text', 'label', 'value', 'wrapper', 'wrap', 'conta
     'size', 'widget', 'grid', 'list', 'group', 'line', 'clamp', 'truncate', 'color', 'style', 'theme', 'variant', 'primary', 'secondary',
     'small', 'large', 'medium', 'mini', 'micro', 'default', 'heading', 'title', 'none', 'show', 'visible', 'display', 'layout', 'puis',
     'puisg', 'csa', 'sg', 'aok', 'js', 'ui', 'mod', 'cmp', 'comp', 'internal', 'external', 'holder', 'area', 'region', 'nowrap', 'wrapper',
-    'background', 'platinum', 'align', 'children', 'center', 'column', 'columns', 'flex', 'inline', 'cut']);
+    'background', 'platinum', 'align', 'children', 'center', 'column', 'columns', 'flex', 'inline', 'cut', 'attribute', 'attr', 'pod', 'hidden', 'shown', 'active', 'selected', 'dynamic']);
 /** Short words that do name a value. */
 const SHORT_WORDS = new Set(['sku', 'age', 'url', 'tag', 'fee', 'tax', 'qty', 'new', 'id', 'isbn', 'upc', 'ean', 'mpn', 'brand', 'size']);
 /** Struck-through price classes, as whole class words (`font-bold` is not "old"). */
@@ -20,6 +21,7 @@ const STRIKE_CLASS = /(^|[\s_-])(strike|strikethrough|line-?through|was|was-?pri
 const UNIT_PRICE = /\/\s*(oz|fl\s?oz|lb|kg|g|ml|l|ct|count|each|unit|item|100\s?g|sq\s?ft)\b|\bper\s+\w+/i;
 const REVIEW_WORDS = /reviews?|ratings?/i;
 const SALES_WORDS = /\b(bought|sold|purchased|orders?)\b/i;
+const LIMIT_WORDS = /\blimit(ed)?\b.*\bper\b|\bmax(imum)?\b.*\bper\b/i;
 const DELIVERY_WORDS = /\b(deliver(y|ed|s)?|shipping|ships|arrives)\b/i;
 const BRACKET_COUNT = /^\(?[\d.,]+\s*[kKmM]?\+?\)?$/;
 const WAS_LABEL = /^(was|list|list price|reg(ular)?|orig(inal)?|compare at|before|msrp|rrp)\s*(price)?\s*:?$/i;
@@ -60,7 +62,7 @@ function anchorName(f: Field): string {
         if (!v) continue;
         if (/(^|[-_\s.]|[a-z])title$/i.test(v)) return 'Title';
         const t = tidyLabel(v);
-        if (t) return t;
+        if (t) return meaningOf(t, f.shape) ?? t;
     }
     return '';
 }
@@ -69,7 +71,7 @@ function anchorName(f: Field): string {
 function className(f: Field): string {
     for (const el of [...f.atoms[0].path].reverse().slice(0, 2)) {
         const t = tidyLabel(nodeStep(el).label);
-        if (t) return t;
+        if (t) return meaningOf(t, f.shape) ?? t;
     }
     return '';
 }
@@ -131,11 +133,13 @@ function baseName(f: Field, all: Field[]): string {
             return 'Price';
         case 'rating': return 'Rating';
         case 'count':
+            if (sample.some(v => LIMIT_WORDS.test(v))) return 'Purchase Limit';
             if (sample.some(v => SALES_WORDS.test(v))) return 'Sales Volume';
-            if (sample.some(v => REVIEW_WORDS.test(v)) || sample.every(v => BRACKET_COUNT.test(v.trim()))) return 'Reviews';
+            if (sample.some(v => REVIEW_WORDS.test(v)) || sample.every(v => BRACKET_COUNT.test(v.trim()))) return 'Review Count';
             return anchor || className(f) || 'Count';
         case 'date': return 'Date';
     }
+    if (sample.some(v => LIMIT_WORDS.test(v)) && sample.every(v => v.length < 60)) return 'Purchase Limit';
     if (sample.some(v => SALES_WORDS.test(v)) && sample.every(v => v.length < 60)) return 'Sales Volume';
     if (!f.many && sample.length > 0 && sample.every(v => DELIVERY_WORDS.test(v) && v.length < 80)) return 'Delivery';
     if (anchor) return anchor;
@@ -155,22 +159,39 @@ function baseName(f: Field, all: Field[]): string {
     return f.many ? 'Details' : 'Text';
 }
 
-export function columnType(f: Field): ColumnType {
+/** The column type: a list, an image or a link by what is read, else by the field's meaning, else by its values. */
+export function columnType(f: Field, name = ''): ColumnType {
     if (f.attr === 'src') return f.many ? 'image_array' : 'image';
     if (f.attr === 'href') return f.many ? 'link_array' : 'url';
+    if (f.all || f.many) return 'text_array';
+    const typed = typeOfMeaning(name);
+    if (typed) return typed;
     switch (f.shape) {
         case 'price': return 'price';
         case 'rating': case 'count': case 'number': return 'number';
         case 'date': return 'date';
-        default: return f.many ? 'text_array' : 'text';
+        default: return 'text';
     }
 }
 
-/** A unique name per field, in the fields' order (best first). */
-export function nameFields(fields: Field[]): string[] {
+/** Each field's name from evidence; several fields may share one (`refineFields` joins or tells them apart). */
+export function baseNames(fields: Field[]): string[] {
+    const names = fields.map(f => baseName(f, fields));
+    // One title: the card's main text, the most filled and then longest of the fields named so.
+    const titles = fields.map((f, i) => ({ f, i })).filter(x => names[x.i] === 'Title');
+    if (titles.length > 1) {
+        const avg = (f: Field) => [...f.values.values()].reduce((n, v) => n + v.length, 0) / Math.max(1, f.values.size);
+        const best = titles.sort((a, b) => b.f.values.size - a.f.values.size || avg(b.f) - avg(a.f))[0];
+        titles.forEach(x => { if (x !== best) names[x.i] = 'Text'; });
+    }
+    return names;
+}
+
+/** A unique name per field, in the fields' order (best first): the first keeps the plain name. */
+export function uniqueNames(fields: Field[], bases: string[]): string[] {
     const used = new Set<string>();
-    return fields.map(f => {
-        let name = baseName(f, fields);
+    return fields.map((f, k) => {
+        let name = bases[k];
         if (used.has(name)) {
             const hint = className(f);
             if (hint && hint !== name && !used.has(`${name} (${hint})`)) name = `${name} (${hint})`;

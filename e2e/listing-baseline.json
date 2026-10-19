@@ -17,17 +17,17 @@
     "title.found": 100,
     "title.exact": 100,
     "url.found": 100,
-    "url.exact": 87,
+    "url.exact": 100,
     "id.found": 100,
     "id.exact": 100,
-    "price.found": 38,
-    "price.exact": 38,
+    "price.found": 100,
+    "price.exact": 100,
     "rating.found": 100,
     "rating.exact": 100,
     "review_count.found": 100,
     "review_count.exact": 100,
-    "was_price.found": 91,
-    "was_price.exact": 91
+    "was_price.found": 100,
+    "was_price.exact": 100
   },
   "amazon-search": {
     "matched": 100,

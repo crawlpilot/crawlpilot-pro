@@ -13,6 +13,7 @@ import { elementChain } from '../../content/services/selectors/element';
 import { keepItems } from '../../content/services/extraction/items';
 import { inferFields, readRow } from '../../content/services/extraction/fields';
 import { readValue } from '../../content/services/extraction/atoms';
+import { typedValue } from '../../content/services/extraction/fields/parse';
 import { gradeSelector } from '../../shared/selectors/grade';
 import { looksLikeXPath } from '../../shared/selectors/resolve';
 import { chainOf } from '../../shared/recipes/spec';
@@ -82,7 +83,8 @@ function measureList(t: PageTargets['list']) {
         const withValue = expected.filter(Boolean).length;
         let best: { column: string; selector: string; matched: number } | null = null;
         for (const col of columns) {
-            const matched = rows.filter((row, i) => expected[i] && norm(row[col.id]) === expected[i]).length;
+            // A typed column writes the value typed ("Now $519.99" as "$519.99").
+            const matched = rows.filter((row, i) => expected[i] && norm(row[col.id]) === norm(typedValue(expected[i], col.type))).length;
             if (matched > 0 && (!best || matched > best.matched)) {
                 best = { column: col.name, selector: col.reader?.chain[0] ?? '', matched };
             }

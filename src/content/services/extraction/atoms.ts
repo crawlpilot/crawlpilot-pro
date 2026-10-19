@@ -56,8 +56,9 @@ function meaningful(text: string): boolean {
     return text.length > 1 || /[\p{L}\d]/u.test(text);
 }
 
+/** Whitespace collapsed; zero-width characters and soft hyphens (line-break hints inside words, "300-\u200BPiece") dropped. */
 function collapse(s: string): string {
-    return s.replace(/\s+/g, ' ').trim();
+    return s.replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 /** Own text nodes only (a block that has text and block children). */
@@ -84,7 +85,8 @@ export function atomText(el: Element): string {
             // Cents in their own element after the whole number: `$24<sup>99</sup>`, `<span>519</span><span>99</span>`.
             if (e.tagName === 'SUP' || (e.tagName === 'SPAN' && e.previousElementSibling && /\d$/.test(e.previousElementSibling.textContent || ''))) {
                 const cents = (e.textContent || '').trim();
-                if (/^\d{2}$/.test(cents) && /\d$/.test(out.trimEnd()) && !/[.,]\d*$/.test(out.trimEnd())) {
+                // "$1,399" then "00": the comma groups thousands, the amount has no decimals yet.
+                if (/^\d{2}$/.test(cents) && /\d$/.test(out.trimEnd()) && !/\.\d*$|,\d{1,2}$/.test(out.trimEnd())) {
                     out = out.trimEnd() + '.' + cents;
                     return;
                 }
@@ -112,10 +114,35 @@ function absoluteUrl(raw: string | null): string {
     if (base !== resolvedBase || resolved.size > 5000) { resolved.clear(); resolvedBase = base; }
     let out = resolved.get(v);
     if (out === undefined) {
-        try { out = new URL(v, base).href; } catch { out = ''; }
+        try { out = unwrapRedirect(new URL(v, base)).href; } catch { out = ''; }
         resolved.set(v, out);
     }
     return out;
+}
+
+/** Query parameters that carry a click tracker's destination. */
+const REDIRECT_PARAM = /^(rd|u|url|redirect|redirect_?ur[il]|dest|destination|target|target_?url|goto|to)$/i;
+
+/**
+ * A sponsored link goes through a click tracker that carries the real destination in a parameter
+ * (`/sp/track?…&rd=https%3A%2F%2Fsite%2Fip%2F…`, `/sspa/click?…&url=%2Fitem%2Fdp%2F…`): the
+ * destination, when it is on the same site (a tracker never sends a listing's items elsewhere).
+ */
+function unwrapRedirect(url: URL): URL {
+    for (const [name, value] of url.searchParams) {
+        if (!REDIRECT_PARAM.test(name) || !/^(https?:\/\/|\/[^/])/i.test(value)) continue;
+        try {
+            const target = new URL(value, url.origin);
+            if (sameSite(target.hostname, url.hostname) && target.pathname.length > 1) return target;
+        } catch { /* not a URL */ }
+    }
+    return url;
+}
+
+/** The same registrable domain, roughly: the last two labels ("www.walmart.com" and "walmart.com"). */
+function sameSite(a: string, b: string): boolean {
+    const tail = (h: string) => h.split('.').slice(-2).join('.');
+    return tail(a) === tail(b);
 }
 
 /** The largest candidate of a `srcset` (by width or density descriptor). */
