@@ -12,6 +12,7 @@ import type enUtilities from '../i18n/locales/en/utilities.json';
 import type enWelcome from '../i18n/locales/en/welcome.json';
 import type enMetadataExtractor from '../i18n/locales/en/metadataExtractor.json';
 import type enDataTable from '../i18n/locales/en/dataTable.json';
+import type enTables from '../i18n/locales/en/tables.json';
 
 declare module 'i18next' {
   interface CustomTypeOptions {
@@ -29,6 +30,7 @@ declare module 'i18next' {
       welcome: typeof enWelcome;
       metadataExtractor: typeof enMetadataExtractor;
       dataTable: typeof enDataTable;
+      tables: typeof enTables;
     };
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { HighlightSender } from '../../../../shared/messages';
 import { PickerControls } from '../../shared/PickerControls';
-import { ArrowRight, Image as ImageIcon, Link2, List, MousePointerClick, Pencil, Sparkles, Type, X, Zap } from 'lucide-react';
+import { ArrowRight, Crosshair, Image as ImageIcon, Link2, List, MousePointerClick, Pencil, Sparkles, Type, X, Zap } from 'lucide-react';
 import AiSchemaDialog from '../AiSchemaDialog';
 import { Button, Card, CardButton, Chip, Dialog, Heading, IconButton, Select, Spinner, Stack, Text, TextArea, TextField } from '../../../ui';
 
@@ -14,6 +14,12 @@ interface Step2SchemaProps {
     handleClearAllElements: () => void;
     handleChangeElementType: (id: string, newType: string) => void;
     handleEditElement: (el: any) => void;
+    /** Opens the picker on the field to make it wider or narrower (plan L6). */
+    handleAdjustElement?: (el: any) => void;
+    /** Picks the field again, in place (it isn't on the page any more). */
+    handleRepickElement?: (el: any) => void;
+    /** A field Adjust couldn't find on the page. */
+    missingField?: { id: string; error: string } | null;
     showEditModal: boolean;
     setShowEditModal: (show: boolean) => void;
     pendingElement: any;
@@ -39,6 +45,9 @@ export function Step2Schema({
     handleClearAllElements,
     handleChangeElementType,
     handleEditElement,
+    handleAdjustElement,
+    handleRepickElement,
+    missingField,
     showEditModal,
     setShowEditModal,
     pendingElement,
@@ -129,10 +138,17 @@ export function Step2Schema({
                                     </div>
                                 </div>
                                 <div className="flex shrink-0 items-center">
+                                    {handleAdjustElement && <IconButton size="sm" label="Adjust on the page (wider or narrower)" onClick={() => handleAdjustElement(el)} disabled={selectionStatus === 'selecting'}><Crosshair /></IconButton>}
                                     <IconButton size="sm" label="Edit" onClick={() => handleEditElement(el)}><Pencil /></IconButton>
                                     <IconButton size="sm" label="Remove" className="hover:text-danger" onClick={() => handleDeleteElement(el.id)}><X /></IconButton>
                                 </div>
                             </div>
+                            {missingField?.id === el.id && (
+                                <div className="mt-2 flex items-center justify-between gap-2 rounded-field bg-danger-soft px-2.5 py-1.5">
+                                    <Text size="caption">{missingField?.error}</Text>
+                                    {handleRepickElement && <Button size="sm" variant="ghost" onClick={() => handleRepickElement(el)}>Pick again</Button>}
+                                </div>
+                            )}
                             {el.action === 'extract' && (
                                 <Select size="sm" className="mt-2" aria-label="Type" value={el.type || 'text'} onChange={v => handleChangeElementType(el.id, v)}
                                     options={[

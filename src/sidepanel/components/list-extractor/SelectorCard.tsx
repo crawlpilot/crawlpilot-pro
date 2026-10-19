@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Edit, Eye, Trash2, Database } from 'lucide-react';
+import { CheckCircle2, Crosshair, Edit, Eye, Trash2, Database } from 'lucide-react';
 import type { ListPick } from '../../../shared/types/extraction';
 import { SelectorEditDialog } from '../shared/SelectorEditDialog';
 import { FieldEditor } from './FieldEditor';
@@ -25,9 +25,11 @@ interface SelectorCardProps {
     onUpdate: (id: string, updates: Partial<ListPick>) => void;
     onRemove: (id: string) => void;
     onTest: (selector: string) => void;
+    /** Opens the picker on this list to choose a wider / narrower section, or cards or rows (plan L6). */
+    onAdjust?: () => void;
 }
 
-export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorCardProps) {
+export function SelectorCard({ selector, onUpdate, onRemove, onTest, onAdjust }: SelectorCardProps) {
     const [editMode, setEditMode] = useState<'container' | 'items' | null>(null);
 
     const openPreview = async () => {
@@ -58,6 +60,7 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
                 <Row gap={0.5} className="-mr-1.5 shrink-0">
                     <IconButton size="sm" label="Preview sample data" onClick={openPreview}><Database /></IconButton>
                     <IconButton size="sm" label="Highlight on page" onClick={() => onTest(selector.container[0] ?? '')}><Eye /></IconButton>
+                    {onAdjust && selector.patternFound && <IconButton size="sm" label="Adjust on the page (another section, cards or rows)" onClick={onAdjust}><Crosshair /></IconButton>}
                     <IconButton size="sm" label="Remove" variant="danger" className="border-0" onClick={() => onRemove(selector.id)}><Trash2 /></IconButton>
                 </Row>
             </Row>

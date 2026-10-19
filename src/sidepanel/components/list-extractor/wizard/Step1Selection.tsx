@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { MousePointer2, Plus } from 'lucide-react';
-import { Button, Card, Heading, Row, Stack, Text } from '../../../ui';
+import { Button, Card, Heading, Notice, Row, Stack, Text } from '../../../ui';
 import { useTranslation } from 'react-i18next';
 import { SelectorCard } from '../SelectorCard';
 import { ListPick } from '../../../../shared/types/extraction';
@@ -14,6 +14,10 @@ interface Step1SelectionProps {
     selectingFor: string | null;
     onStartSelection: () => void;
     onRemoveSelector: (id: string) => void;
+    /** Opens the picker on a picked list to adjust it (plan L6). */
+    onAdjustSelector?: (id: string) => void;
+    /** Adjust couldn't find the list on the page. */
+    adjustError?: string | null;
     onUpdateSelector: (id: string, updates: Partial<ListPick>) => void;
     onTestSelector: (selector: string) => void;
     onNext: () => void;
@@ -28,6 +32,8 @@ export function Step1Selection({
     selectingFor,
     onStartSelection,
     onRemoveSelector,
+    onAdjustSelector,
+    adjustError,
     onUpdateSelector,
     onTestSelector,
     onNext,
@@ -77,11 +83,13 @@ export function Step1Selection({
                     </Row>
 
                     <Stack gap={3}>
+                        {adjustError && <Notice tone="warning">{adjustError}</Notice>}
                         {selectors.map((selector) => (
                             <SelectorCard
                                 key={selector.id}
                                 selector={selector}
                                 onRemove={() => onRemoveSelector(selector.id)}
+                                onAdjust={onAdjustSelector && selectionStatus !== 'selecting' ? () => onAdjustSelector(selector.id) : undefined}
                                 onUpdate={onUpdateSelector}
                                 onTest={onTestSelector}
                             />

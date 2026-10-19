@@ -7,8 +7,8 @@ export function useSelectionMode() {
     const [selectingFor, setSelectingFor] = useState<'list' | 'nextButton' | 'detail'>('list');
     const [error, setError] = useState<string | null>(null);
 
-    /** `adjust`: open on a picked field or list instead of a fresh pick (plan L6). */
-    const startSelection = useCallback(async (mode: 'list' | 'nextButton' | 'detail', action: 'extract' | 'click' = 'extract', adjust?: PickerAdjust) => {
+    /** `adjust`: open on a picked field or list instead of a fresh pick (plan L6). False: it didn't start (`error` says why). */
+    const startSelection = useCallback(async (mode: 'list' | 'nextButton' | 'detail', action: 'extract' | 'click' = 'extract', adjust?: PickerAdjust): Promise<boolean> => {
         setStatus('selecting');
         setSelectingFor(mode);
         setError(null);
@@ -30,9 +30,11 @@ export function useSelectionMode() {
                 throw new Error('Selection tool is not active on this page. Please try refreshing the page or try a different website.');
             }
             if (res && !res.success) throw new Error(res.error);
+            return true;
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to start selection');
             setStatus('idle');
+            return false;
         }
     }, []);
 

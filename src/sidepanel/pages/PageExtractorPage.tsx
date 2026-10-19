@@ -75,7 +75,10 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
         };
     }, []);
 
-    const { startSelection, stopSelection, status: selectionStatus, setStatus: setSelectionStatus } = useSelectionMode();
+    const { startSelection, stopSelection, status: selectionStatus, setStatus: setSelectionStatus, error: selectionError } = useSelectionMode();
+    /** The field being adjusted (plan L6): the next pick replaces it in place. */
+    const adjustingRef = useRef<string | null>(null);
+    const [missingField, setMissingField] = useState<string | null>(null);
     const [elements, setElements] = useState<any[]>([]);
 
     // UI State for editing
@@ -204,14 +207,30 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
                     setExtractionViewport({ width: message.payload.viewportWidth, height: message.payload.viewportHeight });
                 }
 
-                setElements(prev => [...prev, newElement]);
+                const adjusting = adjustingRef.current;
+                adjustingRef.current = null;
                 setSelectionStatus('idle'); // Picker auto-deactivates
+                if (adjusting) {
+                    // Adjusted: the field keeps its id, name, place and action; what it reads is the new pick.
+                    setElements(prev => {
+                        const updated = prev.map(el => el.id !== adjusting ? el : {
+                            id: el.id, name: el.name, action: el.action,
+                            selectors: newElement.selectors, type: newElement.type, value: newElement.value,
+                            ...(newElement.fields ? { fields: newElement.fields } : {}),
+                            ...(newElement.data ? { data: newElement.data } : {}),
+                        });
+                        sendHighlightMessage('SHOW_SELECTION_HIGHLIGHTS', { elements: updated });
+                        return updated;
+                    });
+                    return;
+                }
+                setElements(prev => [...prev, newElement]);
 
                 // Show persistent highlight for the newly selected element
                 sendHighlightMessage('ADD_SELECTION_HIGHLIGHT', { element: newElement });
             }
         });
-        const offCancelled = on('PICKER_CANCELLED', () => setSelectionStatus('idle'));
+        const offCancelled = on('PICKER_CANCELLED', () => { adjustingRef.current = null; setSelectionStatus('idle'); });
 
         // Handle ESC key cancellation from the side panel
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -227,6 +246,21 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
             document.removeEventListener('keydown', handleKeyDown);
         };
     }, [setSelectionStatus, setElements, stopSelection]);
+
+    /** Opens the picker on a picked field to make it wider or narrower (plan L6). */
+    const handleAdjustElement = async (el: any) => {
+        setMissingField(null);
+        adjustingRef.current = el.id;
+        const started = await startSelection('detail', el.action, { chain: el.selectors ?? [], type: el.type });
+        if (!started) { adjustingRef.current = null; setMissingField(el.id); }
+    };
+
+    /** A field no longer on the page: a fresh pick replaces it in place. */
+    const handleRepickElement = (el: any) => {
+        setMissingField(null);
+        adjustingRef.current = el.id;
+        void startSelection('detail', el.action);
+    };
 
     const handleEditElement = (el: any) => {
         setPendingElement({
@@ -362,6 +396,9 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
                         handleClearAllElements={handleClearAllElements}
                         handleChangeElementType={handleChangeElementType}
                         handleEditElement={handleEditElement}
+                        handleAdjustElement={handleAdjustElement}
+                        handleRepickElement={handleRepickElement}
+                        missingField={missingField ? { id: missingField, error: selectionError ?? 'Not found on this page.' } : null}
                         showEditModal={showEditModal}
                         setShowEditModal={setShowEditModal}
                         pendingElement={pendingElement}

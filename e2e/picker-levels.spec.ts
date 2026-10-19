@@ -178,3 +178,52 @@ test('List Extractor: a grid laid out in rows is offered as its cards or its row
     expect(picked.count).toBe(n);
     await page.close();
 });
+
+test('Adjust: the picker opens locked on a picked field, read as it was saved; wider, and the new pick comes back', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/picker-levels.html`);
+    await panel.clear();
+    const tabId = await panel.tabId(page.url());
+    const res = await panel.toTab(tabId, 'START_PICKER', { mode: 'detail', action: 'extract', adjust: { chain: ['#price'], type: 'text' } });
+    expect(res.success).toBe(true);
+    await outlined(page, '#price');
+    const bar = page.getByTestId('element-picker-bar');
+    await expect(bar).toContainText('Locked');
+    // Locked: the mouse moving over the page doesn't take the selection away.
+    await hover(page, '#elsewhere');
+    await outlined(page, '#price');
+    await page.keyboard.press('ArrowUp');
+    await outlined(page, '#block');
+    await page.keyboard.press('Enter');
+    const picked = await panel.next('ELEMENT_SELECTED');
+    expect(picked.value).toContain('$24.99');
+    expect(picked.value).toContain('$30.00');
+
+    // A field no longer on the page: the picker doesn't open, and says so.
+    const gone = await panel.toTab(tabId, 'START_PICKER', { mode: 'detail', action: 'extract', adjust: { chain: ['#no-such-field'] } });
+    expect(gone).toMatchObject({ success: false, error: expect.stringContaining('no longer on the page') });
+    await expect(page.getByTestId('element-picker-bar')).toHaveCount(0);
+    await page.close();
+});
+
+test('Adjust a picked list: opens on its section; ↓ takes one card\'s swatches instead', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/sections-nested.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.clear();
+    await panel.toTab(tabId, 'START_PICKER', { mode: 'list', action: 'extract' });
+    await hover(page, '#sw3 li:nth-child(2)');
+    await page.keyboard.press('Enter');
+    const grid = await panel.next('ELEMENT_SELECTED');
+    expect(grid.count).toBe(6);
+
+    await panel.clear();
+    expect((await panel.toTab(tabId, 'START_PICKER', { mode: 'list', action: 'extract', adjust: { chain: grid.container, items: grid.items } })).success).toBe(true);
+    await outlined(page, '#grid');
+    await expect(tooltip(page)).toContainText('· 6 items');
+    await page.keyboard.press('ArrowDown');
+    await outlined(page, '#sw1');
+    await page.keyboard.press('Enter');
+    expect((await panel.next('ELEMENT_SELECTED')).count).toBe(4);
+    await page.close();
+});

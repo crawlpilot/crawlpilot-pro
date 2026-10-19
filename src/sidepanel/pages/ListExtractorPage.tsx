@@ -70,6 +70,18 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
     const choosePaginationMode = (mode: PaginationMode) => { userSetPages.current = true; setPaginationMode(mode); };
     const chooseNext = (selectors: string[]) => { userSetPages.current = true; setNext(selectors); };
 
+    /** The list being adjusted (plan L6): the next pick replaces it in place. */
+    const adjustingRef = useRef<string | null>(null);
+    const [adjustError, setAdjustError] = useState<string | null>(null);
+    const adjustSelector = async (id: string) => {
+        const pick = selectors.find(s => s.id === id);
+        if (!pick) return;
+        setAdjustError(null);
+        adjustingRef.current = id;
+        const started = await startSelection('list', 'extract', { chain: pick.container, items: pick.items });
+        if (!started) { adjustingRef.current = null; setAdjustError('This list is no longer on the page: pick it again.'); }
+    };
+
     // 3. Message Listener (The Bridge)
     useEffect(() => {
         const offSelected = on('ELEMENT_SELECTED', (selected, sender) => {
@@ -84,8 +96,10 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                     setNext(payload.selectors ?? []);
                     setSelectionStatus('ready');
                 } else {
+                    const adjusting = adjustingRef.current;
+                    adjustingRef.current = null;
                     const pick: ListPick = {
-                        id: Date.now().toString(),
+                        id: adjusting ?? Date.now().toString(),
                         container: payload.container ?? [],
                         items: payload.items ?? [],
                         count: payload.count || 1,
@@ -95,11 +109,14 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                         label: payload.label,
                         kind: payload.kind,
                     };
-                    addSelector(pick);
+                    // Adjusted: the list keeps its place; its section, items and fields are the new pick.
+                    const others = adjusting ? selectors.map(s => s.id === adjusting ? pick : s) : [...selectors, pick];
+                    if (adjusting) updateSelector(adjusting, pick);
+                    else addSelector(pick);
                     setSelectionStatus('ready');
 
                     // The first list: find its Next or "Load more" control, so it can run in one click.
-                    if (selectors.length === 0 && tabId) {
+                    if (!adjusting && selectors.length === 0 && tabId) {
                         setPages(undefined);
                         sendToTab(tabId, 'FIND_NEXT')
                             .then(res => {
@@ -124,7 +141,7 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                                     || new URL(payload.data.source_url || window.location.href).hostname;
 
                                 // The preview covers every pick so far, the new one included.
-                                const previewData = consolidateSelectors([...selectors, pick], sourceTabInfo?.url);
+                                const previewData = consolidateSelectors(others, sourceTabInfo?.url);
 
                                 // Pass the existing previewTableId so we UPDATE the same record
                                 // instead of creating a new one each time the user picks elements.
@@ -146,6 +163,7 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
             }
         });
         const offCancelled = on('PICKER_CANCELLED', () => {
+            adjustingRef.current = null;
             if (selectors.length === 0 && selectingFor === 'list') setSelectionStatus('idle');
             else setSelectionStatus('ready');
         });
@@ -162,7 +180,7 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
             offCancelled();
             document.removeEventListener('keydown', handleKeyDown);
         };
-    }, [selectingFor, selectors, addSelector, setNext, setSelectionStatus, stopSelection]);
+    }, [selectingFor, selectors, addSelector, updateSelector, setNext, setSelectionStatus, stopSelection]);
 
     // Handlers
     const handleVerifySelector = async (selector: string) => {
@@ -193,6 +211,8 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                         selectingFor={selectingFor}
                         onStartSelection={() => startSelection('list')}
                         onRemoveSelector={removeSelector}
+                        onAdjustSelector={id => void adjustSelector(id)}
+                        adjustError={adjustError}
                         onUpdateSelector={updateSelector}
                         onTestSelector={handleVerifySelector}
                         onNext={() => setStep(2)}

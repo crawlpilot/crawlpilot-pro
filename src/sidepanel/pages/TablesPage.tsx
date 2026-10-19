@@ -91,6 +91,7 @@ export default function TablesPage({ onBack, onNavigate }: { onBack: () => void;
         setError(false);
         try {
             const reply = await sendToTab(tabId, 'TABLES_FIND');
+            if (!reply.success) throw new Error(reply.error);
             setTables(reply.tables);
         } catch {
             setError(true);
