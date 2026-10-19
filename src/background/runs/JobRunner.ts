@@ -327,7 +327,7 @@ export class JobRunner {
                 tabId = await tabPool.acquireTab(url, mode);
             }
             if (tabId === null) {
-                throw new Error(this.stopping ? 'Extraction stopped' : 'Could not open a tab (the content script may be blocked on this host)');
+                throw new Error(this.stopping ? 'Extraction stopped' : `Could not open the page: ${tabPool.lastFailure || 'unknown reason'}`);
             }
             status.tabId = tabId;
             tabPool.markExtracting(tabId);

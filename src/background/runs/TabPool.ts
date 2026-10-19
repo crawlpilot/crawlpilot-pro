@@ -51,6 +51,8 @@ export class TabPool {
     private onTabRemoved: ((tabId: number) => void) | null = null;
     private tabRemovedListener: ((tabId: number) => void) | null = null;
     shouldStop = false;
+    /** Why the last `acquireTab` returned null, in words a run can show ("the page did not answer: …"). */
+    lastFailure = '';
 
     constructor(
         maxSize: number = 3,
@@ -90,8 +92,9 @@ export class TabPool {
 
     /** Opens `url` in a hidden background tab, or (`window`) in a parked popup: see the header. */
     async acquireTab(url: string, mode: 'background' | 'window' = 'background'): Promise<number | null> {
+        this.lastFailure = '';
         if (this.tabs.size >= this.maxSize) {
-            console.warn(`[TabPool] Pool full (${this.tabs.size}/${this.maxSize}) — returning null for ${url}`);
+            this.lastFailure = `all ${this.maxSize} run tabs were busy`;
             return null;
         }
 
@@ -107,8 +110,14 @@ export class TabPool {
             return this._finishAcquire(tab.id, url, win.id, true);
         }
 
-        const tab = await chrome.tabs.create({ url, active: false });
-        if (!tab.id) return null;
+        let tab: chrome.tabs.Tab;
+        try {
+            tab = await chrome.tabs.create({ url, active: false });
+        } catch (e: any) {
+            this.lastFailure = `Chrome would not open a tab (${e?.message || e})`;
+            return null;
+        }
+        if (!tab.id) { this.lastFailure = 'Chrome opened a tab without an id'; return null; }
         // Chrome may discard a hidden tab under memory pressure: not while a run reads it.
         await chrome.tabs.update(tab.id, { autoDiscardable: false }).catch(() => undefined);
         console.log(`[TabPool] Created background tab ${tab.id} for ${url}`);
@@ -127,6 +136,8 @@ export class TabPool {
 
         const scriptReady = await this.ensureContentScript(tabId);
         if (!scriptReady) {
+            const t = await chrome.tabs.get(tabId).catch(() => undefined);
+            this.lastFailure = `the page did not answer CrawlPilot (${this.pingError || 'no reply'}; page ${t ? `${t.status}${t.discarded ? ', discarded' : ''}${t.url && !/^https?:/.test(t.url) ? `, at ${t.url}` : ''}` : 'closed'})`;
             console.error(`[TabPool] ❌ Content script not ready for tab ${tabId} (${url}) — discarding tab`);
             this.tabs.delete(tabId);
             try {
@@ -203,7 +214,11 @@ export class TabPool {
      * Verifies the content script is responsive via PING.
      * Falls back to programmatic injection if the manifest-declared script didn't inject.
      */
+    /** The last error a readiness check got (`ensureContentScript`), for `lastFailure`. */
+    private pingError = '';
+
     private async ensureContentScript(tabId: number): Promise<boolean> {
+        this.pingError = '';
         // No fixed pre-PING sleep — the manifest content script runs at document_idle,
         // which by the time waitForTabLoad() resolves (tab status 'complete') has almost
         // always already loaded. The retry loop below still backs off CONTENT_SCRIPT_PING_INTERVAL
@@ -240,6 +255,7 @@ export class TabPool {
                         await new Promise(r => setTimeout(r, CONTENT_SCRIPT_INIT_WAIT_FRESH));
                         continue;
                     } catch (injErr: any) {
+                        lastError = `injecting failed: ${injErr.message}`;
                         console.warn(`[TabPool] Programmatic injection failed on tab ${tabId}: ${injErr.message}`);
                     }
                 }
@@ -253,6 +269,7 @@ export class TabPool {
         }
 
         console.error(`[TabPool] ❌ Content script not responsive on tab ${tabId} after ${CONTENT_SCRIPT_PING_RETRIES} attempts. Last error: ${lastError ?? 'null response'}`);
+        this.pingError = lastError ?? '';
         return false;
     }
 

@@ -255,7 +255,10 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
             channel: 'chromium',
             headless: !process.env.HEADED,
             viewport: { width: 1280, height: 900 },
-            args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
+            // EXTRA_ARGS: more Chromium flags (`--window-position=-3000,-3000` keeps a HEADED run off screen).
+            args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`, ...(process.env.EXTRA_ARGS ? process.env.EXTRA_ARGS.split(' ') : [])],
+            // REAL_BACKGROUND=1 (with HEADED=1): background tabs hidden and throttled as in a user's Chrome.
+            ...(process.env.REAL_BACKGROUND ? { ignoreDefaultArgs: ['--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding'] } : {}),
         });
         // Corpus pages point at their real sites (`<base>`): images and fonts would load from the
         // internet. Tests stay offline: only the local server, the extension and inline data load.
