@@ -18,7 +18,7 @@ interface HighlightableElement {
     id: string;
     name: string;
     action: 'extract' | 'click';
-    selectors: { type: string; value: string }[];
+    selectors: string[];
 }
 
 export class SelectionHighlightManager {
@@ -171,7 +171,7 @@ export class SelectionHighlightManager {
     }
 
     /** The element a saved chain finds, the same way a run finds it. */
-    private resolveElement(selectors: { type: string; value: string }[]): HTMLElement | null {
+    private resolveElement(selectors: string[]): HTMLElement | null {
         return resolveOne(selectors).result as HTMLElement | null;
     }
 

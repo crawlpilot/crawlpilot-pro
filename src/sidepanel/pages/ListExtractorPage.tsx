@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSelectorManager } from '../hooks/useSelectorManager';
 import { useSelectionMode } from '../hooks/useSelectionMode';
 import { useExtractionProcess } from '../hooks/useExtractionProcess';
-import { PaginationMode, SelectorState } from '../../shared/types/extraction';
+import type { ListPick, PaginationMode } from '../../shared/types/extraction';
 import { db } from '../../shared/db';
 import { WizardLayout } from '../components/wizard/WizardLayout';
 import { Step1Selection } from '../components/list-extractor/wizard/Step1Selection';
@@ -23,12 +23,11 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
     // 1. Logic Hooks
     const {
         selectors,
-        nextButtonSelector,
-        nextButtonSelectors,
+        next,
+        setNext,
         addSelector,
         removeSelector,
-        updateSelector,
-        setNextButton
+        updateSelector
     } = useSelectorManager();
 
     const {
@@ -67,33 +66,26 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
     // 3. Message Listener (The Bridge)
     useEffect(() => {
         const offSelected = on('ELEMENT_SELECTED', (selected, sender) => {
-            const payload = selected as SelectorState;
+            const payload = selected;
             const tabId = sender.tab?.id;
 
             if (payload.success) {
                 const isNextButton = selectingFor === 'nextButton';
 
                 if (isNextButton) {
-                    setNextButton(
-                        payload.itemSelector || payload.containerSelector,
-                        payload.containerSelectors || payload.itemSelectors
-                    );
+                    setNext(payload.selectors ?? []);
                     setSelectionStatus('ready');
                 } else {
-                    addSelector({
+                    const pick: ListPick = {
                         id: Date.now().toString(),
-                        containerSelector: payload.containerSelector,
-                        containerSelectors: payload.containerSelectors,
-                        containerXPath: payload.containerXPath,
-                        itemSelector: payload.itemSelector,
-                        itemSelectors: payload.itemSelectors,
-                        itemXPath: payload.itemXPath,
+                        container: payload.container ?? [],
+                        items: payload.items ?? [],
                         count: payload.count || 1,
                         data: payload.data,
                         patternFound: payload.patternFound || false,
-                        selectionMode: 'list',
-                        sourceTabId: tabId // [NEW] Store tab ID
-                    });
+                        sourceTabId: tabId,
+                    };
+                    addSelector(pick);
                     setSelectionStatus('ready');
 
                     // Save preview data
@@ -107,22 +99,8 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                                     || (sourceTabInfo?.url ? new URL(sourceTabInfo.url).hostname : null)
                                     || new URL(payload.data.source_url || window.location.href).hostname;
 
-                                // Create a temporary list of all selectors including the new one to generate a complete preview
-                                const newSelector: SelectorState = {
-                                    id: Date.now().toString(),
-                                    containerSelector: payload.containerSelector,
-                                    containerSelectors: payload.containerSelectors,
-                                    containerXPath: payload.containerXPath,
-                                    itemSelector: payload.itemSelector,
-                                    itemSelectors: payload.itemSelectors,
-                                    itemXPath: payload.itemXPath,
-                                    count: payload.count || 1,
-                                    data: payload.data,
-                                    patternFound: payload.patternFound || false,
-                                    selectionMode: 'list'
-                                };
-
-                                const previewData = consolidateSelectors([...selectors, newSelector], sourceTabInfo?.url);
+                                // The preview covers every pick so far, the new one included.
+                                const previewData = consolidateSelectors([...selectors, pick], sourceTabInfo?.url);
 
                                 // Pass the existing previewTableId so we UPDATE the same record
                                 // instead of creating a new one each time the user picks elements.
@@ -169,7 +147,7 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
             offCancelled();
             document.removeEventListener('keydown', handleKeyDown);
         };
-    }, [selectingFor, selectors, addSelector, setNextButton, setSelectionStatus, stopSelection]);
+    }, [selectingFor, selectors, addSelector, setNext, setSelectionStatus, stopSelection]);
 
     // Handlers
     const handleVerifySelector = async (selector: string) => {
@@ -180,8 +158,7 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
     const handleStart = () => {
         startExtraction(selectors, {
             mode: paginationMode,
-            nextButtonSelector,
-            nextButtonSelectors,
+            next,
             speed,
             maxPages
         }, { tableId: previewTableId || undefined });
@@ -212,12 +189,11 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
                     <Step2Navigation
                         paginationMode={paginationMode}
                         setPaginationMode={setPaginationMode}
-                        nextButtonSelector={nextButtonSelector}
-                        nextButtonSelectors={nextButtonSelectors}
+                        next={next}
                         selectingFor={selectionStatus === 'selecting' && selectingFor === 'nextButton' ? 'nextButton' : null}
                         onStartSelection={() => startSelection('nextButton')}
-                        onRemoveNextButton={() => setNextButton(null)}
-                        onUpdateNextButton={setNextButton}
+                        onRemoveNextButton={() => setNext([])}
+                        onUpdateNextButton={setNext}
                         onTestSelector={handleVerifySelector}
                         onNext={() => setStep(3)}
                         onBack={() => setStep(1)}

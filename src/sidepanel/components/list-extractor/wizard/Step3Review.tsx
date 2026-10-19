@@ -1,4 +1,4 @@
-import { SelectorState, PaginationMode } from '../../../../shared/types/extraction';
+import { ListPick, PaginationMode } from '../../../../shared/types/extraction';
 import { Settings2, Play, ChevronDown, Gauge, RotateCcw } from 'lucide-react';
 import { ExtractionStatusBar } from '../ExtractionStatusBar';
 import { Box, Typography, Button, Paper, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemText, Divider, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent, Stack, TextField } from '@mui/material';
@@ -6,7 +6,7 @@ import { PaginationSpeed, PAGINATION_PROFILES } from '../../../../shared/constan
 
 interface Step3ReviewProps {
     paginationMode: PaginationMode;
-    selectors: SelectorState[];
+    selectors: ListPick[];
     onStart: () => void;
     onBack: () => void;
     isExtracting: boolean;

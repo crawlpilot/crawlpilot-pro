@@ -17,8 +17,8 @@ import {
     Tooltip
 } from '@mui/material';
 import { X, Plus, Check, Play, Trash2, GripVertical, Settings2 } from 'lucide-react';
-import { SelectorMetadata } from '../../../shared/types/extraction';
 import { looksLikeXPath } from '../../../shared/selectors/resolve';
+import { selectorFamily } from '../../../shared/selectors/grade';
 
 const StyledDialog = styled(Dialog)(() => ({
     '& .MuiDialog-paper': {
@@ -47,8 +47,9 @@ const SelectorItemRow = styled(Paper)(() => ({
 interface SelectorEditDialogProps {
     isOpen: boolean;
     title: string;
-    selectors: SelectorMetadata[];
-    onSave: (selectors: SelectorMetadata[]) => void;
+    /** The chain, best first. */
+    selectors: string[];
+    onSave: (selectors: string[]) => void;
     onCancel: () => void;
     onVerify: (selector: string) => void;
 }
@@ -57,7 +58,6 @@ interface SelectorItem {
     id: string;
     value: string;
     type: 'CSS' | 'XPath';
-    strategy?: string;
 }
 
 export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
@@ -72,16 +72,11 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
 
     useEffect(() => {
         if (isOpen) {
-            const items: SelectorItem[] = (initialSelectors && initialSelectors.length > 0 ? initialSelectors : [{ selector: '', strategy: '' }]).map((m, i) => {
-                const s = m.selector;
-                const isXPath = typeof s === 'string' && looksLikeXPath(s);
-                return {
-                    id: `sel-${Date.now()}-${i}`,
-                    value: s || '',
-                    type: isXPath ? 'XPath' : 'CSS',
-                    strategy: m.strategy
-                };
-            });
+            const items: SelectorItem[] = (initialSelectors.length > 0 ? initialSelectors : ['']).map((s, i) => ({
+                id: `sel-${Date.now()}-${i}`,
+                value: s,
+                type: looksLikeXPath(s) ? 'XPath' : 'CSS',
+            }));
             setSelectors(items);
         }
     }, [isOpen, initialSelectors]);
@@ -110,13 +105,7 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
     };
 
     const handleSave = () => {
-        const validSelectors = selectors
-            .filter(s => s.value.trim().length > 0)
-            .map(s => ({
-                selector: s.value.trim(),
-                strategy: s.strategy || 'Manual'
-            }));
-        onSave(validSelectors);
+        onSave(selectors.map(s => s.value.trim()).filter(Boolean));
     };
 
     return (
@@ -163,7 +152,7 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
                                     <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                         Selector {index + 1}
                                     </Typography>
-                                    {sel.strategy && (
+                                    {sel.value.trim() && (
                                         <Box sx={{
                                             px: 1,
                                             py: 0.25,
@@ -175,7 +164,7 @@ export const SelectorEditDialog: React.FC<SelectorEditDialogProps> = ({
                                             fontWeight: 800,
                                             textTransform: 'uppercase'
                                         }}>
-                                            {sel.strategy}
+                                            {selectorFamily(sel.value.trim())}
                                         </Box>
                                     )}
                                 </Box>

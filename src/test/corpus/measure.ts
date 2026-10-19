@@ -7,7 +7,7 @@
 import { readFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { resolve } from 'path';
-import { elementLocators, listLocators } from '../../content/services/selectors/specs';
+import { listLocators } from '../../content/services/selectors/list';
 import { nextButtonSelectors } from '../../content/services/selectors/nextButton';
 import { elementChain } from '../../content/services/selectors/element';
 import { keepItems } from '../../content/services/extraction/items';
@@ -106,7 +106,10 @@ function measureList(t: PageTargets['list']) {
 
 function measureElement(at: string) {
     const target = document.querySelector(at) as HTMLElement;
-    const { css, xpath } = elementLocators(target);
+    // What a Page Extractor pick stores: its chain; reported as its first CSS and first XPath entry.
+    const chain = elementChain(target).map(c => c.selector);
+    const css = chain.find(c => !looksLikeXPath(c)) ?? '';
+    const xpath = chain.find(c => looksLikeXPath(c)) ?? '';
     const entry = (selector: string) => {
         const matched = query(selector);
         return {

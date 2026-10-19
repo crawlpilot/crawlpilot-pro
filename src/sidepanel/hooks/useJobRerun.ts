@@ -105,9 +105,9 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
                     alert("Bulk re-run failed: " + err.message);
                 });
             } else if (spec.kind === 'list') {
-                const { selectors, pagination } = listRunInput(spec, options.maxPages);
+                const { picks, pagination } = listRunInput(spec, options.maxPages);
                 await startExtraction(
-                    selectors.map(s => ({ ...s, sourceTabId: finalActiveTab?.id })),
+                    picks.map(p => ({ ...p, sourceTabId: finalActiveTab?.id })),
                     pagination,
                     { customName: options.name, maxPages: options.maxPages }
                 );

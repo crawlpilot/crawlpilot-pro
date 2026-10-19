@@ -94,7 +94,8 @@ export interface VerifiedField {
     status: 'verified' | 'relocated' | 'not_on_page' | 'empty';
     /** Page Extractor element type. */
     type: 'text' | 'link' | 'image';
-    selectors: { type: 'css' | 'xpath'; value: string }[];
+    /** The field's chain, best first, as a Page Extractor element stores it. */
+    selectors: string[];
     matchCount: number;
     grade?: GradedSelector;
     /** The value the selector reads now (what bulk runs will get). */
@@ -146,13 +147,8 @@ export function verifyAndCompile(answers: { name: string; value: string; ref: st
             if (link) { target = link as HTMLElement; type = 'link'; }
         }
 
-        const chain = elementChain(target);
-        const css = chain.find(c => !looksLikeXPath(c.selector))?.selector;
-        const xpath = chain.find(c => looksLikeXPath(c.selector))?.selector;
-        const selectors: VerifiedField['selectors'] = [];
-        if (css) selectors.push({ type: 'css', value: css });
-        if (xpath) selectors.push({ type: 'xpath', value: xpath });
-        const primary = css || xpath;
+        const selectors = elementChain(target).map(c => c.selector);
+        const primary = selectors[0];
         const matchCount = primary ? count(primary) : 0;
         const preview = type === 'image' ? (target as HTMLImageElement).src : type === 'link' ? (target as HTMLAnchorElement).href : (target.innerText || target.textContent || '').trim().slice(0, 200);
         return {

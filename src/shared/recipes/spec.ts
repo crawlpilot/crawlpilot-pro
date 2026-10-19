@@ -1,24 +1,26 @@
 /**
- * Recipe specs and the run inputs they come from and go back to. A run is started from the side
- * panel's picker state (list selectors, Page Extractor elements); what is stored is a typed spec with
- * plain selector chains (`shared/types/database.ts`). This module is the only place the two meet, and
- * the v6 migration reads saved v5 configs through it too.
+ * Recipe specs and the picks they are made from. The side panel holds list picks (`ListPick`) and
+ * Page Extractor elements with the same chains a recipe stores; a spec adds what a recipe keeps
+ * (fields, the mode) and leaves out what belongs to one run (previews, the page limit). The v6
+ * migration reads saved v5 configs (six selector fields, `{ type, value }` lists) here too, and only here.
  */
-import type { Chain, Column, ListSpec, PageSpec, RecipeSpec } from '../types/database';
-import type { PaginationConfig, SelectorState } from '../types/extraction';
+import type { Chain, Column, ListSpec, PageElement, PageSpec, RecipeSpec } from '../types/database';
+import type { ListPick, PaginationConfig } from '../types/extraction';
 import { hashString } from '../utils/hash';
-import { looksLikeXPath, normalizeChain } from '../selectors/resolve';
-import type { RawChainEntry } from '../selectors/types';
 import { isVolatileSelector } from '../selectors/stability';
 
 const MAX_CHAIN = 3;
 
+/** A chain entry as v5 saved it: a string, `{ selector, strategy }` or `{ type, value }`. */
+type V5Entry = string | { selector?: string } | { value?: string } | null | undefined;
+
 /**
- * A stored chain from any picker shape: strings, `{ selector }`, `{ type, value }`. Duplicates and
- * volatile entries (hash classes, positions) are dropped unless nothing else is left; at most three.
+ * A stored chain: duplicates and volatile entries (hash classes, positions) dropped unless nothing
+ * else is left; at most three. Also reads v5's entry shapes (migration).
  */
-export function chainOf(entries: (RawChainEntry | null | undefined)[] | null | undefined): Chain {
-    const values = [...new Set(normalizeChain(entries).map(e => e.value))];
+export function chainOf(entries: readonly V5Entry[] | null | undefined): Chain {
+    const strings = (entries ?? []).map(e => typeof e === 'string' ? e : e && 'selector' in e ? e.selector : e && 'value' in e ? e.value : undefined);
+    const values = [...new Set(strings.map(v => v?.trim()).filter((v): v is string => !!v))];
     const stable = values.filter(v => !isVolatileSelector(v));
     return (stable.length > 0 ? stable : values).slice(0, MAX_CHAIN);
 }
@@ -45,64 +47,43 @@ export function specHash(spec: RecipeSpec): string {
 
 // ---- Lists (List Extractor) ----
 
-export function listSpec(selectors: SelectorState[], pagination: PaginationConfig): ListSpec {
+export function listSpec(picks: ListPick[], pagination: PaginationConfig): ListSpec {
     return {
         kind: 'list',
-        lists: selectors.map(s => ({
-            id: s.id,
-            container: chainOf([...(s.containerSelectors ?? []), s.containerSelector, s.containerXPath]),
-            items: chainOf([...(s.itemSelectors ?? []), s.itemSelector, s.itemXPath]),
-            fields: (s.data?.columns ?? []) as Column[],
-            mode: s.patternFound === false ? 'single' : 'list',
+        lists: picks.map(p => ({
+            id: p.id,
+            container: chainOf(p.container),
+            items: chainOf(p.items),
+            fields: (p.data?.columns ?? []) as Column[],
+            mode: p.patternFound === false ? 'single' : 'list',
         })),
         pagination: {
             mode: pagination.mode,
-            ...(pagination.nextButtonSelector || pagination.nextButtonSelectors?.length
-                ? { next: chainOf([...(pagination.nextButtonSelectors ?? []), pagination.nextButtonSelector]) }
-                : {}),
+            ...(pagination.next.length > 0 ? { next: chainOf(pagination.next) } : {}),
             ...(pagination.speed ? { speed: pagination.speed } : {}),
         },
     };
 }
 
-/** The picker state a list run starts from, rebuilt from a stored spec (reruns). The page limit is the run's. */
-export function listRunInput(spec: ListSpec, maxPages?: number): { selectors: SelectorState[]; pagination: PaginationConfig } {
-    const meta = (chain: Chain) => chain.map(selector => ({ selector, strategy: looksLikeXPath(selector) ? 'xpath' : 'css' }));
-    const firstCss = (chain: Chain) => chain.find(s => !looksLikeXPath(s)) ?? chain[0] ?? '';
+/** The picks a list run starts from, rebuilt from a stored spec (reruns). The page limit is the run's. */
+export function listRunInput(spec: ListSpec, maxPages?: number): { picks: ListPick[]; pagination: PaginationConfig } {
     return {
-        selectors: spec.lists.map(l => ({
+        picks: spec.lists.map(l => ({
             id: l.id,
-            containerSelector: firstCss(l.container),
-            containerSelectors: meta(l.container),
-            itemSelector: firstCss(l.items),
-            itemSelectors: meta(l.items),
+            container: l.container,
+            items: l.items,
             data: { columns: l.fields, items: [] },
             patternFound: l.mode === 'list',
             count: 0,
-            selectionMode: 'list',
         })),
-        pagination: {
-            mode: spec.pagination.mode,
-            nextButtonSelector: spec.pagination.next?.[0] ?? null,
-            nextButtonSelectors: meta(spec.pagination.next ?? []),
-            maxPages,
-            speed: spec.pagination.speed,
-        },
+        pagination: { mode: spec.pagination.mode, next: spec.pagination.next ?? [], maxPages, speed: spec.pagination.speed },
     };
 }
 
 // ---- Pages (Page Extractor, bulk runs) ----
 
-/** A Page Extractor element as the side panel and the content script hold it. */
-export interface RunElement {
-    id: string;
-    name: string;
-    action: 'extract' | 'click';
-    type?: string;
-    selectors: { type: string; value: string }[];
-    fields?: unknown;
-    [key: string]: unknown;
-}
+/** A Page Extractor element as the side panel and the content script hold it: a `PageElement` plus its preview. */
+export type RunElement = PageElement & { value?: unknown; [key: string]: unknown };
 
 export function pageSpec(elements: RunElement[], settings: Record<string, unknown>): PageSpec {
     return {
@@ -120,17 +101,24 @@ export function pageSpec(elements: RunElement[], settings: Record<string, unknow
 }
 
 export function pageRunInput(spec: PageSpec): { elements: RunElement[]; settings: Record<string, unknown> } {
-    return {
-        elements: spec.elements.map(e => ({
-            id: e.id,
-            name: e.name,
-            action: e.action,
-            type: e.type,
-            selectors: e.selectors.map(value => ({ type: looksLikeXPath(value) ? 'xpath' : 'css', value })),
-            ...(e.fields ? { fields: e.fields } : {}),
-        })),
-        settings: spec.settings,
-    };
+    return { elements: spec.elements.map(e => ({ ...e })), settings: spec.settings };
+}
+
+/** v5 list picks: six selector fields and `{ selector, strategy }` lists. */
+function picksFromV5(fullSelectors: any[]): ListPick[] {
+    return fullSelectors.map(s => ({
+        id: s.id,
+        container: chainOf([...(s.containerSelectors ?? []), s.containerSelector, s.containerXPath]),
+        items: chainOf([...(s.itemSelectors ?? []), s.itemSelector, s.itemXPath]),
+        data: s.data,
+        patternFound: s.patternFound !== false,
+        count: s.count ?? 0,
+    }));
+}
+
+/** v5 Page Extractor elements: `selectors` as `{ type, value }`. */
+function elementsFromV5(elements: any[]): RunElement[] {
+    return elements.map(e => ({ ...e, selectors: chainOf(e.selectors) }));
 }
 
 // ---- v5 configs (migration) ----
@@ -140,12 +128,15 @@ export function specFromV5(config: any): RecipeSpec | null {
     if (!config || typeof config !== 'object') return null;
     const options = config.options ?? {};
     if (config.type === 'list-extraction' && Array.isArray(options.fullSelectors) && options.pagination) {
-        return listSpec(options.fullSelectors, options.pagination);
+        const p = options.pagination;
+        return listSpec(picksFromV5(options.fullSelectors), {
+            mode: p.mode, speed: p.speed, next: chainOf([...(p.nextButtonSelectors ?? []), p.nextButtonSelector]),
+        });
     }
     if (config.type === 'bulk-extraction') {
         const action = Array.isArray(options.actions) ? options.actions[0] : undefined;
         if (!Array.isArray(action?.elements)) return null;
-        return pageSpec(action.elements, action.config ?? {});
+        return pageSpec(elementsFromV5(action.elements), action.config ?? {});
     }
     if (config.type === 'metadata-extraction') return { kind: 'metadata', options };
     return null;

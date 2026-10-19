@@ -13,9 +13,8 @@ export interface ScrollStrategyConfig {
     contentLoadDelay?: number;
     /** How many consecutive no-change cycles before giving up */
     maxNoChanges?: number;
-    /** Optional CSS selector for a "Load More" button */
-    loadMoreSelector?: string;
-    loadMoreSelectorType?: 'selector' | 'xpath';
+    /** The "Load more" control's chain (CSS or XPath, best first). */
+    loadMoreSelectors?: string[];
     /** Called after each item is scrolled into view */
     scrollCallback?: (data: ScrollCallbackData) => Promise<void>;
     /** Directly pass a root element instead of a selector */

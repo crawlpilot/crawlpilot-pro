@@ -1,6 +1,6 @@
 import { MousePointer2, ArrowRight } from 'lucide-react';
 import { Box, Button, Typography, Card, CardActionArea, Stack } from '@mui/material';
-import { PaginationMode, SelectorMetadata } from '../../../../shared/types/extraction';
+import { PaginationMode } from '../../../../shared/types/extraction';
 import { NextButtonCard } from '../NextButtonCard';
 import { SelectorEditDialog } from '../../shared/SelectorEditDialog';
 import { useState } from 'react';
@@ -8,12 +8,12 @@ import { useState } from 'react';
 interface Step2NavigationProps {
     paginationMode: PaginationMode;
     setPaginationMode: (mode: PaginationMode) => void;
-    nextButtonSelector: string | null;
-    nextButtonSelectors: SelectorMetadata[];
+    /** The Next / Load more control's chain (empty until picked). */
+    next: string[];
     selectingFor: string | null;
     onStartSelection: (type: 'nextButton') => void;
     onRemoveNextButton: () => void;
-    onUpdateNextButton: (selector: string | null, metadata?: SelectorMetadata[]) => void;
+    onUpdateNextButton: (chain: string[]) => void;
     onTestSelector: (selector: string) => void;
     onNext: () => void;
     onBack: () => void;
@@ -23,8 +23,7 @@ interface Step2NavigationProps {
 export function Step2Navigation({
     paginationMode,
     setPaginationMode,
-    nextButtonSelector,
-    nextButtonSelectors,
+    next,
     selectingFor,
     onStartSelection,
     onRemoveNextButton,
@@ -38,11 +37,10 @@ export function Step2Navigation({
     const [isEditing, setIsEditing] = useState(false);
 
     // Helper to check if we are good to go
-    const isReady = paginationMode === 'auto' || (nextButtonSelector !== null);
+    const isReady = paginationMode === 'auto' || next.length > 0;
 
-    const handleSaveSelectors = (newSelectors: SelectorMetadata[]) => {
-        const primary = newSelectors.length > 0 ? newSelectors[0].selector : null;
-        onUpdateNextButton(primary, newSelectors);
+    const handleSaveSelectors = (chain: string[]) => {
+        onUpdateNextButton(chain);
         setIsEditing(false);
     };
 
@@ -145,10 +143,9 @@ export function Step2Navigation({
                                 Press ESC to cancel
                             </Button>
                         </Card>
-                    ) : nextButtonSelector ? (
+                    ) : next.length > 0 ? (
                         <NextButtonCard
-                            selector={nextButtonSelector}
-                            metadata={nextButtonSelectors}
+                            chain={next}
                             title={paginationMode === 'loadMore' ? 'Load More Button' : 'Next Button'}
                             onRemove={onRemoveNextButton}
                             onTest={onTestSelector}
@@ -190,10 +187,7 @@ export function Step2Navigation({
             <SelectorEditDialog
                 isOpen={isEditing}
                 title="Edit Navigation Selectors"
-                selectors={nextButtonSelectors && nextButtonSelectors.length > 0
-                    ? nextButtonSelectors
-                    : (nextButtonSelector ? [{ selector: nextButtonSelector, strategy: 'Manual/Direct' }] : [])
-                }
+                selectors={next}
                 onSave={handleSaveSelectors}
                 onCancel={() => setIsEditing(false)}
                 // We pass a simplified verify for now or wrap existing one

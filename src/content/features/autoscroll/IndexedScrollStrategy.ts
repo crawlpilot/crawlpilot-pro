@@ -61,7 +61,7 @@ export class IndexedScrollStrategy implements IScrollStrategy {
         if (rootElement) {
             container = rootElement;
         } else if (parentSelector) {
-            container = resolveOne([{ value: parentSelector, type: selectorType === 'xpath' ? 'xpath' : undefined }]).result as HTMLElement | null;
+            container = resolveOne([parentSelector]).result as HTMLElement | null;
         }
 
         if (!container && selectionMode === 'container') {

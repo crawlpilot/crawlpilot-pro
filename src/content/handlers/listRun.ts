@@ -72,31 +72,24 @@ async function startAutoScroll(req: AutoScrollRequest) {
     scrollAbort = new AbortController();
     const signal = scrollAbort.signal;
 
-    const containerChain = req.containerSelectors?.length ? req.containerSelectors : req.containerSelector ? [req.containerSelector] : [];
-    const itemChain = req.selectors?.length ? req.selectors : req.selector ? [req.selector] : [];
-    const root = containerChain.length > 0 ? resolveContainer(containerChain, itemChain).result ?? undefined : undefined;
+    const root = req.container.length > 0 ? resolveContainer(req.container, req.items).result ?? undefined : undefined;
 
-    // In 'items' mode, use the entry of the item chain that finds items in the container (CSS only:
-    // the scroll strategy queries with it).
-    let selector = req.selector;
-    if (req.selectionMode === 'items' && itemChain.length > 0) {
-        const { used } = resolveItems(itemChain, root || document);
-        const entry = used >= 0 ? itemChain[used] : undefined;
-        const value = typeof entry === 'string' ? entry : entry?.selector;
-        if (value && !looksLikeXPath(value)) selector = value;
-    }
+    // The entry of the item chain that finds items in the container (CSS only: the scroll strategy
+    // queries with it; otherwise it walks the container's children).
+    const { used } = resolveItems(req.items, root || document);
+    const found = used >= 0 ? req.items[used] : undefined;
+    const selector = found && !looksLikeXPath(found) ? found : undefined;
 
     const results: Record<string, string>[] = [];
     const seen = new Set<string>();
 
     const autoScroll = new AutoScrollAction({
         selector,
-        selectorType: req.selectorType || 'selector',
-        selectionMode: req.selectionMode || 'container',
+        selectorType: 'selector',
+        selectionMode: selector ? 'items' : 'container',
         rootElement: root,
         enableInfiniteScroll: req.enableInfiniteScroll,
-        loadMoreSelector: req.loadMoreSelector,
-        loadMoreSelectorType: req.loadMoreSelectorType,
+        loadMoreSelectors: req.loadMore,
         scrollDelay: req.scrollDelay || 800,
         contentLoadDelay: req.contentLoadDelay || 2500,
         maxNoChanges: 5,
@@ -140,18 +133,7 @@ async function startPagination(req: PaginationRequest) {
     sentPaginationColumns = null;
     paginationAbort = new AbortController();
 
-    const pagination = new PaginationAction({
-        startSelector: req.startSelector,
-        startSelectors: req.startSelectors,
-        nextButtonSelector: req.nextButtonSelector || req.nextButtonSelectors?.[0]?.selector || null,
-        nextButtonSelectors: req.nextButtonSelectors,
-        itemSelector: req.itemSelector,
-        itemSelectors: req.itemSelectors,
-        maxPages: req.maxPages,
-        resumeState: req.resumeState,
-        mode: req.mode,
-        columns: hasReaders(req.columns) ? req.columns : undefined
-    } as any);
+    const pagination = new PaginationAction({ ...req, columns: hasReaders(req.columns) ? req.columns : undefined });
 
     await pagination.execute({
         signal: paginationAbort.signal,

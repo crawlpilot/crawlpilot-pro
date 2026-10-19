@@ -345,23 +345,14 @@ export function Step2Schema({
                                     <div className="text-[10px] text-text-muted mb-1 uppercase tracking-wide">Preview Value</div>
                                     <div className="text-xs text-text-primary font-mono truncate">{pendingElement?.value || 'No content'}</div>
                                     {pendingElement && (
-                                        <div className="mt-4 space-y-3">
-                                            <div>
-                                                <div className="text-[10px] text-text-muted mb-1">CSS Selector</div>
-                                                <input
-                                                    value={pendingElement.containerSelector || ''}
-                                                    onChange={(e) => setPendingElement({ ...pendingElement, containerSelector: e.target.value })}
-                                                    className="w-full text-[10px] text-accent-ai font-mono bg-surface-lighter border border-border-subtle rounded px-2 py-1.5 focus:outline-none focus:border-primary transition-colors"
-                                                />
-                                            </div>
-                                            <div>
-                                                <div className="text-[10px] text-text-muted mb-1">XPath</div>
-                                                <input
-                                                    value={pendingElement.containerXPath || ''}
-                                                    onChange={(e) => setPendingElement({ ...pendingElement, containerXPath: e.target.value })}
-                                                    className="w-full text-[10px] text-accent-ai font-mono bg-surface-lighter border border-border-subtle rounded px-2 py-1.5 focus:outline-none focus:border-primary transition-colors"
-                                                />
-                                            </div>
+                                        <div className="mt-4">
+                                            <div className="text-[10px] text-text-muted mb-1">Selectors (CSS or XPath, one per line, best first; later lines are backups)</div>
+                                            <textarea
+                                                rows={3}
+                                                value={(pendingElement.selectors ?? []).join('\n')}
+                                                onChange={(e) => setPendingElement({ ...pendingElement, selectors: e.target.value.split('\n') })}
+                                                className="w-full text-[10px] text-accent-ai font-mono bg-surface-lighter border border-border-subtle rounded px-2 py-1.5 focus:outline-none focus:border-primary transition-colors resize-y"
+                                            />
                                         </div>
                                     )}
                                 </div>

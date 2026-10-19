@@ -5,9 +5,9 @@ import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { refreshNetSources } from '../../../services/extraction/structuredRows';
 import { findList, itemOf, ListMatch } from '../../../services/extraction/items';
 import { withAtomCache } from '../../../services/extraction/atoms';
-import { listLocators } from '../../../services/selectors/specs';
+import { listLocators } from '../../../services/selectors/list';
 import { elementChain } from '../../../services/selectors/element';
-import { looksLikeXPath } from '../../../../shared/selectors/resolve';
+import { resolveContainer, resolveItems } from '../../../../shared/selectors/resolve';
 
 export class ListSelectionStrategy implements ISelectionStrategy {
     private extractor: DataExtractor;
@@ -65,81 +65,39 @@ export class ListSelectionStrategy implements ISelectionStrategy {
         const containerInfo = this.lastContainerInfo || findList(element);
         const targetItem = this.lastItemUnit || element;
 
-        let data: any;
-
-        let selector = '';
-        let xpath = '';
-        let containerSelector = '';
-        let containerXPath = '';
-        let containerMetadata: any[] = [];
-        let itemMetadata: any[] = [];
-
         if (containerInfo.isContainer && containerInfo.container) {
             const locators = listLocators(containerInfo.container, containerInfo.siblings);
-            containerMetadata = locators.container;
-            containerSelector = locators.container.find(c => !looksLikeXPath(c.selector))?.selector ?? locators.container[0].selector;
-            containerXPath = locators.container.find(c => looksLikeXPath(c.selector))?.selector ?? '';
-            const candidates = locators.items;
-            selector = candidates.find(c => !looksLikeXPath(c.selector))?.selector ?? candidates[0].selector;
+            const container = locators.container.map(c => c.selector);
+            const items = locators.items.map(c => c.selector);
 
-            // [FIX] Re-query container for ALL items using derived selector
-            // This ensures preview extraction processes the SAME items as final extraction
-            if (selector && containerInfo.container) {
-                try {
-                    const allMatches = containerInfo.container.querySelectorAll(selector);
-                    const allItems = Array.from(allMatches) as HTMLElement[];
-
-                    if (allItems.length > 0) {
-                        containerInfo.siblings = allItems;
-                        containerInfo.childCount = allItems.length;
-                    }
-                } catch (e) {
-                    // Silently use original filtered siblings if selector fails
-                }
+            // The preview reads the rows the run will read: found through the stored chains.
+            const root = resolveContainer(container, items).result ?? containerInfo.container;
+            const rows = resolveItems(items, root).result as HTMLElement[];
+            if (rows.length > 0) {
+                containerInfo.siblings = rows;
+                containerInfo.childCount = rows.length;
             }
-
-            // Infer the list's fields from the same rows the run will read.
-            data = this.extractor.extract(targetItem, containerInfo);
-            xpath = candidates.find(c => looksLikeXPath(c.selector))?.selector ?? '';
-
-            // Prioritize the best selector in the robust list for the UI
-            // This ensures the suggested "attribute extraction selector" matches the visual one
-            itemMetadata = candidates;
+            const data = this.extractor.extract(targetItem, containerInfo);
 
             report({
                 success: true,
                 id: `sel-${Date.now()}`,
-                data: data,
-                containerSelector: containerSelector,
-                containerSelectors: containerMetadata,
-                containerXPath: containerXPath,
-                itemSelector: selector,
-                itemSelectors: itemMetadata,
-                itemXPath: xpath,
+                data,
+                container,
+                items,
                 patternFound: true,
                 count: containerInfo.childCount,
                 selectionMode: 'list'
             });
         } else {
-            data = this.extractor.extract(targetItem, containerInfo);
-            const elementResults = elementChain(element);
-            selector = elementResults.find(r => !looksLikeXPath(r.selector))?.selector ?? '';
-            xpath = elementResults.find(r => looksLikeXPath(r.selector))?.selector ?? '';
-            containerSelector = selector;
-            containerXPath = xpath;
-            containerMetadata = elementResults;
-            itemMetadata = elementResults;
-
+            // A single element: read like one item; it is its own container.
+            const data = this.extractor.extract(targetItem, containerInfo);
             report({
                 success: true,
                 id: `sel-${Date.now()}`,
-                data: data,
-                containerSelector: containerSelector,
-                containerSelectors: containerMetadata,
-                containerXPath: containerXPath,
-                itemSelector: selector,
-                itemSelectors: itemMetadata,
-                itemXPath: xpath,
+                data,
+                container: elementChain(element).map(c => c.selector),
+                items: [],
                 patternFound: false,
                 count: 1,
                 selectionMode: 'list'

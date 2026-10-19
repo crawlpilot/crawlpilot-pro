@@ -1,44 +1,37 @@
 import { PaginationSpeed } from '../../shared/constants/paginationConfig';
+import type { Chain } from './database';
 
-export interface SelectorMetadata {
-    selector: string;
-    strategy: string;
-}
-
-export interface SelectorConfig {
+/** One list picked in the List Extractor: the same chains a list recipe stores (`ListTarget`). */
+export interface ListPick {
     id: string;
-    containerSelector: string; // Primary
-    containerSelectors?: SelectorMetadata[];
-    containerXPath?: string;
-    itemSelector?: string;
-    itemSelectors?: SelectorMetadata[];
-    itemXPath?: string;
-}
-
-export interface SelectorState extends SelectorConfig {
+    /** The list's container, best first. */
+    container: Chain;
+    /** Its items, relative to the container, best first. */
+    items: Chain;
+    /** The preview read at pick time: `columns` (the frozen fields, with readers) and `items`. */
     data: any;
+    /** False for a single element picked in list mode (read like one item). */
     patternFound: boolean;
     count: number;
-    success?: boolean;
-    selectionMode?: 'list' | 'single' | 'detail';
-    sourceTabId?: number; // [NEW] Track source tab
+    /** The tab it was picked in: the run goes back to it. */
+    sourceTabId?: number;
 }
 
 export type PaginationMode = 'auto' | 'pagination' | 'loadMore';
 
 export interface PaginationConfig {
     mode: PaginationMode;
-    nextButtonSelector: string | null;
-    nextButtonSelectors?: SelectorMetadata[]; // [NEW] Rich fallbacks
+    /** The Next / Load more control, best first (empty for infinite scroll). */
+    next: Chain;
     speed?: PaginationSpeed;
     maxPages?: number;
 }
 
 export interface ExtractionStatus {
     isExtracting: boolean;
-    status: 'idle' | 'running' | 'completed' | 'stopped' | 'failed'; // [NEW] Explicit status
+    status: 'idle' | 'running' | 'completed' | 'stopped' | 'failed';
     progress: { id: string; count: number } | null;
-    currentPage?: number; // [NEW] Add page tracking
+    currentPage?: number;
     totalProcessed: number;
     error: string | null;
     /** Rows skipped because an earlier page already had them. */

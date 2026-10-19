@@ -10,18 +10,19 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
  * self-contained. An element outside the viewport is scrolled into view and reported as 'scroll', so
  * the caller waits and clicks again.
  */
-function clickInPage(selectors: Array<{ type: string; value: string }>) {
+function clickInPage(selectors: string[]) {
     // A control can be on the page twice (a sticky bar's copy): click the first one that is shown.
     const shown = (e: HTMLElement) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
     let el: HTMLElement | null = null;
     for (const s of selectors) {
         let found: HTMLElement[] = [];
         try {
-            if (s.type === 'xpath') {
-                const r = document.evaluate(s.value, document, null, 7, null);
+            // Runs in the page: `looksLikeXPath` can't be imported, so its rule is repeated here.
+            if (/^(\/|\(|\.\/|id\()/.test(s)) {
+                const r = document.evaluate(s, document, null, 7, null);
                 found = Array.from({ length: r.snapshotLength }, (_, i) => r.snapshotItem(i) as HTMLElement);
             } else {
-                found = Array.from(document.querySelectorAll<HTMLElement>(s.value));
+                found = Array.from(document.querySelectorAll<HTMLElement>(s));
             }
         } catch { /* try the next selector */ }
         el = found.find(shown) ?? found[0] ?? null;

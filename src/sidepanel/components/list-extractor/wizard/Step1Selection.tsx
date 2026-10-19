@@ -2,17 +2,17 @@ import { useEffect, useState } from 'react';
 import { MousePointer2, Plus } from 'lucide-react';
 import { Box, Button, Typography, Paper, Stack } from '@mui/material';
 import { SelectorCard } from '../SelectorCard';
-import { SelectorState } from '../../../../shared/types/extraction';
+import { ListPick } from '../../../../shared/types/extraction';
 
 const HINT_KEY = 'crawlpilot_list_hint_seen';
 
 interface Step1SelectionProps {
-    selectors: SelectorState[];
+    selectors: ListPick[];
     selectionStatus?: 'idle' | 'selecting' | 'ready';
     selectingFor: string | null;
     onStartSelection: () => void;
     onRemoveSelector: (id: string) => void;
-    onUpdateSelector: (id: string, updates: Partial<SelectorState>) => void;
+    onUpdateSelector: (id: string, updates: Partial<ListPick>) => void;
     onTestSelector: (selector: string) => void;
     onNext: () => void;
     onCancel?: () => void;

@@ -13,6 +13,7 @@ import type { ReconReport } from './recon/types';
 import type { NetEntry } from './network/types';
 import type { LabEval, LabPick } from '../content/features/lab/SelectorLab';
 import type { VerifiedField } from '../content/services/ai-view/ReferencedView';
+import type { Chain } from './types/database';
 
 type Fail = { success: false; error: string };
 /** A content-script / background reply: its data on success, or an error. */
@@ -63,43 +64,49 @@ export interface MetadataStart {
     customName?: string;
 }
 
-/** A picked element (list, single or detail), as the picker strategies report it. */
+/** A picked element, as the picker strategies report it. */
 export interface ElementSelected {
     success: boolean;
     id: string;
     data?: any;
+    selectionMode: 'list' | 'single' | 'detail';
+    /** A list pick: the container's chain and the items' chain (relative to the container). */
+    container?: Chain;
+    items?: Chain;
+    /** A single element (a Next button, a Page Extractor element): its chain. */
+    selectors?: Chain;
+    patternFound?: boolean;
+    count?: number;
+    /** Page Extractor extras: `value`, `previewValue`, `extractionType`, `tagName`, viewport. */
     [key: string]: any;
 }
 
+/** Auto-scroll or load-more over a list on this page. */
 export interface AutoScrollRequest {
-    selector?: string;
-    selectors?: any[];
-    selectorType?: string;
-    selectionMode?: string;
-    containerSelector?: string;
-    containerSelectors?: any[];
+    container: Chain;
+    items: Chain;
+    /** The Load more control (load-more mode). */
+    loadMore?: Chain;
     enableInfiniteScroll?: boolean;
-    loadMoreSelector?: string | null;
-    loadMoreSelectorType?: string;
     scrollDelay?: number;
     contentLoadDelay?: number;
-    itemSelector?: string;
     /** The list's frozen fields; every scrolled row is read with them. */
     columns?: unknown;
 }
 
+/** Next-button pagination over a list, continued on each page the run navigates to. */
 export interface PaginationRequest {
-    startSelector?: string;
-    startSelectors?: string[];
-    nextButtonSelector?: string | null;
-    nextButtonSelectors?: any[];
-    itemSelector?: string;
-    itemSelectors?: any[];
+    container: Chain;
+    items: Chain;
+    next: Chain;
     maxPages?: number;
     mode?: string;
     resumeState?: { pageCount: number; totalItems: number; visitedUrls: string[] };
     columns?: unknown;
-    [key: string]: any;
+    navigationDelay?: number;
+    contentLoadDelay?: number;
+    pageLoadDelay?: number;
+    urlChangeTimeout?: number;
 }
 
 export interface Messages {

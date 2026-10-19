@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle2, Edit, Eye, Trash2, Database } from 'lucide-react';
-import { SelectorState } from '../../../shared/types/extraction';
+import type { ListPick } from '../../../shared/types/extraction';
 import { SelectorEditDialog } from '../shared/SelectorEditDialog';
 import { FieldEditor } from './FieldEditor';
 import { Box, Card, Typography, IconButton, Button, Stack, Chip } from '@mui/material';
@@ -21,8 +21,8 @@ function getSelectorQuality(selector: string): { label: string; color: 'success'
 }
 
 interface SelectorCardProps {
-    selector: SelectorState;
-    onUpdate: (id: string, updates: Partial<SelectorState>) => void;
+    selector: ListPick;
+    onUpdate: (id: string, updates: Partial<ListPick>) => void;
     onRemove: (id: string) => void;
     onTest: (selector: string) => void;
 }
@@ -101,7 +101,7 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
                     </IconButton>
                     <IconButton
                         size="small"
-                        onClick={() => onTest(selector.containerSelector)}
+                        onClick={() => onTest(selector.container[0] ?? '')}
                         title="Highlight on page"
                     >
                         <Eye size={16} />
@@ -141,7 +141,8 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
                         borderColor: 'divider'
                     }}>
                         <Typography variant="caption" fontFamily="monospace" color="primary.main" sx={{ wordBreak: 'break-all' }}>
-                            {selector.containerSelector}
+                            {selector.container[0]}
+                            {selector.container.length > 1 && <Typography component="span" variant="caption" color="text.secondary">{` +${selector.container.length - 1} backup${selector.container.length > 2 ? 's' : ''}`}</Typography>}
                         </Typography>
                     </Box>
                 </Box>
@@ -153,11 +154,11 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
                             <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase">
                                 Repeating Item Selector
                             </Typography>
-                            {selector.itemSelector && (
+                            {selector.items[0] && (
                                 <Chip
-                                    label={getSelectorQuality(selector.itemSelector).label}
+                                    label={getSelectorQuality(selector.items[0]).label}
                                     size="small"
-                                    color={getSelectorQuality(selector.itemSelector).color}
+                                    color={getSelectorQuality(selector.items[0]).color}
                                     variant="outlined"
                                     sx={{ fontSize: '0.65rem', height: 20 }}
                                 />
@@ -180,7 +181,8 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
                         borderColor: 'divider'
                     }}>
                         <Typography variant="caption" fontFamily="monospace" color="success.main" sx={{ wordBreak: 'break-all' }}>
-                            {selector.itemSelector}
+                            {selector.items[0]}
+                            {selector.items.length > 1 && <Typography component="span" variant="caption" color="text.secondary">{` +${selector.items.length - 1} backup${selector.items.length > 2 ? 's' : ''}`}</Typography>}
                         </Typography>
                     </Box>
                 </Box>
@@ -195,16 +197,9 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
             <SelectorEditDialog
                 isOpen={editMode === 'container'}
                 title="Edit List Container Selectors"
-                selectors={selector.containerSelectors && selector.containerSelectors.length > 0
-                    ? selector.containerSelectors
-                    : [{ selector: selector.containerSelector, strategy: 'Manual' }]
-                }
-                onSave={(newSelectors) => {
-                    const primary = newSelectors[0].selector;
-                    onUpdate(selector.id, {
-                        containerSelector: primary,
-                        containerSelectors: newSelectors
-                    });
+                selectors={selector.container}
+                onSave={(container) => {
+                    if (container.length > 0) onUpdate(selector.id, { container });
                     setEditMode(null);
                 }}
                 onCancel={() => setEditMode(null)}
@@ -215,18 +210,9 @@ export function SelectorCard({ selector, onUpdate, onRemove, onTest }: SelectorC
             <SelectorEditDialog
                 isOpen={editMode === 'items'}
                 title="Edit Item Unit Selectors"
-                selectors={selector.itemSelectors && selector.itemSelectors.length > 0
-                    ? selector.itemSelectors
-                    : (selector.itemSelector ? [{ selector: selector.itemSelector, strategy: 'Manual' }] : [])
-                }
-                onSave={(newSelectors) => {
-                    const primary = newSelectors[0]?.selector;
-                    if (primary) {
-                        onUpdate(selector.id, {
-                            itemSelector: primary,
-                            itemSelectors: newSelectors
-                        });
-                    }
+                selectors={selector.items}
+                onSave={(items) => {
+                    if (items.length > 0) onUpdate(selector.id, { items });
                     setEditMode(null);
                 }}
                 onCancel={() => setEditMode(null)}

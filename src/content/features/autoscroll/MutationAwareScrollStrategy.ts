@@ -202,8 +202,8 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
                     }
 
                     // Try clicking Load More if configured (with retry)
-                    if (config.loadMoreSelector) {
-                        const clicked = await this.clickLoadMoreWithRetry(config.loadMoreSelector, config.loadMoreSelectorType);
+                    if (config.loadMoreSelectors?.length) {
+                        const clicked = await this.clickLoadMoreWithRetry(config.loadMoreSelectors);
                         if (clicked) {
                             console.log('[MutationAwareScrollStrategy] Clicked Load More, waiting...');
                             consecutiveNoChanges = 0;
@@ -315,18 +315,18 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
     /**
      * Attempts to click a "Load More" button with retry.
      */
-    private async clickLoadMoreWithRetry(selector: string, selectorType: 'selector' | 'xpath' = 'selector'): Promise<boolean> {
+    private async clickLoadMoreWithRetry(chain: string[]): Promise<boolean> {
         for (let attempt = 0; attempt < 2; attempt++) {
-            const clicked = await this.clickLoadMore(selector, selectorType);
+            const clicked = await this.clickLoadMore(chain);
             if (clicked) return true;
             if (attempt < 1) await this.wait(1000);
         }
         return false;
     }
 
-    private async clickLoadMore(selector: string, selectorType: 'selector' | 'xpath' = 'selector'): Promise<boolean> {
+    private async clickLoadMore(chain: string[]): Promise<boolean> {
         try {
-            const element = resolveOne([{ value: selector.trim(), type: selectorType === 'xpath' ? 'xpath' : undefined }]).result as HTMLElement | null;
+            const element = resolveOne(chain).result as HTMLElement | null;
 
             if (element) {
                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });

@@ -1,11 +1,11 @@
-import { SelectorState } from '../types/extraction';
+import { ListPick } from '../types/extraction';
 import { ExtractionResult, Column } from '../types/database';
 
 /**
  * Consolidates data from multiple selectors into a single extraction result.
  * Merges items and deduplicates columns.
  */
-export function consolidateSelectors(selectors: SelectorState[], currentTabUrl?: string): ExtractionResult {
+export function consolidateSelectors(selectors: ListPick[], currentTabUrl?: string): ExtractionResult {
     const allItems: any[] = [];
     const allColumns: Column[] = [];
     const columnIds = new Set<string>();

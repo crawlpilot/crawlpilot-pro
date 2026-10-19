@@ -3,7 +3,7 @@ import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
 import { findListInside, ListMatch } from '../../../services/extraction/items';
-import { elementLocators } from '../../../services/selectors/specs';
+import { elementChain } from '../../../services/selectors/element';
 import { clickElementRobust } from '../../../utils/click';
 import { hasRenderedBox } from '../../../utils/rendering';
 
@@ -13,10 +13,8 @@ interface ClassificationResult {
     extractionType: ExtractionType;
     previewValue: string;
     finalValue: string;
-    containerSelector?: string;
-    containerXPath?: string;
-    itemSelector?: string;
-    itemXPath?: string;
+    /** The element to find instead of the picked one (sibling cards → their parent). */
+    selectors?: string[];
     count?: number;
 }
 
@@ -40,51 +38,30 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
     }
 
     handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {
-        console.log('Detail Strategy Clicked:', element);
-
         const target = element;
 
         // Detect internal container (list/table)
         const containerInfo = findListInside(target);
         const isList = !!(containerInfo.isContainer && containerInfo.container);
 
-        // Build selectors and extract data
-        let containerSelector: string;
-        let containerXPath: string;
-        let itemSelector: string;
-        let itemXPath: string;
-        let data: any;
-
-        if (isList) {
-            console.log('[DetailStrategy] Detected list/table container:', containerInfo);
-            ({ css: containerSelector, xpath: containerXPath } = elementLocators(containerInfo.container!));
-            ({ css: itemSelector, xpath: itemXPath } = elementLocators(target));
-            data = this.extractor.extract(target, containerInfo);
-        } else {
-            console.log('[DetailStrategy] No list detected. Extracting single element.');
-            ({ css: containerSelector, xpath: containerXPath } = elementLocators(target));
-            itemSelector = containerSelector;
-            itemXPath = containerXPath;
-            data = this.extractor.extract(target, { isContainer: false, siblings: [], container: null, childCount: 0 });
-        }
+        // The element is found on every page by its chain: a list's or table's container, else itself
+        // (a control by its label too).
+        const control = this.preferredAction === 'click';
+        const data = isList
+            ? this.extractor.extract(target, containerInfo)
+            : this.extractor.extract(target, { isContainer: false, siblings: [], container: null, childCount: 0 });
 
         // Classify the element type using ordered detector chain
         const classification = this.classify(element, target, isList, containerInfo, data);
-
-        // Apply any selector overrides from classification (e.g. sibling-table retargets parent)
-        if (classification.containerSelector) containerSelector = classification.containerSelector;
-        if (classification.containerXPath) containerXPath = classification.containerXPath;
-        if (classification.itemSelector) itemSelector = classification.itemSelector;
-        if (classification.itemXPath) itemXPath = classification.itemXPath;
+        // A classification may retarget (a row of sibling cards: their parent is the table).
+        const selectors = classification.selectors
+            ?? elementChain(isList ? containerInfo.container! : target, { control }).map(c => c.selector);
 
         report({
             success: true,
             id: `sel-${Date.now()}`,
             data,
-            containerSelector,
-            containerXPath,
-            itemSelector,
-            itemXPath,
+            selectors,
             value: classification.finalValue,
             previewValue: classification.previewValue,
             tagName: element.tagName.toLowerCase(),
@@ -216,15 +193,12 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
 
         if (matchingSiblings.length < 3) return null;
 
-        const { css: pCss, xpath: pXPath } = elementLocators(parent);
+        const selectors = elementChain(parent).map(c => c.selector);
         return {
             extractionType: 'table',
             previewValue: `Table (${matchingSiblings.length} items)`,
             finalValue: `Table (${matchingSiblings.length} items)`,
-            containerSelector: pCss,
-            containerXPath: pXPath,
-            itemSelector: pCss,
-            itemXPath: pXPath,
+            selectors,
             count: matchingSiblings.length
         };
     }

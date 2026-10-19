@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { resolveOne, resolveItems, resolveContainer, normalizeChain, looksLikeXPath } from './resolve';
+import { resolveOne, resolveItems, resolveContainer, looksLikeXPath } from './resolve';
 
 describe('looksLikeXPath', () => {
     it('detects xpath-shaped strings', () => {
@@ -13,25 +13,6 @@ describe('looksLikeXPath', () => {
     });
 });
 
-describe('normalizeChain', () => {
-    it('normalizes strings, SelectorMetadata, and SelectorDefinition shapes', () => {
-        const chain = normalizeChain([
-            '.foo',
-            { selector: '.bar', strategy: 'Minimal' },
-            { value: '//div', type: 'xpath' },
-            { value: '.baz', type: 'css' },
-            null,
-            undefined,
-            { selector: '' },
-        ]);
-        expect(chain).toEqual([
-            { value: '.foo', kind: 'css' },
-            { value: '.bar', kind: 'css', strategy: 'Minimal' },
-            { value: '//div', kind: 'xpath' },
-            { value: '.baz', kind: 'css' },
-        ]);
-    });
-});
 
 describe('resolveOne / resolveItems / resolveContainer', () => {
     beforeEach(() => {

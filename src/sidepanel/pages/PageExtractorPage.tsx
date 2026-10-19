@@ -174,7 +174,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
                 const newElement = {
                     id: Date.now().toString(),
                     name: message.payload.tagName || 'New Element',
-                    selectors: [{ type: 'css', value: message.payload.containerSelector }, { type: 'xpath', value: message.payload.containerXPath }],
+                    selectors: message.payload.selectors ?? [],
                     action: elementActionRef.current,
                     type: message.payload.extractionType || 'text',
                     value: message.payload.previewValue,
@@ -212,8 +212,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
 
     const handleEditElement = (el: any) => {
         setPendingElement({
-            containerSelector: el.selectors.find((s: any) => s.type === 'css')?.value,
-            containerXPath: el.selectors.find((s: any) => s.type === 'xpath')?.value,
+            selectors: el.selectors ?? [],
             value: el.value,
             type: el.type || 'text',
             fields: el.fields
@@ -230,7 +229,7 @@ export default function PageExtractorPage({ onBack }: PageExtractorPageProps) {
         const newElement = {
             id: editingElementId || Date.now().toString(),
             name: elementName,
-            selectors: [{ type: 'css', value: pendingElement.containerSelector }, { type: 'xpath', value: pendingElement.containerXPath }],
+            selectors: (pendingElement.selectors ?? []).map((s: string) => s.trim()).filter(Boolean),
             action: elementAction,
             type: pendingElement.type || 'text',
             value: pendingElement.value, // preview

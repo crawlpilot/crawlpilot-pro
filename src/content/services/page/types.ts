@@ -2,15 +2,11 @@ export interface ExtractionConfig {
     [key: string]: any;
 }
 
-export interface SelectorDefinition {
-    type: 'css' | 'xpath' | 'id';
-    value: string;
-}
-
 export interface ElementDefinition {
     id: string;
     name: string;
-    selectors: SelectorDefinition[];
+    /** The element's chain, best first (CSS or XPath). */
+    selectors: string[];
     action: 'extract' | 'click';
     type?: string;
     [key: string]: any;

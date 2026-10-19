@@ -2,9 +2,7 @@ import type { ElementSelected } from '../../../../shared/messages';
 import { ISelectionStrategy } from './ISelectionStrategy';
 import { VisualElementPicker } from '../VisualElementPicker';
 import { DataExtractor } from '../../../services/extraction/DataExtractor';
-import { elementLocators } from '../../../services/selectors/specs';
 import { nextButtonSelectors } from '../../../services/selectors/nextButton';
-import { looksLikeXPath } from '../../../../shared/selectors/resolve';
 
 export class SingleSelectionStrategy implements ISelectionStrategy {
     private extractor: DataExtractor;
@@ -26,33 +24,14 @@ export class SingleSelectionStrategy implements ISelectionStrategy {
     }
 
     handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void): void {
-        console.log('Single Strategy Selected:', element);
-
         const data = this.extractor.extract(element, { isContainer: false, siblings: [], container: null, childCount: 0 });
-        const { css: selector, xpath } = elementLocators(element);
-
-        const paginationSelectors = nextButtonSelectors(element);
-
-        // Pick the best selector for immediate display (priority 0 is highest)
-        const bestSelector = paginationSelectors.length > 0 ? paginationSelectors[0].selector : selector;
-        const bestSelectorType = paginationSelectors.length > 0 && looksLikeXPath(paginationSelectors[0].selector) ? 'xpath' : 'selector';
-
-        // If the best strategy is semantic (likely XPath), use it as the primary 'itemSelector'
-        // This ensures the UI input box shows the semantic one by default
-        const primarySelector = bestSelector;
-        const primaryXPath = bestSelectorType === 'xpath' ? bestSelector : xpath;
 
         report({
             success: true,
             id: `sel-${Date.now()}`,
-            data: data,
-            containerSelector: primarySelector,
-            containerSelectors: paginationSelectors,
-            containerXPath: primaryXPath,
-            itemSelector: primarySelector,
-            itemSelectors: paginationSelectors,
-            itemXPath: primaryXPath,
-            patternFound: false,
+            data,
+            // The Next / Load more control's chain (its clickable ancestor, its text, no page numbers).
+            selectors: nextButtonSelectors(element).map(c => c.selector),
             count: 1,
             selectionMode: 'single'
         });

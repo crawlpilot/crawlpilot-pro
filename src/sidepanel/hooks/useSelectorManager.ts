@@ -1,20 +1,20 @@
 import { useState, useCallback } from 'react';
-import { SelectorState, SelectorMetadata } from '../../shared/types/extraction';
+import type { ListPick } from '../../shared/types/extraction';
 
+/** The List Extractor's picks: the lists, and the Next / Load more control's chain. */
 export function useSelectorManager() {
-    const [selectors, setSelectors] = useState<SelectorState[]>([]);
-    const [nextButtonSelector, setNextButtonSelector] = useState<string | null>(null);
-    const [nextButtonSelectors, setNextButtonSelectors] = useState<SelectorMetadata[]>([]);
+    const [selectors, setSelectors] = useState<ListPick[]>([]);
+    const [next, setNext] = useState<string[]>([]);
 
-    const addSelector = useCallback((newSelector: SelectorState) => {
-        setSelectors(prev => [...prev, newSelector]);
+    const addSelector = useCallback((pick: ListPick) => {
+        setSelectors(prev => [...prev, pick]);
     }, []);
 
     const removeSelector = useCallback((id: string) => {
         setSelectors(prev => prev.filter(s => s.id !== id));
     }, []);
 
-    const updateSelector = useCallback((id: string, updates: Partial<SelectorState>) => {
+    const updateSelector = useCallback((id: string, updates: Partial<ListPick>) => {
         setSelectors(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
     }, []);
 
@@ -22,26 +22,5 @@ export function useSelectorManager() {
         setSelectors([]);
     }, []);
 
-    const setNextButton = useCallback((selector: string | null, metadata?: SelectorMetadata[]) => {
-        setNextButtonSelector(selector);
-
-        if (metadata && metadata.length > 0) {
-            setNextButtonSelectors(metadata);
-        } else if (selector) {
-            setNextButtonSelectors([{ selector, strategy: 'Manual/Direct' }]);
-        } else {
-            setNextButtonSelectors([]);
-        }
-    }, []);
-
-    return {
-        selectors,
-        nextButtonSelector,
-        nextButtonSelectors,
-        addSelector,
-        removeSelector,
-        updateSelector,
-        clearSelectors,
-        setNextButton
-    };
+    return { selectors, next, setNext, addSelector, removeSelector, updateSelector, clearSelectors };
 }

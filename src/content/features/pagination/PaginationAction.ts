@@ -2,7 +2,6 @@ import { refreshNetSourcesFor } from '../../services/extraction/structuredRows';
 import { hasReaders, inferFields, readRow, similarSiblings, unmappedCount, ReaderColumn } from '../../services/extraction/fields';
 import { withAtomCache } from '../../services/extraction/atoms';
 import { NextButtonSelector } from '../../services/selectors/nextButton';
-import { SelectorMetadata } from '../../../shared/types/extraction';
 import { BaseAction, ActionContext } from '../../core/BaseAction';
 import { AutoScrollAction } from '../autoscroll/AutoScrollAction';
 import { HL_COLOR, HL_BG, HL_GLOW_STRONG } from '../../utils/highlight-tokens';
@@ -11,25 +10,10 @@ import { listLocators } from '../../services/selectors/list';
 import { hashString } from '../../../shared/utils/hash';
 import { classifyPage, collectPageSignals, PageVerdict, VERDICT_LABELS } from '../../../shared/verdict/classifyPage';
 import { PaginationResume, storage } from '../../../shared/storage';
+import type { PaginationRequest } from '../../../shared/messages';
 
-export interface PaginationConfig {
-    startSelector: string;
-    startSelectors?: string[];
-    nextButtonSelector: string;
-    nextButtonSelectors?: SelectorMetadata[];
-    // [NEW] Item-level selector chain — when present, each page's rows are found via
-    // this chain (with fallback) instead of blindly walking container.children. Fixes
-    // the bug where the picker's derived item selector was silently dropped during
-    // next-button pagination.
-    itemSelector?: string;
-    itemSelectors?: SelectorMetadata[];
-    maxPages?: number;
-    resumeState?: any;
-    mode?: 'pagination' | 'loadMore' | 'auto';
-    navigationDelay?: number;
-    contentLoadDelay?: number;
-    pageLoadDelay?: number;
-    urlChangeTimeout?: number;
+/** The request as sent (and saved across page loads), with the list's fields once known. */
+export interface PaginationConfig extends Omit<PaginationRequest, 'columns'> {
     scrollDelay?: number;
     /**
      * The list's fields (columns with readers). Taken from the preview when it has them, otherwise
@@ -258,8 +242,7 @@ export class PaginationAction extends BaseAction {
     }
 
     private getContainerSelectors(): string[] {
-        const { startSelector, startSelectors } = this.config;
-        return (startSelectors && startSelectors.length > 0) ? startSelectors : [startSelector];
+        return this.config.container;
     }
 
     private shouldContinue(pageCount: number, maxPages: number): boolean {
@@ -309,8 +292,7 @@ export class PaginationAction extends BaseAction {
         const itemChain = this.itemChain();
         if (itemChain.length > 0) {
             const { result, used } = resolveItems(itemChain, container);
-            const entry = used >= 0 ? itemChain[used] : undefined;
-            const selector = typeof entry === 'string' ? entry : entry?.selector;
+            const selector = used >= 0 ? itemChain[used] : undefined;
             if (used > 0) this.usedFallback = true;
             if (result.length > 0 && selector && !looksLikeXPath(selector)) {
                 itemSelectionMode = 'items';
@@ -403,22 +385,7 @@ export class PaginationAction extends BaseAction {
     }
 
     private async navigateToNextPage(pageCount: number, totalItems: number, internalConfig: any): Promise<{ status: 'success' | 'complete' | 'error', message?: string, navigationMode?: 'url_change' | 'content_change' }> {
-        const { nextButtonSelector, nextButtonSelectors } = this.config;
-
-        // Construct selectors list from metadata (preferred) or single selector
-        let findSelectors: Array<{ value: string, type: 'selector' | 'xpath' }> = [];
-
-        if (nextButtonSelectors && nextButtonSelectors.length > 0) {
-            findSelectors = nextButtonSelectors.map(m => ({
-                value: m.selector,
-                type: looksLikeXPath(m.selector) ? 'xpath' : 'selector'
-            }));
-        } else if (nextButtonSelector) {
-            findSelectors = [{
-                value: nextButtonSelector,
-                type: looksLikeXPath(nextButtonSelector) ? 'xpath' : 'selector'
-            }];
-        }
+        const findSelectors = this.config.next.map(value => ({ value, type: looksLikeXPath(value) ? 'xpath' as const : 'selector' as const }));
 
         const findResult = NextButtonSelector.find(document, findSelectors, "next button", {
             requireVisible: true,
@@ -494,10 +461,8 @@ export class PaginationAction extends BaseAction {
         return result;
     }
 
-    private itemChain(): (string | { selector: string; strategy?: string })[] {
-        return this.config.itemSelectors && this.config.itemSelectors.length > 0
-            ? this.config.itemSelectors
-            : (this.config.itemSelector ? [this.config.itemSelector] : []);
+    private itemChain(): string[] {
+        return this.config.items;
     }
 
     private highlightProcessedElement(element: HTMLElement) {

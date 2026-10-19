@@ -4,7 +4,7 @@
  * fire-and-forget, scrolling is instant, and clicks yield with microtasks (the post-click wait
  * happens in the service worker).
  */
-import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult, SelectorDefinition } from '../types';
+import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult } from '../types';
 import { DataExtractor } from '../../extraction/DataExtractor';
 import { readValue } from '../../extraction/atoms';
 import { clickElementRobust } from '../../../utils/click';
@@ -62,7 +62,7 @@ export class ElementProcessor {
         }
     }
 
-    private find(selectors: SelectorDefinition[]): HTMLElement | null {
+    private find(selectors: string[]): HTMLElement | null {
         return resolveOne(selectors).result as HTMLElement | null;
     }
 
@@ -130,7 +130,7 @@ export class ElementProcessor {
         }
     }
 
-    private waitForElement(selectors: SelectorDefinition[], timeout: number): Promise<void> {
+    private waitForElement(selectors: string[], timeout: number): Promise<void> {
         return new Promise((resolve) => {
             if (this.find(selectors)) { resolve(); return; }
 
@@ -227,7 +227,7 @@ export class ElementProcessor {
     }
 
     /** Scrolls the whole page a viewport at a time (so lazy loaders fire), looking for the element at each step. */
-    private async scrollPageToReveal(selectors: SelectorDefinition[]): Promise<HTMLElement | null> {
+    private async scrollPageToReveal(selectors: string[]): Promise<HTMLElement | null> {
         const viewportHeight = window.innerHeight || 800;
         const STEP_DELAY_MS = 600;  // clamped to ~1000ms in inactive background tabs
         const totalHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);

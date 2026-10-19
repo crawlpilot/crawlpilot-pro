@@ -1,12 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { on, sendToActiveTab, sendToTab } from '../../shared/messages';
 import { db } from '../../shared/db';
-import { SelectorState, PaginationConfig, ExtractionStatus, SelectorMetadata } from '../../shared/types/extraction';
+import type { ExtractionStatus, ListPick, PaginationConfig } from '../../shared/types/extraction';
 import { PAGINATION_PROFILES, PaginationSpeed } from '../../shared/constants/paginationConfig';
 import { consolidateSelectors } from '../../shared/utils/extractionLogic';
 import { listSpec } from '../../shared/recipes/spec';
 import { columnCoverage, ListingRunTracker } from '../../shared/listing/runStats';
-import { looksLikeXPath } from '../../shared/selectors/resolve';
 
 /** Puts a re-derived item selector first in a list recipe's item chain. */
 async function healRecipe(recipeId: number, listId: string, itemSelector: string) {
@@ -83,7 +82,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
         });
     }, []);
 
-    const startExtraction = useCallback(async (selectors: SelectorState[], pagination: PaginationConfig, options?: { tableId?: number; customName?: string; maxPages?: number }) => {
+    const startExtraction = useCallback(async (selectors: ListPick[], pagination: PaginationConfig, options?: { tableId?: number; customName?: string; maxPages?: number }) => {
         if (selectors.length === 0) return;
 
         const { tableId: previewTableId, customName, maxPages } = options || {};
@@ -201,7 +200,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             }
 
             // Deep copy and clear previous results to avoid duplication on re-run
-            let processedSelectors = JSON.parse(JSON.stringify(selectors)).map((s: any) => ({
+            let processedSelectors: ListPick[] = JSON.parse(JSON.stringify(selectors)).map((s: ListPick) => ({
                 ...s,
                 data: s.data ? { ...s.data, items: [] } : { items: [], columns: [] }
             }));
@@ -214,8 +213,8 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             if (pagination.mode === 'auto' || pagination.mode === 'loadMore') {
                 for (let i = 0; i < processedSelectors.length; i++) {
                     const sel = processedSelectors[i];
-                    // Fallback: If patternFound is missing (older jobs), assume true if it's a list extraction
-                    const shouldAutoScroll = sel.selectionMode === 'list' && (sel.patternFound !== false || pagination.mode === 'loadMore');
+                    // A list scrolls; a single element picked in list mode is read once (unless load-more).
+                    const shouldAutoScroll = sel.patternFound !== false || pagination.mode === 'loadMore';
 
                     if (shouldAutoScroll) {
                         try {
@@ -244,18 +243,12 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 );
 
                                 void sendToTab(activeTabId!, 'EXECUTE_AUTO_SCROLL', {
-                                        selector: sel.itemSelector,
-                                        selectors: sel.itemSelectors,
-                                        containerSelector: sel.containerSelector,
-                                        containerSelectors: sel.containerSelectors,
-                                        selectorType: 'selector',
-                                        selectionMode: 'items',
+                                        container: sel.container,
+                                        items: sel.items,
                                         enableInfiniteScroll: true,
-                                        loadMoreSelector: pagination.mode === 'loadMore' ? pagination.nextButtonSelector : undefined,
-                                        loadMoreSelectorType: pagination.nextButtonSelector && looksLikeXPath(pagination.nextButtonSelector) ? 'xpath' : 'selector',
+                                        ...(pagination.mode === 'loadMore' ? { loadMore: pagination.next } : {}),
                                         scrollDelay: profile.scrollDelay,
                                         contentLoadDelay: profile.contentLoadDelay,
-                                        itemSelector: sel.itemSelector,
                                         // The preview's fields: every scrolled row is read with them.
                                         columns: sel.data?.columns
                                 });
@@ -273,7 +266,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                         if (stopExtractionRef.current) break;
                     }
                 }
-            } else if (pagination.mode === 'pagination' && pagination.nextButtonSelector) {
+            } else if (pagination.mode === 'pagination' && pagination.next.length > 0) {
                 // 1b. Handle Next Button Pagination
                 const sel = processedSelectors[0];
 
@@ -311,17 +304,14 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                         );
 
                         void sendToTab(activeTabId!, 'EXECUTE_PAGINATION', {
-                                startSelector: sel.containerSelector,
-                                startSelectors: sel.containerSelectors?.map((m: SelectorMetadata) => m.selector) || [],
-                                nextButtonSelector: pagination.nextButtonSelector,
-                                nextButtonSelectors: pagination.nextButtonSelectors,
+                                container: sel.container,
+                                items: sel.items,
+                                next: pagination.next,
                                 maxPages: pagination.maxPages || -1,
                                 navigationDelay: profile.navigationDelay,
                                 contentLoadDelay: profile.contentLoadDelay,
                                 pageLoadDelay: profile.pageLoadDelay,
                                 urlChangeTimeout: profile.urlChangeTimeout,
-                                itemSelector: sel.itemSelector,
-                                itemSelectors: sel.itemSelectors,
                                 columns: sel.data?.columns
                         });
                     });

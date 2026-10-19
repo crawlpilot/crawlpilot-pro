@@ -1,18 +1,19 @@
 import { Edit, MousePointer2, RefreshCw, Trash2, CheckCircle2 } from 'lucide-react';
-import { SelectorMetadata } from '../../../shared/types/extraction';
+import { selectorFamily } from '../../../shared/selectors/grade';
 import { Box, Card, Typography, Button, IconButton, Stack, Chip } from '@mui/material';
 
 interface NextButtonCardProps {
-    selector: string;
-    metadata: SelectorMetadata[];
+    /** The control's chain, best first. */
+    chain: string[];
     title: string;
     onRemove: () => void;
     onTest: (selector: string) => void;
     onEdit: () => void;
 }
 
-export function NextButtonCard({ selector, metadata, title, onRemove, onTest, onEdit }: NextButtonCardProps) {
-    const strategy = metadata?.[0]?.strategy || 'Manual';
+export function NextButtonCard({ chain, title, onRemove, onTest, onEdit }: NextButtonCardProps) {
+    const selector = chain[0] ?? '';
+    const strategy = `${selectorFamily(selector)}${chain.length > 1 ? ` +${chain.length - 1}` : ''}`;
 
     return (
         <Card
