@@ -205,6 +205,18 @@ The assistant works on the current tab only (decided 2026-10-19).
 - **Name:** "Page assistant" in all 9 languages.
 - **Tests:** `e2e/assistant.spec.ts` runs a German page with the extension set to French. The download prompt itself can't be e2e-tested, because Playwright's page already counts as clicked.
 
+**P4, built (2026-10-19):**
+- **Asking about an image:** the image button in the question box offers "Point at something on the page" or "The whole visible page".
+  - **Picking:** the content script (`pickRegion.ts`, `AI_PICK_REGION`) outlines the image, canvas, SVG, video, figure or table under the cursor, and gives where it is once the page has settled.
+  - **Capture:** the side panel captures the tab and crops to that area, at most 1024 px a side (`vision.ts`, `cropBox`). This works for canvas charts and cross-origin images that can't be read as files.
+- **The model:** `modelHost` runs image calls in their own session with image input declared (`IMAGE_OPTIONS`); text calls are unchanged.
+- **Answers:**
+  - an image answer says "From the image: not checked against the page's text";
+  - "As a table" reads the image into rows ("Read from the image");
+  - image questions are suggested ("What does this show?", "What are the numbers in it?", "Read the text in it.").
+- **Fixes along the way:** a citation's outline could stay on the page after two quick "show on page" clicks. A hidden tab now jumps to the citation instead of scrolling smoothly (the animation would otherwise finish later).
+- **Not checked by e2e:** whether the crop is pixel-accurate. Playwright emulates the viewport, so its tab capture is a different size from the page, which never happens in real Chrome. The crop maths is unit-tested.
+
 ## Phases
 
 Each phase is committed on its own and can be used by itself.
