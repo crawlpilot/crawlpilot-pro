@@ -12,7 +12,7 @@
 export { cx } from './cx';
 export { Button, IconButton, type ButtonProps, type ButtonVariant, type ButtonSize } from './Button';
 export { Card, CardButton, type Tone } from './Card';
-export { Chip, Badge, type ChipTone } from './Chip';
+export { Chip, Badge, ToggleChip, type ChipTone } from './Chip';
 export { Text, Heading } from './Text';
 export { TextField, TextArea, FieldFrame } from './Field';
 export { Select, type SelectOption } from './Select';

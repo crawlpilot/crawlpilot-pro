@@ -18,9 +18,8 @@ import {
 import type { Column, Row, TypedColumnDef } from '@/shared/types/database';
 import { detectType } from '@/shared/transforms/detect';
 import ColumnCleanDialog from './ColumnCleanDialog';
-import { GitMerge, ArrowRight, Filter, Table2, Sparkles } from 'lucide-react';
-import { Tooltip } from '@mui/material';
-import Button from './Button';
+import { GitMerge, ArrowRight, Filter, RotateCcw, Table2, Sparkles } from 'lucide-react';
+import { Button, Chip, Select, Text, TextField, Tooltip } from '../../ui';
 import { ColumnHeader } from './data-table/ColumnHeader';
 import { FilterOption } from './data-table/FilterOption';
 import { MarkdownPreview } from './data-table/MarkdownPreview';
@@ -209,149 +208,66 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
 
     if (columns.length === 0 || rows.length === 0) {
         return (
-            <div className="card h-full flex items-center justify-center p-8 bg-background-card border border-border-subtle rounded-lg" role="status" aria-label="No data available">
-                <div className="text-center text-text-muted">
-                    <Table2 size={40} style={{ opacity: 0.5, marginBottom: 4 }} />
-                    <div className="font-medium text-sm">{t('empty.waiting')}</div>
-                    <p className="text-xs mt-1 text-text-muted/70">{t('empty.runCrawl')}</p>
-                </div>
+            <div className="flex h-full flex-col items-center justify-center rounded-card border border-line bg-surface p-8 text-center" role="status" aria-label="No data available">
+                <Table2 size={36} className="mb-2 text-ink-3" />
+                <Text weight="semibold">{t('empty.waiting')}</Text>
+                <Text size="caption" tone="muted" className="mt-1">{t('empty.runCrawl')}</Text>
             </div>
         );
     }
 
     return (
-        <div className="w-full h-full flex flex-col gap-3">
-            {/* Action Bar */}
-            <div className="flex-shrink-0 flex items-center justify-between bg-background-panel px-3 py-2 rounded-lg border border-border-subtle" role="toolbar" aria-label="Table actions">
-                <div className="flex items-center gap-3">
+        <div className="flex h-full w-full flex-col gap-3">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-card border border-line bg-surface px-2 py-1.5" role="toolbar" aria-label="Table actions">
+                <div className="flex flex-wrap items-center gap-1">
                     <Tooltip title={t('toolbar.filterTooltip')}>
-                        <span>
-                            <Button
-                                variant="ghost"
-                                onClick={() => setShowFilters(!showFilters)}
-                                icon={<Filter size={16} />}
-                                sx={{ fontSize: '0.75rem' }}
-                                aria-expanded={showFilters}
-                                aria-controls="filter-panel"
-                            >
-                                {t('toolbar.filters')}{activeFilterCount > 0 && <span className="ml-1.5 text-[10px] bg-accent-ai/20 text-accent-ai px-1.5 py-0.5 rounded-full font-bold">{t('toolbar.filtersActive', { count: activeFilterCount })}</span>}
-                            </Button>
-                        </span>
+                        <Button size="sm" variant="ghost" icon={<Filter />} onClick={() => setShowFilters(!showFilters)} aria-expanded={showFilters} aria-controls="filter-panel"
+                            className={showFilters ? 'bg-ink/7 text-ink' : undefined}>
+                            {t('toolbar.filters')}{activeFilterCount > 0 && <Chip tone="brand" className="ml-0.5">{t('toolbar.filtersActive', { count: activeFilterCount })}</Chip>}
+                        </Button>
                     </Tooltip>
                     <Tooltip title={t('toolbar.mergeTooltip')}>
-                        <span>
-                            <Button
-                                variant="ghost"
-                                onClick={() => setShowMerge(!showMerge)}
-                                icon={<GitMerge size={16} />}
-                                sx={{ fontSize: '0.75rem' }}
-                                aria-expanded={showMerge}
-                                aria-controls="merge-panel"
-                            >
-                                {t('toolbar.mergeColumns')}
-                            </Button>
-                        </span>
+                        <Button size="sm" variant="ghost" icon={<GitMerge />} onClick={() => setShowMerge(!showMerge)} aria-expanded={showMerge} aria-controls="merge-panel"
+                            className={showMerge ? 'bg-ink/7 text-ink' : undefined}>
+                            {t('toolbar.mergeColumns')}
+                        </Button>
                     </Tooltip>
                     <Tooltip title="Detect prices, numbers, dates, ratings and URLs, and add a clean typed column next to each (the raw column stays)">
-                        <span>
-                            <Button variant="ghost" onClick={autoTypeColumns} icon={<Sparkles size={16} />} sx={{ fontSize: '0.75rem' }}>
-                                Auto-type
-                            </Button>
-                        </span>
+                        <Button size="sm" variant="ghost" icon={<Sparkles />} onClick={autoTypeColumns}>Auto-type</Button>
                     </Tooltip>
                 </div>
-
                 <Tooltip title={t('toolbar.statusTooltip')}>
-                    <div className="text-xs text-text-muted font-mono bg-ink/5 px-3 py-1.5 rounded border-l-2 border-accent-ai/30" role="status" aria-live="polite" aria-label={`${processedRowData.length} rows, ${processedColumnDefs.length} columns after filtering`}>
+                    <span className="rounded-full bg-ink/6 px-3 py-1 font-mono text-caption text-ink-2" role="status" aria-live="polite"
+                        aria-label={`${processedRowData.length} rows, ${processedColumnDefs.length} columns after filtering`}>
                         {t('toolbar.status', { rows: processedRowData.length, cols: processedColumnDefs.length })}
-                    </div>
+                    </span>
                 </Tooltip>
             </div>
 
-            {/* Merge Panel */}
             {showMerge && (
-                <div id="merge-panel" role="form" aria-label={t('merge.title')} className="flex-shrink-0 bg-background-card p-4 rounded-lg border border-border-subtle animate-slide-down">
-                    <h3 className="text-xs font-bold text-primary mb-3 flex items-center gap-2 uppercase tracking-wide">
-                        <GitMerge size={16} /> {t('merge.title')}
-                    </h3>
-                    <div className="flex items-end gap-3 flex-wrap">
-                        <div className="flex-1 min-w-[160px]">
-                            <label className="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wide">{t('merge.column1')}</label>
-                            <select
-                                className="input-field w-full text-xs py-1.5"
-                                value={mergeCol1}
-                                onChange={(e) => setMergeCol1(e.target.value)}
-                            >
-                                <option value="">{t('merge.selectColumn')}</option>
-                                {availableColumns.map(c => <option key={c.id} value={c.id}>{renames[c.id] || c.name}</option>)}
-                            </select>
-                        </div>
-                        <div className="text-text-muted mb-2"><ArrowRight size={16} /></div>
-                        <div className="flex-1 min-w-[160px]">
-                            <label className="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wide">{t('merge.column2')}</label>
-                            <select
-                                className="input-field w-full text-xs py-1.5"
-                                value={mergeCol2}
-                                onChange={(e) => setMergeCol2(e.target.value)}
-                            >
-                                <option value="">{t('merge.selectColumn')}</option>
-                                {availableColumns.map(c => <option key={c.id} value={c.id}>{renames[c.id] || c.name}</option>)}
-                            </select>
-                        </div>
-                        <div className="w-[80px]">
-                            <label className="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wide">{t('merge.separator')}</label>
-                            <input
-                                type="text"
-                                className="input-field w-full text-xs py-1.5 px-2"
-                                placeholder={t('merge.separatorPlaceholder')}
-                                value={mergeSep}
-                                onChange={(e) => setMergeSep(e.target.value)}
-                            />
-                        </div>
-                        <div className="flex-1 min-w-[160px]">
-                            <label className="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wide">{t('merge.newName')}</label>
-                            <input
-                                type="text"
-                                className="input-field w-full text-xs py-1.5 px-2"
-                                placeholder={t('merge.newNamePlaceholder')}
-                                value={mergeName}
-                                onChange={(e) => setMergeName(e.target.value)}
-                            />
-                        </div>
-                        <Button
-                            variant="primary"
-                            onClick={executeMerge}
-                            disabled={!mergeCol1 || !mergeCol2 || !mergeName}
-                            sx={{ height: 32, fontSize: '0.75rem', mb: '1px' }}
-                            aria-label={t('merge.button')}
-                        >
-                            {t('merge.button')}
-                        </Button>
+                <div id="merge-panel" role="form" aria-label={t('merge.title')} className="shrink-0 rounded-card border border-line bg-surface p-4 animate-slide-up">
+                    <h3 className="m-0 mb-3 flex items-center gap-2 text-small font-bold text-ink"><GitMerge size={15} /> {t('merge.title')}</h3>
+                    <div className="flex flex-wrap items-end gap-3">
+                        <Select size="sm" className="min-w-[160px] flex-1" label={t('merge.column1')} value={mergeCol1} onChange={setMergeCol1} options={[{ value: '', label: t('merge.selectColumn') }, ...availableColumns.map(c => ({ value: c.id, label: renames[c.id] || c.name }))]} />
+                        <ArrowRight size={16} className="mb-2 text-ink-3" />
+                        <Select size="sm" className="min-w-[160px] flex-1" label={t('merge.column2')} value={mergeCol2} onChange={setMergeCol2} options={[{ value: '', label: t('merge.selectColumn') }, ...availableColumns.map(c => ({ value: c.id, label: renames[c.id] || c.name }))]} />
+                        <TextField size="sm" className="w-[90px]" label={t('merge.separator')} placeholder={t('merge.separatorPlaceholder')} value={mergeSep} onChange={e => setMergeSep(e.target.value)} />
+                        <TextField size="sm" className="min-w-[160px] flex-1" label={t('merge.newName')} placeholder={t('merge.newNamePlaceholder')} value={mergeName} onChange={e => setMergeName(e.target.value)} />
+                        <Button size="sm" variant="primary" onClick={executeMerge} disabled={!mergeCol1 || !mergeCol2 || !mergeName}>{t('merge.button')}</Button>
                     </div>
-                    <p className="text-xs text-text-muted/60 mt-2">{t('merge.tip')}</p>
+                    <Text size="caption" tone="faint" className="mt-2">{t('merge.tip')}</Text>
                 </div>
             )}
 
-            {/* Filter Panel */}
             {showFilters && (
-                <div id="filter-panel" role="region" aria-label={t('filters.title')} className="flex-shrink-0 bg-background-panel/50 backdrop-blur-md p-4 rounded-xl border border-border-subtle animate-slide-down shadow-xl">
-                    <div className="flex items-center justify-between mb-3 px-1">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-text-muted uppercase tracking-widest">{t('filters.title')}</span>
-                            <div className="h-1 w-1 rounded-full bg-accent-ai shadow-[0_0_8px_rgb(var(--cp-accent-rgb) / 1)]"></div>
-                        </div>
+                <div id="filter-panel" role="region" aria-label={t('filters.title')} className="shrink-0 rounded-card border border-line bg-surface p-4 animate-slide-up">
+                    <div className="mb-3 flex items-center justify-between">
+                        <Text size="small" weight="bold">{t('filters.title')}</Text>
                         <Tooltip title={t('filters.resetTooltip')}>
-                            <button
-                                onClick={resetFilters}
-                                aria-label={t('filters.resetTooltip')}
-                                className="text-xs font-bold text-accent-red hover:text-red-400 uppercase tracking-widest transition-colors flex items-center gap-1.5 group focus-visible:ring-2 focus-visible:ring-accent-ai/50 focus-visible:outline-none rounded px-1"
-                            >
-                                <span className="group-hover:rotate-180 transition-transform duration-500">↺</span> {t('filters.resetToDefault')}
-                            </button>
+                            <Button size="sm" variant="ghost" icon={<RotateCcw />} onClick={resetFilters} aria-label={t('filters.resetTooltip')}>{t('filters.resetToDefault')}</Button>
                         </Tooltip>
                     </div>
-
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5" role="group" aria-label={t('filters.title')}>
+                    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4" role="group" aria-label={t('filters.title')}>
                         <FilterOption label={t('filters.emptyRows')} active={removeEmptyRows} onClick={() => setRemoveEmptyRows(!removeEmptyRows)} icon="🧹" description={t('filters.emptyRowsDesc')} />
                         <FilterOption label={t('filters.emptyColumns')} active={removeEmptyColumns} onClick={() => setRemoveEmptyColumns(!removeEmptyColumns)} icon="🪄" description={t('filters.emptyColumnsDesc')} />
                         <FilterOption label={t('filters.repeatingData')} active={hideRepeatingData} onClick={() => setHideRepeatingData(!hideRepeatingData)} icon="🔄" description={t('filters.repeatingDataDesc')} />
@@ -363,7 +279,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
             )}
 
             <div
-                className="flex-1 ag-theme-alpine w-full rounded-lg overflow-hidden shadow-none min-h-0"
+                className="ag-theme-alpine min-h-0 w-full flex-1 overflow-hidden rounded-card border border-line shadow-none"
                 style={{
                     '--ag-header-height': '44px',
                     '--ag-row-height': '40px'

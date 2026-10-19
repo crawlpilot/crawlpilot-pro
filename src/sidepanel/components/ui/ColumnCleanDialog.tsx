@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-    Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, Menu, MenuItem,
-    Stack, Switch, TextField, Typography,
-} from '@mui/material';
-import { Plus, X, Wand2 } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
+import { Button, Chip, Dialog, IconButton, Menu, MenuItem, Stack, Switch, Text, TextField, ToggleChip } from '../../ui';
 import type { TypedColumnDef } from '../../../shared/types/database';
 import { applyChain, FIELD_TYPE_LABELS, FieldType, OP_LABELS, TransformOp } from '../../../shared/transforms/chain';
 import { detectType } from '../../../shared/transforms/detect';
@@ -40,31 +37,30 @@ function show(v: unknown): string {
 }
 
 function OpParams({ op, onChange }: { op: TransformOp; onChange: (o: TransformOp) => void }) {
-    const field = (label: string, value: string, set: (v: string) => void, width = 110) => (
-        <TextField size="small" label={label} value={value} onChange={e => set(e.target.value)}
-            sx={{ width }} inputProps={{ style: { fontFamily: 'monospace', fontSize: 12 } }} />
+    const field = (label: string, value: string, set: (v: string) => void, width = 'w-28') => (
+        <TextField size="sm" label={label} value={value} onChange={e => set(e.target.value)} className={width} inputClassName="font-mono" />
     );
     switch (op.op) {
         case 'regex':
-            return <Stack direction="row" spacing={1}>{field('Pattern', op.pattern, v => onChange({ ...op, pattern: v }), 180)}</Stack>;
+            return field('Pattern', op.pattern, v => onChange({ ...op, pattern: v }), 'w-44');
         case 'replace':
             return (
-                <Stack direction="row" spacing={1} alignItems="center">
+                <div className="flex flex-wrap items-end gap-2">
                     {field('Find', op.find, v => onChange({ ...op, find: v }))}
                     {field('With', op.with, v => onChange({ ...op, with: v }))}
-                    <FormControlLabel control={<Switch size="small" checked={!!op.regex} onChange={e => onChange({ ...op, regex: e.target.checked })} />} label={<Typography variant="caption">Regex</Typography>} />
-                </Stack>
+                    <Switch checked={!!op.regex} onChange={v => onChange({ ...op, regex: v })} label="Regex" className="pb-1.5" />
+                </div>
             );
         case 'split':
             return (
-                <Stack direction="row" spacing={1}>
-                    {field('Separator', op.sep, v => onChange({ ...op, sep: v }), 90)}
-                    {field('Part (0, 1, -1…)', String(op.index), v => onChange({ ...op, index: parseInt(v, 10) || 0 }), 120)}
-                </Stack>
+                <div className="flex gap-2">
+                    {field('Separator', op.sep, v => onChange({ ...op, sep: v }), 'w-24')}
+                    {field('Part (0, 1, -1…)', String(op.index), v => onChange({ ...op, index: parseInt(v, 10) || 0 }), 'w-32')}
+                </div>
             );
         case 'prefix':
         case 'suffix':
-            return <Stack direction="row">{field('Text', op.text, v => onChange({ ...op, text: v }), 180)}</Stack>;
+            return field('Text', op.text, v => onChange({ ...op, text: v }), 'w-44');
         default:
             return null;
     }
@@ -103,81 +99,72 @@ export default function ColumnCleanDialog({ open, sourceId, sourceName, values, 
     };
 
     return (
-        <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-            <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Wand2 size={18} /> Clean “{sourceName}”
-            </DialogTitle>
-            <DialogContent dividers>
-                <Stack spacing={2}>
-                    <Box>
-                        <Typography variant="caption" color="text.secondary">
-                            Detected: <b>{detected.label}</b>{detected.type !== 'text' ? ` · ${Math.round(detected.coverage * 100)}% of values` : ''}
-                        </Typography>
-                        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
-                            {(Object.keys(FIELD_TYPE_LABELS) as FieldType[]).map(t => (
-                                <Chip key={t} size="small" label={FIELD_TYPE_LABELS[t]} onClick={() => setType(t)}
-                                    color={t === type ? 'primary' : 'default'} variant={t === type ? 'filled' : 'outlined'} />
-                            ))}
-                        </Stack>
-                        {type === 'date' && (
-                            <FormControlLabel sx={{ mt: 0.5 }} control={<Switch size="small" checked={dayFirst} onChange={e => setDayFirst(e.target.checked)} />}
-                                label={<Typography variant="caption">Dates are day-first (25/12/2024)</Typography>} />
-                        )}
-                    </Box>
+        <Dialog open={open} onClose={onClose} size="lg" title={`Clean “${sourceName}”`}
+            actions={<>
+                {existing && onRemove && <Button variant="ghost" className="mr-auto text-danger" onClick={() => onRemove(existing.id)}>Remove column</Button>}
+                <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                <Button variant="primary" onClick={apply}>{existing ? 'Update' : 'Add typed column'}</Button>
+            </>}>
+            <Stack gap={5}>
+                <div>
+                    <Text size="small" tone="muted">
+                        Detected: <b className="text-ink">{detected.label}</b>{detected.type !== 'text' ? ` · ${Math.round(detected.coverage * 100)}% of values` : ''}
+                    </Text>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                        {(Object.keys(FIELD_TYPE_LABELS) as FieldType[]).map(t => (
+                            <ToggleChip key={t} selected={t === type} onClick={() => setType(t)}>{FIELD_TYPE_LABELS[t]}</ToggleChip>
+                        ))}
+                    </div>
+                    {type === 'date' && <Switch className="mt-3" checked={dayFirst} onChange={setDayFirst} label="Dates are day-first (25/12/2024)" />}
+                </div>
 
-                    <Box>
-                        <Typography variant="caption" color="text.secondary">Steps before parsing (applied in order)</Typography>
-                        <Stack spacing={1} sx={{ mt: 0.75 }}>
-                            {ops.map((o, i) => (
-                                <Stack key={i} direction="row" spacing={1} alignItems="center">
-                                    <Chip size="small" label={`${i + 1}. ${OP_LABELS[o.op]}`} />
-                                    <OpParams op={o} onChange={n => setOps(ops.map((x, j) => (j === i ? n : x)))} />
-                                    <IconButton size="small" onClick={() => setOps(ops.filter((_, j) => j !== i))}><X size={14} /></IconButton>
-                                </Stack>
-                            ))}
-                            <Box>
-                                <Button size="small" startIcon={<Plus size={14} />} onClick={e => setMenuAnchor(e.currentTarget)}>Add step</Button>
-                                <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
-                                    {(Object.keys(NEW_OP) as TransformOp['op'][]).map(k => (
-                                        <MenuItem key={k} dense onClick={() => { setOps([...ops, { ...NEW_OP[k] } as TransformOp]); setMenuAnchor(null); }}>{OP_LABELS[k]}</MenuItem>
-                                    ))}
-                                </Menu>
-                            </Box>
-                        </Stack>
-                    </Box>
+                <div>
+                    <Text size="small" tone="muted">Steps before parsing (applied in order)</Text>
+                    <Stack gap={2} className="mt-2">
+                        {ops.map((o, i) => (
+                            <div key={i} className="flex flex-wrap items-end gap-2 rounded-field bg-surface-2 p-2">
+                                <Chip size="md" className="mb-1.5">{`${i + 1}. ${OP_LABELS[o.op]}`}</Chip>
+                                <OpParams op={o} onChange={n => setOps(ops.map((x, j) => (j === i ? n : x)))} />
+                                <IconButton size="sm" label="Remove step" className="mb-1 ml-auto" onClick={() => setOps(ops.filter((_, j) => j !== i))}><X /></IconButton>
+                            </div>
+                        ))}
+                        <div>
+                            <Button size="sm" icon={<Plus />} onClick={e => setMenuAnchor(e.currentTarget)}>Add step</Button>
+                            <Menu anchor={menuAnchor} onClose={() => setMenuAnchor(null)}>
+                                {(Object.keys(NEW_OP) as TransformOp['op'][]).map(k => (
+                                    <MenuItem key={k} onClick={() => { setOps([...ops, { ...NEW_OP[k] } as TransformOp]); setMenuAnchor(null); }}>{OP_LABELS[k]}</MenuItem>
+                                ))}
+                            </Menu>
+                        </div>
+                    </Stack>
+                </div>
 
-                    <TextField size="small" label="New column name" placeholder={defaultName} value={name} onChange={e => setName(e.target.value)} />
+                <TextField label="New column name" placeholder={defaultName} value={name} onChange={e => setName(e.target.value)} />
 
-                    <Box>
-                        <Typography variant="caption" color={failed ? 'warning.main' : 'success.main'}>
-                            {results.length - failed} of {results.length} values parsed{failed ? ` · ${failed} left empty` : ''}
-                        </Typography>
-                        <Box sx={{ mt: 0.75, maxHeight: 260, overflow: 'auto', border: 1, borderColor: 'divider', borderRadius: 1 }}>
-                            <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, '& td, & th': { px: 1, py: 0.5, borderBottom: 1, borderColor: 'divider', textAlign: 'left', verticalAlign: 'top' } }}>
-                                <thead>
-                                    <tr><th>Raw</th>{ops.length > 0 && <th>After steps</th>}<th>Result</th></tr>
-                                </thead>
-                                <tbody>
-                                    {results.slice(0, 12).map((r, i) => (
-                                        <tr key={i}>
-                                            <td style={{ maxWidth: 260, wordBreak: 'break-word' }}>{show(r.raw)}</td>
-                                            {ops.length > 0 && <td style={{ fontFamily: 'monospace' }}>{r.steps.length ? r.steps[r.steps.length - 1].value : ''}</td>}
-                                            <td style={{ fontFamily: 'monospace', color: r.ok ? undefined : '#ef4444' }}>
-                                                {r.ok ? `${show(r.value)}${r.currency ? ` ${r.currency}` : ''}` : 'could not parse'}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </Box>
-                        </Box>
-                    </Box>
-                </Stack>
-            </DialogContent>
-            <DialogActions>
-                {existing && onRemove && <Button color="error" onClick={() => onRemove(existing.id)} sx={{ mr: 'auto' }}>Remove column</Button>}
-                <Button onClick={onClose}>Cancel</Button>
-                <Button variant="contained" onClick={apply}>{existing ? 'Update' : 'Add typed column'}</Button>
-            </DialogActions>
+                <div>
+                    <Text size="small" weight="semibold" tone={failed ? 'warning' : 'success'}>
+                        {results.length - failed} of {results.length} values parsed{failed ? ` · ${failed} left empty` : ''}
+                    </Text>
+                    <div className="mt-2 max-h-64 overflow-auto rounded-field border border-line">
+                        <table className="w-full border-collapse text-caption [&_td]:border-b [&_td]:border-line [&_td]:px-2.5 [&_td]:py-1.5 [&_td]:align-top [&_th]:border-b [&_th]:border-line [&_th]:bg-surface-2 [&_th]:px-2.5 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-semibold [&_th]:text-ink-2">
+                            <thead>
+                                <tr><th>Raw</th>{ops.length > 0 && <th>After steps</th>}<th>Result</th></tr>
+                            </thead>
+                            <tbody>
+                                {results.slice(0, 12).map((r, i) => (
+                                    <tr key={i} className="text-ink">
+                                        <td className="max-w-[260px] break-words">{show(r.raw)}</td>
+                                        {ops.length > 0 && <td className="font-mono">{r.steps.length ? r.steps[r.steps.length - 1].value : ''}</td>}
+                                        <td className={r.ok ? 'font-mono' : 'font-mono text-danger'}>
+                                            {r.ok ? `${show(r.value)}${r.currency ? ` ${r.currency}` : ''}` : 'could not parse'}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </Stack>
         </Dialog>
     );
 }

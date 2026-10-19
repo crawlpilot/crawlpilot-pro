@@ -44,3 +44,23 @@ export function Chip({ tone = 'neutral', size = 'sm', icon, onRemove, removeLabe
 export function Badge({ children, className }: { children: ReactNode; className?: string }) {
     return <span className={cx('inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brand px-1 text-[10.5px] font-bold text-on-brand', className)}>{children}</span>;
 }
+
+interface ToggleChipProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onChange'> {
+    selected: boolean;
+    icon?: ReactNode;
+    /** A count on the right. */
+    count?: ReactNode;
+}
+
+/** A chip that switches on and off: filters, type choices. Pressed ones are filled. */
+export function ToggleChip({ selected, icon, count, className, children, type = 'button', ...rest }: ToggleChipProps) {
+    return (
+        <button type={type} aria-pressed={selected}
+            className={cx('inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border-[1.5px] px-3 text-caption font-semibold whitespace-nowrap transition-colors duration-150 [&_svg]:size-3.5 disabled:cursor-not-allowed disabled:opacity-45',
+                selected ? 'border-line-strong bg-brand text-on-brand' : 'border-line bg-surface text-ink-2 hover:border-ink/30 hover:text-ink', className)}
+            {...rest}>
+            {icon}{children}
+            {count !== undefined && <span className={cx('tabular-nums', selected ? 'opacity-70' : 'text-ink-3')}>{count}</span>}
+        </button>
+    );
+}

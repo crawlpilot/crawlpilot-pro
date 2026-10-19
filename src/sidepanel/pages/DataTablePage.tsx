@@ -6,11 +6,8 @@ import { db } from '@/shared/db';
 import type { TypedColumnDef } from '@/shared/types/database';
 import DataTable from '../components/ui/DataTable';
 import SchemaMapDialog, { OutputMappingState } from '../components/ui/SchemaMapDialog';
-import Select from '../components/ui/Select';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
-import EmptyState from '../components/ui/EmptyState';
-import Badge from '../components/ui/Badge';
-import { Database, Calendar, Download, FileText, FileJson, Webhook, Zap } from 'lucide-react';
+import { Calendar, ChevronDown, Database, Download, ExternalLink, FileJson, FileText, Table2, Webhook, Zap } from 'lucide-react';
+import { Button, Chip, EmptyState, Menu, MenuDivider, MenuItem, Notice, Select, Spinner, Text } from '../ui';
 
 interface DataTablePageProps {
     initialTableId?: number | null;
@@ -23,8 +20,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
     const { tableData, rows, totalRows, hasMore, loading, error, refresh: refreshTable } = useTableData(selectedId);
     const { exportToCSV, exportToJSON, exportToWebhook, exportToAirtable, exportToMarkdown } = useExportData();
     const tableRef = useRef<any>(null);
-    const [exportOpen, setExportOpen] = useState(false);
-    const exportRef = useRef<HTMLDivElement>(null);
+    const [exportMenu, setExportMenu] = useState<HTMLElement | null>(null);
 
     // Real-time refresh: listen for extraction progress and completion messages.
     // When the currently-viewed table is a live preview, reload its rows as new
@@ -45,18 +41,6 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
         ];
         return () => offs.forEach(off => off());
     }, [selectedId, refreshTable, refreshAll]);
-
-    // Close export dropdown on outside click
-    useEffect(() => {
-        if (!exportOpen) return;
-        const handleOutside = (e: MouseEvent) => {
-            if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
-                setExportOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleOutside);
-        return () => document.removeEventListener('mousedown', handleOutside);
-    }, [exportOpen]);
 
     const handleColumnRenamed = useCallback(async (colId: string, newName: string) => {
         if (!selectedId || !tableData) return;
@@ -162,192 +146,86 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
 
     if (loadingAll) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <LoadingSpinner message={t('page.loadingDatasets')} />
+            <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-bg text-ink-2">
+                <Spinner size={28} />
+                <Text size="small" tone="muted">{t('page.loadingDatasets')}</Text>
             </div>
         );
     }
 
     if (loadError) {
         return (
-            <div className="h-full flex items-center justify-center p-8">
-                <div className="text-center">
-                    <div className="text-5xl mb-4">❌</div>
-                    <h2 className="text-xl font-bold text-accent-red mb-2">{t('page.errorTitle')}</h2>
-                    <p className="text-text-primary">{loadError}</p>
-                </div>
+            <div className="flex h-full items-center justify-center bg-bg p-8">
+                <Notice tone="danger" title={t('page.errorTitle')} className="max-w-md">{loadError}</Notice>
             </div>
         );
     }
 
     if (tableDatas.length === 0) {
         return (
-            <div className="h-full flex items-center justify-center p-8 bg-background-app">
-                <EmptyState
-                    icon={<Database className="w-12 h-12" />}
-                    title={t('page.noExtractionsTitle')}
-                    description={t('page.noExtractionsDesc')}
-                />
+            <div className="flex h-full items-center justify-center bg-bg p-8">
+                <EmptyState icon={<Database />} title={t('page.noExtractionsTitle')}>{t('page.noExtractionsDesc')}</EmptyState>
             </div>
         );
     }
 
+    const exportItem = (action: () => void) => () => { action(); setExportMenu(null); };
+
     return (
-        <div className="flex flex-col h-full w-full bg-background-app text-text-primary">
-            {/* Header - Dataset & Run Selector */}
-            <div className="flex-shrink-0 px-4 py-3 bg-background-panel border-b border-border-subtle shadow-sm">
-                <div className="flex items-center justify-between gap-6">
-                    {/* Run Selector */}
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className="flex items-center gap-3 flex-1 max-w-xl group">
-                            <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
-                                <Database className="w-4 h-4" />
-                            </div>
-                            <Select
-                                value={selectedId || ''}
-                                onChange={(value) => setSelectedId(Number(value))}
-                                className="flex-1 text-sm h-10 bg-ink/[0.06] border-border-subtle hover:border-primary/50 transition-all font-medium"
-                                aria-label={t('page.selectDataset')}
-                            >
-                                <option value="">{t('page.selectPlaceholder')}</option>
-                                {tableDatas.map((td) => (
-                                    <option key={td.id} value={td.id}>
-                                        {td.name} — {new Date(td.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                                    </option>
-                                ))}
-                            </Select>
-                        </div>
+        <div className="flex h-full w-full flex-col bg-bg text-ink">
+            <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-line bg-surface px-5 py-3">
+                <span className="flex size-9 shrink-0 -rotate-6 items-center justify-center rounded-xl border-[1.5px] border-line-strong bg-brand text-on-brand">
+                    <Table2 size={17} />
+                </span>
+                <Select className="max-w-xl min-w-[220px] flex-1" aria-label={t('page.selectDataset')} value={selectedId ?? 0}
+                    onChange={v => setSelectedId(v || null)}
+                    options={[
+                        { value: 0, label: t('page.selectPlaceholder') },
+                        ...tableDatas.map(td => ({ value: td.id!, label: `${td.name} — ${new Date(td.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}` })),
+                    ]} />
+
+                {tableData && (
+                    <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
+                        <span className="hidden items-center gap-1.5 text-caption text-ink-3 lg:flex"><Calendar size={13} />{new Date(tableData.createdAt).toLocaleDateString()}</span>
+                        <Chip size="md" tone="brand">
+                            {hasMore ? `${rows.length.toLocaleString()} / ${totalRows.toLocaleString()} ${t('page.rows')}` : `${rows.length} ${t('page.rows')}`}
+                        </Chip>
+                        <Chip size="md">{tableData.columns.length} {t('page.columns')}</Chip>
+                        {tableData.sourceUrl && (
+                            <a href={tableData.sourceUrl} target="_blank" rel="noopener noreferrer" aria-label={`${t('page.source')}: ${tableData.sourceUrl}`}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-control px-3 text-small font-semibold text-ink-2 no-underline hover:bg-ink/6 hover:text-ink">
+                                {t('page.source')} <ExternalLink size={13} />
+                            </a>
+                        )}
+                        <Button size="sm" variant="primary" icon={<Download />} iconEnd={<ChevronDown />} aria-haspopup="menu" aria-expanded={!!exportMenu}
+                            onClick={e => setExportMenu(exportMenu ? null : e.currentTarget)}>
+                            {t('page.export')}
+                        </Button>
+                        <Menu anchor={exportMenu} onClose={() => setExportMenu(null)} align="end">
+                            <div className="px-2.5 pt-1.5 pb-1 text-caption font-semibold text-ink-3">{t('page.localExport')}</div>
+                            <MenuItem icon={<FileText />} onClick={exportItem(handleExportCSV)}>{t('page.exportCSV')}</MenuItem>
+                            <MenuItem icon={<FileJson />} onClick={exportItem(handleExportJSON)}>{t('page.exportJSON')}</MenuItem>
+                            <MenuItem icon={<FileJson />} onClick={exportItem(openSchemaMap)}>JSON to a schema…</MenuItem>
+                            {hasMarkdownColumns && <MenuItem icon={<FileText />} onClick={exportItem(handleExportMarkdown)}>{t('page.exportMarkdown')}</MenuItem>}
+                            <MenuDivider />
+                            <div className="px-2.5 pt-1 pb-1 text-caption font-semibold text-ink-3">{t('page.integrations')}</div>
+                            <MenuItem icon={<Webhook />} onClick={exportItem(() => handlePremiumExport('webhook'))}>{t('page.exportWebhook')}</MenuItem>
+                            <MenuItem icon={<Database />} onClick={exportItem(() => handlePremiumExport('airtable'))}>{t('page.exportAirtable')}</MenuItem>
+                            <MenuItem icon={<Zap />} onClick={exportItem(() => handlePremiumExport('zapier'))}>{t('page.exportZapier')}</MenuItem>
+                        </Menu>
                     </div>
+                )}
+            </header>
 
-                    {/* Right: Stats & Source */}
-                    {tableData && (
-                        <div className="flex items-center gap-4 shrink-0">
-                            <div className="hidden lg:flex items-center gap-2 text-xs text-text-muted bg-ink/5 py-1.5 px-3 rounded-full border border-ink/5">
-                                <Calendar className="w-3.5 h-3.5" />
-                                <span>{new Date(tableData.createdAt).toLocaleDateString()}</span>
-                            </div>
-
-                            <div className="flex items-center gap-1.5">
-                                <Badge variant="primary" className="text-xs uppercase tracking-wider font-bold px-2 py-1 rounded-md bg-primary/20 text-primary border border-primary/20">
-                                    {hasMore ? `${rows.length.toLocaleString()} / ${totalRows.toLocaleString()} ${t('page.rows')}` : `${rows.length} ${t('page.rows')}`}
-                                </Badge>
-                                <Badge variant="info" className="text-xs uppercase tracking-wider font-bold px-2 py-1 rounded-md bg-ink/5 text-text-primary border border-ink/10">
-                                    {tableData.columns.length} {t('page.columns')}
-                                </Badge>
-                            </div>
-
-                            {tableData.sourceUrl && (
-                                <a
-                                    href={tableData.sourceUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-ink/5 text-accent-ai hover:text-text-primary transition-all text-xs font-semibold"
-                                    title={t('page.source')}
-                                    aria-label={`${t('page.source')}: ${tableData.sourceUrl}`}
-                                >
-                                    <span>{t('page.source')}</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
-                                </a>
-                            )}
-
-                            {/* Export Button */}
-                            <div className="relative" ref={exportRef}>
-                                <button
-                                    onClick={() => setExportOpen(prev => !prev)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Escape') setExportOpen(false);
-                                    }}
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm bg-primary hover:bg-primary-hover text-white focus-visible:ring-2 focus-visible:ring-accent-ai/50 focus-visible:outline-none"
-                                    aria-label={t('page.export')}
-                                    aria-expanded={exportOpen}
-                                    aria-haspopup="menu"
-                                >
-                                    <Download className="w-3.5 h-3.5" />
-                                    <span>{t('page.export')}</span>
-                                </button>
-                                {/* Dropdown */}
-                                {exportOpen && <div role="menu" aria-label={t('page.export')} className="absolute right-0 top-full mt-1 w-48 bg-background-panel border border-border-subtle rounded-lg shadow-xl overflow-hidden z-50"
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Escape') setExportOpen(false);
-                                    }}
-                                >
-                                        <div className="px-3 py-1.5 text-xs font-bold text-text-muted uppercase border-bottom border-border-subtle bg-ink/5">
-                                            {t('page.localExport')}
-                                        </div>
-                                        <button
-                                            onClick={() => { handleExportCSV(); setExportOpen(false); }}
-                                            role="menuitem"
-                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
-                                        >
-                                            <FileText className="w-3 h-3 text-green-400" /> {t('page.exportCSV')}
-                                        </button>
-                                        <button
-                                            onClick={() => { handleExportJSON(); setExportOpen(false); }}
-                                            role="menuitem"
-                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
-                                        >
-                                            <FileJson className="w-3 h-3 text-yellow-400" /> {t('page.exportJSON')}
-                                        </button>
-                                        <button
-                                            onClick={() => { openSchemaMap(); setExportOpen(false); }}
-                                            role="menuitem"
-                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
-                                        >
-                                            <FileJson className="w-3 h-3 text-emerald-400" /> JSON to a schema…
-                                        </button>
-                                        {hasMarkdownColumns && (
-                                            <button
-                                                onClick={() => { handleExportMarkdown(); setExportOpen(false); }}
-                                                role="menuitem"
-                                                className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
-                                            >
-                                                <FileText className="w-3 h-3 text-blue-300" /> {t('page.exportMarkdown')}
-                                            </button>
-                                        )}
-
-                                        <div className="px-3 py-1.5 text-xs font-bold text-text-muted uppercase border-y border-border-subtle bg-ink/5">
-                                            {t('page.integrations')}
-                                        </div>
-                                        <button
-                                            onClick={() => { handlePremiumExport('webhook'); setExportOpen(false); }}
-                                            role="menuitem"
-                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
-                                        >
-                                            <Webhook className="w-3 h-3 text-purple-400" /> {t('page.exportWebhook')}
-                                        </button>
-                                        <button
-                                            onClick={() => { handlePremiumExport('airtable'); setExportOpen(false); }}
-                                            role="menuitem"
-                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
-                                        >
-                                            <Database className="w-3 h-3 text-cyan-400" /> {t('page.exportAirtable')}
-                                        </button>
-                                        <button
-                                            onClick={() => { handlePremiumExport('zapier'); setExportOpen(false); }}
-                                            role="menuitem"
-                                            className="w-full text-left px-3 py-2.5 text-xs font-medium text-text-primary hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:ring-1 focus-visible:ring-accent-ai/40 focus-visible:outline-none flex items-center gap-2"
-                                        >
-                                            <Zap className="w-3 h-3 text-orange-400" /> {t('page.exportZapier')}
-                                        </button>
-                                    </div>}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Data Table - Full Screen */}
             <div className="flex-1 overflow-hidden p-4">
                 {loading ? (
-                    <div className="h-full flex items-center justify-center">
-                        <LoadingSpinner message={t('page.loadingTable')} />
+                    <div className="flex h-full flex-col items-center justify-center gap-3 text-ink-2">
+                        <Spinner size={24} />
+                        <Text size="small" tone="muted">{t('page.loadingTable')}</Text>
                     </div>
                 ) : error ? (
-                    <div className="h-full flex items-center justify-center p-8">
-                        <div className="text-center">
-                            <div className="text-4xl mb-3">⚠️</div>
-                            <p className="text-accent-error font-medium">{error}</p>
-                        </div>
+                    <div className="flex h-full items-center justify-center p-8">
+                        <Notice tone="danger" className="max-w-md">{error}</Notice>
                     </div>
                 ) : tableData && rows.length > 0 ? (
                     <div className="h-full w-full">
@@ -366,12 +244,8 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                         />
                     </div>
                 ) : (
-                    <div className="h-full flex items-center justify-center">
-                        <EmptyState
-                            icon="📊"
-                            title={t('page.selectDataset')}
-                            description={t('page.selectDatasetDesc')}
-                        />
+                    <div className="flex h-full items-center justify-center">
+                        <EmptyState icon={<Table2 />} title={t('page.selectDataset')}>{t('page.selectDatasetDesc')}</EmptyState>
                     </div>
                 )}
             </div>

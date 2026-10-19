@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-    Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, MenuItem, Select, Stack, TextField, Tooltip, Typography,
-} from '@mui/material';
-import { Braces } from 'lucide-react';
+import { Button, Dialog, Notice, Progress, Select, Stack, Text, TextArea, ToggleChip, Tooltip } from '../../ui';
 import {
     autoMap, checkContract, Contract, CONTRACT_PRESETS, contractFromFields, contractJsonSchema, FieldMapping, MappableColumn, REQUIRED_FLOOR, shapeRows,
 } from '../../../shared/contracts/contract';
@@ -62,112 +59,70 @@ export default function SchemaMapDialog({ open, onClose, columns, rows, tableNam
     };
 
     return (
-        <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-            <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Braces size={18} /> Map to an output schema
-            </DialogTitle>
-            <DialogContent dividers>
-                <Stack spacing={1.5}>
-                    <Typography variant="body2" color="text.secondary">
-                        Give the data the same shape whatever site it came from: map columns to fields, check what's missing, export JSON that follows the schema.
-                    </Typography>
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                        {CONTRACT_PRESETS.map(c => (
-                            <Chip key={c.id} size="small" label={c.label} color={contractId === c.id ? 'primary' : 'default'} onClick={() => setContractId(c.id)} />
-                        ))}
-                        <Chip size="small" label="My schema" color={contractId === 'custom' ? 'primary' : 'default'} onClick={() => setContractId('custom')} />
-                    </Stack>
-                    {contractId === 'custom' && (
-                        <TextField
-                            multiline minRows={4} maxRows={10} size="small" value={customText}
-                            onChange={e => setCustomText(e.target.value)}
-                            placeholder={'Paste a JSON Schema or an example object, or one field per line:\ntitle\nprice: current price'}
-                            inputProps={{ style: { fontFamily: 'monospace', fontSize: 12 } }}
-                            helperText={intake?.error}
-                            error={!!intake?.error && customText.trim().length > 0}
-                        />
-                    )}
+        <Dialog open={open} onClose={onClose} size="lg" title="Map to an output schema"
+            description="Give the data the same shape whatever site it came from: map columns to fields, check what's missing, export JSON that follows the schema."
+            actions={<>
+                <Button variant="ghost" className="mr-auto" onClick={onClose}>Close</Button>
+                <Button disabled={!contract} onClick={() => contract && downloadJson(contractJsonSchema(contract), `${slug(contract.id, '-', 'export')}.schema.json`)}>Schema</Button>
+                <Button variant="primary" disabled={!contract || shaped.length === 0} onClick={() => downloadJson(shaped, `${slug(tableName, '-', 'export')}.json`)}>Export JSON</Button>
+            </>}>
+            <Stack gap={3}>
+                <div className="flex flex-wrap gap-1.5">
+                    {CONTRACT_PRESETS.map(c => <ToggleChip key={c.id} selected={contractId === c.id} onClick={() => setContractId(c.id)}>{c.label}</ToggleChip>)}
+                    <ToggleChip selected={contractId === 'custom'} onClick={() => setContractId('custom')}>My schema</ToggleChip>
+                </div>
+                {contractId === 'custom' && (
+                    <TextArea mono rows={5} value={customText} onChange={e => setCustomText(e.target.value)}
+                        placeholder={'Paste a JSON Schema or an example object, or one field per line:\ntitle\nprice: current price'}
+                        error={customText.trim().length > 0 ? intake?.error : undefined} />
+                )}
 
-                    {contract && report && (
-                        <>
-                            {report.unmappedRequired.length > 0 && (
-                                <Alert severity="error" variant="outlined" sx={{ py: 0, fontSize: 12 }}>
-                                    Required with no column: {report.unmappedRequired.join(', ')}
-                                </Alert>
-                            )}
-                            {report.underFloor.length > 0 && (
-                                <Alert severity="warning" variant="outlined" sx={{ py: 0, fontSize: 12 }}>
-                                    Too often empty: {report.underFloor.map(u => `${u.name} ${Math.round(u.fill * 100)}% (needs ${Math.round(u.floor * 100)}%)`).join(', ')}
-                                </Alert>
-                            )}
-                            {report.ok && (
-                                <Alert severity="success" variant="outlined" sx={{ py: 0, fontSize: 12 }}>
-                                    Every required field is mapped and filled. {rows.length} records ready.
-                                </Alert>
-                            )}
-                            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
-                                {contract.fields.map((f, i) => {
-                                    const fill = report.coverage[f.name] ?? 0;
-                                    const floor = f.floor ?? (f.required ? REQUIRED_FLOOR : 0);
-                                    return (
-                                        <Box key={f.name} sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.5, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
-                                            <Tooltip title={f.description ?? ''}>
-                                                <Box sx={{ width: 130, minWidth: 0 }}>
-                                                    <Typography variant="caption" fontWeight={600} noWrap component="div">
-                                                        {f.name}{f.required ? ' *' : ''}
-                                                    </Typography>
-                                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>{f.type}</Typography>
-                                                </Box>
-                                            </Tooltip>
-                                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                {f.runtime ? (
-                                                    <Typography variant="caption" color="text.secondary">Filled by the export (row order)</Typography>
-                                                ) : (
-                                                    <Select
-                                                        size="small" fullWidth displayEmpty value={mapping[f.name] ?? ''}
-                                                        onChange={e => setField(f.name, String(e.target.value))}
-                                                        sx={{ fontSize: 12, '& .MuiSelect-select': { py: 0.5 } }}
-                                                    >
-                                                        <MenuItem value="" sx={{ fontSize: 12 }}>
-                                                            <em>{f.derive ? 'none (taken from the URL)' : f.default !== undefined ? `none (${JSON.stringify(f.default)})` : 'none'}</em>
-                                                        </MenuItem>
-                                                        {columns.filter(c => c.id !== 'recordId').map(c => (
-                                                            <MenuItem key={c.id} value={c.id} sx={{ fontSize: 12 }}>{c.name}</MenuItem>
-                                                        ))}
-                                                    </Select>
-                                                )}
-                                            </Box>
-                                            <Tooltip title={`${Math.round(fill * 100)}% of records have it${floor ? `; needs ${Math.round(floor * 100)}%` : ''}`}>
-                                                <Box sx={{ width: 40 }}>
-                                                    <LinearProgress variant="determinate" value={fill * 100}
-                                                        color={floor && fill < floor ? 'warning' : fill > 0 ? 'success' : 'inherit'} sx={{ height: 4, borderRadius: 2 }} />
-                                                </Box>
-                                            </Tooltip>
-                                        </Box>
-                                    );
-                                })}
-                            </Box>
-                            {shaped[0] && (
-                                <Box>
-                                    <Typography variant="caption" fontWeight={700} color="text.secondary">First record</Typography>
-                                    <Box component="pre" sx={{ m: 0, p: 1, bgcolor: 'action.hover', borderRadius: 1, fontSize: 11, maxHeight: 160, overflow: 'auto' }}>
-                                        {JSON.stringify(shaped[0], null, 2)}
-                                    </Box>
-                                </Box>
-                            )}
-                        </>
-                    )}
-                </Stack>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose} sx={{ mr: 'auto' }}>Close</Button>
-                <Button disabled={!contract} onClick={() => contract && downloadJson(contractJsonSchema(contract), `${slug(contract.id, '-', 'export')}.schema.json`)}>
-                    Schema
-                </Button>
-                <Button variant="contained" disabled={!contract || shaped.length === 0} onClick={() => downloadJson(shaped, `${slug(tableName, '-', 'export')}.json`)}>
-                    Export JSON
-                </Button>
-            </DialogActions>
+                {contract && report && (
+                    <>
+                        {report.unmappedRequired.length > 0 && <Notice tone="danger">Required with no column: {report.unmappedRequired.join(', ')}</Notice>}
+                        {report.underFloor.length > 0 && (
+                            <Notice tone="warning">Too often empty: {report.underFloor.map(u => `${u.name} ${Math.round(u.fill * 100)}% (needs ${Math.round(u.floor * 100)}%)`).join(', ')}</Notice>
+                        )}
+                        {report.ok && <Notice tone="success">Every required field is mapped and filled. {rows.length} records ready.</Notice>}
+                        <div className="overflow-hidden rounded-field border border-line">
+                            {contract.fields.map((f, i) => {
+                                const fill = report.coverage[f.name] ?? 0;
+                                const floor = f.floor ?? (f.required ? REQUIRED_FLOOR : 0);
+                                return (
+                                    <div key={f.name} className={`flex items-center gap-2 px-3 py-1.5 ${i ? 'border-t border-line' : ''}`}>
+                                        <Tooltip title={f.description ?? ''}>
+                                            <div className="w-32 min-w-0 shrink-0">
+                                                <Text size="caption" weight="semibold" truncate>{f.name}{f.required ? ' *' : ''}</Text>
+                                                <Text size="caption" tone="faint" className="text-[10.5px]">{f.type}</Text>
+                                            </div>
+                                        </Tooltip>
+                                        <div className="min-w-0 flex-1">
+                                            {f.runtime ? (
+                                                <Text size="caption" tone="muted">Filled by the export (row order)</Text>
+                                            ) : (
+                                                <Select size="sm" aria-label={f.name} value={mapping[f.name] ?? ''} onChange={v => setField(f.name, v)}
+                                                    options={[
+                                                        { value: '', label: f.derive ? 'none (taken from the URL)' : f.default !== undefined ? `none (${JSON.stringify(f.default)})` : 'none' },
+                                                        ...columns.filter(c => c.id !== 'recordId').map(c => ({ value: c.id, label: c.name })),
+                                                    ]} />
+                                            )}
+                                        </div>
+                                        <Tooltip title={`${Math.round(fill * 100)}% of records have it${floor ? `; needs ${Math.round(floor * 100)}%` : ''}`}>
+                                            <div className="w-10 shrink-0"><Progress size="sm" value={fill * 100} tone={floor && fill < floor ? 'danger' : 'success'} /></div>
+                                        </Tooltip>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {shaped[0] && (
+                            <div>
+                                <Text size="caption" weight="semibold" tone="muted" className="mb-1">First record</Text>
+                                <pre className="m-0 max-h-40 overflow-auto rounded-field bg-surface-2 p-3 text-[11px] text-ink">{JSON.stringify(shaped[0], null, 2)}</pre>
+                            </div>
+                        )}
+                    </>
+                )}
+            </Stack>
         </Dialog>
     );
 }

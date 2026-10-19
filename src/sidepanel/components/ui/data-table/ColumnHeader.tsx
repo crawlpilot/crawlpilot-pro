@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconButton, Tooltip } from '@mui/material';
+import { IconButton } from '../../../ui';
 import { Check, Edit, Trash2, Wand2, X } from 'lucide-react';
 
 /** A column header with rename, delete and clean / set type actions (ag-grid header component). */
@@ -26,81 +26,31 @@ export function ColumnHeader(props: any) {
         setIsConfirmingDelete(false);
     };
 
+    const stop = (e: React.MouseEvent) => e.stopPropagation();
     return (
-        <div className="flex items-center justify-between w-full group" role="columnheader">
+        <div className="group flex w-full items-center justify-between" role="columnheader">
             {isEditing ? (
-                <div className="flex items-center gap-1 w-full" onClick={(e) => e.stopPropagation()}>
-                    <input
-                        type="text"
-                        value={tempName}
-                        onChange={(e) => setTempName(e.target.value)}
-                        className="w-full text-xs px-2 py-1 border rounded bg-background-card text-text-primary"
-                        autoFocus
+                <div className="flex w-full items-center gap-0.5" onClick={stop}>
+                    <input type="text" value={tempName} onChange={e => setTempName(e.target.value)} autoFocus
                         aria-label={`${t('header.rename')} ${props.displayName}`}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') onSave();
-                            if (e.key === 'Escape') setIsEditing(false);
-                        }}
-                    />
-                    <Tooltip title={t('header.saveName')}>
-                        <IconButton size="small" onClick={onSave} aria-label={t('header.saveName')} sx={{ color: 'success.main', p: 0.5 }}>
-                            <Check size={14} />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title={t('header.cancel')}>
-                        <IconButton size="small" onClick={() => setIsEditing(false)} aria-label={t('header.cancel')} sx={{ color: 'error.main', p: 0.5 }}>
-                            <X size={14} />
-                        </IconButton>
-                    </Tooltip>
+                        onKeyDown={e => { if (e.key === 'Enter') onSave(); if (e.key === 'Escape') setIsEditing(false); }}
+                        className="w-full min-w-0 rounded-md border-[1.5px] border-line-strong bg-surface px-2 py-1 text-caption text-ink outline-none" />
+                    <IconButton size="sm" label={t('header.saveName')} className="text-success" onClick={onSave}><Check /></IconButton>
+                    <IconButton size="sm" label={t('header.cancel')} onClick={() => setIsEditing(false)}><X /></IconButton>
                 </div>
             ) : isConfirmingDelete ? (
-                <div className="flex items-center gap-1 w-full" onClick={(e) => e.stopPropagation()}>
-                    <span className="text-xs text-accent-red font-semibold truncate">{t('header.deletePrompt')}</span>
-                    <Tooltip title={t('header.confirmDelete')}>
-                        <IconButton size="small" onClick={onDelete} aria-label={`${t('header.confirmDelete')} ${props.displayName}`} sx={{ color: 'error.main', p: 0.5 }}>
-                            <Check size={14} />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title={t('header.cancel')}>
-                        <IconButton size="small" onClick={() => setIsConfirmingDelete(false)} aria-label={t('header.cancel')} sx={{ color: 'text.secondary', p: 0.5 }}>
-                            <X size={14} />
-                        </IconButton>
-                    </Tooltip>
+                <div className="flex w-full items-center gap-0.5" onClick={stop}>
+                    <span className="truncate text-caption font-semibold text-danger">{t('header.deletePrompt')}</span>
+                    <IconButton size="sm" label={`${t('header.confirmDelete')} ${props.displayName}`} className="text-danger" onClick={onDelete}><Check /></IconButton>
+                    <IconButton size="sm" label={t('header.cancel')} onClick={() => setIsConfirmingDelete(false)}><X /></IconButton>
                 </div>
             ) : (
-                <div className="flex items-center justify-between w-full">
-                    <span className="truncate font-semibold text-text-primary" title={props.displayName}>{props.displayName}</span>
-                    <div className="flex items-center opacity-30 group-hover:opacity-100 transition-opacity ml-1">
-                        <Tooltip title="Clean / set type">
-                            <IconButton
-                                size="small"
-                                aria-label={`Clean ${props.displayName}`}
-                                onClick={(e) => { e.stopPropagation(); props.context.onCleanColumn?.(props.column.colId); }}
-                                sx={{ p: 0.5, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                            >
-                                <Wand2 size={14} />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('header.rename')}>
-                            <IconButton
-                                size="small"
-                                aria-label={`${t('header.rename')} ${props.displayName}`}
-                                onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-                                sx={{ p: 0.5, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                            >
-                                <Edit size={14} />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('header.delete')}>
-                            <IconButton
-                                size="small"
-                                aria-label={`${t('header.delete')} ${props.displayName}`}
-                                onClick={(e) => { e.stopPropagation(); setIsConfirmingDelete(true); }}
-                                sx={{ p: 0.5, color: 'text.secondary', '&:hover': { color: 'error.main' } }}
-                            >
-                                <Trash2 size={14} />
-                            </IconButton>
-                        </Tooltip>
+                <div className="flex w-full items-center justify-between">
+                    <span className="truncate font-semibold text-ink" title={props.displayName}>{props.displayName}</span>
+                    <div className="ml-1 flex items-center opacity-30 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                        <IconButton size="sm" label={`Clean ${props.displayName}`} onClick={e => { e.stopPropagation(); props.context.onCleanColumn?.(props.column.colId); }}><Wand2 /></IconButton>
+                        <IconButton size="sm" label={`${t('header.rename')} ${props.displayName}`} onClick={e => { e.stopPropagation(); setIsEditing(true); }}><Edit /></IconButton>
+                        <IconButton size="sm" label={`${t('header.delete')} ${props.displayName}`} className="hover:text-danger" onClick={e => { e.stopPropagation(); setIsConfirmingDelete(true); }}><Trash2 /></IconButton>
                     </div>
                 </div>
             )}
