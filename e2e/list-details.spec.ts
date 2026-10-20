@@ -7,6 +7,7 @@ import { test, expect } from './harness';
 
 test('a list, then each item\'s page: the details land on the list\'s rows', async ({ panel, ext, origin }) => {
     test.setTimeout(180_000);
+    const t0 = Date.now(); const mark = (m: string) => console.log('T', Math.round((Date.now() - t0) / 1000), m);
     const page = await ext.newPage();
     await page.goto(`${origin}/site/list-1.html`);
     const tabId = await panel.tabId(page.url());
@@ -25,11 +26,13 @@ test('a list, then each item\'s page: the details land on the list\'s rows', asy
     await ui.getByRole('button', { name: 'Get the data from 3 pages' }).click();
     await expect(ui.getByText('Done · 12 items from 3 pages')).toBeVisible({ timeout: 60_000 });
 
+    mark('list done');
     // Add details: the Page Extractor opens on the 12 item links, the first one in the tab.
     await ui.getByRole('button', { name: "Add details from each item's page" }).click();
     await expect(ui.getByRole('status').filter({ hasText: 'Details for the 12 items' })).toBeVisible();
     await expect.poll(() => page.url(), { timeout: 10_000 }).toContain('/site/product.html?id=1');
 
+    mark('handoff done');
     // The details run, as the Page Extractor starts it with the list as its join target.
     const list = (await panel.store('tables')).filter(t => !t.preview && t.source !== 'bulk-page').at(-1);
     const urlColumn = list.columns.find((c: any) => c.type === 'url' && c.id !== 'source_url').id;
@@ -49,6 +52,7 @@ test('a list, then each item\'s page: the details land on the list\'s rows', asy
     const done = await panel.next('BULK_EXTRACTION_COMPLETE', 120_000);
     expect(done.success).toBe(true);
 
+    mark('details run done');
     // Every list row has its own item's page fields.
     const joined = (await panel.store('tables')).find(t => t.id === list.id);
     expect(joined.columns.map((c: any) => c.name)).toEqual(expect.arrayContaining(['Model', 'Cost']));
@@ -61,6 +65,7 @@ test('a list, then each item\'s page: the details land on the list\'s rows', asy
         expect(r.data.cost).toBe(`$${Number(id) * 10}.99`);
     }
 
+    mark('checks done');
     // "Run again" on the list from My data reads the list, then each item's page, and joins them again.
     await panel.clear();
     await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=history&tabId=${tabId}`);
@@ -69,6 +74,7 @@ test('a list, then each item\'s page: the details land on the list\'s rows', asy
     await ui.getByRole('button', { name: 'Start' }).click();
     // The list (numbered pages, read in the background) and then its details: two runs complete.
     await expect.poll(async () => (await panel.received('BULK_EXTRACTION_COMPLETE')).length, { timeout: 150_000 }).toBeGreaterThanOrEqual(2);
+    mark('rerun done');
     expect((await panel.received('BULK_EXTRACTION_COMPLETE')).every((c: any) => c.success)).toBe(true);
     const rerunList = (await panel.store('tables')).filter(t => !t.preview && t.source !== 'bulk-page' && t.id !== list.id).at(-1);
     expect(rerunList.view.details).toMatchObject({ matched: 12, unmatched: 0 });

@@ -71,6 +71,8 @@ export interface RunJob {
     extract(tabId: number, url: string, ctx: RunContext): Promise<{ rows: Row[]; columns?: Column[]; needsWindow?: boolean; steps?: StepResult[] } | null>;
     /** After the run's table is saved, before "complete" is sent (a details run joins its rows onto its list). */
     afterSave?(tableId: number): Promise<void>;
+    /** A unit no longer worth opening (numbered pages past the listing's end): dropped from the run. */
+    skip?(url: string): boolean;
 }
 
 interface UrlState extends UrlStatus {
@@ -276,6 +278,12 @@ export class JobRunner {
                 if (this.liveWorkers > this.workerLimit) break;
                 const url = queue.shift();
                 if (!url) break;
+                if (this.job?.skip?.(url)) {
+                    // Not read, not failed: no longer part of the run.
+                    if (this.state) this.state.urls = this.state.urls.filter(u => u.url !== url);
+                    this.broadcast();
+                    continue;
+                }
                 await this.waitForHost(url);
                 if (this.stopping) break;
                 if (await this.processUrl(url) === 'retry') queue.push(url);

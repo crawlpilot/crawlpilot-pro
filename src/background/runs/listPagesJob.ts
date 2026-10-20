@@ -21,13 +21,16 @@ export function listPagesJob(start: ListPagesStart): RunJob {
         name: start.customName,
         spec: start.spec,
         tableType: 'list',
+        // Pages after the first one with no list are past the listing's end.
+        skip: url => start.urls.indexOf(url) > end,
         columns: found => [...found.filter(c => c.id !== 'source_url'), { id: 'source_url', name: 'Page', type: 'url' }],
 
         async extract(tabId, url, ctx) {
             const index = start.urls.indexOf(url);
             if (ctx.stopped() || index > end) return null;
             const response = await ctx.message(tabId, 'READ_LIST_PAGE', { container: start.container, items: start.items, columns: start.columns });
-            if (!response.success) throw new Error(response.error);
+            // A page that doesn't load is past the end too (most sites answer a page number past the last with an error).
+            if (!response.success) { end = Math.min(end, index); throw new Error(response.error); }
             const { rows, columns } = response;
             // A page whose list is gone (past the last page, a page that didn't render it) has no rows.
             if (rows.length === 0) { end = Math.min(end, index); return null; }
