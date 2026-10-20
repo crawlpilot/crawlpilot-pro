@@ -10,6 +10,7 @@ import { Calendar, ChevronDown, Database, Download, ExternalLink, FileArchive, F
 import { DEFAULT_CHUNK_CHARS, markdownFiles, markdownJsonl, pagesFromRows } from '../../shared/export/markdownExport';
 import { ZipWriter } from '../services/images/zip';
 import { downloadBlob, downloadText } from '../services/download';
+import { xlsxBytes } from '../../shared/export/xlsx';
 import { slug } from '../../shared/utils/text';
 import { sendTable, stopSync, syncTable } from '@/shared/integrations/sheetsSync';
 import { storage } from '@/shared/storage';
@@ -106,6 +107,17 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
         try {
             const { columns, rows } = await processed();
             exportToCSV(columns, rows, tableData?.name || 'export');
+        } catch (err: any) {
+            alert(`Export failed: ${err.message}`);
+        }
+    };
+
+    /** Excel, typed: numbers, dates and links as Excel's own (`shared/export/xlsx.ts`). */
+    const handleExportXlsx = async () => {
+        try {
+            const { columns, rows } = await processed();
+            const bytes = xlsxBytes(columns, rows, tableData?.name || 'Data');
+            downloadBlob(new Blob([bytes as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${exportName}.xlsx`);
         } catch (err: any) {
             alert(`Export failed: ${err.message}`);
         }
@@ -258,6 +270,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                         </Button>
                         <Menu anchor={exportMenu} onClose={() => setExportMenu(null)} align="end">
                             <div className="px-2.5 pt-1.5 pb-1 text-caption font-semibold text-ink-3">{t('page.localExport')}</div>
+                            <MenuItem icon={<Sheet />} onClick={exportItem(handleExportXlsx)}>{t('page.exportXlsx')}</MenuItem>
                             <MenuItem icon={<FileText />} onClick={exportItem(handleExportCSV)}>{t('page.exportCSV')}</MenuItem>
                             <MenuItem icon={<FileJson />} onClick={exportItem(handleExportJSON)}>{t('page.exportJSON')}</MenuItem>
                             <MenuItem icon={<FileJson />} onClick={exportItem(openSchemaMap)}>JSON to a schema…</MenuItem>

@@ -43,12 +43,23 @@ test('an export has every row, though the table shows the first 2,000; an edited
     const exportCsv = async () => {
         const download = ui.waitForEvent('download');
         await ui.getByRole('button', { name: 'Export' }).click();
-        await ui.getByRole('menuitem', { name: 'CSV / Excel' }).click();
+        await ui.getByRole('menuitem', { name: 'CSV', exact: true }).click();
         return (await fs.readFile((await (await download).path())!, 'utf8')).replace(/^﻿/, '').trim().split(/\r?\n/);
     };
     const lines = await exportCsv();
     expect(lines).toHaveLength(ROWS + 1);
     expect(lines[ROWS]).toContain('Item 2100');
+
+    // Excel: every row, prices as numbers.
+    const xlsxDownload = ui.waitForEvent('download');
+    await ui.getByRole('button', { name: 'Export' }).click();
+    await ui.getByRole('menuitem', { name: 'Excel (.xlsx)' }).click();
+    const xlsx = await xlsxDownload;
+    expect(xlsx.suggestedFilename()).toBe('big-list.xlsx');
+    const { unzipSync, strFromU8 } = await import('fflate');
+    const sheet = strFromU8(unzipSync(await fs.readFile((await xlsx.path())!))['xl/worksheets/sheet1.xml']);
+    expect(sheet.match(/<row /g)).toHaveLength(ROWS + 1);
+    expect(sheet).toContain('Item 2100');
 
     // Edit the first row's title in the grid.
     const cell = ui.locator('.ag-row[row-index="0"] [col-id="title"]');
