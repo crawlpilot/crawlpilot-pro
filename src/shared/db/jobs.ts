@@ -36,6 +36,16 @@ async function reviseRecipe(id: number, spec: RecipeSpec): Promise<number> {
     return rev;
 }
 
+/** A recipe's name (what the Recipes screen shows); its spec and revision stay. */
+async function renameRecipe(id: number, name: string): Promise<void> {
+    const tx = await transaction(STORES.recipes, 'readwrite');
+    const store = tx.objectStore(STORES.recipes);
+    const current: Recipe | undefined = await req(store.get(id));
+    if (!current) throw new Error(`Recipe ${id} not found`);
+    store.put({ ...current, name: name.trim() || current.name, updatedAt: Date.now() });
+    await done(tx);
+}
+
 async function getRecipe(id: number): Promise<Recipe | null> {
     const tx = await transaction(STORES.recipes);
     return (await req(tx.objectStore(STORES.recipes).get(id))) ?? null;
@@ -87,4 +97,4 @@ async function remove(job: Job): Promise<void> {
     await done(tx);
 }
 
-export const jobs = { saveRecipe, reviseRecipe, getRecipe, create, get, update, list, remove };
+export const jobs = { saveRecipe, reviseRecipe, renameRecipe, getRecipe, create, get, update, list, remove };

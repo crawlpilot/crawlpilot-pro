@@ -8,7 +8,7 @@ import type { DataEntry, DataStatus } from './myData';
 
 const STATUS: Record<DataStatus, ChipTone> = { ready: 'success', running: 'info', stopped: 'warning', failed: 'danger' };
 
-function ago(ms: number, tc: TFunction<'common'>): string {
+export function ago(ms: number, tc: TFunction<'common'>): string {
     const min = Math.floor((Date.now() - ms) / 60000);
     if (min < 1) return tc('time.justNow');
     if (min < 60) return tc('time.minutesAgo', { count: min });

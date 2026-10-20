@@ -63,5 +63,21 @@
   "remove": "Remove",
   "removeConfirm": "Remove “{{name}}” and its rows?",
   "failedHint": "This run stopped with an error before saving. Run it again, or open the details.",
-  "unknownSite": "Unknown site"
+  "unknownSite": "Unknown site",
+  "tabs": { "data": "Data", "recipes": "Recipes" },
+  "recipes": {
+    "empty": "No recipes yet",
+    "emptyHint": "Every list or page run is saved as a recipe here, to run again whenever you like.",
+    "runs_one": "{{count}} run",
+    "runs_other": "{{count}} runs",
+    "lastRun_one": "Last run {{when}} · {{count}} row",
+    "lastRun_other": "Last run {{when}} · {{count}} rows",
+    "run": "Run",
+    "openData": "Open last data",
+    "rename": "Rename",
+    "renameTitle": "Rename recipe",
+    "save": "Save",
+    "health": { "good": "Healthy", "warn": "Check", "bad": "Broken", "running": "Running" },
+    "kind": { "list": "List", "page": "Pages", "metadata": "Articles", "contacts": "Contacts", "api": "API" }
+  }
 }
