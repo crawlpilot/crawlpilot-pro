@@ -60,4 +60,17 @@ test('a list, then each item\'s page: the details land on the list\'s rows', asy
         expect(r.data.model, r.data[urlColumn]).toBe(`Lamp model ${id}`);
         expect(r.data.cost).toBe(`$${Number(id) * 10}.99`);
     }
+
+    // "Run again" on the list from My data reads the list, then each item's page, and joins them again.
+    await panel.clear();
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=history&tabId=${tabId}`);
+    const card = ui.getByText(list.name, { exact: true }).first().locator('xpath=ancestor::div[.//button[normalize-space()="Run again"]][1]');
+    await card.getByRole('button', { name: 'Run again' }).click();
+    await ui.getByRole('button', { name: 'Start' }).click();
+    const again = await panel.next('BULK_EXTRACTION_COMPLETE', 150_000);
+    expect(again.success).toBe(true);
+    const rerunList = (await panel.store('tables')).filter(t => !t.preview && t.source !== 'bulk-page' && t.id !== list.id).at(-1);
+    expect(rerunList.view.details).toMatchObject({ matched: 12, unmatched: 0 });
+    const rerunRows = (await panel.store('rows')).filter(r => r.tableId === rerunList.id);
+    expect(rerunRows.filter(r => /^Lamp model \d+$/.test(r.data.model))).toHaveLength(12);
 });

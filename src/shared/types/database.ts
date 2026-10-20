@@ -136,6 +136,11 @@ export interface ListSpec {
         next?: Chain;
         speed?: import('../constants/paginationConfig').PaginationSpeed;
     };
+    /**
+     * Each item's page, read after the list and joined onto its row (`listing/join.ts`): the details
+     * run's recipe and the list's column of item links. A rerun of the list runs it too.
+     */
+    details?: { page: PageSpec; urlColumn: string };
 }
 
 /** One Page Extractor element: read (or clicked) on every page of a bulk run. */
