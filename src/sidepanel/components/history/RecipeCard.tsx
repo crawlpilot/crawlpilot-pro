@@ -1,6 +1,6 @@
 /** One recipe on the Recipes screen: what it reads, from where, how its last run went, and Run / Open / Rename. */
 import { useTranslation } from 'react-i18next';
-import { BookOpen, Pencil, RefreshCcw } from 'lucide-react';
+import { BookOpen, Gauge, Pencil, RefreshCcw } from 'lucide-react';
 import { Button, Chip, IconButton, Text, Tooltip, type ChipTone } from '../../ui';
 import { ago } from './DataCard';
 import type { Health, RecipeEntry } from './recipes';
@@ -13,9 +13,10 @@ interface Props {
     onRun: () => void;
     onOpen?: () => void;
     onRename: () => void;
+    onSiteSettings?: () => void;
 }
 
-export function RecipeCard({ entry, busy, onRun, onOpen, onRename }: Props) {
+export function RecipeCard({ entry, busy, onRun, onOpen, onRename, onSiteSettings }: Props) {
     const { t } = useTranslation('history');
     const { t: tc } = useTranslation('common');
     const rows = entry.last.stats?.itemsExtracted ?? 0;
@@ -43,6 +44,7 @@ export function RecipeCard({ entry, busy, onRun, onOpen, onRename }: Props) {
                     <span><Button size="sm" variant="primary" disabled={busy || entry.health === 'running'} icon={<RefreshCcw />} onClick={onRun}>{t('recipes.run')}</Button></span>
                 </Tooltip>
                 {onOpen && <Button size="sm" onClick={onOpen}>{t('recipes.openData')}</Button>}
+                {onSiteSettings && entry.site && <Button size="sm" variant="ghost" icon={<Gauge />} onClick={onSiteSettings}>{t('recipes.siteSettings')}</Button>}
             </div>
         </div>
     );

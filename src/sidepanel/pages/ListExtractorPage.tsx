@@ -16,6 +16,7 @@ import { PaginationSpeed, DEFAULT_PAGINATION_SPEED } from '../../shared/constant
 import { consolidateSelectors } from '../../shared/utils/extractionLogic';
 import { itemUrlColumn, itemUrls } from '../../shared/listing/join';
 import { setDetailsDraft } from '../services/detailsDraft';
+import { siteOf } from '../../shared/sites/siteSettings';
 
 interface ListExtractorPageProps {
     onBack?: () => void;
@@ -184,6 +185,14 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
         };
     }, [selectingFor, selectors, addSelector, updateSelector, setNext, setSelectionStatus, stopSelection]);
 
+    /** The list's site (its settings show before the run): the page the list was picked on. */
+    const [site, setSite] = useState('');
+    const sourceTabId = selectors[0]?.sourceTabId;
+    useEffect(() => {
+        if (sourceTabId === undefined) return;
+        chrome.tabs.get(sourceTabId).then(tab => setSite(siteOf(tab.url)), () => setSite(''));
+    }, [sourceTabId]);
+
     /** List + details: the list's item links go to the Page Extractor, whose fields join onto this list. */
     const [detailsError, setDetailsError] = useState<string | null>(null);
     const addDetails = async () => {
@@ -289,6 +298,7 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
                         maxPages={maxPages}
                         onMaxPagesChange={setMaxPages}
                         onAddDetails={onNavigate ? () => void addDetails() : undefined}
+                        site={site}
                         detailsError={detailsError}
                     />
                 );

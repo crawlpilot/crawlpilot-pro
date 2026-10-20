@@ -1,6 +1,7 @@
 import { ListPick, PaginationMode } from '../../../../shared/types/extraction';
 import { Settings2, Play, Gauge, RotateCcw, PartyPopper, FileSearch } from 'lucide-react';
 import { ExtractionStatusBar } from '../ExtractionStatusBar';
+import { SiteSettingsCard } from '../../sites/SiteSettingsCard';
 import { Button, Card, Disclosure, Divider, Heading, Notice, Row, Select, Stack, Text, TextField } from '../../../ui';
 import { PaginationSpeed, PAGINATION_PROFILES } from '../../../../shared/constants/paginationConfig';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +22,8 @@ interface Step3ReviewProps {
     /** The list run ended: open each item's page and add its fields to this table. */
     onAddDetails?: () => void;
     detailsError?: string | null;
+    /** The list's site: its settings are shown before the run. */
+    site?: string;
 }
 
 export function Step3Review({
@@ -38,6 +41,7 @@ export function Step3Review({
     onMaxPagesChange,
     onAddDetails,
     detailsError,
+    site,
 }: Step3ReviewProps) {
 
     const { t } = useTranslation('listExtractor');
@@ -139,6 +143,8 @@ export function Step3Review({
             {!isExtracting && status?.status === 'failed' && (
                 <Notice tone="danger" title={t('step3.extractionFailed')}>{status.error || t('step3.unknownError')}</Notice>
             )}
+
+            {!isExtracting && (status?.status === 'idle' || !status?.status) && site && <SiteSettingsCard site={site} />}
 
             {!isExtracting && (status?.status === 'idle' || !status?.status) && (
                 <div className="mt-auto flex items-center justify-between border-t border-line pt-4">

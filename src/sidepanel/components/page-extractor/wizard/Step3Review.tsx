@@ -1,4 +1,6 @@
 import { Play, Settings2, ExternalLink, RotateCcw, PartyPopper, ShieldAlert, Square } from 'lucide-react';
+import { SiteSettingsCard } from '../../sites/SiteSettingsCard';
+import { siteOf } from '../../../../shared/sites/siteSettings';
 import { Button, Card, Chip, Disclosure, Heading, Notice, Progress, Segmented, Spinner, Stack, Stepper, Switch, Text } from '../../../ui';
 import type { UrlStatus } from '../../../../shared/messages';
 import { VERDICT_LABELS } from '../../../../shared/verdict/classifyPage';
@@ -173,8 +175,10 @@ export function Step3Review({
                 </Card>
             )}
 
+            {!isActive && !done && <SiteSettingsCard site={siteOf(selectedUrls[0])} />}
+
             {!isActive && !done && (
-                <Disclosure icon={<Settings2 />} summary="Settings">
+                <Disclosure icon={<Settings2 />} summary="More settings for this run">
                     <div className="flex flex-col gap-4">
                         <Group title="Speed">
                             <SettingRow label="Tabs at a time" hint={tabsHint(maxConcurrent, defaultConcurrency())}>

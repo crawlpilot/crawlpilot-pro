@@ -8,6 +8,7 @@ import { BookOpen, Database, RefreshCcw, Search, Table2, X } from 'lucide-react'
 import ToolHeader from '../components/ui/ToolHeader';
 import { Button, Dialog, EmptyState, IconButton, Segmented, Spinner, Stack, TextField } from '../ui';
 import { RecipeCard } from '../components/history/RecipeCard';
+import { SiteSettingsCard } from '../components/sites/SiteSettingsCard';
 import { recipeEntries } from '../components/history/recipes';
 import { useJobHistory } from '../hooks/useDatabase';
 import { useJobRerun } from '../hooks/useJobRerun';
@@ -40,6 +41,7 @@ export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
     const [tab, setTab] = useState<'data' | 'recipes'>('data');
     const recipes = useMemo(() => recipeEntries(jobs), [jobs]);
     const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
+    const [siteFor, setSiteFor] = useState<string | null>(null);
 
     const loadTables = useCallback(() => db.tables.list(500).then(setTables).catch(() => setTables([])), []);
     const refresh = useCallback(() => { void refreshJobs(); void loadTables(); }, [refreshJobs, loadTables]);
@@ -93,7 +95,8 @@ export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
                                 <RecipeCard key={r.recipe.id} entry={r} busy={busy}
                                     onRun={() => setRerunTarget(r.last)}
                                     onOpen={r.lastWithData?.tableId !== undefined ? () => onViewData(r.lastWithData!.tableId!) : undefined}
-                                    onRename={() => setRenaming({ id: r.recipe.id!, name: r.recipe.name })} />
+                                    onRename={() => setRenaming({ id: r.recipe.id!, name: r.recipe.name })}
+                                    onSiteSettings={() => setSiteFor(r.site)} />
                             ))}
                         </Stack>
                     ) : (
@@ -129,6 +132,11 @@ export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
                     }}>{t('recipes.save')}</Button>
                 </>}>
                 <TextField label={t('runName')} value={renaming?.name ?? ''} onChange={e => setRenaming(prev => (prev ? { ...prev, name: e.target.value } : prev))} autoFocus />
+            </Dialog>
+
+            <Dialog open={!!siteFor} onClose={() => setSiteFor(null)} size="sm" title={t('recipes.siteSettings')}
+                actions={<Button variant="primary" onClick={() => setSiteFor(null)}>{tc('close', { defaultValue: 'Close' })}</Button>}>
+                {siteFor && <SiteSettingsCard site={siteFor} />}
             </Dialog>
 
             <RerunDialog job={rerunTarget} onClose={() => setRerunTarget(null)}

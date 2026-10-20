@@ -26,3 +26,41 @@ test('a site\'s settings set its runs\' pace; a rate limit makes it Careful', as
     await panel.toExtension('BULK_EXTRACTION_STOP');
     await panel.page.evaluate(() => chrome.storage.local.remove('siteSettings'));
 });
+
+test('the list run\'s step 3 shows the site\'s settings; a change is saved for the site and shown on its recipe', async ({ panel, ext, origin }) => {
+    test.setTimeout(150_000);
+    await panel.page.evaluate(() => chrome.storage.local.remove('siteSettings'));
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/list-1.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 900 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=list-extractor&tabId=${tabId}`);
+    await ui.getByRole('button', { name: 'Point at one item' }).click();
+    const box = (await page.locator('li.card').first().boundingBox())!;
+    await page.mouse.move(box.x + 20, box.y + 10);
+    await page.waitForTimeout(150);
+    await page.mouse.click(box.x + 20, box.y + 10);
+    await expect(ui.getByText('4 items found')).toBeVisible({ timeout: 15_000 });
+    await ui.getByRole('button', { name: 'Change', exact: true }).first().click();
+    await ui.getByRole('button', { name: 'Continue' }).click();
+
+    const card = ui.getByTestId('site-settings');
+    await expect(card).toContainText('Site settings · 127.0.0.1');
+    await expect(card).toContainText('1 s between pages · 3 tabs at a time');
+    await card.getByRole('radio', { name: 'Careful' }).click();
+    await expect(card).toContainText('4 s between pages · 1 tab at a time');
+    await card.getByRole('radio', { name: 'Skip the page' }).click();
+    await expect.poll(async () => (await panel.page.evaluate(() => chrome.storage.local.get('siteSettings')) as any).siteSettings?.['127.0.0.1'])
+        .toMatchObject({ pace: 'careful', onWall: 'skip' });
+
+    // Run it, then the recipe card opens the same settings.
+    await ui.getByRole('button', { name: /Get the data|Start/ }).last().click();
+    await expect(ui.getByText(/^Done · /)).toBeVisible({ timeout: 90_000 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=history&tabId=${tabId}`);
+    await ui.getByRole('tab', { name: 'Recipes' }).click();
+    await ui.getByTestId('recipe-card').first().getByRole('button', { name: 'Site settings' }).click();
+    await expect(ui.getByRole('dialog').getByTestId('site-settings')).toContainText('4 s between pages · 1 tab at a time');
+    await panel.page.evaluate(() => chrome.storage.local.remove('siteSettings'));
+});
