@@ -351,12 +351,17 @@
             "exact": true
           },
           {
+            "selector": ":scope > div:has(a[href*=\"/sp/\"], a[href*=\"/ip/\"])",
+            "matches": 9,
+            "exact": true
+          },
+          {
             "selector": "./div[.//*[@data-test-id=\"gpt-main\"]]",
             "matches": 9,
             "exact": true
           }
         ],
-        "itemChainLength": 2,
+        "itemChainLength": 3,
         "firstExactAt": 0,
         "persistedFirst": {
           "selector": ":scope > div:has([data-test-id=\"gpt-main\"])",
@@ -550,7 +555,7 @@
             "exact": true
           },
           {
-            "selector": ":scope > div",
+            "selector": ":scope > div:has(a[href*=\"/p/\"])",
             "matches": 4,
             "exact": true
           },
@@ -630,7 +635,7 @@
             "exact": true
           },
           {
-            "selector": "li",
+            "selector": "li:has(> a[href*=\"/item/\"])",
             "matches": 5,
             "exact": true
           },
@@ -705,7 +710,7 @@
             "exact": true
           },
           {
-            "selector": "article",
+            "selector": "article:has(a[href*=\"/jobs/\"])",
             "matches": 4,
             "exact": true
           },

@@ -60,3 +60,25 @@ test('Walmart cars: the top section is its 21 product cards, every one read (not
     expect(titles.filter(t => !rows.some(r => Object.values(r).includes(t)))).toEqual([]);
     await page.close();
 });
+
+test('Nike (hashed classes only, cards in rows of three): the 72 cards, found by a path of tags, not every div', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.setViewportSize({ width: 1366, height: 900 });
+    await page.goto(`${origin}/corpus/nike-plp`);
+    const picked = await pickList(panel, page, '.product__description > div >> nth=4');
+    expect(picked.count).toBe(72);
+    expect(picked.label).toMatch(/· 72 items$/);
+    expect(picked.items).toContain(':scope > div > div');
+    // The run finds the same 72 through every stored chain entry.
+    for (const items of picked.items as string[]) {
+        const found = await page.evaluate(([c, i]) => {
+            const root = document.querySelector(c)!;
+            if (!i.startsWith('.')) return root.querySelectorAll(i).length;
+            return document.evaluate(i, root, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null).snapshotLength;
+        }, [picked.container[0], items] as const);
+        expect(found, items).toBe(72);
+    }
+    const title = (picked.data.columns as { id: string; name: string }[]).find(c => c.name === 'Title')!;
+    expect(picked.data.items[1][title.id]).toBe('Nike Pegasus 42 EasyOn');
+    await page.close();
+});

@@ -59,6 +59,18 @@ chrome.sidePanel
 
 // The clock for a run's page waits (`content/utils/clock.ts`): a hidden tab's own timers are throttled.
 on('RUN_SLEEP', ({ ms }) => new Promise(resolve => setTimeout(() => resolve(ok()), Math.max(0, Math.min(Number(ms) || 0, 5000)))));
+// A list run records the API responses of its own tab (docs/plans/virtual-feeds-plan.md §3.3): kept in
+// that page's memory like the API Finder's, gone with the page.
+on('NET_HOOK_START', async (_, sender) => {
+    const tabId = sender.tab?.id;
+    if (tabId === undefined) return fail('No tab');
+    try {
+        await chrome.scripting.executeScript({ target: { tabId, frameIds: [sender.frameId ?? 0] }, world: 'MAIN', files: ['net-hook.js'] });
+        return ok();
+    } catch (e) {
+        return fail((e as Error).message);
+    }
+});
 
 on('BULK_EXTRACTION_START', async (payload) => {
     try {

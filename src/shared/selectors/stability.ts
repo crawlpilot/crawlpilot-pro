@@ -140,6 +140,8 @@ const GENERATED_ID = /^(ember|react|radix|headlessui|mui|rc-|uid|guid|__)|[-_]?(
 export function isStableId(id: string | null | undefined): boolean {
     if (!id || id.length > 60) return false;
     if (/\d{4,}|[:\s]/.test(id) || GENERATED_ID.test(id)) return false;
+    // A counter at the end in two or more parts (`mount_0_0_29`): numbered per page load.
+    if (/[-_]\d+([-_]\d+)+$/.test(id)) return false;
     return !isGuidLike(id);
 }
 

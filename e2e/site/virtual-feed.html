@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Home • Feed</title>
+<!--
+  A home feed built like Instagram's or X's (docs/plans/virtual-feeds-plan.md V0):
+  - a fixed pool of `article` nodes, positioned absolutely: scrolling **recycles** them, so one node
+    shows post 1, then post 7, then post 13; the DOM order is not the order on screen;
+  - posts fetched 10 at a time as the end comes near (`/feed/posts`); some are "Sponsored";
+  - generated class names. `?total=N` posts in all (default 60, 0: endless).
+-->
+<style>
+  body { margin: 0; font: 14px sans-serif; }
+  .x1top { height: 120px; }
+  .x1feed { position: relative; width: 470px; margin: 0 auto; }
+  article { position: absolute; left: 0; right: 0; height: 480px; box-sizing: border-box; border-bottom: 1px solid #ddd; padding: 12px; }
+  article img { width: 100%; height: 360px; object-fit: cover; display: block; }
+  .x1end { height: 300px; }
+</style>
+</head><body>
+<div id="mount_0_0_00"><div><main>
+  <div class="x1top"><h1 class="x1lliihq">For you</h1></div>
+  <div class="x1feed x1n2onr6"></div>
+  <div class="x1end"></div>
+</main></div></div>
+<script>
+  const H = 480, POOL = 5;
+  const totalParam = new URLSearchParams(location.search).get('total');
+  const total = totalParam === null ? 60 : Number(totalParam);
+  const feed = document.querySelector('.x1feed');
+  const posts = [];
+  let fetching = false, more = true;
+  // The pool: created once, reused for whichever posts are in view.
+  const pool = Array.from({ length: POOL }, () => {
+    const a = document.createElement('article');
+    a.className = 'x1lliihq x1n2onr6 x1qjc9v5';
+    feed.appendChild(a);
+    return a;
+  });
+  const showing = new Map(); // article → post index
+  function fill(a, i) {
+    const p = posts[i];
+    a.style.top = `${i * H}px`;
+    a.innerHTML = `<div class="x1hdr x6s0dn4"><a class="x1i10hfl" href="/${p.user.username}/">${p.user.username}</a>`
+      + (p.sponsored ? ' <span class="x1fhwpqd">Sponsored</span>' : ` · <a class="x1i10hfl" href="/p/${p.code}/"><time datetime="${new Date(p.taken_at * 1000).toISOString()}">${i + 1}h</time></a>`)
+      + `</div><img class="x5yr21d" alt="" src="/img/${p.code}-470x360.png?sig=${Math.random().toString(36).slice(2, 8)}">`
+      + `<div class="x1cap"><span class="x1lliihq">${p.caption.text}</span></div>`;
+    showing.set(a, i);
+  }
+  function render() {
+    feed.style.height = `${posts.length * H}px`;
+    const top = feed.getBoundingClientRect().top;
+    const first = Math.max(0, Math.floor(-top / H) - 1);
+    const wanted = [];
+    for (let i = first; i < Math.min(posts.length, first + POOL); i++) wanted.push(i);
+    const free = pool.filter(a => !wanted.includes(showing.get(a)));
+    for (const i of wanted) {
+      if ([...showing.values()].includes(i) && pool.some(a => showing.get(a) === i)) continue;
+      const a = free.shift();
+      if (a) fill(a, i);
+    }
+    for (const a of free) { a.innerHTML = ''; a.style.top = '-9999px'; showing.delete(a); }
+    if (first + POOL >= posts.length - 1 && more && !fetching) load();
+  }
+  async function load() {
+    fetching = true;
+    await new Promise(r => setTimeout(r, 300));
+    const res = await fetch(`/feed/posts?after=${posts.length}&size=10&total=${total}`);
+    const { data } = await res.json();
+    posts.push(...data.user.timeline.edges.map(e => e.node));
+    more = data.user.timeline.page_info.has_next_page;
+    fetching = false;
+    render();
+  }
+  load().then(() => addEventListener('scroll', render, { passive: true }));
+</script>
+</body></html>

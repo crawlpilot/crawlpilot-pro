@@ -41,7 +41,9 @@ export interface StructuredSource {
     sampled: number;
 }
 
-const MAX_DEPTH = 8;
+// Arrays are searched by a budget of nodes, not a depth: an app's bootstrap holds its data 14 levels down (Instagram).
+const MAX_DEPTH = 64;
+const MAX_NODES = 60_000;
 const MAX_FIELD_DEPTH = 4;
 const SKIP_KEYS = new Set(['@context', '@type', '@id', 'position', '__typename']);
 
@@ -156,10 +158,14 @@ export async function refreshNetSources(timeoutMs = 1500): Promise<void> {
     netSources = fresh;
 }
 
-/** Refreshes recorded API responses before reading rows, when a field reads them (at most every 800 ms). */
+/**
+ * Refreshes recorded API responses before reading rows, when a field reads JSON (at most every 800 ms):
+ * rows a scroll loaded are often only in the API response that brought them, whatever source the
+ * field was found in. Answers at once when no hook is recording.
+ */
 export async function refreshNetSourcesFor(columns: { reader?: { json?: JsonSpec; alternates?: { json?: JsonSpec }[] } }[] | null | undefined): Promise<void> {
-    const usesApi = (columns ?? []).some(c => c.reader?.json?.kind === 'api' || c.reader?.alternates?.some(a => a.json?.kind === 'api'));
-    if (usesApi && Date.now() - netRefreshedAt > 800) await refreshNetSources();
+    const usesJson = (columns ?? []).some(c => c.reader?.json || c.reader?.alternates?.some(a => a.json));
+    if (usesJson && Date.now() - netRefreshedAt > 800) await refreshNetSources();
 }
 
 function at(data: unknown, path: JsonPath): unknown {
@@ -175,17 +181,28 @@ export function getDotted(obj: unknown, dotted: string): unknown {
     return at(obj, dotted.split('.'));
 }
 
-/** Arrays of objects (≥ 2 items) anywhere in a source, with their paths. */
-function objectArrays(data: unknown, path: JsonPath = [], out: { path: JsonPath; items: Record<string, unknown>[] }[] = []) {
-    if (path.length > MAX_DEPTH || data === null || typeof data !== 'object') return out;
+type ObjectArray = { path: JsonPath; items: Record<string, unknown>[] };
+
+/** Arrays of objects (≥ 2 items) anywhere in a source, with their paths (within `MAX_NODES`). */
+function objectArrays(data: unknown, path: JsonPath = [], out: ObjectArray[] = [], budget = { left: MAX_NODES }): ObjectArray[] {
+    if (--budget.left < 0 || path.length > MAX_DEPTH || data === null || typeof data !== 'object') return out;
     if (Array.isArray(data)) {
         const objs = data.filter(d => d && typeof d === 'object' && !Array.isArray(d));
         if (objs.length >= 2 && objs.length >= data.length * 0.8) out.push({ path, items: objs as Record<string, unknown>[] });
-        data.forEach((d, i) => objectArrays(d, [...path, i], out));
+        data.forEach((d, i) => objectArrays(d, [...path, i], out, budget));
         return out;
     }
-    for (const [k, v] of Object.entries(data as Record<string, unknown>)) objectArrays(v, [...path, k], out);
+    for (const [k, v] of Object.entries(data as Record<string, unknown>)) objectArrays(v, [...path, k], out, budget);
     return out;
+}
+
+/** `objectArrays` of a source, once per parsed source. */
+const arraysCache = new WeakMap<object, ObjectArray[]>();
+function arraysOf(data: unknown): ObjectArray[] {
+    if (!data || typeof data !== 'object') return [];
+    let hit = arraysCache.get(data);
+    if (!hit) { hit = objectArrays(data); arraysCache.set(data, hit); }
+    return hit;
 }
 
 /** Scalar leaves of an item (dotted path → value); arrays of scalars count as one leaf. */
@@ -223,8 +240,11 @@ interface RowProbe { urls: Set<string>; ids: Set<string>; text: string }
 
 /** `data-*` attributes that hold an item's ID: `data-sku`, `data-item-id`, `data-product-id`, `data-asin`. */
 const ID_ATTR = /^data-(?:[a-z]+-){0,2}(?:id|sku|asin|pid|upc|gtin|item-?id|product-?id|sku-?id)$/i;
-/** A path segment or query value that looks like an ID: letters and digits, with a digit. */
-const ID_TOKEN = /^(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{4,24}$/;
+/**
+ * A path segment or query value that looks like an ID: letters and digits with a digit, or a long
+ * mixed-case token (a short code: `DesR-VXRAQU`).
+ */
+const ID_TOKEN = /^(?:(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{4,24}|(?=[A-Za-z0-9_-]*[a-z])(?=[A-Za-z0-9_-]*[A-Z])[A-Za-z0-9_-]{8,24})$/;
 
 /** Probes by row within one scan (`withAtomCache`): a row's JSON fields are read one after another. */
 const probes = new WeakMap<Element, { scope: number; probe: RowProbe }>();
@@ -306,10 +326,15 @@ function findArrays(kind: SourceKind, path: JsonPath): Record<string, unknown>[]
 function itemFor(row: Element, spec: Pick<JsonSpec, 'kind' | 'path' | 'anchor' | 'anchorIsUrl' | 'anchorKind'>): Record<string, unknown> | undefined {
     const p = probe(row);
     const kind = kindOf(spec);
+    const byKey = (idx: Map<string, Record<string, unknown>>) => {
+        for (const u of kind === 'url' ? p.urls : p.ids) { const hit = idx.get(u); if (hit) return hit; }
+        return undefined;
+    };
     for (const items of findArrays(spec.kind, spec.path)) {
         const idx = itemIndex(items, spec.anchor, kind);
         if (kind === 'url' || kind === 'id') {
-            for (const u of kind === 'url' ? p.urls : p.ids) { const hit = idx.get(u); if (hit) return hit; }
+            const hit = byKey(idx);
+            if (hit) return hit;
             continue;
         }
         let best: Record<string, unknown> | undefined;
@@ -317,7 +342,25 @@ function itemFor(row: Element, spec: Pick<JsonSpec, 'kind' | 'path' | 'anchor' |
         idx.forEach((item, key) => { if (key.length > bestLen && p.text.includes(key)) { best = item; bestLen = key.length; } });
         if (best) return best;
     }
+    // Not where the field was found: the same items in another place, by their ID or URL (the API
+    // page a scroll fetched names its array differently from the page's bootstrap).
+    if (kind === 'text') return undefined;
+    for (const s of pageSources()) {
+        for (const { items } of arraysOf(s.data)) {
+            if (getDotted(items[0], spec.anchor) === undefined) continue;
+            const hit = byKey(itemIndex(items, spec.anchor, kind));
+            if (hit) return hit;
+        }
+    }
     return undefined;
+}
+
+/** A key that holds a time (`taken_at`, `createdAt`, `timestamp`) and a number that is one in seconds or ms since 1970. */
+const TIME_KEY = /(^|[._])([a-z]+_at|[a-z]+At|timestamp|date|time)$/;
+function epochDate(key: string, v: unknown): string | undefined {
+    if (typeof v !== 'number' || !TIME_KEY.test(key)) return undefined;
+    const ms = v > 1e9 && v < 1e10 ? v * 1000 : v > 1e12 && v < 1e13 ? v : 0;
+    return ms ? new Date(ms).toISOString() : undefined;
 }
 
 export function readJsonField(row: Element, spec: JsonSpec): string | undefined {
@@ -325,6 +368,8 @@ export function readJsonField(row: Element, spec: JsonSpec): string | undefined 
     if (!item) return undefined;
     const v = getDotted(item, spec.key);
     if (v === null || v === undefined || v === '') return undefined;
+    const date = epochDate(spec.key, v);
+    if (date) return date;
     if (Array.isArray(v)) return v.every(x => typeof x === 'string' && looksUrl(x)) ? JSON.stringify(v) : v.join('; ');
     return String(v);
 }
@@ -346,9 +391,14 @@ export function jsonMeaning(key: string): string | undefined {
     return undefined;
 }
 
+/** Wrappers of an item in an API's shape (`edges[].node`, `items[].item`): no part of a field's name. */
+const WRAPPER = new Set(['item', 'node']);
+/** A last key that says nothing alone (`caption.text`): named with its parent ("Caption Text"). */
+const GENERIC = new Set(['text', 'value', 'uri', 'url', 'src', 'name']);
+
 function fieldName(key: string): string {
-    const parts = key.split('.').filter(p => !/^\d+$/.test(p) && p !== 'item');
-    const last = parts[parts.length - 1] || key;
+    const parts = key.split('.').filter(p => !/^\d+$/.test(p) && !WRAPPER.has(p));
+    const last = parts.length > 1 && GENERIC.has(parts[parts.length - 1]) ? `${parts[parts.length - 2]}_${parts[parts.length - 1]}` : parts[parts.length - 1] || key;
     const words = last.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').trim();
     return words.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
@@ -356,8 +406,9 @@ function fieldName(key: string): string {
 function fieldType(key: string, values: unknown[]): string {
     const first = values.find(v => v !== undefined);
     if (Array.isArray(first)) return first.every(x => typeof x === 'string' && looksUrl(x)) ? 'image_array' : 'text';
+    if (values.some(v => epochDate(key, v))) return 'date';
     const strings = values.filter((v): v is string | number => typeof v === 'string' || typeof v === 'number').map(String).slice(0, 10);
-    if (strings.length && strings.every(looksUrl)) return /image|photo|thumb|picture|logo/i.test(key) ? 'image' : 'url';
+    if (strings.length && strings.every(looksUrl)) return /image|photo|thumb|picture|logo|display_?ur[il]|cover|poster/i.test(key) ? 'image' : 'url';
     if (/price|amount|cost/i.test(key)) return 'price';
     const shapes = strings.map(v => shapeOf(v, 'text'));
     if (shapes.length && shapes.every(s => s === 'number' || s === 'rating' || s === 'count')) return 'number';
@@ -422,7 +473,7 @@ export function findStructuredSource(rowEls: Element[]): StructuredSource | null
     best.fields.forEach(f => seen.set(f.name, (seen.get(f.name) ?? 0) + 1));
     best.fields.forEach(f => {
         if ((seen.get(f.name) ?? 0) > 1) {
-            const parts = f.key.split('.').filter(p => !/^\d+$/.test(p) && p !== 'item');
+            const parts = f.key.split('.').filter(p => !/^\d+$/.test(p) && !WRAPPER.has(p));
             if (parts.length > 1) f.name = `${fieldName(parts[parts.length - 2])} ${f.name}`;
         }
     });

@@ -6,6 +6,7 @@
  * - `/corpus/<name>` serves `src/test/fixtures/corpus/<name>.html.gz` with page scripts blocked
  *   (saved retail pages would otherwise try to boot their apps); content scripts are not affected.
  * - `/site/<file>` serves `e2e/site/<file>` as is, scripts allowed; `?delay=ms` sends it that much later.
+ * - `/feed/posts?after=&size=&total=` a social feed's posts as a GraphQL-style connection (`total=0`: endless).
  * - `/img/<name>-<w>x<h>.<ext>` and `/cdn/<name>?id=&w=&h=` serve a generated PNG of that size (any
  *   extension: the bytes are PNG, which browsers sniff), for the Image Downloader: one picture per
  *   name (or per `?pic=`), at whatever size is asked. Names starting
@@ -161,6 +162,27 @@ function serve(): Promise<{ server: Server; origin: string }> {
                     return;
                 }
                 res.end('{}');
+                return;
+            }
+            // A social feed's API (virtual-grid.html, virtual-feed.html): `after` posts in, `size` a page,
+            // `total` in all (`total=0`: endless). Shaped like a GraphQL connection.
+            if (url.pathname === '/feed/posts') {
+                const after = Number(url.searchParams.get('after') || 0);
+                const size = Number(url.searchParams.get('size') || 12);
+                const total = Number(url.searchParams.get('total') ?? 120);
+                const count = total ? Math.max(0, Math.min(size, total - after)) : size;
+                const edges = Array.from({ length: count }, (_, i) => {
+                    const n = after + i + 1;
+                    return { node: {
+                        code: `C${n.toString(36).padStart(4, '0')}x`, pk: String(9000 + n), media_type: n % 3 === 0 ? 2 : 1,
+                        caption: { text: `Post ${n}: a day at the coast #${n}` }, taken_at: 1790000000 + n * 3600,
+                        user: { username: n % 4 === 0 ? 'beta' : 'alpha' }, sponsored: n % 7 === 0,
+                    } };
+                });
+                const end = after + count;
+                const more = !total || end < total;
+                res.writeHead(200, { 'content-type': 'application/json' });
+                res.end(JSON.stringify({ data: { user: { timeline: { edges, page_info: { end_cursor: more ? String(end) : null, has_next_page: more } } } } }));
                 return;
             }
             if (url.pathname.startsWith('/site/')) {

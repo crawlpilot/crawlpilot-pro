@@ -160,6 +160,9 @@ export interface AutoScrollRequest {
     contentLoadDelay?: number;
     /** The list's frozen fields; every scrolled row is read with them. */
     columns?: unknown;
+    /** Stop after this many rows, or after this many ms: an endless feed's end. */
+    maxItems?: number;
+    maxMs?: number;
 }
 
 /** One page of a numbered-pages run: the list read from its chains with its frozen fields. */
@@ -207,6 +210,8 @@ export interface Messages {
     READ_LIST_PAGE: { payload: ListPageRequest; reply: Res<{ rows: Record<string, string>[]; columns: unknown[]; healed?: string[]; broken?: string[] }> };
     /** A list over numbered pages, in background tabs (progress and completion as a bulk run's). */
     LIST_PAGES_START: { payload: ListPagesStart; reply: Res<{ jobId: number; originalCount: number; uniqueCount: number }> };
+    /** A list run's page asks for the API hook (public/net-hook.js) in its own page: rows a scroll loads are matched to the responses that brought them. */
+    NET_HOOK_START: { reply: Res };
     /** Reads a list from its chains (switching a pick to one of its alternatives). */
     /** `adjust`: open on a picked field or list (its chains), locked, to make it wider or narrower (plan L6). */
     START_PICKER: { payload: { mode?: 'list' | 'single' | 'detail'; action?: 'extract' | 'click'; adjust?: PickerAdjust }; reply: Res };
