@@ -73,6 +73,8 @@ export interface RunJob {
     afterSave?(tableId: number): Promise<void>;
     /** A unit no longer worth opening (numbered pages past the listing's end): dropped from the run. */
     skip?(url: string): boolean;
+    /** A unit that failed (it didn't open, a wall, no data): numbered pages end there. */
+    unitFailed?(url: string): void;
 }
 
 interface UrlState extends UrlStatus {
@@ -496,6 +498,7 @@ export class JobRunner {
             status.error = this.stopping ? undefined : err?.message;
         } finally {
             if (tabId !== null) await tabPool.releaseTab(tabId);
+            if (status.status === 'error') job.unitFailed?.(url);
             this.broadcast();
             await this.persist();
             this.previewChain = this.previewChain

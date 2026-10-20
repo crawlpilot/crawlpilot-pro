@@ -23,6 +23,7 @@ export function listPagesJob(start: ListPagesStart): RunJob {
         tableType: 'list',
         // Pages after the first one with no list are past the listing's end.
         skip: url => start.urls.indexOf(url) > end,
+        unitFailed: url => { end = Math.min(end, start.urls.indexOf(url)); },
         columns: found => [...found.filter(c => c.id !== 'source_url'), { id: 'source_url', name: 'Page', type: 'url' }],
 
         async extract(tabId, url, ctx) {
