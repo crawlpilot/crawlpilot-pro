@@ -52,6 +52,19 @@ describe('db', () => {
         expect(await db.tables.rowCount(id)).toBe(2);
     });
 
+    it('a cell edit changes the row and keeps the value as read; editing it back clears the mark', async () => {
+        const id = await db.tables.save(result([{ title: 'Lamp' }, { title: 'Desk' }]), { name: 'Shop' });
+        const [row] = await db.tables.rowsPage(id, 0, 1);
+        const edited = await db.tables.updateRow(row.id!, { title: 'Desk lamp' });
+        expect(edited.data.title).toBe('Desk lamp');
+        expect(edited.edits).toEqual({ title: 'Lamp' });
+        // A second edit keeps the first value as read.
+        expect((await db.tables.updateRow(row.id!, { title: 'Table lamp' })).edits).toEqual({ title: 'Lamp' });
+        const back = await db.tables.updateRow(row.id!, { title: 'Lamp' });
+        expect(back.edits).toBeUndefined();
+        expect((await db.tables.rowsPage(id, 0, 1))[0].data.title).toBe('Lamp');
+    });
+
     it('overwrites a preview, never another job\'s table', async () => {
         const preview = await db.tables.save(result([{ title: 'A' }]), { name: 'Shop', preview: true });
         const final = await db.tables.save(result([{ title: 'B' }]), { name: 'Shop', jobId: 7, tableId: preview, replace: true });

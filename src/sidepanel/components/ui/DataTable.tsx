@@ -14,6 +14,7 @@ import {
     CsvExportModule,
     TextEditorModule,
     UndoRedoEditModule,
+    CellStyleModule,
     type CellValueChangedEvent,
     ICellRendererParams
 } from 'ag-grid-community';
@@ -40,6 +41,7 @@ ModuleRegistry.registerModules([
     CsvExportModule,
     TextEditorModule,
     UndoRedoEditModule,
+    CellStyleModule,
 ]);
 
 export interface DataTableRef {
@@ -170,10 +172,9 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
         const colId = e.column.getColId();
         if (typeof rowId !== 'number' || !onCellEdited || e.newValue === e.oldValue) return;
         // The mark follows what was saved: an edit back to the value as read clears it.
-        void onCellEdited(rowId, colId, e.newValue).then(edited => {
-            e.data.__edits = edited;
-            e.api.refreshCells({ rowNodes: [e.node], columns: [colId], force: true });
-        }, err => console.error('[DataTable] Edit not saved', err));
+        void onCellEdited(rowId, colId, e.newValue).then(
+            edited => e.node.setData({ ...e.node.data, __edits: edited }),
+            err => console.error('[DataTable] Edit not saved', err));
     }, [onCellEdited]);
 
     // Derive final outputs for external consumption

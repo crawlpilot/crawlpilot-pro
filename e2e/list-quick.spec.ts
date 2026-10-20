@@ -30,8 +30,11 @@ test('point at one card, then one click gets all three pages', async ({ panel, e
     await expect(ui.getByText(/Then follows “Next page” through up to/)).toBeVisible();
     if (SHOTS) await ui.screenshot({ path: `${SHOTS}/list-quick-run.png` });
     await ui.getByRole('button', { name: 'Get the data from 3 pages' }).click();
+    // The run lives in the panel: while it runs, the panel says to keep it open.
+    await expect(ui.getByTestId('keep-panel-open')).toBeVisible();
 
     await expect(ui.getByText('Done · 12 items from 3 pages')).toBeVisible({ timeout: 60_000 });
+    await expect(ui.getByTestId('keep-panel-open')).toHaveCount(0);
     await expect(ui.getByRole('button', { name: 'See your table' })).toBeVisible();
     if (SHOTS) await ui.screenshot({ path: `${SHOTS}/list-quick-done.png` });
 
