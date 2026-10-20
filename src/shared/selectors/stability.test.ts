@@ -142,7 +142,7 @@ describe('shared selector rules', () => {
         for (const id of ['search', 'corePrice_feature_div', 'productDetails_techSpec_section_1', 'section-1', 'mainContent']) {
             expect(isStableId(id), id).toBe(true);
         }
-        for (const id of ['ember123', 'react-select-2-input', 'item-12345', ':r1:', 'a7Fq2xK9', 'f3b2c1d4-e5f6', '']) {
+        for (const id of ['ember123', 'react-select-2-input', 'item-12345', ':r1:', 'a7Fq2xK9', 'f3b2c1d4-e5f6', 'mount_0_0_29', 'root-3-12', '']) {
             expect(isStableId(id), id).toBe(false);
         }
     });

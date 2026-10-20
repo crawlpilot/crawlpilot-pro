@@ -2,7 +2,7 @@
  * Virtual lists (docs/plans/virtual-feeds-plan.md V0–V1): a run reads every item once, with its own
  * content, though only the items near the viewport are in the page and their nodes come and go.
  */
-import { test, expect } from './harness';
+import { test, expect, pickList } from './harness';
 
 const code = (n: number) => `C${n.toString(36).padStart(4, '0')}x`;
 const values = (row: Record<string, unknown>) => Object.values(row).map(String).join(' ');
@@ -44,4 +44,30 @@ test('a feed whose article nodes are recycled: every post once, each with its ow
         const link = /\/p\/(C\w+x)\//.exec(values(r))?.[1];
         if (link) expect(link).toBe(code(i + 1));
     }
+});
+
+test('a pick on an Instagram profile: the 12 posts, by what they link to, with no load-numbered ids', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(`${origin}/corpus/instagram-profile`);
+    const sel = await pickList(panel, page, 'main a[href*="/p/"] img');
+    expect(sel.count).toBe(12);
+    expect(sel.items).toContain('div:has(> a[href*="/reel/"], > a[href*="/p/"])');
+    expect(sel.container.join(' ')).not.toMatch(/mount_|nth-/);
+});
+
+test('picked on the windowed grid, then run with the picked chains: every post once', async ({ panel, ext, origin }) => {
+    test.setTimeout(200_000);
+    const page = await ext.newPage();
+    await page.setViewportSize({ width: 1000, height: 800 });
+    await page.goto(`${origin}/site/virtual-grid.html?total=48`);
+    await page.waitForTimeout(800);
+    const sel = await pickList(panel, page, '.x1cell img');
+    expect(sel.container.join(' ')).not.toMatch(/mount_/);
+    const tabId = await panel.tabId(page.url());
+    await panel.clear();
+    await panel.toTab(tabId, 'EXECUTE_AUTO_SCROLL', { container: sel.container, items: sel.items, enableInfiniteScroll: true, scrollDelay: 50, contentLoadDelay: 1500, columns: sel.data?.columns });
+    const done = await panel.next('AUTO_SCROLL_COMPLETE', 170_000);
+    const codes = (done.items as Record<string, unknown>[]).map(r => /\/(?:p|reel)\/(C\w+x)\//.exec(values(r))?.[1]);
+    expect(codes).toEqual(Array.from({ length: 48 }, (_, i) => code(i + 1)));
 });

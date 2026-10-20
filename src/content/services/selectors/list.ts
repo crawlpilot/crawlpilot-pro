@@ -138,6 +138,56 @@ function childHooks(items: Element[]): { css: string; xpath: string; cost: numbe
     return out.sort((a, b) => a.cost - b.cost).slice(0, MAX_CHILD_HOOKS);
 }
 
+/** A path segment that is an item's own id: digits in it, or a long mixed-case token (`DehZj9wggt0`). */
+const ID_SEGMENT = (s: string) => /\d/.test(s) || (s.length >= 6 && /[a-z]/.test(s) && /[A-Z]/.test(s));
+const WORD_SEGMENT = /^[a-z][a-z0-9-]{0,19}$/;
+
+/**
+ * The items as what they link to (docs/plans/virtual-feeds-plan.md §3.2): every item's link has a path
+ * of the same shape (`/{user}/p/{id}/`, `/ip/{name}/{id}`), and the word before its id (`p`, `reel`)
+ * names the kind of thing it is. `div:has(> a[href*="/p/"], > a[href*="/reel/"])` then finds the items
+ * with no class names, which on generated-class sites change with every deploy. At most 3 words, each
+ * on 2 or more items.
+ */
+function linkShape(items: Element[]): { css: string; xpath: string; cost: number } | null {
+    const sample = items.slice(0, 40);
+    const linkOf = (item: Element): { a: Element; direct: boolean } | null => {
+        if (item.matches('a[href]')) return { a: item, direct: true };
+        const child = Array.from(item.children).find(c => c.matches('a[href]'));
+        if (child) return { a: child, direct: true };
+        const deep = item.querySelector('a[href]');
+        return deep ? { a: deep, direct: false } : null;
+    };
+    const found = sample.map(linkOf);
+    if (found.some(f => !f)) return null;
+    const self = found.every(f => f!.a === sample[found.indexOf(f)]);
+    const direct = found.every(f => f!.direct);
+    const words = found.map(f => {
+        let segments: string[];
+        try { segments = new URL(f!.a.getAttribute('href')!, location.href).pathname.split('/').filter(Boolean); } catch { return null; }
+        const id = segments.map(ID_SEGMENT).lastIndexOf(true);
+        const word = id > 0 && WORD_SEGMENT.test(segments[id - 1]) ? segments[id - 1] : WORD_SEGMENT.test(segments[0] ?? '') ? segments[0] : null;
+        return word;
+    });
+    if (words.some(w => !w)) return null;
+    // Fewest words covering every item, most common first.
+    const counts = new Map<string, number>();
+    for (const w of words) counts.set(w!, (counts.get(w!) ?? 0) + 1);
+    const chosen = [...counts].sort((a, b) => b[1] - a[1]).map(([w]) => w);
+    if (chosen.length > 3 || chosen.some(w => counts.get(w)! < 2)) return null;
+    const tags = new Set(items.map(i => i.tagName.toLowerCase()));
+    const tag = tags.size === 1 ? [...tags][0] : '*';
+    const href = (w: string) => `[href*="/${w}/"]`;
+    const xhref = (w: string) => `contains(@href, ${xpathLiteral(`/${w}/`)})`;
+    if (self) return { css: `a:is(${chosen.map(href).join(', ')})`, xpath: `./a[${chosen.map(xhref).join(' or ')}]`, cost: 380 };
+    const rel = direct ? '> ' : '';
+    return {
+        css: `${tag}:has(${chosen.map(w => `${rel}a${href(w)}`).join(', ')})`,
+        xpath: `./${tag}[${chosen.map(w => `${direct ? '' : './/'}a[${xhref(w)}]`).join(' or ')}]`,
+        cost: 380,
+    };
+}
+
 function itemCandidates(items: Element[]): Candidate[] {
     const tags = new Set(items.map(i => i.tagName.toLowerCase()));
     const tag = tags.size === 1 ? [...tags][0] : '';
@@ -155,6 +205,8 @@ function itemCandidates(items: Element[]): Candidate[] {
     for (const c of classes) {
         out.push({ css: `${tag}.${CSS.escape(c)}`, xpath: `./${xtag}[${CLASS_TEST(c)}]`, family: 'class', cost: 400 });
     }
+    const link = linkShape(items);
+    if (link) out.push({ ...link, family: 'link' });
     if (tag) out.push({ css: tag, xpath: `./${tag}`, family: 'structure', cost: 600 });
 
     // Each also as direct children only, for when the plain form also matches nested elements.
