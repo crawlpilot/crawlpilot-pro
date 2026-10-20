@@ -12,8 +12,6 @@
   },
   "integrations": {
     "title": "集成（专业版）",
-    "proFeature": "专业版功能",
-    "proDescription": "升级到专业版以解锁 Webhooks、Airtable 和 Google Sheets 集成。",
     "webhookZapier": "Webhook 与 Zapier",
     "webhookUrl": "Webhook URL",
     "zapierWebhook": "Zapier Webhook",

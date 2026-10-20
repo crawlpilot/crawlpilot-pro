@@ -122,6 +122,8 @@ export function Step3Review({
                         selectorCount={selectors.length}
                         showStartButton={false}
                     />
+                    {/* The run lives in this panel until list runs move to the background (#41). */}
+                    <Text size="caption" tone="muted" className="mt-2" data-testid="keep-panel-open">{t('step3.keepPanelOpen')}</Text>
                 </div>
             )}
 

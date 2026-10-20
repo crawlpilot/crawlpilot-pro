@@ -85,20 +85,36 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
         await db.tables.update(selectedId, { view: { typed: defs } });
     }, [selectedId]);
 
-    const handleExportCSV = () => {
+    /**
+     * The table as exported, with **every** row: the table on screen loads the first rows only
+     * (`ROW_PAGE_LIMIT`), and an export of those alone would cut a large run short without a word.
+     */
+    const processed = async () => {
+        if (!tableRef.current) throw new Error('The table is still loading.');
+        // From the database: the rows on screen may be the first ones only, and predate edits.
+        const all = selectedId ? await db.tables.rowsPage(selectedId, 0, Math.max(totalRows, rows.length, 1)) : rows;
+        return tableRef.current.getProcessedData(all);
+    };
+
+    const handleCellEdited = useCallback(async (rowId: number, colId: string, value: unknown) => {
+        const row = await db.tables.updateRow(rowId, { [colId]: value });
+        return Object.keys(row.edits ?? {});
+    }, []);
+
+    const handleExportCSV = async () => {
         if (!tableRef.current) return;
         try {
-            const { columns, rows } = tableRef.current.getProcessedData();
+            const { columns, rows } = await processed();
             exportToCSV(columns, rows, tableData?.name || 'export');
         } catch (err: any) {
             alert(`Export failed: ${err.message}`);
         }
     };
 
-    const handleExportJSON = () => {
+    const handleExportJSON = async () => {
         if (!tableRef.current) return;
         try {
-            const { columns, rows } = tableRef.current.getProcessedData();
+            const { columns, rows } = await processed();
             exportToJSON(columns, rows, tableData?.name || 'export');
         } catch (err: any) {
             alert(`Export failed: ${err.message}`);
@@ -107,9 +123,9 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
 
     const [schemaMap, setSchemaMap] = useState<{ columns: { id: string; name: string; type?: string }[]; rows: any[] } | null>(null);
 
-    const openSchemaMap = () => {
+    const openSchemaMap = async () => {
         if (!tableRef.current) return;
-        setSchemaMap(tableRef.current.getProcessedData());
+        setSchemaMap(await processed());
     };
 
     const handleOutputMapping = useCallback(async (state: OutputMappingState) => {
@@ -117,10 +133,10 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
         await db.tables.update(selectedId, { view: { mapping: state } });
     }, [selectedId]);
 
-    const handleExportMarkdown = () => {
+    const handleExportMarkdown = async () => {
         if (!tableRef.current) return;
         try {
-            const { columns, rows } = tableRef.current.getProcessedData();
+            const { columns, rows } = await processed();
             exportToMarkdown(columns, rows, tableData?.name || 'export');
         } catch (err: any) {
             alert(`Export failed: ${err.message}`);
@@ -130,27 +146,27 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
     const hasMarkdownColumns = tableData?.columns.some(c => c.type === 'markdown') ?? false;
 
     /** The dataset's pages (a markdown column per row) as a zip of `.md` files or as `.jsonl`. */
-    const markdownPages = () => {
+    const markdownPages = async () => {
         if (!tableRef.current || !tableData) return [];
-        const { columns, rows } = tableRef.current.getProcessedData();
+        const { columns, rows } = await processed();
         return pagesFromRows(columns, rows, new Date(tableData.createdAt).toISOString());
     };
     const exportName = slug(tableData?.name || 'export', '-', 'export');
     const handleExportMarkdownZip = async () => {
         const zip = new ZipWriter();
         const encoder = new TextEncoder();
-        for (const file of markdownFiles(markdownPages())) zip.add(file.path, encoder.encode(file.text));
+        for (const file of markdownFiles(await markdownPages())) zip.add(file.path, encoder.encode(file.text));
         downloadBlob(await zip.finish(), `${exportName}.zip`);
     };
-    const handleExportJsonl = (chunkChars?: number) => {
-        downloadText(markdownJsonl(markdownPages(), chunkChars), `${exportName}${chunkChars ? '-chunks' : ''}.jsonl`, 'application/jsonl');
+    const handleExportJsonl = async (chunkChars?: number) => {
+        downloadText(markdownJsonl(await markdownPages(), chunkChars), `${exportName}${chunkChars ? '-chunks' : ''}.jsonl`, 'application/jsonl');
     };
 
-    const handlePremiumExport = async (type: 'webhook' | 'zapier' | 'airtable') => {
+    const handleIntegrationExport = async (type: 'webhook' | 'zapier' | 'airtable') => {
         if (!tableRef.current) return;
 
         try {
-            const { columns, rows } = tableRef.current.getProcessedData();
+            const { columns, rows } = await processed();
             let success = false;
 
             if (type === 'webhook' || type === 'zapier') {
@@ -208,7 +224,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
         );
     }
 
-    const exportItem = (action: () => void) => () => { action(); setExportMenu(null); };
+    const exportItem = (action: () => unknown) => () => { void action(); setExportMenu(null); };
 
     return (
         <div className="flex h-full w-full flex-col bg-bg text-ink">
@@ -256,9 +272,9 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                             <MenuItem icon={<Sheet />} onClick={exportItem(() => void sheetAction(() => sendTable(selectedId!)))}>
                                 {tableData.view.sheet?.sync ? 'Synced to Google Sheets' : 'Send to Google Sheets'}
                             </MenuItem>
-                            <MenuItem icon={<Webhook />} onClick={exportItem(() => handlePremiumExport('webhook'))}>{t('page.exportWebhook')}</MenuItem>
-                            <MenuItem icon={<Database />} onClick={exportItem(() => handlePremiumExport('airtable'))}>{t('page.exportAirtable')}</MenuItem>
-                            <MenuItem icon={<Zap />} onClick={exportItem(() => handlePremiumExport('zapier'))}>{t('page.exportZapier')}</MenuItem>
+                            <MenuItem icon={<Webhook />} onClick={exportItem(() => handleIntegrationExport('webhook'))}>{t('page.exportWebhook')}</MenuItem>
+                            <MenuItem icon={<Database />} onClick={exportItem(() => handleIntegrationExport('airtable'))}>{t('page.exportAirtable')}</MenuItem>
+                            <MenuItem icon={<Zap />} onClick={exportItem(() => handleIntegrationExport('zapier'))}>{t('page.exportZapier')}</MenuItem>
                         </Menu>
                     </div>
                 )}
@@ -313,6 +329,7 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
                             onColumnRenamed={handleColumnRenamed}
                             onColumnDeleted={handleColumnDeleted}
                             onColumnsMerged={handleColumnsMerged}
+                            onCellEdited={handleCellEdited}
                         />
                     </div>
                 ) : (

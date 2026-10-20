@@ -43,6 +43,7 @@
   },
   "step3": {
     "subtitle": "Check, then get your data",
+    "keepPanelOpen": "Keep this panel open while the run goes on: closing it stops the run. You can use other screens and tabs.",
     "reviewAndRun": "Ready",
     "checkConfig": "Check the settings, then get your data.",
     "summary": "Summary",

@@ -11,9 +11,7 @@
     "daysLabel": "{{count}} Tage"
   },
   "integrations": {
-    "title": "Integrationen (PRO)",
-    "proFeature": "PRO-FUNKTION",
-    "proDescription": "Upgrade auf PRO, um Webhooks, Airtable und Google Sheets-Integrationen freizuschalten.",
+    "title": "Integrationen",
     "webhookZapier": "Webhook & Zapier",
     "webhookUrl": "Webhook-URL",
     "zapierWebhook": "Zapier Webhook",

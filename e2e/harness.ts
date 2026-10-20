@@ -337,10 +337,15 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         server.close();
     }, { scope: 'worker' }],
     origin: async ({ server }, use) => { await use(server.origin); },
+    // Each test leaves the browser as it found it (#58): the pages it opened are closed (a live page or
+    // a scroll run left open slows every later test until they time out), and a next-button run's
+    // saved state is removed (a later test's page on the same server would resume it).
     panel: async ({ ext, extensionId }, use) => {
+        const before = new Set(ext.pages());
         const panel = await Panel.open(ext, extensionId);
         await use(panel);
-        await panel.page.close();
+        await panel.page.evaluate(() => chrome.storage.local.remove(['pagination_state', 'pagination_stopped_at'])).catch(() => undefined);
+        await Promise.all(ext.pages().filter(p => !before.has(p)).map(p => p.close().catch(() => undefined)));
     },
 });
 

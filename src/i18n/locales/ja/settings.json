@@ -11,9 +11,7 @@
     "daysLabel": "{{count}} 日"
   },
   "integrations": {
-    "title": "インテグレーション（PRO）",
-    "proFeature": "PRO 機能",
-    "proDescription": "PRO にアップグレードして Webhooks、Airtable、Google Sheets 連携を解除してください。",
+    "title": "インテグレーション",
     "webhookZapier": "Webhook & Zapier",
     "webhookUrl": "Webhook URL",
     "zapierWebhook": "Zapier Webhook",

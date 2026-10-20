@@ -95,6 +95,8 @@ export interface Row {
     /** The row's identity in its table (its data without `source_url` / `recordId`): a repeat is skipped. */
     key: string;
     createdAt: number;
+    /** Values the user changed in the data table: each one's value as read, for Revert. */
+    edits?: Record<string, unknown>;
 }
 
 // Extraction result format
