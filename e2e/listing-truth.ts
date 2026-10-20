@@ -81,7 +81,7 @@ export const LISTINGS: ListingTruth[] = [
             };
         },
     },
-    ...(['amazon-search', 'amazon-category'] as const).map(name => ({
+    ...(['amazon-search', 'amazon-category', 'amazon-grocery'] as const).map(name => ({
         name,
         click: '[data-component-type="s-search-result"] h2',
         products: '[data-component-type="s-search-result"]',
@@ -90,8 +90,9 @@ export const LISTINGS: ListingTruth[] = [
             const link = card.querySelector('a.a-link-normal[href*="/dp/"], h2 a, a:has(h2)') as HTMLAnchorElement | null;
             const ratings = Array.from(card.querySelectorAll('[aria-label]')).map(e => e.getAttribute('aria-label') || '').find(l => /^[\d,]+ ratings?$/.test(l));
             return {
-                title: (card.querySelector('h2')?.getAttribute('aria-label') || card.querySelector('h2')?.textContent || '').trim() || undefined,
-                url: link ? new URL(link.href).pathname.replace(/\/ref=.*$/, '') : undefined,
+                // A sponsored card's label says so ("Sponsored Ad - …") and its link is the ad click, the product address in it.
+                title: (card.querySelector('h2')?.getAttribute('aria-label') || card.querySelector('h2')?.textContent || '').replace(/^Sponsored Ad - /, '').trim() || undefined,
+                url: link ? new URL(new URL(link.href).searchParams.get('url') ?? link.href, link.href).pathname.replace(/\/ref=.*$/, '') : undefined,
                 id: card.getAttribute('data-asin') ?? undefined,
                 rating: n(/([\d.]+) out of 5/.exec(card.querySelector('.a-icon-alt')?.textContent ?? '')?.[1]),
                 review_count: n(ratings?.replace(/ ratings?$/, '')),

@@ -20,6 +20,9 @@ const CASES: Case[] = [
     { page: '/corpus/walmart-search-live', cards: '[data-testid="item-stack"] [data-item-id]', count: 45, points: ['[data-automation-id="product-title"]', 'img', '[data-testid="ugpp-main-price"], [data-testid="ugpp-reduced-price"]', '[data-test-id="gpt-variant-link"]', '[data-testid="product-ratings"]'] },
     { page: '/corpus/walmart-cars', cards: '[data-testid="item-stack"] > div:has([data-automation-id="heart-item"])', count: 21, points: ['[data-automation-id="product-title"]', 'img', '[data-automation-id="product-price"]'] },
     { page: '/corpus/amazon-search', cards: '[data-component-type="s-search-result"]', count: 18, points: ['h2', 'img', '[data-cy="reviews-block"]'] },
+    // Carousel rows ("From frequently shopped brands") share the results' classes and hold several cards: not cards.
+    // The 22 results and a one-product video ad.
+    { page: '/corpus/amazon-grocery', cards: '[data-component-type="s-search-result"]', count: 23, points: ['h2', 'img', '[data-cy="reviews-block"]'] },
     { page: '/corpus/homedepot-search', cards: '.browse-search__pod', count: 12, points: ['[data-testid="attribute-product-label"]', 'img', '[data-testid="price-simple"]'] },
     { page: '/corpus/chewy-plp', cards: '[data-testid="plp-product-card"]', count: 36, points: ['.chirp-title', '.chirp-product-card__image img', '.chirp-product-card__rating', '.chirp-product-card__pricing', ':scope'] },
     { page: '/corpus/nike-plp', cards: 'div:has(> div > a[aria-labelledby^="aria-label-"])', count: 72, points: ['.product__description > div', 'img', 'h3'] },

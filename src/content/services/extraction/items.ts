@@ -123,8 +123,9 @@ function alike(s: HTMLElement, ref: HTMLElement): boolean {
     const named = partsOf(ref);
     if (named.size >= 3) {
         const own = partsOf(s);
+        if (holdsSeveral(own, ref)) return false;
         let shared = 0;
-        named.forEach(p => { if (own.has(p)) shared++; });
+        named.forEach((_, p) => { if (own.has(p)) shared++; });
         // Half of the hovered card's parts, or most of its own (a card with fewer parts: no badge,
         // one price); an ad tile has almost none.
         return shared >= named.size * 0.5 || (own.size >= 3 && shared >= own.size * 0.7);
@@ -134,22 +135,39 @@ function alike(s: HTMLElement, ref: HTMLElement): boolean {
     return a >= b * 0.4 && a <= b * 2.5;
 }
 
-/** The author hooks (`data-testid`, `data-test-id`, `itemprop`…) in a card, as `attr=value`. */
-let parts = new WeakMap<Element, Set<string>>();
-function partsOf(el: Element): Set<string> {
-    let set = parts.get(el);
-    if (set) return set;
-    set = new Set<string>();
+/** The author hooks (`data-testid`, `data-test-id`, `itemprop`…) in a card, as `attr=value`, with how often each occurs. */
+let parts = new WeakMap<Element, Map<string, number>>();
+function partsOf(el: Element): Map<string, number> {
+    let counts = parts.get(el);
+    if (counts) return counts;
+    counts = new Map<string, number>();
     const all = [el, ...Array.from(el.querySelectorAll('*')).slice(0, 300)];
     for (const e of all) {
         for (const attr of AUTHOR_ATTRIBUTES) {
             const v = e.getAttribute(attr);
-            if (v && isStableAttributeValue(attr, v)) set.add(`${attr}=${v}`);
+            if (v && isStableAttributeValue(attr, v)) counts.set(`${attr}=${v}`, (counts.get(`${attr}=${v}`) ?? 0) + 1);
         }
     }
-    parts.set(el, set);
-    return set;
+    parts.set(el, counts);
+    return counts;
 }
+
+/**
+ * A block holding several cards (a carousel row of "picks for you" between the results): most of
+ * the parts a card has once (its image box, its title, its price) are there twice or more.
+ */
+function holdsSeveral(own: Map<string, number>, card: Element): boolean {
+    let once = onceParts.get(card);
+    if (!once) {
+        once = [...partsOf(card)].filter(([, n]) => n === 1).map(([p]) => p);
+        onceParts.set(card, once);
+    }
+    if (once.length < 3) return false;
+    let repeated = 0;
+    for (const p of once) if ((own.get(p) ?? 0) >= 2 && ++repeated >= once.length * 0.5) return true;
+    return false;
+}
+let onceParts = new WeakMap<Element, string[]>();
 
 /** Elements in a card (capped). */
 function nodesOf(el: Element): number {
@@ -333,6 +351,7 @@ function walkSections(element: HTMLElement): { best: Section | null; all: Sectio
     contents = new WeakMap();
     boxes = new WeakMap();
     parts = new WeakMap();
+    onceParts = new WeakMap();
     const started = performance.now();
     // The sections considered, when the page has `data-cp-debug` on <html>.
     const debug: string[] | null = document.documentElement.hasAttribute('data-cp-debug') ? [] : null;
