@@ -367,6 +367,10 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         const panel = await Panel.open(ext, extensionId);
         await use(panel);
         await panel.page.evaluate(() => chrome.storage.local.remove(['pagination_state', 'pagination_stopped_at'])).catch(() => undefined);
+        // Background runs the test started and didn't wait for (list pages, details, bulk): stopped, not left
+        // retrying behind every later test with their tabs closed.
+        await Promise.all(['BULK_EXTRACTION_STOP', 'METADATA_EXTRACTION_STOP', 'CONTACTS_STOP', 'API_STOP']
+            .map(type => panel.toExtension(type).catch(() => undefined)));
         await Promise.all(ext.pages().filter(p => !before.has(p)).map(p => p.close().catch(() => undefined)));
     },
 });
