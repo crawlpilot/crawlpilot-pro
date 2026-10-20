@@ -281,6 +281,9 @@ export class TabPool {
                 return await sendToTab(tabId, type, ...([payload] as any));
             } catch (e: any) {
                 error = e?.message || error;
+                // The browser's own error page (the site didn't answer, an empty 404): no content script will ever answer.
+                const tab = await chrome.tabs.get(tabId).catch(() => null);
+                if (!tab || tab.url?.startsWith('chrome-error://')) return { success: false, error: tab ? 'The page did not load.' : 'The tab is gone.' } as Reply<T>;
                 await new Promise(r => setTimeout(r, interval));
             }
         }
