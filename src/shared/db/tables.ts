@@ -3,6 +3,7 @@ import type { Column, ExtractionResult, Row, Table } from '../types/database';
 import { hashString } from '../utils/hash';
 import { done, req, transaction, walk } from './idb';
 import { STORES } from './schema';
+import { joinDetails } from '../listing/join';
 
 export interface SaveOptions {
     name?: string;
@@ -230,4 +231,28 @@ async function updateRow(rowId: number, patch: Record<string, unknown>): Promise
     return next;
 }
 
-export const tables = { create, get, list, update, setColumns, renameColumn, removeColumn, updateRow, rowCount, rowsPage, appendRows, clearRows, remove, save };
+/**
+ * Joins a details run's table onto the list it ran for (`listing/join.ts`): the detail columns are
+ * added to the list, and each list row gets its page's values. The details table is kept as it is.
+ */
+async function joinDetailsInto(listId: number, urlColumn: string, detailId: number): Promise<{ matched: number; unmatched: number }> {
+    const [list, detail] = await Promise.all([get(listId), get(detailId)]);
+    if (!list || !detail) throw new Error('The list or its details table is gone.');
+    const [listRows, detailRows] = await Promise.all([
+        rowCount(listId).then(n => rowsPage(listId, 0, Math.max(n, 1))),
+        rowCount(detailId).then(n => rowsPage(detailId, 0, Math.max(n, 1))),
+    ]);
+    const out = joinDetails(list.columns, listRows, urlColumn, detail.columns, detailRows);
+    const tx = await transaction(STORES.rows, 'readwrite');
+    const store = tx.objectStore(STORES.rows);
+    for (const { rowId, patch } of out.updates) {
+        const row: Row | undefined = await req(store.get(rowId));
+        // Values the run read, not the user's edits: `edits` is left as it is.
+        if (row) store.put({ ...row, data: { ...row.data, ...patch } });
+    }
+    await done(tx);
+    await update(listId, { columns: out.columns, view: { details: { tableId: detailId, urlColumn, matched: out.matched, unmatched: out.unmatched, at: Date.now() } } });
+    return { matched: out.matched, unmatched: out.unmatched };
+}
+
+export const tables = { create, get, list, update, setColumns, renameColumn, removeColumn, updateRow, joinDetailsInto, rowCount, rowsPage, appendRows, clearRows, remove, save };

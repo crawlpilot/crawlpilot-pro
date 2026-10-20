@@ -1,5 +1,5 @@
 import { ListPick, PaginationMode } from '../../../../shared/types/extraction';
-import { Settings2, Play, Gauge, RotateCcw, PartyPopper } from 'lucide-react';
+import { Settings2, Play, Gauge, RotateCcw, PartyPopper, FileSearch } from 'lucide-react';
 import { ExtractionStatusBar } from '../ExtractionStatusBar';
 import { Button, Card, Disclosure, Divider, Heading, Notice, Row, Select, Stack, Text, TextField } from '../../../ui';
 import { PaginationSpeed, PAGINATION_PROFILES } from '../../../../shared/constants/paginationConfig';
@@ -18,6 +18,9 @@ interface Step3ReviewProps {
     onSpeedChange: (speed: PaginationSpeed) => void;
     maxPages: number;
     onMaxPagesChange: (pages: number) => void;
+    /** The list run ended: open each item's page and add its fields to this table. */
+    onAddDetails?: () => void;
+    detailsError?: string | null;
 }
 
 export function Step3Review({
@@ -32,7 +35,9 @@ export function Step3Review({
     speed,
     onSpeedChange,
     maxPages,
-    onMaxPagesChange
+    onMaxPagesChange,
+    onAddDetails,
+    detailsError,
 }: Step3ReviewProps) {
 
     const { t } = useTranslation('listExtractor');
@@ -148,6 +153,13 @@ export function Step3Review({
                         onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=data-table${status?.tableId ? `&tableId=${status.tableId}` : ''}`) })}>
                         {t('step3.openResultsTable')}
                     </Button>
+                    {onAddDetails && status?.tableId && status?.status !== 'failed' && (
+                        <>
+                            <Button fullWidth icon={<FileSearch />} onClick={onAddDetails}>{t('step3.addDetails')}</Button>
+                            <Text size="caption" tone="muted">{t('step3.addDetailsHint')}</Text>
+                            {detailsError && <Notice tone="warning">{detailsError}</Notice>}
+                        </>
+                    )}
                     <Button fullWidth icon={<RotateCcw />} onClick={onReset}>{t('step3.newExtraction')}</Button>
                 </Stack>
             )}

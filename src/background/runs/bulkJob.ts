@@ -3,6 +3,7 @@ import type { BulkStart } from '../../shared/messages';
 import type { RunJob } from './JobRunner';
 import { pageSpec } from '../../shared/recipes/spec';
 import type { StepResult } from '../../shared/listing/stepStats';
+import { db } from '../../shared/db';
 
 export function bulkJob(start: BulkStart): RunJob {
     const { elements, config } = start;
@@ -24,6 +25,8 @@ export function bulkJob(start: BulkStart): RunJob {
         name: start.customName,
         spec: pageSpec(elements, config),
         tableType: 'bulk-page',
+        // A list's details: the fields join onto the list's rows, so the list holds what each item's page says.
+        ...(start.joinInto ? { afterSave: async (tableId: number) => { await db.tables.joinDetailsInto(start.joinInto!.tableId, start.joinInto!.urlColumn, tableId); } } : {}),
         columns: found => [
             { id: 'source_url', name: 'Source URL', type: 'url' },
             ...found.filter(c => c.id !== 'source_url' && c.id !== 'recordId'),

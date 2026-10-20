@@ -63,6 +63,8 @@ export interface BulkStart {
     jobId?: number;
     customName?: string;
     maxConcurrent?: number;
+    /** A details run for a list: its rows are joined onto that list's rows by the link in `urlColumn`. */
+    joinInto?: { tableId: number; urlColumn: string };
 }
 
 export interface ContactsStart {

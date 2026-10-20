@@ -15,6 +15,8 @@ import { useMetadataExtraction } from '../hooks/useMetadataExtraction';
 import type { MetadataExtractOptions } from '../../shared/types/metadata';
 import { pageTabId } from '../hooks/usePageTab';
 import { defaultConcurrency } from '@/shared/utils/concurrency';
+import { takeDetailsDraft, type DetailsDraft } from '../services/detailsDraft';
+import { Notice } from '../ui';
 
 interface PageExtractorPageProps {
     onBack: () => void;
@@ -41,6 +43,19 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
     const [showDataSourceSelector, setShowDataSourceSelector] = useState(false);
     const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
     const [isTabLoading, setIsTabLoading] = useState(false);
+
+    // Opened for a list's details (the List Extractor's "Add details"): its item links are the pages,
+    // the fields are picked on the first one, and the run's rows join onto the list.
+    const [forList, setForList] = useState<DetailsDraft | null>(null);
+    useEffect(() => {
+        const draft = takeDetailsDraft();
+        if (!draft) return;
+        setForList(draft);
+        setSelectedUrls(draft.urls);
+        setDetails('fields');
+        setStep(2);
+        void pageTabId().then(id => { if (id && draft.urls[0]) void chrome.tabs.update(id, { url: draft.urls[0] }); });
+    }, []);
 
     // Track active tab loading state for the YouTube-style loading bar
     useEffect(() => {
@@ -122,6 +137,7 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
     const handleReset = useCallback(() => {
         setStep(1);
         setDetails(preset === 'article' ? 'article' : 'choose');
+        setForList(null);
         article.resetState();
         setSelectedUrls([]);
         setElements([]);
@@ -173,7 +189,8 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
             pauseOnChallenge,
             listOutput,
             viewportWidth: viewport?.width,
-            viewportHeight: viewport?.height
+            viewportHeight: viewport?.height,
+            ...(forList ? { joinInto: { tableId: forList.tableId, urlColumn: forList.urlColumn } } : {}),
         });
     };
 
@@ -454,9 +471,9 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
                         isExtracting={isExtracting}
                         isStopping={isStopping}
                         hasStopped={hasStopped}
-                        stoppedTableId={stoppedTableId}
+                        stoppedTableId={stoppedTableId !== null && forList ? forList.tableId : stoppedTableId}
                         hasCompleted={hasCompleted}
-                        completedTableId={completedTableId}
+                        completedTableId={completedTableId !== null && forList ? forList.tableId : completedTableId}
                         completedPages={completedPages}
                         totalUniquePages={totalPages}
                         duplicatesRemoved={duplicatesRemoved}
@@ -511,6 +528,11 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
             onBack={step === 1 ? onBack : goBack}
             isLoading={isTabLoading && step === 2 && details === 'fields'}
         >
+            {forList && step > 1 && (
+                <Notice tone="info" className="mb-3">
+                    {t('forList', { count: forList.urls.length, name: forList.listName })}
+                </Notice>
+            )}
             {renderStep()}
         </WizardLayout>
     );

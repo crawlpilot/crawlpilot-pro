@@ -43,6 +43,9 @@
   },
   "step3": {
     "subtitle": "Check, then get your data",
+    "addDetails": "Add details from each item's page",
+    "addDetailsHint": "Pick the fields on one item's page; every item's page is read and its fields are added to this table.",
+    "detailsNoLinks": "This list has no column of links to its items' pages, so there is nothing to open.",
     "keepPanelOpen": "Keep this panel open while the run goes on: closing it stops the run. You can use other screens and tabs.",
     "reviewAndRun": "Ready",
     "checkConfig": "Check the settings, then get your data.",
