@@ -608,6 +608,8 @@ export class JobRunner {
                     tableId = await db.tables.save(this.tableData(rows), { name, jobId });
                 }
             }
+            // The column setup of this recipe's last table (renames, cleaning, merges) carries over.
+            if (tableId !== undefined) await db.jobs.carryColumnSetup(jobId, tableId).catch(e => console.warn(`[${this.kind} run] Column setup not carried:`, e));
             if (tableId !== undefined && job.afterSave) {
                 try { await job.afterSave(tableId); } catch (e) { console.error(`[${this.kind} run] After save failed:`, e); }
             }

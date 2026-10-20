@@ -430,6 +430,8 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                 preview: false,
                 replace: true
             });
+            // The column setup of this recipe's last table (renames, cleaning, merges) carries over.
+            if (!keepPreview) await db.jobs.carryColumnSetup(jobId, tableId).catch(e => console.warn('[List run] Column setup not carried:', e));
 
             // Update Job status
             const currentJob = await db.jobs.get(jobId);

@@ -51,8 +51,10 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
         if (!urlColumn) return;
         const urls = itemUrls(rows, urlColumn);
         if (urls.length === 0) return;
-        const { elements } = pageRunInput(pending.details.page);
+        const { elements, settings } = pageRunInput(pending.details.page);
         await startBulkExtraction(urls, elements, {
+            // The details run's own settings (pace, waits, list output), as it was set up.
+            ...(settings as Record<string, unknown>),
             customName: `${pending.name} · details`,
             maxConcurrent: pending.concurrent,
             joinInto: { tableId, urlColumn },
@@ -140,8 +142,10 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
                     alert("This bulk extraction job doesn't have enough configuration to re-run.");
                     return;
                 }
-                const { elements } = pageRunInput(spec);
+                const { elements, settings } = pageRunInput(spec);
                 await startBulkExtraction(urls, elements, {
+                    // The recipe's settings (pace, waits, viewport, list output), as it was set up.
+                    ...(settings as Record<string, unknown>),
                     customName: options.name,
                     maxConcurrent: options.concurrent,
                     onStart: onStarted

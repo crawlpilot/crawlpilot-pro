@@ -79,6 +79,30 @@ describe('db', () => {
         expect(await db.tables.keepOnlyNew(byValues, before)).toEqual({ kept: 2, removed: 1 });
     });
 
+    it('a new run of a recipe takes the column setup of its last table; another recipe\'s does not', async () => {
+        const cols = [{ id: 'title', name: 'Title', type: 'text' }, { id: 'price', name: 'Price', type: 'text' }, { id: 'junk', name: 'Junk', type: 'text' }] as unknown as { id: string; name: string; type: 'text' }[];
+        const recipe = await db.jobs.saveRecipe('Shop', metadata('https://shop.test/'));
+        const other = await db.jobs.saveRecipe('Other', metadata('https://other.test/'));
+        const firstTable = await db.tables.save(result([{ title: 'A', price: '$1', junk: 'x' }], cols), { name: 'Run 1' });
+        const first = await db.jobs.create({ ...job(recipe.id, firstTable), createdAt: 1 });
+        await db.tables.renameColumn(firstTable, 'price', 'Cost');
+        await db.tables.removeColumn(firstTable, 'junk');
+        await db.tables.update(firstTable, { view: { typed: [{ id: 'price_n', name: 'Price (number)', source: 'price', type: 'number' } as any] } });
+
+        const secondTable = await db.tables.save(result([{ title: 'B', price: '$2', junk: 'y' }], cols), { name: 'Run 2' });
+        const second = await db.jobs.create({ ...job(recipe.id, secondTable), createdAt: 2 });
+        await db.jobs.carryColumnSetup(second, secondTable);
+        const carried = await db.tables.get(secondTable);
+        expect(carried?.columns.map(c => c.name)).toEqual(['Title', 'Cost']);
+        expect(carried?.view.typed).toHaveLength(1);
+        expect(first).not.toBe(second);
+
+        const otherTable = await db.tables.save(result([{ title: 'C', price: '$3', junk: 'z' }], cols), { name: 'Other run' });
+        const otherJob = await db.jobs.create({ ...job(other.id, otherTable), createdAt: 3 });
+        await db.jobs.carryColumnSetup(otherJob, otherTable);
+        expect((await db.tables.get(otherTable))?.columns.map(c => c.name)).toEqual(['Title', 'Price', 'Junk']);
+    });
+
     it('overwrites a preview, never another job\'s table', async () => {
         const preview = await db.tables.save(result([{ title: 'A' }]), { name: 'Shop', preview: true });
         const final = await db.tables.save(result([{ title: 'B' }]), { name: 'Shop', jobId: 7, tableId: preview, replace: true });

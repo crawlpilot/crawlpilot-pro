@@ -97,4 +97,32 @@ async function remove(job: Job): Promise<void> {
     await done(tx);
 }
 
-export const jobs = { saveRecipe, reviseRecipe, renameRecipe, getRecipe, create, get, update, list, remove };
+/** What the user set up on a table's columns, kept from one run of a recipe to the next. */
+const COLUMN_SETUP = ['renames', 'removed', 'merges', 'typed', 'mapping'] as const;
+
+/**
+ * A new run of a recipe takes the column setup of the recipe's last table: renamed and removed
+ * columns, merges, cleaned (typed) columns, the export mapping. Set up once, kept for every run. What
+ * the new table already has of its own wins.
+ */
+async function carryColumnSetup(jobId: number, tableId: number): Promise<void> {
+    const job = await get(jobId);
+    if (!job) return;
+    const tx = await transaction(STORES.jobs);
+    const runs: Job[] = [];
+    await walk<Job>(tx.objectStore(STORES.jobs).index('recipeId').openCursor(IDBKeyRange.only(job.recipeId)), j => { runs.push(j); });
+    const previous = runs
+        .filter(j => j.id !== jobId && j.tableId !== undefined && j.tableId !== tableId)
+        .sort((a, b) => b.createdAt - a.createdAt)[0];
+    if (!previous) return;
+    const [from, to] = await Promise.all([tables.get(previous.tableId!), tables.get(tableId)]);
+    if (!from || !to) return;
+    const carried: Record<string, unknown> = {};
+    for (const k of COLUMN_SETUP) if (from.view[k] !== undefined && to.view[k] === undefined) carried[k] = from.view[k];
+    if (Object.keys(carried).length === 0) return;
+    await tables.update(tableId, { view: carried });
+    // Renamed and removed columns applied to this table's columns too.
+    await tables.setColumns(tableId, to.columns);
+}
+
+export const jobs = { saveRecipe, carryColumnSetup, reviseRecipe, renameRecipe, getRecipe, create, get, update, list, remove };
