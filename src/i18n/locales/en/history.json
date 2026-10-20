@@ -24,6 +24,8 @@
   "maxPages": "Pages to read at most",
   "maxPagesHelper": "Stops after this many pages",
   "parallelMode": "Several pages at once",
+  "onlyNew": "Only new items",
+  "onlyNewHint": "Keep only the items this data didn't have yet; their details (if any) are read for those only",
   "parallelModeHelper": "Open several pages side by side to finish sooner",
   "concurrencyLimit": "Pages at once",
   "concurrencyHelper": "How many tabs open together",

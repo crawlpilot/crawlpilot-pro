@@ -82,6 +82,8 @@ export interface Table {
         removed?: string[];
         /** Its items' details, joined on from a details run's table (`listing/join.ts`). */
         details?: { tableId: number; urlColumn: string; matched: number; unmatched: number; at: number };
+        /** A rerun that kept only the items the earlier run's table didn't have. */
+        onlyNew?: { against: number; removed: number; at: number };
         /** Sent to the user's Google Sheet: its tab, rows sent so far, and whether new rows follow (`shared/integrations/sheetsSync.ts`). */
         sheet?: { tab: string; synced: number; sync: boolean; url?: string; error?: string };
     };

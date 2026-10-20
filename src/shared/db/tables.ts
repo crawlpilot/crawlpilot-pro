@@ -3,7 +3,7 @@ import type { Column, ExtractionResult, Row, Table } from '../types/database';
 import { hashString } from '../utils/hash';
 import { done, req, transaction, walk } from './idb';
 import { STORES } from './schema';
-import { joinDetails } from '../listing/join';
+import { joinDetails, urlJoinKey } from '../listing/join';
 
 export interface SaveOptions {
     name?: string;
@@ -153,6 +153,25 @@ async function clearRows(id: number): Promise<void> {
     await done(tx);
 }
 
+/**
+ * Keeps only the rows `against` doesn't have (a rerun's new items): the same item is the same link
+ * when the list has a column of item links (its price may have changed), else the same values.
+ */
+async function keepOnlyNew(id: number, against: number, urlColumn?: string | null): Promise<{ kept: number; removed: number }> {
+    const identity = (row: Row) => (urlColumn ? urlJoinKey(row.data[urlColumn]) : '') || row.key;
+    const known = new Set<string>();
+    const read = await transaction(STORES.rows);
+    await walk<Row>(read.objectStore(STORES.rows).index('tableId').openCursor(IDBKeyRange.only(against)), row => { known.add(identity(row)); });
+    let kept = 0, removed = 0;
+    const tx = await transaction(STORES.rows, 'readwrite');
+    await walk<Row>(tx.objectStore(STORES.rows).index('tableId').openCursor(IDBKeyRange.only(id)), (row, c) => {
+        if (known.has(identity(row))) { c.delete(); removed++; } else kept++;
+    });
+    await done(tx);
+    await update(id, { rowCount: kept, view: { onlyNew: { against, removed, at: Date.now() } } });
+    return { kept, removed };
+}
+
 /** Deletes a table and its rows. */
 async function remove(id: number): Promise<void> {
     const tx = await transaction([STORES.tables, STORES.rows], 'readwrite');
@@ -255,4 +274,4 @@ async function joinDetailsInto(listId: number, urlColumn: string, detailId: numb
     return { matched: out.matched, unmatched: out.unmatched };
 }
 
-export const tables = { create, get, list, update, setColumns, renameColumn, removeColumn, updateRow, joinDetailsInto, rowCount, rowsPage, appendRows, clearRows, remove, save };
+export const tables = { create, get, list, update, setColumns, renameColumn, removeColumn, updateRow, joinDetailsInto, keepOnlyNew, rowCount, rowsPage, appendRows, clearRows, remove, save };

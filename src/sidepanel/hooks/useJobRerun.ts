@@ -17,10 +17,25 @@ import type { RerunOptions } from '../components/history/RerunDialog';
 export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: number) => void; onFinished: () => void }) {
     /** A list with details: once the list is read again, its items' pages are read and joined onto it. */
     const pendingDetails = useRef<{ details: NonNullable<ListSpec['details']>; name: string; concurrent?: number } | null>(null);
+    /** Only new items: the table of the run being repeated, whose items are left out of the new one. */
+    const pendingOnlyNew = useRef<number | null>(null);
     const { startExtraction, stopExtraction, status } = useExtractionProcess(tableId => {
-        onFinished();
-        void readDetails(tableId);
+        void afterList(tableId).finally(onFinished);
     }, jobId => onStarted(jobId));
+
+    /** The list read again: the items it had before left out (only new), then each item's page (details). */
+    const afterList = async (tableId: number) => {
+        const against = pendingOnlyNew.current;
+        pendingOnlyNew.current = null;
+        if (against !== null) {
+            const table = await db.tables.get(tableId);
+            if (table) {
+                const rows = (await db.tables.rowsPage(tableId, 0, Math.max(table.rowCount, 1))).map(r => r.data);
+                await db.tables.keepOnlyNew(tableId, against, itemUrlColumn(table.columns, rows));
+            }
+        }
+        await readDetails(tableId);
+    };
     const { startBulkExtraction, stopBulkExtraction, hasCompleted, hasStopped } = useBulkExtraction();
 
     /** The list's new rows' item links, run with the list's details recipe and joined onto the new table. */
@@ -137,6 +152,7 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
             } else if (spec.kind === 'list') {
                 const { picks, pagination } = listRunInput(spec, options.maxPages);
                 pendingDetails.current = spec.details ? { details: spec.details, name: options.name || job.recipe?.name || 'List', concurrent: options.concurrent } : null;
+                pendingOnlyNew.current = options.onlyNew && job.tableId !== undefined ? job.tableId : null;
                 await startExtraction(
                     picks.map(p => ({ ...p, sourceTabId: finalActiveTab?.id })),
                     pagination,

@@ -10,6 +10,8 @@ export interface RerunOptions {
     maxPages: number;
     parallel: boolean;
     concurrent: number;
+    /** A list: keep only the items the run being repeated didn't have. */
+    onlyNew?: boolean;
 }
 
 /** Name, page limit and concurrency for re-running a job (open while `job` is set). */
@@ -20,6 +22,7 @@ export function RerunDialog({ job, onClose, onStart }: { job: JobWithRecipe | nu
     const [rerunMaxPages, setRerunMaxPages] = useState(10);
     const [rerunParallel, setRerunParallel] = useState(false);
     const [rerunConcurrent, setRerunConcurrent] = useState(defaultConcurrency);
+    const [onlyNew, setOnlyNew] = useState(false);
 
     useEffect(() => {
         if (!job) return;
@@ -34,15 +37,18 @@ export function RerunDialog({ job, onClose, onStart }: { job: JobWithRecipe | nu
             actions={<>
                 <Button variant="ghost" onClick={onClose}>{tc('cancel')}</Button>
                 <Button variant="primary" icon={<Play />}
-                    onClick={() => job && onStart(job, { name: rerunName, maxPages: rerunMaxPages, parallel: rerunParallel, concurrent: rerunConcurrent })}>
+                    onClick={() => job && onStart(job, { name: rerunName, maxPages: rerunMaxPages, parallel: rerunParallel, concurrent: rerunConcurrent, onlyNew: onlyNew && job.recipe?.spec.kind === 'list' && job.tableId !== undefined })}>
                     {t('startNow')}
                 </Button>
             </>}>
             <Stack gap={4} className="pt-1">
                 <TextField label={t('runName')} value={rerunName} onChange={e => setRerunName(e.target.value)} placeholder={t('runNamePlaceholder')} />
-                {job?.recipe?.spec.kind === 'list' && job.recipe.spec.pagination.mode === 'pagination' && (
+                {job?.recipe?.spec.kind === 'list' && (job.recipe.spec.pagination.mode === 'pagination' || job.recipe.spec.pagination.mode === 'urls') && (
                     <TextField type="number" min={1} label={t('maxPages')} hint={t('maxPagesHelper')} value={rerunMaxPages}
                         onChange={e => setRerunMaxPages(parseInt(e.target.value) || 1)} />
+                )}
+                {job?.recipe?.spec.kind === 'list' && job.tableId !== undefined && (
+                    <Switch checked={onlyNew} onChange={setOnlyNew} label={t('onlyNew')} hint={t('onlyNewHint')} />
                 )}
                 {job && isBulkJob(job) && (
                     <>

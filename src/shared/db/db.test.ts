@@ -65,6 +65,20 @@ describe('db', () => {
         expect((await db.tables.rowsPage(id, 0, 1))[0].data.title).toBe('Lamp');
     });
 
+    it('only new items: rows the earlier table had are dropped, by their link when the list has one', async () => {
+        const cols = [{ id: 'title', name: 'Title', type: 'text' }, { id: 'url', name: 'URL', type: 'url' }] as unknown as { id: string; name: string; type: 'text' }[];
+        const before = await db.tables.save(result([{ title: 'A', url: 'https://s.test/a' }, { title: 'B', url: 'https://s.test/b' }], cols), { name: 'Run 1' });
+        // B's title changed, C is new: by link, only C is new; by values, B is too.
+        const items = [{ title: 'A', url: 'https://s.test/a' }, { title: 'B (sale)', url: 'https://s.test/b/' }, { title: 'C', url: 'https://s.test/c' }];
+        const byLink = await db.tables.save(result(items, cols), { name: 'Run 2' });
+        expect(await db.tables.keepOnlyNew(byLink, before, 'url')).toEqual({ kept: 1, removed: 2 });
+        expect((await db.tables.rowsPage(byLink, 0, 10)).map(r => r.data.title)).toEqual(['C']);
+        expect((await db.tables.get(byLink))?.rowCount).toBe(1);
+        expect((await db.tables.get(byLink))?.view.onlyNew).toMatchObject({ against: before, removed: 2 });
+        const byValues = await db.tables.save(result(items, cols), { name: 'Run 3' });
+        expect(await db.tables.keepOnlyNew(byValues, before)).toEqual({ kept: 2, removed: 1 });
+    });
+
     it('overwrites a preview, never another job\'s table', async () => {
         const preview = await db.tables.save(result([{ title: 'A' }]), { name: 'Shop', preview: true });
         const final = await db.tables.save(result([{ title: 'B' }]), { name: 'Shop', jobId: 7, tableId: preview, replace: true });
