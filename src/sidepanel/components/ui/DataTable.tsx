@@ -13,6 +13,8 @@ import {
     PaginationModule,
     CsvExportModule,
     TextEditorModule,
+    UndoRedoEditModule,
+    type CellValueChangedEvent,
     ICellRendererParams
 } from 'ag-grid-community';
 import type { Column, Row, TypedColumnDef } from '@/shared/types/database';
@@ -36,11 +38,13 @@ ModuleRegistry.registerModules([
     RowSelectionModule,
     PaginationModule,
     CsvExportModule,
-    TextEditorModule
+    TextEditorModule,
+    UndoRedoEditModule,
 ]);
 
 export interface DataTableRef {
-    getProcessedData: () => { columns: { id: string, name: string, type?: string }[], rows: any[] };
+    /** The table as exported: the view's names, merges and types over `all` (every stored row), else the rows loaded here. */
+    getProcessedData: (all?: Row[]) => { columns: { id: string, name: string, type?: string }[], rows: any[] };
 }
 
 interface DataTableProps {
@@ -53,9 +57,11 @@ interface DataTableProps {
     onColumnRenamed?: (colId: string, newName: string) => void;
     onColumnDeleted?: (colId: string) => void;
     onColumnsMerged?: (merge: MergeDefinition) => void;
+    /** A cell the user edited: saved to its stored row. Without it, cells are read-only. */
+    onCellEdited?: (rowId: number, colId: string, value: unknown) => Promise<string[]>;
 }
 
-const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, defaultHideMostlyEmptyColumns = true, initialMergedCols, initialTypedCols, onTypedColumnsChanged, onColumnRenamed, onColumnDeleted, onColumnsMerged }, ref) => {
+const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, defaultHideMostlyEmptyColumns = true, initialMergedCols, initialTypedCols, onTypedColumnsChanged, onColumnRenamed, onColumnDeleted, onColumnsMerged, onCellEdited }, ref) => {
     const { t } = useTranslation('dataTable');
 
     // Filter states
@@ -132,6 +138,9 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
         () => visibleColumns(baseColumns, filteredRows, { hideRepeatingData, removeEmptyColumns, hideMostlyEmptyColumns, removeDuplicateColumns }),
         [baseColumns, filteredRows, hideRepeatingData, removeEmptyColumns, hideMostlyEmptyColumns, removeDuplicateColumns]);
 
+    const storedIds = useMemo(() => new Set(columns.map(c => c.id)), [columns]);
+    const splitRows = useMemo(() => columns.some(c => c.type === 'json' && !c.hidden), [columns]);
+
     // Stage 4: Column defs (depends on activeColumns + renames + showImages)
     const processedColumnDefs = useMemo(() => {
         const defs: ColDef[] = activeColumns.map(col => ({
@@ -145,12 +154,27 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
             filter: col.type === 'number' ? 'agNumberColumnFilter' : true,
             sortable: true,
             resizable: true,
-            editable: true,
+            // Only a stored value can be edited (not a merged, typed or split list column), and only when
+            // each grid row is one stored row (list columns split into rows give them made-up ids).
+            editable: !!onCellEdited && storedIds.has(col.id) && !splitRows,
+            cellClassRules: { 'bg-warning-soft': p => Array.isArray(p.data?.__edits) && p.data.__edits.includes(col.id) },
             cellRenderer: (params: ICellRendererParams) =>
                 renderCell(params.value, col, showImages, content => setMdPreview({ content, title: renames[col.id] || col.name }))
         }));
         return defs;
-    }, [activeColumns, renames, showImages]);
+    }, [activeColumns, renames, showImages, onCellEdited, storedIds, splitRows]);
+
+    /** Saves an edit (and an undo, Ctrl/Cmd+Z, which edits it back) to the stored row, and marks the cell. */
+    const onCellValueChanged = useCallback((e: CellValueChangedEvent) => {
+        const rowId = e.data?.id;
+        const colId = e.column.getColId();
+        if (typeof rowId !== 'number' || !onCellEdited || e.newValue === e.oldValue) return;
+        // The mark follows what was saved: an edit back to the value as read clears it.
+        void onCellEdited(rowId, colId, e.newValue).then(edited => {
+            e.data.__edits = edited;
+            e.api.refreshCells({ rowNodes: [e.node], columns: [colId], force: true });
+        }, err => console.error('[DataTable] Edit not saved', err));
+    }, [onCellEdited]);
 
     // Derive final outputs for external consumption
     const processedRowData = filteredRows;
@@ -158,7 +182,7 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
 
     useImperativeHandle(ref, () => ({
         // Export uses the stored (unexploded) rows, without the hidden raw-table columns.
-        getProcessedData: () => exportData(columns, rows, renames, mergedCols, typedCols),
+        getProcessedData: (all?: Row[]) => exportData(columns, all ?? rows, renames, mergedCols, typedCols),
     }));
 
     const defaultColDef = useMemo<ColDef>(() => ({
@@ -296,6 +320,9 @@ const DataTable = forwardRef<DataTableRef, DataTableProps>(({ columns, rows, def
                     animateRows={false}
                     suppressScrollOnNewData={true}
                     enableCellTextSelection={true}
+                    undoRedoCellEditing={true}
+                    undoRedoCellEditingLimit={20}
+                    onCellValueChanged={onCellValueChanged}
                     domLayout='normal'
                     context={{ onRenameColumn, onDeleteColumn, onCleanColumn }}
                 />

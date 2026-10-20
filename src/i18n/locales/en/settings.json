@@ -15,8 +15,7 @@
   },
   "integrations": {
     "title": "Integrations",
-    "proFeature": "PRO FEATURE",
-    "proDescription": "Upgrade to PRO to unlock Webhooks, Zapier and Airtable.",
+    "hint": "Free and unlimited. Rows go straight from your browser to the address you give here; nothing passes through CrawlPilot.",
     "webhookZapier": "Webhook & Zapier",
     "webhookUrl": "Webhook URL",
     "zapierWebhook": "Zapier Webhook",

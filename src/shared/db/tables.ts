@@ -209,4 +209,25 @@ async function save(result: ExtractionResult, options: SaveOptions = {}): Promis
     return id;
 }
 
-export const tables = { create, get, list, update, setColumns, renameColumn, removeColumn, rowCount, rowsPage, appendRows, clearRows, remove, save };
+/**
+ * Changes a row's values (a cell edited in the data table). The value as read is kept in `edits` the
+ * first time it changes, and dropped when the value goes back to it.
+ */
+async function updateRow(rowId: number, patch: Record<string, unknown>): Promise<Row> {
+    const tx = await transaction(STORES.rows, 'readwrite');
+    const store = tx.objectStore(STORES.rows);
+    const row: Row | undefined = await req(store.get(rowId));
+    if (!row) throw new Error(`Row ${rowId} not found`);
+    const edits: Record<string, unknown> = { ...row.edits };
+    for (const [k, v] of Object.entries(patch)) {
+        if (!(k in edits)) edits[k] = row.data[k];
+        if (edits[k] === v || ((edits[k] ?? '') === '' && (v ?? '') === '')) delete edits[k];
+    }
+    const next: Row = { ...row, data: { ...row.data, ...patch } };
+    if (Object.keys(edits).length) next.edits = edits; else delete next.edits;
+    store.put(next);
+    await done(tx);
+    return next;
+}
+
+export const tables = { create, get, list, update, setColumns, renameColumn, removeColumn, updateRow, rowCount, rowsPage, appendRows, clearRows, remove, save };

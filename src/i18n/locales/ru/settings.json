@@ -14,9 +14,7 @@
     "daysLabel": "{{count}} дней"
   },
   "integrations": {
-    "title": "Интеграции (PRO)",
-    "proFeature": "PRO ФУНКЦИЯ",
-    "proDescription": "Перейдите на PRO для доступа к Webhooks, Airtable и Google Sheets.",
+    "title": "Интеграции",
     "webhookZapier": "Webhook и Zapier",
     "webhookUrl": "URL вебхука",
     "zapierWebhook": "Zapier Webhook",

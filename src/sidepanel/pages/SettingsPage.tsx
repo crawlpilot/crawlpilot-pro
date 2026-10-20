@@ -3,7 +3,7 @@ import ToolHeader from '../components/ui/ToolHeader';
 import { setAppearance, useColorMode } from '../theme/colorMode';
 import type { Appearance } from '@/shared/storage';
 import { Monitor, Moon, Palette, Sun } from 'lucide-react';
-import { Button, Card, Dialog, Divider, Notice, Progress, Segmented, Select, Slider, Text, TextField } from '../ui';
+import { Button, Card, Dialog, Divider, Progress, Segmented, Select, Slider, Text, TextField } from '../ui';
 import {
     Trash2,
     Github,
@@ -177,23 +177,23 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                 <Section title={t('integrations.title')} icon={<Link2 />}>
                     <SheetsConnect />
                     <Card className="flex flex-col gap-4">
-                        <Notice tone="warning" title={t('integrations.proFeature')}>{t('integrations.proDescription')}</Notice>
+                        <Text size="caption" tone="muted">{t('integrations.hint')}</Text>
                         <div className="flex flex-col gap-2.5">
                             <Text weight="semibold" className="flex items-center gap-2"><Webhook size={16} /> {t('integrations.webhookZapier')}</Text>
-                            <TextField size="sm" label={t('integrations.webhookUrl')} value={integrations.webhookUrl} placeholder="https://your-api.com/webhook" disabled
+                            <TextField size="sm" label={t('integrations.webhookUrl')} value={integrations.webhookUrl} placeholder="https://your-api.com/webhook"
                                 onChange={e => updateIntegration({ webhookUrl: e.target.value })} />
-                            <TextField size="sm" label={t('integrations.zapierWebhook')} value={integrations.zapierUrl} placeholder="https://hooks.zapier.com/..." disabled
+                            <TextField size="sm" label={t('integrations.zapierWebhook')} value={integrations.zapierUrl} placeholder="https://hooks.zapier.com/..."
                                 onChange={e => updateIntegration({ zapierUrl: e.target.value })} />
                         </div>
                         <Divider />
                         <div className="flex flex-col gap-2.5">
                             <Text weight="semibold" className="flex items-center gap-2"><Database size={16} /> {t('integrations.airtable')}</Text>
-                            <TextField size="sm" type="password" label={t('integrations.apiKey')} value={integrations.airtableApiKey} placeholder="pat..." disabled
+                            <TextField size="sm" type="password" label={t('integrations.apiKey')} value={integrations.airtableApiKey} placeholder="pat..."
                                 onChange={e => updateIntegration({ airtableApiKey: e.target.value })} />
                             <div className="flex gap-2">
-                                <TextField size="sm" className="flex-1" label={t('integrations.baseId')} value={integrations.airtableBaseId} placeholder="app..." disabled
+                                <TextField size="sm" className="flex-1" label={t('integrations.baseId')} value={integrations.airtableBaseId} placeholder="app..."
                                     onChange={e => updateIntegration({ airtableBaseId: e.target.value })} />
-                                <TextField size="sm" className="flex-1" label={t('integrations.tableName')} value={integrations.airtableTableName} placeholder="Records" disabled
+                                <TextField size="sm" className="flex-1" label={t('integrations.tableName')} value={integrations.airtableTableName} placeholder="Records"
                                     onChange={e => updateIntegration({ airtableTableName: e.target.value })} />
                             </div>
                         </div>

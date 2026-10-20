@@ -114,6 +114,8 @@ export function explodeJsonColumns(rows: TableRow[], columns: Column[]): { displ
 export function withDerivedColumns(rows: TableRow[], columns: Column[], merged: MergeDefinition[], typed: TypedColumnDef[], deleted: Set<string>): { baseRows: Row[]; baseColumns: Column[] } {
     const baseRows = rows.map(r => {
         const row: Row = { ...r.data, id: r.id };
+        // Cells the user changed, marked in the grid.
+        if (r.edits) row.__edits = Object.keys(r.edits);
         merged.forEach(m => {
             row[m.id] = m.sources.map(s => row[s]).filter(v => v !== undefined && v !== null && v !== '').join(m.separator);
         });
