@@ -209,6 +209,32 @@ function closestItemChain(root: Element, items: Element[]): ChainEntry[] {
     return best ? [{ selector: best.css, strategy: best.family }] : [];
 }
 
+/**
+ * The items as a path of tags from `root` (`:scope > div > div`: the rows, then the cards in them),
+ * when every item is at the same depth with the same tags and the path finds exactly them. For
+ * cards with nothing to name them (hashed classes only) spread over rows: a bare `div` would match
+ * every element under the container.
+ */
+function pathChain(root: Element, items: Element[]): ChainEntry[] {
+    const tagsOf = (item: Element): string[] | null => {
+        const tags: string[] = [];
+        for (let e: Element | null = item; e && e !== root; e = e.parentElement) {
+            tags.unshift(e.tagName.toLowerCase());
+            if (tags.length > 6) return null;
+        }
+        return items.length && item.isConnected && root.contains(item) ? tags : null;
+    };
+    const first = tagsOf(items[0]);
+    if (!first || first.length < 2) return [];
+    if (!items.every(i => tagsOf(i)?.join('>') === first.join('>'))) return [];
+    const css = `:scope > ${first.join(' > ')}`;
+    const xpath = `./${first.join('/')}`;
+    const set = new Set(items);
+    const same = (found: Element[]) => found.length === set.size && found.every(e => set.has(e));
+    if (!same(query(root, css))) return [];
+    return [{ selector: css, strategy: 'structure' }, ...(same(query(root, xpath)) ? [{ selector: xpath, strategy: 'xpath' }] : [])];
+}
+
 const POSITIONAL = /:nth-(child|of-type)\(|\[\d+\]/;
 
 /** The selector's last step carries a name (id, attribute, class), not just a tag under a named scope. */
@@ -254,6 +280,8 @@ export function listLocators(container: HTMLElement, children: HTMLElement[], de
             if (named.length === 0) continue;
             const chain = itemChain(root, items);
             if (chain.length > 0) return { container: named, items: chain };
+            const path = pathChain(root, items);
+            if (path.length > 0) return { container: named, items: path };
         }
     }
     // No selector names exactly these cards (a few ad cells looked like products): the named one that
@@ -268,8 +296,9 @@ export function listLocators(container: HTMLElement, children: HTMLElement[], de
     // (the saved row gate keeps headers and ads out of the rows).
     const tag = items[0].tagName.toLowerCase();
     const direct = items.every(i => i.parentElement === container);
+    const path = direct ? [] : pathChain(container, items);
     return {
         container: elementChain(container),
-        items: [{ selector: direct ? `:scope > ${tag}` : tag, strategy: 'structure' }],
+        items: path.length > 0 ? path : [{ selector: direct ? `:scope > ${tag}` : tag, strategy: 'structure' }],
     };
 }
