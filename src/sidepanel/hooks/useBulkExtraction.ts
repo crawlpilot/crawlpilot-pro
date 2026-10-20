@@ -20,6 +20,8 @@ interface BulkExtractionOptions {
     pauseOnChallenge?: boolean;
     /** How list elements land in the output: one JSON column, one row per item, or numbered columns. */
     listOutput?: 'nested' | 'rows' | 'numbered';
+    /** A list's details: the rows join onto that list's rows by its links (`listing/join.ts`). */
+    joinInto?: { tableId: number; urlColumn: string };
     onProgress?: (completed: number) => void;
     onStart?: (jobId: number) => void;
     jobId?: number;
@@ -179,7 +181,8 @@ export function useBulkExtraction() {
             config,
             jobId: existingJobId,
             customName,
-            maxConcurrent: Math.min(maxConcurrent, 5)
+            maxConcurrent: Math.min(maxConcurrent, 5),
+            ...(options.joinInto ? { joinInto: options.joinInto } : {}),
         });
 
         if (response?.success) {

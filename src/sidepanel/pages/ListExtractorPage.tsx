@@ -13,12 +13,15 @@ import { Step2Navigation } from '../components/list-extractor/wizard/Step2Naviga
 import { Step3Review } from '../components/list-extractor/wizard/Step3Review';
 import { PaginationSpeed, DEFAULT_PAGINATION_SPEED } from '../../shared/constants/paginationConfig';
 import { consolidateSelectors } from '../../shared/utils/extractionLogic';
+import { itemUrlColumn, itemUrls } from '../../shared/listing/join';
+import { setDetailsDraft } from '../services/detailsDraft';
 
 interface ListExtractorPageProps {
     onBack?: () => void;
+    onNavigate?: (view: string) => void;
 }
 
-export default function ListExtractorPage({ onBack }: ListExtractorPageProps) {
+export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorPageProps) {
     const { t } = useTranslation('listExtractor');
     // A run started here (or re-run from History) goes on while the panel shows other screens: back
     // here, the page opens on its progress (or its result) with the picks it runs with.
@@ -176,6 +179,22 @@ export default function ListExtractorPage({ onBack }: ListExtractorPageProps) {
         };
     }, [selectingFor, selectors, addSelector, updateSelector, setNext, setSelectionStatus, stopSelection]);
 
+    /** List + details: the list's item links go to the Page Extractor, whose fields join onto this list. */
+    const [detailsError, setDetailsError] = useState<string | null>(null);
+    const addDetails = async () => {
+        const tableId = extractionStatus.tableId;
+        if (!tableId) return;
+        setDetailsError(null);
+        const table = await db.tables.get(tableId);
+        if (!table) return;
+        const rows = (await db.tables.rowsPage(tableId, 0, Math.max(table.rowCount, 1))).map(r => r.data);
+        const urlColumn = itemUrlColumn(table.columns, rows);
+        if (!urlColumn) { setDetailsError(t('step3.detailsNoLinks')); return; }
+        setDetailsDraft({ tableId, urlColumn, urls: itemUrls(rows, urlColumn), listName: table.name });
+        reset();
+        onNavigate?.('page-extractor');
+    };
+
     // Handlers
     const handleVerifySelector = async (selector: string) => {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -262,6 +281,8 @@ export default function ListExtractorPage({ onBack }: ListExtractorPageProps) {
                         onSpeedChange={setSpeed}
                         maxPages={maxPages}
                         onMaxPagesChange={setMaxPages}
+                        onAddDetails={onNavigate ? () => void addDetails() : undefined}
+                        detailsError={detailsError}
                     />
                 );
             default:

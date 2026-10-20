@@ -69,6 +69,8 @@ export interface RunJob {
     columns(found: Column[]): Column[];
     /** The page's rows (each gets `source_url`); null when it yielded nothing. Throw to fail the page. */
     extract(tabId: number, url: string, ctx: RunContext): Promise<{ rows: Row[]; columns?: Column[]; needsWindow?: boolean; steps?: StepResult[] } | null>;
+    /** After the run's table is saved, before "complete" is sent (a details run joins its rows onto its list). */
+    afterSave?(tableId: number): Promise<void>;
 }
 
 interface UrlState extends UrlStatus {
@@ -594,6 +596,9 @@ export class JobRunner {
                 } else {
                     tableId = await db.tables.save(this.tableData(rows), { name, jobId });
                 }
+            }
+            if (tableId !== undefined && job.afterSave) {
+                try { await job.afterSave(tableId); } catch (e) { console.error(`[${this.kind} run] After save failed:`, e); }
             }
 
             await db.jobs.update(jobId, {

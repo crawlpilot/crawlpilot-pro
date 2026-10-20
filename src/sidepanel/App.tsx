@@ -47,7 +47,7 @@ function App() {
     const renderView = () => {
         switch (currentView) {
             case 'list-extractor':
-                return <ListExtractorPage onBack={() => setCurrentView('home')} />;
+                return <ListExtractorPage onBack={() => setCurrentView('home')} onNavigate={setCurrentView} />;
             case 'page-extractor':
                 return <PageExtractorPage onBack={() => setCurrentView('home')} />;
             case 'metadata-extractor':

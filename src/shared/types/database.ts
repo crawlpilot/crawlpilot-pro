@@ -80,6 +80,8 @@ export interface Table {
         /** Columns the user renamed (id → name) and removed: kept when a run still writing replaces the columns. */
         renames?: Record<string, string>;
         removed?: string[];
+        /** Its items' details, joined on from a details run's table (`listing/join.ts`). */
+        details?: { tableId: number; urlColumn: string; matched: number; unmatched: number; at: number };
         /** Sent to the user's Google Sheet: its tab, rows sent so far, and whether new rows follow (`shared/integrations/sheetsSync.ts`). */
         sheet?: { tab: string; synced: number; sync: boolean; url?: string; error?: string };
     };

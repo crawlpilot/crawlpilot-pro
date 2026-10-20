@@ -1,4 +1,6 @@
 {
+  "forList_one": "Details for the {{count}} item of “{{name}}”: the fields you pick here are added to that table.",
+  "forList_other": "Details for the {{count}} items of “{{name}}”: the fields you pick here are added to that table.",
   "title": "Same details from many pages",
   "subtitle": "Give a list of pages; get the same details from each",
   "step1": {
