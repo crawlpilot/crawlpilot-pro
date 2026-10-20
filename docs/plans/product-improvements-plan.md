@@ -1,6 +1,6 @@
 # Product review: fixes and features that sharpen what makes CrawlPilot different
 
-Status: plan (2026-10-20), for the user to choose from (§8). Branch `plan/product-improvements`, from `main`.
+Status: decided (2026-10-20, §8). Done: X6 (issues closed, stale branches deleted). Next: X1–X5, then list + details in one run. Branch `plan/product-improvements`, from `main`.
 
 **Scope.** A review of the product as it is on `main` and on the open branches: what makes it different, what's
 broken or missing, and the non-AI work that makes those strengths stronger. **AI is out of scope**:
@@ -167,12 +167,12 @@ Effort: S = days, M = 1–2 weeks, L = more.
 | **4. After** | Monitors and webhooks (M2–M4) on top of only new rows; pause on a wall; pace profiles; right-click and shortcut runs | Unattended runs in the user's session (S3) |
 | **5. Later** | Recipe files, recipe to script, the CLI; combine datasets, formulas, NDJSON, Notion; guided first run, palette, Report a problem; Edge | Developers (S5), data polish (S6), reach |
 
-## 8. Decisions
+## 8. Decisions (2026-10-20)
 
-| # | Decision | Options | Plan assumes |
-|---|---|---|---|
-| D1 | The first "Next" feature | list + details · numbered URLs · .xlsx · only new · Recipes screen | **list + details**: the job competitors make hardest |
-| D2 | Close the duplicate and finished issues (R10) | close · keep | close, linking the one that stays |
-| D3 | Integrations (R3) and a paid tier | free for all · hide until a Pro tier exists · build a Pro tier | **free for all**: S6 is the pitch; Pro, if ever, is monitors and the CLI's hosted runs |
-| D4 | The CLI (S5) | build · skip | build after recipe files, as a separate open-source repo |
-| D5 | Stale branches | delete · look at `experiment-multirowexports` first | look first |
+| # | Decision | Decided |
+|---|---|---|
+| D1 | The first "Next" feature | **List + details in one run** |
+| D2 | Duplicate and finished issues | **Closed**: #14 (→ #42, #43), #16 (→ #48), #17 (→ #55), #18 (merged), #38 and #39 (built), #15 (built by #38; the rest in #25). #9 narrowed to recipe files (code export is #47) |
+| D3 | Integrations and a paid tier | **Free for everyone**: webhook, Zapier and Airtable enabled (X3); no Pro tier |
+| D4 | The CLI | **Build it**, after recipe files, as a separate open-source repo |
+| D5 | Stale branches | **Deleted**: `crawl_config`, `experiment-multirowexports`, `new_flow`, `releas-1.1` (local and origin). Each kept as a local tag `archive/<name>`, so its commits can still be recovered |
