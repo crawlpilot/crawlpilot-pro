@@ -62,6 +62,7 @@ export function listSpec(picks: ListPick[], pagination: PaginationConfig): ListS
             mode: pagination.mode,
             ...(pagination.next.length > 0 ? { next: chainOf(pagination.next) } : {}),
             ...(pagination.speed ? { speed: pagination.speed } : {}),
+            ...(pagination.mode === 'urls' && pagination.pages ? { pages: pagination.pages } : {}),
         },
     };
 }
@@ -77,7 +78,7 @@ export function listRunInput(spec: ListSpec, maxPages?: number): { picks: ListPi
             patternFound: l.mode === 'list',
             count: 0,
         })),
-        pagination: { mode: spec.pagination.mode, next: spec.pagination.next ?? [], maxPages, speed: spec.pagination.speed },
+        pagination: { mode: spec.pagination.mode, next: spec.pagination.next ?? [], maxPages, speed: spec.pagination.speed, ...(spec.pagination.pages ? { pages: spec.pagination.pages } : {}) },
     };
 }
 

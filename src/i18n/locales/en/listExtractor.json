@@ -18,6 +18,10 @@
     "subtitle": "Does the list go on over more pages?",
     "howToLoadMore": "Is there more of this list on other pages?",
     "pickNavigationMethod": "Choose how this site shows more items.",
+    "byAddress": {
+      "title": "Numbered pages, by address",
+      "description": "Opens page 2, 3, … directly (?page=2): no clicks, several at once"
+    },
     "numberedPagination": {
       "title": "Pages with a Next button",
       "description": "Page numbers, or a Next › link at the bottom"
@@ -94,6 +98,8 @@
     "onePage": "Only this page: CrawlPilot found no Next button.",
     "nextBefore": "Then follows “{{label}}” through up to",
     "nextAfter": "pages.",
+    "urlsBefore": "Then reads up to",
+    "urlsAfter": "pages by their addresses, several at once in the background.",
     "loadMoreBefore": "Then clicks “{{label}}” up to",
     "loadMoreAfter": "times.",
     "runOne_one": "Get the {{count}} item",

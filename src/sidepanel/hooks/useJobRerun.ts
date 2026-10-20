@@ -1,4 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
+import { db } from '../../shared/db';
+import { itemUrlColumn, itemUrls } from '../../shared/listing/join';
+import type { ListSpec } from '../../shared/types/database';
 import { send, sendToTab } from '../../shared/messages';
 import { useExtractionProcess } from './useExtractionProcess';
 import { useBulkExtraction } from './useBulkExtraction';
@@ -12,8 +15,35 @@ import type { RerunOptions } from '../components/history/RerunDialog';
  * then starts a bulk run or a list extraction with the job's recipe.
  */
 export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: number) => void; onFinished: () => void }) {
-    const { startExtraction, stopExtraction, status } = useExtractionProcess(() => onFinished(), jobId => onStarted(jobId));
+    /** A list with details: once the list is read again, its items' pages are read and joined onto it. */
+    const pendingDetails = useRef<{ details: NonNullable<ListSpec['details']>; name: string; concurrent?: number } | null>(null);
+    const { startExtraction, stopExtraction, status } = useExtractionProcess(tableId => {
+        onFinished();
+        void readDetails(tableId);
+    }, jobId => onStarted(jobId));
     const { startBulkExtraction, stopBulkExtraction, hasCompleted, hasStopped } = useBulkExtraction();
+
+    /** The list's new rows' item links, run with the list's details recipe and joined onto the new table. */
+    const readDetails = async (tableId: number) => {
+        const pending = pendingDetails.current;
+        pendingDetails.current = null;
+        if (!pending) return;
+        const table = await db.tables.get(tableId);
+        if (!table) return;
+        const rows = (await db.tables.rowsPage(tableId, 0, Math.max(table.rowCount, 1))).map(r => r.data);
+        // The list's fields may have been edited since: its link column found again if needed.
+        const urlColumn = table.columns.some(c => c.id === pending.details.urlColumn) ? pending.details.urlColumn : itemUrlColumn(table.columns, rows);
+        if (!urlColumn) return;
+        const urls = itemUrls(rows, urlColumn);
+        if (urls.length === 0) return;
+        const { elements } = pageRunInput(pending.details.page);
+        await startBulkExtraction(urls, elements, {
+            customName: `${pending.name} · details`,
+            maxConcurrent: pending.concurrent,
+            joinInto: { tableId, urlColumn },
+            onStart: onStarted,
+        }).catch(err => console.error('Details re-run failed:', err));
+    };
 
     /** Wait for the active tab to finish loading & inject content script */
     const waitForTabReady = async (timeout = 15000): Promise<void> => {
@@ -106,6 +136,7 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
                 });
             } else if (spec.kind === 'list') {
                 const { picks, pagination } = listRunInput(spec, options.maxPages);
+                pendingDetails.current = spec.details ? { details: spec.details, name: options.name || job.recipe?.name || 'List', concurrent: options.concurrent } : null;
                 await startExtraction(
                     picks.map(p => ({ ...p, sourceTabId: finalActiveTab?.id })),
                     pagination,

@@ -6,6 +6,7 @@
  */
 import { isHidden } from '../extraction/atoms';
 import { nextButtonSelectors } from '../selectors/nextButton';
+import { urlPages, type UrlPages } from '../../../shared/listing/urlPages';
 
 export interface NextControl {
     mode: 'pagination' | 'loadMore';
@@ -13,6 +14,8 @@ export interface NextControl {
     selectors: string[];
     /** What it says ("Next", "Load more"), for the sentence the panel shows. */
     label: string;
+    /** A Next link to a numbered page: every page's address (`listing/urlPages.ts`), read without clicking. */
+    pages?: UrlPages;
 }
 
 const NEXT_TEXT = /^(next( page)?|›|»|→|>|next ›|next »|next →)$/i;
@@ -51,7 +54,9 @@ export function findNextControl(doc: Document = document): NextControl | null {
     const next = findNext(doc);
     if (next) {
         const selectors = nextButtonSelectors(next as HTMLElement).map(c => c.selector);
-        if (selectors.length) return { mode: 'pagination', selectors, label: textOf(next) || next.getAttribute('aria-label') || 'Next' };
+        const href = next.tagName === 'A' ? next.getAttribute('href') : null;
+        const pages = href ? urlPages(doc.location?.href ?? location.href, href) : null;
+        if (selectors.length) return { mode: 'pagination', selectors, label: textOf(next) || next.getAttribute('aria-label') || 'Next', ...(pages ? { pages } : {}) };
     }
     const more = controls(doc).find(el => MORE_TEXT.test(textOf(el)) && usable(el));
     if (more) {
