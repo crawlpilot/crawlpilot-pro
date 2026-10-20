@@ -24,6 +24,9 @@ export function findLoadMore(list: Element): HTMLElement | null {
             const hooked = Array.from(el.attributes).some(a => /^data-.*(show|load)-?more/i.test(a.name));
             if (!hooked && !MORE.test(text)) return false;
             if ((el as HTMLButtonElement).disabled || el.getAttribute('aria-disabled') === 'true') return false;
+            // A link to another page isn't "more of this list" (a "Show more posts" that goes to a login page):
+            // clicking it would end the run with the page.
+            if (!hooked && el.matches('a[href]') && navigates(el as HTMLAnchorElement)) return false;
             const style = getComputedStyle(el);
             if (style.display === 'none' || style.visibility === 'hidden' || el.closest('[hidden]')) return false;
             // Inside the list or after it: never a "See more" of a block above it.
@@ -31,6 +34,16 @@ export function findLoadMore(list: Element): HTMLElement | null {
         });
     // Nearest to the list's end, in document order.
     return candidates[0] ?? null;
+}
+
+/** A link that loads another page (not `#`, `javascript:`, or this page's own address). */
+function navigates(a: HTMLAnchorElement): boolean {
+    const href = a.getAttribute('href') || '';
+    if (!href || href.startsWith('#') || /^javascript:/i.test(href)) return false;
+    try {
+        const url = new URL(href, location.href);
+        return url.origin + url.pathname + url.search !== location.origin + location.pathname + location.search;
+    } catch { return false; }
 }
 
 /** What scrolls the list: its nearest scrolling ancestor, else the page. */

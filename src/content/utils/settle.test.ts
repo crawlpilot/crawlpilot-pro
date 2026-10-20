@@ -17,6 +17,9 @@ describe('findLoadMore', () => {
     it('finds nothing on a list with no such control', () => {
         document.body.innerHTML = `<ul id="list"><li>a</li></ul><a href="/next">Next page</a>`;
         expect(findLoadMore(document.getElementById('list')!)).toBeNull();
+        // "Show more posts" that is a link to another page (a login page): following it ends the run.
+        document.body.innerHTML = `<ul id="list"><li>a</li></ul><a href="/accounts/login/?next=/natgeo/">Show more posts from natgeo</a>`;
+        expect(findLoadMore(document.getElementById('list')!)).toBeNull();
     });
 });
 

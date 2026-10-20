@@ -1,20 +1,27 @@
 import { IScrollStrategy, ScrollStrategyConfig, ScrollStrategyResult } from './IScrollStrategy';
 import { resolveOne } from '../../../shared/selectors/resolve';
 import { findLoadMore, scrollerFor, settle } from '../../utils/settle';
+import { itemKey, ItemKeys, visualOrder } from './identity';
+
+/** How far each step scrolls, as a share of the scroller's height: the rows between two steps are all seen. */
+const STEP = 0.8;
+/** How often a wait looks for new items. */
+const POLL_MS = 150;
 
 /**
- * MutationAwareScrollStrategy — default for infinite/dynamic feeds.
+ * MutationAwareScrollStrategy: the default for scrolled lists, infinite feeds and virtual lists
+ * (docs/plans/virtual-feeds-plan.md §3.1).
  *
- * Designed for sites like Instagram, Twitter, TikTok, LinkedIn where new items
- * are appended to the DOM asynchronously after the user scrolls to the bottom.
+ * A **harvest** loop: at each step, every item in the page now is read right away, in the order on
+ * screen, and known by what it shows (`identity.ts`), never by its node. Then the list scrolls by most
+ * of a screen and waits until an item it hasn't read appears. So a virtual list that unmounts rows,
+ * mounts them back as new nodes or recycles a node for item after item is read once per item, each
+ * with its own content.
  *
- * Features:
- *   - MutationObserver with subtree support to detect new nodes
- *   - Adaptive backoff for slow-loading sites
- *   - Scroll position verification to detect stuck-at-bottom
- *   - Content fingerprinting for dedup (handles virtualized DOM recycling)
- *   - Abort-signal-aware polling for responsive Stop button
- *   - Load More button retry logic
+ * - The container is found again (`resolveRoot`) when the app replaces it.
+ * - A "Load more" control (configured, or the page's own) is clicked when scrolling loads nothing.
+ * - The run ends after `maxNoChanges` steps with nothing new at the end of the list, at `maxItems`,
+ *   after `maxMs`, or on Stop.
  */
 export class MutationAwareScrollStrategy implements IScrollStrategy {
     private abortSignal?: AbortSignal;
@@ -35,220 +42,122 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
 
     public async execute(config: ScrollStrategyConfig): Promise<ScrollStrategyResult> {
         const {
-            selector: parentSelector = '',
+            selector: itemSelector = '',
             selectorType = 'selector',
             scrollDelay = 50,
             contentLoadDelay = 2500,
             maxNoChanges = 3,
             selectionMode = 'container',
             rootElement,
-            startIndex = 0,
+            maxItems,
+            maxMs,
         } = config;
 
-        // --- 1. Resolve container ---
-        let container: HTMLElement | null = null;
+        let container: HTMLElement | null = rootElement ?? (itemSelector ? resolveOne([itemSelector]).result as HTMLElement | null : null);
+        if (!container) return { success: false, error: 'Container not found' };
 
-        if (rootElement) {
-            container = rootElement;
-        } else if (parentSelector) {
-            container = resolveOne([parentSelector]).result as HTMLElement | null;
-        }
-
-        if (!container) {
-            return { success: false, error: 'Container not found' };
-        }
-
-        console.log('[MutationAwareScrollStrategy] Container resolved:', container.tagName, container.className);
-
-        // --- 2. Determine scroll target: the list, a scrolling ancestor (an app shell's pane), or the page ---
-        const scrollTarget: HTMLElement | Window = scrollerFor(container);
-        console.log(`[MutationAwareScrollStrategy] Scroll target: ${scrollTarget instanceof Window ? 'window' : (scrollTarget === container ? 'container' : 'ancestor')}`);
-
-        // --- 3. Initialize Tracking Queue & Content Fingerprint Set ---
-        const seenFingerprints = new Set<string>();
-        const pendingQueue: HTMLElement[] = [];
-        let currentIdx = 0;
-
-        const fingerprint = (el: HTMLElement): string => {
-            const text = (el.textContent || '').substring(0, 200);
-            const img = el.querySelector('img')?.getAttribute('src') || '';
-            const href = el.querySelector('a')?.getAttribute('href') || '';
-            return `${text}|${img}|${href}`;
+        const itemsMode = selectionMode === 'items' && selectorType === 'selector' && !!itemSelector;
+        /** The list now: found again when the app replaced it. */
+        const list = (): HTMLElement => {
+            if (container!.isConnected) return container!;
+            const again = config.resolveRoot?.();
+            if (again && again !== container) {
+                console.log('[MutationAwareScrollStrategy] The list was replaced: found it again.');
+                container = again;
+            }
+            return container!;
+        };
+        /** The items in the page now, in the order on screen. */
+        const mounted = (): HTMLElement[] => {
+            const root = list();
+            let els: HTMLElement[] = [];
+            if (itemsMode) { try { els = Array.from(root.querySelectorAll<HTMLElement>(itemSelector)); } catch { /* bad selector */ } }
+            if (!els.length) els = Array.from(root.children) as HTMLElement[];
+            return visualOrder(els);
         };
 
-        // Placeholders (items not rendered yet) are all alike: each is queued once by identity, and
-        // queued again by its content once it fills. Items with content are queued once per content,
-        // so a virtual list that recycles nodes is read by what they show.
-        const queuedEmpty = new WeakSet<HTMLElement>();
-        const addToQueue = (elements: HTMLElement[]) => {
-            for (const el of elements) {
-                const fp = fingerprint(el);
-                if (fp === '||') {
-                    if (queuedEmpty.has(el)) continue;
-                    queuedEmpty.add(el);
-                    pendingQueue.push(el);
+        const keys = new ItemKeys();
+        const seen = new Set<string>();
+        const started = Date.now();
+        let read = 0;
+        const limitHit = () => (!!maxItems && read >= maxItems) || (!!maxMs && Date.now() - started >= maxMs);
+        const unseen = () => keys.keys(mounted()).some(k => k && !seen.has(k));
+
+        /** Reads every item in the page now that wasn't read yet. Returns how many it read. */
+        const harvest = async (): Promise<number> => {
+            let fresh = 0;
+            const els = mounted();
+            const before = keys.keys(els);
+            for (const [i, el] of els.entries()) {
+                this.throwIfAborted();
+                if (!el.isConnected || !before[i] || seen.has(before[i])) continue;
+                el.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+                // What it shows now: a recycled node may have moved on to another item.
+                const key = keys.key(el);
+                if (!key || seen.has(key)) continue;
+                seen.add(key);
+                // Under both keys: a link key that later needs its text still finds this item.
+                seen.add(itemKey(el)).add(itemKey(el, true));
+                if (config.scrollCallback) {
+                    try {
+                        await config.scrollCallback({ scrolledToIndex: read, element: el, totalCount: seen.size, key });
+                    } catch (err) {
+                        console.error(`[MutationAwareScrollStrategy] Callback failed at item ${read}:`, err);
+                    }
+                }
+                read++;
+                fresh++;
+                if (limitHit()) return fresh;
+                if (scrollDelay > 0) await this.wait(scrollDelay);
+            }
+            return fresh;
+        };
+
+        /** The list's end is above the bottom of what's shown: scrolling on only passes what's after it. */
+        const pastList = () => {
+            const scroller = scrollerFor(list());
+            const bottom = scroller instanceof Window ? window.innerHeight : scroller.getBoundingClientRect().bottom;
+            return list().getBoundingClientRect().bottom <= bottom + 2;
+        };
+
+        let noChanges = 0;
+        /** Steps that scrolled but found nothing: a page that keeps moving without loading ends too. */
+        let emptySteps = 0;
+        let waitMs = contentLoadDelay;
+        try {
+            while (true) {
+                this.throwIfAborted();
+                if (await harvest() > 0) { noChanges = 0; emptySteps = 0; waitMs = contentLoadDelay; }
+                if (limitHit()) { console.log(`[MutationAwareScrollStrategy] Limit reached (${read} items).`); break; }
+
+                const moved = this.triggerScroll(scrollerFor(list()), list());
+                if (await this.waitFor(waitMs, unseen)) {
+                    // Let them finish rendering (prices, images) before they are read.
+                    await settle(list(), 300, 2000, this.abortSignal);
                     continue;
                 }
-                if (!seenFingerprints.has(fp)) {
-                    seenFingerprints.add(fp);
-                    pendingQueue.push(el);
-                }
-            }
-        };
+                // Still scrolling through the list: its next items may be further down.
+                if (moved && !pastList() && ++emptySteps < maxNoChanges * 6) continue;
 
-        // --- 4. Attach MutationObserver (subtree: true, filtered to relevant depth) ---
-        const itemsMode = selectionMode === 'items' && selectorType === 'selector' && !!parentSelector;
-        let newItemsDetected = false;
-        const observeTarget = container.children.length > 0 ? container : document.body;
-        const observer = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                    const added = Array.from(mutation.addedNodes).filter(n => n.nodeType === Node.ELEMENT_NODE) as HTMLElement[];
-                    // Items found through the list's item path (a grid split over rows), at any depth;
-                    // without one, children of the container or one level deep.
-                    const addedElements = itemsMode
-                        ? added.flatMap(el => {
-                            if (!container!.contains(el)) return [];
-                            try { return el.matches(parentSelector) ? [el] : Array.from(el.querySelectorAll<HTMLElement>(parentSelector)); } catch { return []; }
-                        })
-                        : added.filter(el => el.parentElement === container || el.parentElement?.parentElement === container);
-
-                    if (addedElements.length > 0) {
-                        newItemsDetected = true;
-                        addToQueue(addedElements);
-                        console.log(`[MutationAwareScrollStrategy] Queued ${addedElements.length} new element(s)`);
-                    }
-                }
-            }
-        });
-
-        observer.observe(observeTarget, { childList: true, subtree: true });
-
-        // --- 5. Initial Population ---
-        const getInitialChildren = (): HTMLElement[] => {
-            if (selectionMode === 'items' && selectorType === 'selector' && parentSelector) {
-                const scoped = Array.from(container!.querySelectorAll(parentSelector)) as HTMLElement[];
-                if (scoped.length > 0) return scoped;
-            }
-            return Array.from(container!.children) as HTMLElement[];
-        };
-        addToQueue(getInitialChildren());
-
-        // Respect startIndex if provided
-        if (startIndex > 0 && startIndex < pendingQueue.length) {
-            console.log(`[MutationAwareScrollStrategy] Skipping ${startIndex} items based on startIndex`);
-            const skipped = pendingQueue.splice(0, startIndex);
-            currentIdx = startIndex;
-            for (const el of skipped) seenFingerprints.add(fingerprint(el));
-        }
-
-        // --- 6. Main Execution Loop with Adaptive Backoff ---
-        let consecutiveNoChanges = 0;
-        let currentWaitTime = contentLoadDelay;
-        const maxWaitTime = contentLoadDelay * 2;
-
-        try {
-            while (consecutiveNoChanges < maxNoChanges) {
-                this.throwIfAborted();
-
-                // DRAIN THE QUEUE
-                if (pendingQueue.length > 0) {
-                    console.log(`[MutationAwareScrollStrategy] Draining queue (${pendingQueue.length} items pending)`);
-
-                    let queueIdx = 0;
-                    while (queueIdx < pendingQueue.length) {
-                        this.throwIfAborted();
-                        const child = pendingQueue[queueIdx];
-                        queueIdx++;
-
-                        child.scrollIntoView({ behavior: 'auto', block: 'center' });
-
-                        if (config.scrollCallback) {
-                            try {
-                                await config.scrollCallback({
-                                    scrolledToIndex: currentIdx,
-                                    element: child,
-                                    totalCount: seenFingerprints.size
-                                });
-                            } catch (err) {
-                                console.error(`[MutationAwareScrollStrategy] Callback failed at index ${currentIdx}:`, err);
-                            }
-                        }
-
-                        currentIdx++;
-
-                        if (scrollDelay > 0) await this.wait(scrollDelay);
-                    }
-                    // Clear processed items in one operation (O(1) vs O(n) per shift)
-                    pendingQueue.splice(0, queueIdx);
-
-                    consecutiveNoChanges = 0;
-                    currentWaitTime = contentLoadDelay; // Reset backoff on progress
+                // At the end with nothing new: a "Load more" control (the configured one, else the page's own).
+                if (config.loadMoreSelectors?.length || findLoadMore(list())) {
+                    const clicked = config.loadMoreSelectors?.length
+                        ? await this.clickLoadMoreWithRetry(config.loadMoreSelectors)
+                        : await this.clickFound(list());
+                    if (clicked && await this.waitFor(waitMs, unseen)) { noChanges = 0; continue; }
                 }
 
-                // TRIGGER LOAD MORE
-                console.log(`[MutationAwareScrollStrategy] Queue empty. Triggering scroll to load more...`);
-                newItemsDetected = false;
-
-                const scrollMoved = this.triggerScroll(scrollTarget, container);
-                if (!scrollMoved) {
-                    // Try scrolling to absolute bottom as fallback
-                    this.scrollToBottom(scrollTarget);
-                }
-
-                const gotNewItems = await this.waitForNewItems(currentWaitTime, () => newItemsDetected);
-
-                if (gotNewItems) {
-                    console.log(`[MutationAwareScrollStrategy] New items appeared via MutationObserver.`);
-                    // Let them finish rendering (prices, images) before they are read.
-                    await settle(container, 300, 2000, this.abortSignal);
-                    consecutiveNoChanges = 0;
-                    currentWaitTime = contentLoadDelay; // Reset backoff
-                } else {
-                    // Fallback: Check if children count increased without MutationObserver firing
-                    const currentChildren = getInitialChildren();
-                    const newChildren = currentChildren.filter(el => !seenFingerprints.has(fingerprint(el)));
-                    if (newChildren.length > 0) {
-                        console.log(`[MutationAwareScrollStrategy] ${newChildren.length} items found via DOM check (MutationObserver missed).`);
-                        addToQueue(newChildren);
-                        consecutiveNoChanges = 0;
-                        currentWaitTime = contentLoadDelay;
-                        continue;
-                    }
-
-                    // Click Load More: the configured control, else the page's own "Show more" after the list.
-                    if (config.loadMoreSelectors?.length || findLoadMore(container)) {
-                        const clicked = config.loadMoreSelectors?.length
-                            ? await this.clickLoadMoreWithRetry(config.loadMoreSelectors)
-                            : await this.clickFound(container);
-                        if (clicked) {
-                            console.log('[MutationAwareScrollStrategy] Clicked Load More, waiting...');
-                            await this.wait(currentWaitTime);
-                            const before = pendingQueue.length;
-                            addToQueue(getInitialChildren());
-                            // A control that loads nothing more (the end, or not a Load more at all) ends the run like a scroll that loads nothing.
-                            if (pendingQueue.length > before) { consecutiveNoChanges = 0; continue; }
-                        }
-                    }
-
-                    consecutiveNoChanges++;
-                    // Adaptive backoff: increase wait time by 50% each failed cycle (capped at 2x)
-                    currentWaitTime = Math.min(Math.round(currentWaitTime * 1.5), maxWaitTime);
-                    console.log(`[MutationAwareScrollStrategy] No progress (${consecutiveNoChanges}/${maxNoChanges}). Next wait: ${currentWaitTime}ms`);
-                }
+                noChanges++;
+                if (noChanges >= maxNoChanges) break;
+                // Slow sites: wait longer each time (up to twice the delay).
+                waitMs = Math.min(Math.round(waitMs * 1.5), contentLoadDelay * 2);
+                console.log(`[MutationAwareScrollStrategy] Nothing new (${noChanges}/${maxNoChanges}). Next wait: ${waitMs}ms`);
             }
         } finally {
-            observer.disconnect();
-            console.log('[MutationAwareScrollStrategy] Cleanup complete.');
+            console.log(`[MutationAwareScrollStrategy] Done: ${read} items.`);
         }
 
-        return {
-            success: true,
-            result: {
-                currentIndex: currentIdx,
-                lastChildHashData: null
-            }
-        };
+        return { success: true, result: { currentIndex: read, lastChildHashData: null } };
     }
 
     /**
@@ -259,10 +168,10 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
             let before: number;
             if (target instanceof Window) {
                 before = window.scrollY;
-                window.scrollBy({ top: window.innerHeight, behavior: 'auto' });
+                window.scrollBy({ top: Math.round(window.innerHeight * STEP), behavior: 'auto' });
             } else {
                 before = target.scrollTop;
-                target.scrollTop += target.clientHeight;
+                target.scrollTop += Math.round(target.clientHeight * STEP);
             }
 
             // Fire scroll event for synthetic listeners
@@ -277,46 +186,14 @@ export class MutationAwareScrollStrategy implements IScrollStrategy {
         }
     }
 
-    /**
-     * Scrolls to absolute bottom as a fallback when incremental scroll fails.
-     */
-    private scrollToBottom(target: HTMLElement | Window): void {
-        try {
-            if (target instanceof Window) {
-                window.scrollTo(0, document.body.scrollHeight);
-            } else {
-                target.scrollTop = target.scrollHeight;
-            }
-        } catch { /* ignore */ }
-    }
-
-    /**
-     * Abort-aware polling: resolves early if items arrive OR abort signal fires.
-     */
-    private waitForNewItems(timeoutMs: number, check: () => boolean): Promise<boolean> {
-        return new Promise(resolve => {
-            const interval = 100;
-            let elapsed = 0;
-
-            const poll = () => {
-                if (this.abortSignal?.aborted) {
-                    resolve(false);
-                    return;
-                }
-                if (check()) {
-                    resolve(true);
-                    return;
-                }
-                elapsed += interval;
-                if (elapsed >= timeoutMs) {
-                    resolve(false);
-                    return;
-                }
-                setTimeout(poll, interval);
-            };
-
-            setTimeout(poll, interval);
-        });
+    /** Resolves true as soon as `check` holds, false after `timeoutMs` (or on Stop). */
+    private async waitFor(timeoutMs: number, check: () => boolean): Promise<boolean> {
+        for (let waited = 0; waited < timeoutMs; waited += POLL_MS) {
+            if (this.abortSignal?.aborted) return false;
+            await this.wait(POLL_MS);
+            if (check()) return true;
+        }
+        return false;
     }
 
     /**

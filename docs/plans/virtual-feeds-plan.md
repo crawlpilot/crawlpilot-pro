@@ -1,6 +1,6 @@
 # Virtual lists and feeds: Instagram-class pages
 
-Status: planned (2026-10-20). Driving case: Instagram (home feed, profile and explore grids, post pages). The rule
+Status: V0–V1 done (2026-10-20, branch `feat/virtual-feeds`); next V2. §8 has the progress. Driving case: Instagram (home feed, profile and explore grids, post pages). The rule
 throughout is the usual one: **no site rules**. Everything below is a mechanism for the class of page: lists that
 render only the rows near the viewport, built with generated class names, whose data is also in the page's JSON and
 API responses.
@@ -163,3 +163,10 @@ Instagram's markup doesn't show.
 - **Terms of service.** Automated collection is restricted by Instagram's terms. This is the user's call per use; the
   extension doesn't bypass logins or limits.
 - **Markup drift.** Mitigated by identity keys, link-shape items and JSON fields, none of which depend on class names.
+
+## 8. Progress
+
+| Step | State | Notes |
+|---|---|---|
+| V0 | Done, except the logged-in captures and the link-pick timeout | `e2e/site/virtual-grid.html` (rows of 3 in a padding-windowed wrapper, atomic classes, `mount_0_0_N`, embedded JSON 14 deep, `/feed/posts` pages, the wrapper replaced after the 2nd fetch) and `e2e/site/virtual-feed.html` (a pool of 5 recycled `article`s, sponsored posts, `?total=0` endless). Test server: `/feed/posts`. On the old strategy the grid run stopped at 19 of 60 posts (R4) and the feed run never ended (R1). **The traced hang:** `findLoadMore` took Instagram's "Show more posts from natgeo" link (it goes to the login page) for a Load more control; the click navigated, the content script went with the page and no "complete" was ever sent. Fixed twice: a link to another page is never a Load more control, and a page that goes away mid-run sends "complete" with the rows read so far (`pagehide`). Open: why the link pick didn't answer (V2), and the user's logged-in captures |
+| V1 | Done | `MutationAwareScrollStrategy` is a harvest loop: every item in the page read at once in screen order (`visualOrder`), keyed by `identity.ts` (`itemKey`: links without query/hash, else identity attribute, else text and image paths; `ItemKeys`: link keys shared by items, at once or over the run, add the text), checked again just before reading (recycled nodes), 0.8-screen steps, the container found again (`resolveRoot`), ends at the list's end after `maxNoChanges`, a cap on empty steps, `maxItems` / `maxMs` (`AutoScrollRequest`). `listRun.ts` dedupes on the key. Tests: `identity.test.ts` (3), `settle.test.ts` (the login link), `e2e/virtual.spec.ts` (3: 120 of 120 grid posts in order; 40 of 40 recycled feed posts each with its own link; an endless feed stops at 25). Extension, list, listing scorecard and picker e2e still pass |

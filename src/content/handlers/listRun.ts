@@ -100,11 +100,15 @@ async function startAutoScroll(req: AutoScrollRequest) {
         selectorType: 'selector',
         selectionMode: selector ? 'items' : 'container',
         rootElement: root,
+        // An app that re-renders the list replaces its container: found again from the same chains.
+        resolveRoot: req.container.length > 0 ? () => (resolveContainer(req.container, req.items).result as HTMLElement | null) ?? null : undefined,
         enableInfiniteScroll: req.enableInfiniteScroll,
         loadMoreSelectors: req.loadMore,
         scrollDelay: req.scrollDelay || 800,
         contentLoadDelay: req.contentLoadDelay || 2500,
         maxNoChanges: 5,
+        maxItems: req.maxItems,
+        maxMs: req.maxMs,
         scrollCallback: async (info: any) => {
             const element: HTMLElement | undefined = info.element;
             if (!element) return;
@@ -128,7 +132,9 @@ async function startAutoScroll(req: AutoScrollRequest) {
             await refreshNetSourcesFor(scrollColumns);
             const { item: row } = await readWhenReady(element, scrollColumns, () => settle(element, 300, 1000));
             if (Object.keys(row).length === 0) return;
-            const hash = hashString(JSON.stringify(row)).toString();
+            // The same item read twice (the list mounted it again) has the same key; two items with the
+            // same values are still two rows.
+            const hash = info.key ?? hashString(JSON.stringify(row)).toString();
             if (seen.has(hash)) return;
             seen.add(hash);
             results.push(row);
@@ -137,11 +143,19 @@ async function startAutoScroll(req: AutoScrollRequest) {
         }
     } as any);
 
+    // The page going away (a link clicked, the tab navigated) ends the run with what it read.
+    const onLeave = () => {
+        flushUpdates();
+        void send('AUTO_SCROLL_COMPLETE', ok({ items: results, columns: scrollColumns ?? [] }));
+    };
+    addEventListener('pagehide', onLeave, { once: true });
     try {
         await autoScroll.execute({ signal, logger: console, state: new Map(), onProgress: () => undefined });
+        removeEventListener('pagehide', onLeave);
         flushUpdates();
         void send('AUTO_SCROLL_COMPLETE', ok({ items: results, columns: scrollColumns ?? [] }));
     } catch (e: any) {
+        removeEventListener('pagehide', onLeave);
         if (e.message === 'Action aborted') return;
         console.error('AutoScroll Failed', e);
         void send('AUTO_SCROLL_COMPLETE', fail(e.message));

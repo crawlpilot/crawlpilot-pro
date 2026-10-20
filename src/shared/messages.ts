@@ -158,6 +158,9 @@ export interface AutoScrollRequest {
     contentLoadDelay?: number;
     /** The list's frozen fields; every scrolled row is read with them. */
     columns?: unknown;
+    /** Stop after this many rows, or after this many ms: an endless feed's end. */
+    maxItems?: number;
+    maxMs?: number;
 }
 
 /** Next-button pagination over a list, continued on each page the run navigates to. */

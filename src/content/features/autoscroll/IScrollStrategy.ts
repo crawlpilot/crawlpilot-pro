@@ -23,12 +23,20 @@ export interface ScrollStrategyConfig {
     startIndex?: number;
     /** Resume from a serialized ChildHashData string */
     childHash?: string | null;
+    /** Finds the list again when the app replaced `rootElement` (a re-render). */
+    resolveRoot?: () => HTMLElement | null;
+    /** Stop after this many items. */
+    maxItems?: number;
+    /** Stop after this long. */
+    maxMs?: number;
 }
 
 export interface ScrollCallbackData {
     scrolledToIndex: number;
     element: HTMLElement;
     totalCount: number;
+    /** What item the element shows (`identity.ts`): the same item read again has the same key. */
+    key?: string;
 }
 
 export interface ScrollStrategyResult {
