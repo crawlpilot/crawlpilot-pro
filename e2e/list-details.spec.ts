@@ -67,8 +67,9 @@ test('a list, then each item\'s page: the details land on the list\'s rows', asy
     const card = ui.getByText(list.name, { exact: true }).first().locator('xpath=ancestor::div[.//button[normalize-space()="Run again"]][1]');
     await card.getByRole('button', { name: 'Run again' }).click();
     await ui.getByRole('button', { name: 'Start' }).click();
-    const again = await panel.next('BULK_EXTRACTION_COMPLETE', 150_000);
-    expect(again.success).toBe(true);
+    // The list (numbered pages, read in the background) and then its details: two runs complete.
+    await expect.poll(async () => (await panel.received('BULK_EXTRACTION_COMPLETE')).length, { timeout: 150_000 }).toBeGreaterThanOrEqual(2);
+    expect((await panel.received('BULK_EXTRACTION_COMPLETE')).every((c: any) => c.success)).toBe(true);
     const rerunList = (await panel.store('tables')).filter(t => !t.preview && t.source !== 'bulk-page' && t.id !== list.id).at(-1);
     expect(rerunList.view.details).toMatchObject({ matched: 12, unmatched: 0 });
     const rerunRows = (await panel.store('rows')).filter(r => r.tableId === rerunList.id);

@@ -74,6 +74,8 @@ export function QuickRun({ pick, pages, maxPages, onMaxPages, onRun, onCustomize
                 <div className="mb-3 flex flex-wrap items-center text-small text-ink-2">
                     {pages === undefined ? <Skeleton className="h-4 w-3/4" />
                         : pages === null ? t('quick.onePage')
+                            : pages.mode === 'urls'
+                                ? <>{t('quick.urlsBefore')}{pageSelect}{t('quick.urlsAfter')}</>
                             : pages.mode === 'loadMore'
                                 ? <>{t('quick.loadMoreBefore', { label: pages.label })}{pageSelect}{t('quick.loadMoreAfter')}</>
                                 : <>{t('quick.nextBefore', { label: pages.label })}{pageSelect}{t('quick.nextAfter')}</>}

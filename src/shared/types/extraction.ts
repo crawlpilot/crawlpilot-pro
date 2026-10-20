@@ -21,7 +21,8 @@ export interface ListPick {
     kind?: ListKind;
 }
 
-export type PaginationMode = 'auto' | 'pagination' | 'loadMore';
+/** `urls`: numbered pages read by their addresses (`listing/urlPages.ts`), in background tabs. */
+export type PaginationMode = 'auto' | 'pagination' | 'loadMore' | 'urls';
 
 export interface PaginationConfig {
     mode: PaginationMode;
@@ -29,6 +30,8 @@ export interface PaginationConfig {
     next: Chain;
     speed?: PaginationSpeed;
     maxPages?: number;
+    /** `urls` mode: every page's address, from page 1 and its Next link. */
+    pages?: import('../listing/urlPages').UrlPages;
 }
 
 export interface ExtractionStatus {

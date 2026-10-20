@@ -131,10 +131,12 @@ export interface ListSpec {
     kind: 'list';
     lists: ListTarget[];
     pagination: {
-        mode: 'auto' | 'pagination' | 'loadMore';
+        mode: 'auto' | 'pagination' | 'loadMore' | 'urls';
         /** The Next / Load more control. */
         next?: Chain;
         speed?: import('../constants/paginationConfig').PaginationSpeed;
+        /** `urls` mode: the numbered pages' address pattern. */
+        pages?: import('../listing/urlPages').UrlPages;
     };
     /**
      * Each item's page, read after the list and joined onto its row (`listing/join.ts`): the details

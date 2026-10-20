@@ -7,7 +7,8 @@ import { checkPage, hasReaders, inferFields, readWhenReady, similarSiblings, Rea
 import { HL_COLOR, HL_GLOW } from '../utils/highlight-tokens';
 import { looksLikeXPath, resolveContainer, resolveItems } from '../../shared/selectors/resolve';
 import { hashString } from '../../shared/utils/hash';
-import { AutoScrollRequest, fail, ok, on, PaginationRequest, send } from '../../shared/messages';
+import { AutoScrollRequest, fail, ok, on, PaginationRequest, send, type ListPageRequest } from '../../shared/messages';
+import { until } from '../utils/clock';
 import { storage } from '../../shared/storage';
 
 const UPDATE_INTERVAL_MS = 500;
@@ -202,7 +203,49 @@ function resumePagination() {
     });
 }
 
+/** How long a page opened by a numbered-pages run has to show its list, and how long once it has loaded. */
+const LIST_WAIT_MS = 15_000;
+const LIST_WAIT_LOADED_MS = 4_000;
+
+/**
+ * One page of a numbered-pages run (`listing/urlPages.ts`), in a background tab: the list found by its
+ * chains once it renders, its fields checked (healed by meaning where they broke), each item read once
+ * it has loaded. No scrolling to the next page and no clicks: the run opens each page by its address.
+ */
+async function readListPage(req: ListPageRequest): Promise<{ rows: Record<string, string>[]; columns: ReaderColumn[]; healed?: string[]; broken?: string[] }> {
+    const find = () => {
+        const root = req.container.length > 0 ? resolveContainer(req.container, req.items).result : null;
+        return resolveItems(req.items, root ?? document).result;
+    };
+    // A page past the last one (an error page, an empty listing) never shows the list: no long wait once it has loaded.
+    const started = Date.now();
+    await until(() => find().length > 0 || (document.readyState === 'complete' && Date.now() - started > LIST_WAIT_LOADED_MS), LIST_WAIT_MS);
+    const items = find();
+    if (items.length === 0) return { rows: [], columns: hasReaders(req.columns) ? req.columns : [] };
+    let columns: ReaderColumn[];
+    let healed: string[] | undefined, broken: string[] | undefined;
+    if (hasReaders(req.columns)) {
+        const health = checkPage(items, req.columns);
+        columns = health.columns;
+        if (health.healed.length) healed = health.healed;
+        if (health.broken.length) broken = health.broken;
+    } else {
+        columns = inferFields(items).columns;
+    }
+    await refreshNetSourcesFor(columns);
+    const rows: Record<string, string>[] = [];
+    for (const el of items) {
+        if (!el.isConnected) continue;
+        // Lazy content (prices, images) fills in when the item comes into view.
+        el.scrollIntoView({ block: 'center' });
+        const { item } = await readWhenReady(el, columns, () => settle(el, 150, 800));
+        if (Object.keys(item).length > 0) rows.push(item);
+    }
+    return { rows, columns, ...(healed ? { healed } : {}), ...(broken ? { broken } : {}) };
+}
+
 export function registerListRunHandlers() {
+    on('READ_LIST_PAGE', async req => ok(await readListPage(req)));
     injectHighlightStyle();
     on('EXECUTE_AUTO_SCROLL', req => { void startAutoScroll(req); return ok(); });
     on('STOP_AUTO_SCROLL', () => { stopAutoScroll(); stopPagination(); return ok(); });
