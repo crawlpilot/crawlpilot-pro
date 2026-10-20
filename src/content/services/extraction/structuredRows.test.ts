@@ -102,3 +102,39 @@ describe('more sources', () => {
         await refreshNetSources();
     });
 });
+
+describe('a feed\'s data (docs/plans/virtual-feeds-plan.md §3.3)', () => {
+    const node = (code: string, n: number) => ({ node: { code, pk: String(900 + n), caption: { text: `Post ${n}` }, taken_at: 1790000000 + n, media_type: 1 } });
+    function grid(codes: string[]) {
+        // The first posts 14 levels down in the bootstrap, as on Instagram.
+        let nested: any = { result: { data: { user: { timeline: { edges: codes.slice(0, 3).map((c, i) => node(c, i + 1)) } } } } };
+        for (let i = 0; i < 5; i++) nested = { __bbox: { require: [['Cache', 'next', [], [`k${i}`, nested]]] } };
+        document.head.innerHTML = `<base href="https://social.test/alpha/"><script type="application/json">${JSON.stringify({ require: [['Handle', null, [nested]]] })}</script>`;
+        document.body.innerHTML = `<div>${codes.map(c => `<div class="cell"><a href="/alpha/p/${c}/"><img alt=""></a></div>`).join('')}</div>`;
+        return Array.from(document.querySelectorAll('.cell'));
+    }
+
+    it('finds items deep in an app\'s bootstrap, by link codes with or without digits; names and dates read well', () => {
+        const rows = grid(['DesR-VXRAQU', 'Dh9xQ2bLmP0', 'KwTpRmZaBcD', 'Zq1aaaBBBcc']);
+        const src = findStructuredSource(rows)!;
+        expect(src).toBeTruthy();
+        expect(src.anchor).toBe('node.code');
+        expect(src.fields.find(f => f.key === 'node.caption.text')?.name).toBe('Caption Text');
+        expect(src.fields.find(f => f.key === 'node.taken_at')).toMatchObject({ name: 'Taken At', type: 'date' });
+        const cols = structuredColumns(src);
+        const taken = cols.find(c => c.name === 'Taken At')!;
+        expect(readRow(rows[0], cols)[taken.id]).toBe(new Date((1790000000 + 1) * 1000).toISOString());
+    });
+
+    it('rows a scroll loaded are read from the API page that brought them, wherever it keeps its array', async () => {
+        const rows = grid(['DesR-VXRAQU', 'Dh9xQ2bLmP0', 'KwTpRmZaBcD', 'Zq1aaaBBBcc']);
+        const cols = structuredColumns(findStructuredSource(rows)!);
+        const caption = cols.find(c => c.name === 'Caption Text')!;
+        expect(readRow(rows[3], cols)[caption.id]).toBeUndefined();
+        net.entries = [{ seq: 50, url: 'https://social.test/graphql', responseText: JSON.stringify({ data: { xdt_feed: { edges: [node('Zq1aaaBBBcc', 4), node('Other00001x', 5)] } } }) }];
+        await refreshNetSources();
+        expect(readRow(rows[3], cols)[caption.id]).toBe('Post 4');
+        net.entries = [];
+        await refreshNetSources();
+    });
+});

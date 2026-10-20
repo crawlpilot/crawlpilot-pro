@@ -165,6 +165,8 @@ function testSelector(selector: string) {
 export function registerPickerHandlers() {
     on('START_PICKER', p => {
         startPicker(p?.mode, p?.action);
+        // From the list pick on, the page's API responses are kept: the run that follows reads the rows they hold.
+        if (p?.mode === 'list') void send('NET_HOOK_START');
         if (p?.adjust && !adjust(p.adjust)) {
             stopPicker();
             return fail('This is no longer on the page: pick it again.');

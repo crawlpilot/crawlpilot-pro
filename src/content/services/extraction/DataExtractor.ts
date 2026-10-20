@@ -6,6 +6,37 @@ import { findStructuredSource } from './structuredRows';
 import { pickProblems } from './pickCheck';
 import { backfill } from './fields/backfill';
 
+/** Fewer DOM fields than this: the markup says little about each card (a photo grid: its link). */
+const SPARSE_FIELDS = 3;
+/** Page-data fields added to a sparse pick, at most. */
+const MAX_JOINED = 8;
+/** Keys that hold an ID (`pk`, `id`, `user.id`, `media_id`) or a page cursor: the link has said which item it is. */
+const ID_KEY = /(^|[._])(id|pk|cursor|[a-z]+_id|[a-z]+Id)$/;
+
+/**
+ * The page's data joined to fields the markup shows (docs/plans/virtual-feeds-plan.md §3.3): its
+ * fields that aren't IDs and don't repeat a DOM field's values, renamed where an ID is taken.
+ */
+function joinFields(dom: ReaderColumn[], domItems: Record<string, string>[], data: ReaderColumn[], dataItems: Record<string, string>[]): ReaderColumn[] {
+    const domValues = dom.map(c => new Set(domItems.map(r => r[c.id]).filter(Boolean)));
+    const ids = new Set(dom.map(c => c.id));
+    const extra: ReaderColumn[] = [];
+    for (const c of data) {
+        const key = c.reader?.json?.key ?? '';
+        if (!key || key === c.reader?.json?.anchor || ID_KEY.test(key)) continue;
+        const values = dataItems.map(r => r[c.id]).filter(Boolean);
+        if (values.length === 0) continue;
+        // The same values as a DOM field (an image URL, a title): already there.
+        if (domValues.some(set => values.filter(v => set.has(v)).length >= values.length * 0.8)) continue;
+        let id = c.id;
+        while (ids.has(id)) id = `${id}_data`;
+        ids.add(id);
+        extra.push({ ...c, id, order: dom.length + extra.length });
+        if (extra.length >= MAX_JOINED) break;
+    }
+    return [...dom, ...extra];
+}
+
 export interface RowsResult {
     columns: ReaderColumn[];
     items: Record<string, string>[];
@@ -32,7 +63,11 @@ export class DataExtractor {
         const first = this.extractRows(siblings, undefined, decided);
         const structured = this.structuredAlternative(siblings);
         // The page's data backs up the fields that mean the same (a price block that never rendered).
-        const backed = structured ? withAtomCache(() => backfill(first.columns, structured.columns, siblings)) : first.columns;
+        let backed = structured ? withAtomCache(() => backfill(first.columns, structured.columns, siblings)) : first.columns;
+        // Cards the markup says little about (a photo grid): the page's data adds what it holds about each.
+        if (structured && backed.length < SPARSE_FIELDS) {
+            backed = joinFields(backed, first.items, structured.columns, structured.items);
+        }
         const { columns, items, duplicates, problems } = backed === first.columns || backed.every((c, i) => c === first.columns[i])
             ? first
             : { ...this.extractRows(siblings, backed), problems: first.problems };

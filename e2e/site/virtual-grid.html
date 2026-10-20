@@ -58,7 +58,8 @@
     }
     return row;
   }
-  function render() {
+  // More posts load as the end comes near while scrolling (none at page load, as on Instagram).
+  function render(scrolled = false) {
     const rows = Math.ceil(posts.length / PER_ROW);
     const top = wrapper.getBoundingClientRect().top;
     const first = Math.max(0, Math.floor(-top / ROW) - 1);
@@ -73,7 +74,7 @@
     }
     wrapper.style.paddingTop = `${first * ROW}px`;
     wrapper.style.paddingBottom = `${Math.max(0, rows - 1 - last) * ROW}px`;
-    if (last >= rows - 2 && more && !fetching) load();
+    if (scrolled && last >= rows - 2 && more && !fetching) load();
   }
   async function load() {
     fetching = true;
@@ -90,7 +91,7 @@
       wrapper = next;
       rendered.clear();
     }
-    render();
+    render(true);
   }
   (async () => {
     const res = await fetch(`/feed/posts?after=0&size=12&total=${total}`);
@@ -104,7 +105,7 @@
     wrapper = newWrapper();
     document.querySelector('.x9grid').appendChild(wrapper);
     render();
-    addEventListener('scroll', render, { passive: true });
+    addEventListener('scroll', () => render(true), { passive: true });
   })();
 </script>
 </body></html>

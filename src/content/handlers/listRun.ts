@@ -2,7 +2,7 @@
 import { AutoScrollAction } from '../features/autoscroll/AutoScrollAction';
 import { settle } from '../utils/settle';
 import { PaginationAction } from '../features/pagination/PaginationAction';
-import { refreshNetSourcesFor } from '../services/extraction/structuredRows';
+import { refreshNetSources, refreshNetSourcesFor } from '../services/extraction/structuredRows';
 import { checkPage, hasReaders, inferFields, readWhenReady, similarSiblings, ReaderColumn } from '../services/extraction/fields';
 import { HL_COLOR, HL_GLOW } from '../utils/highlight-tokens';
 import { looksLikeXPath, resolveContainer, resolveItems } from '../../shared/selectors/resolve';
@@ -83,6 +83,8 @@ async function startAutoScroll(req: AutoScrollRequest) {
     scrollAbort = new AbortController();
     const signal = scrollAbort.signal;
 
+    // The API responses the scroll brings: a field found in the page's JSON reads the rows they hold.
+    await send('NET_HOOK_START');
     const root = req.container.length > 0 ? resolveContainer(req.container, req.items).result ?? undefined : undefined;
 
     // The entry of the item chain that finds items in the container (CSS only: the scroll strategy
@@ -130,7 +132,12 @@ async function startAutoScroll(req: AutoScrollRequest) {
                 scrollColumns = inferFields(sample).columns;
             }
             await refreshNetSourcesFor(scrollColumns);
-            const { item: row } = await readWhenReady(element, scrollColumns, () => settle(element, 300, 1000));
+            let { item: row } = await readWhenReady(element, scrollColumns, () => settle(element, 300, 1000));
+            // A row the scroll just loaded: its data may be in a response newer than the last refresh.
+            if (scrollColumns.some(c => c.reader?.json && !row[c.id])) {
+                await refreshNetSources();
+                ({ item: row } = await readWhenReady(element, scrollColumns, () => settle(element, 300, 1000)));
+            }
             if (Object.keys(row).length === 0) return;
             // The same item read twice (the list mounted it again) has the same key; two items with the
             // same values are still two rows.
