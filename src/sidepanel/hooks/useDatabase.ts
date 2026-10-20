@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { downloadText } from '../services/download';
 import { csvText } from '@/shared/utils/csv';
 import { db } from '@/shared/db';
@@ -22,9 +22,14 @@ export function useTableData(tableId?: number | null) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const load = async (id: number) => {
+    // Only the latest load lands (live-preview refreshes can overlap).
+    const loadSeq = useRef(0);
+
+    /** `quiet`: a refresh of the table on screen, without the loading state (which would rebuild the view and lose its filters and open dialogs). */
+    const load = async (id: number, quiet = false) => {
+        const seq = ++loadSeq.current;
         try {
-            setLoading(true);
+            if (!quiet) setLoading(true);
             setError(null);
 
             const [data, count, pageRows] = await Promise.all([
@@ -33,6 +38,7 @@ export function useTableData(tableId?: number | null) {
                 db.tables.rowsPage(id, 0, ROW_PAGE_LIMIT),
             ]);
 
+            if (seq !== loadSeq.current) return;
             // Columns are final when saved (one per field), so rows load as they are.
             const tableRows = pageRows;
 
@@ -42,7 +48,7 @@ export function useTableData(tableId?: number | null) {
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load data');
         } finally {
-            setLoading(false);
+            if (seq === loadSeq.current) setLoading(false);
         }
     };
 
@@ -54,9 +60,10 @@ export function useTableData(tableId?: number | null) {
         load(tableId);
     }, [tableId]);
 
-    const refresh = () => {
-        if (tableId) load(tableId);
-    };
+    const refresh = useCallback(() => {
+        if (tableId) void load(tableId, true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tableId]);
 
     const hasMore = totalRows > rows.length;
 

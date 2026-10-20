@@ -61,15 +61,35 @@ async function update(id: number, patch: Partial<Table>): Promise<void> {
     await done(tx);
 }
 
-/** The table's columns, replaced as a whole: a run's columns are final, never merged with older ones. */
-function setColumns(id: number, columns: Column[]): Promise<void> {
-    return update(id, { columns });
+/**
+ * The table's columns, replaced as a whole: a run's columns are final, never merged with older ones.
+ * The user's renames and removals stay: a run still writing into the table (a live preview) keeps them.
+ */
+async function setColumns(id: number, columns: Column[]): Promise<void> {
+    const view = (await get(id))?.view ?? {};
+    const removed = new Set(view.removed ?? []);
+    await update(id, {
+        columns: columns.filter(c => !removed.has(c.id)).map(c => (view.renames?.[c.id] ? { ...c, name: view.renames[c.id] } : c)),
+    });
 }
 
 async function renameColumn(id: number, columnId: string, name: string): Promise<void> {
     const table = await get(id);
     if (!table) throw new Error(`Table ${id} not found`);
-    await setColumns(id, table.columns.map(c => (c.id === columnId ? { ...c, name } : c)));
+    await update(id, {
+        columns: table.columns.map(c => (c.id === columnId ? { ...c, name } : c)),
+        view: { renames: { ...table.view.renames, [columnId]: name } },
+    });
+}
+
+/** Removes a column from the table, for good: a run still writing into it doesn't bring it back. */
+async function removeColumn(id: number, columnId: string): Promise<void> {
+    const table = await get(id);
+    if (!table) throw new Error(`Table ${id} not found`);
+    await update(id, {
+        columns: table.columns.filter(c => c.id !== columnId),
+        view: { removed: [...new Set([...(table.view.removed ?? []), columnId])] },
+    });
 }
 
 async function rowCount(id: number): Promise<number> {
@@ -189,4 +209,4 @@ async function save(result: ExtractionResult, options: SaveOptions = {}): Promis
     return id;
 }
 
-export const tables = { create, get, list, update, setColumns, renameColumn, rowCount, rowsPage, appendRows, clearRows, remove, save };
+export const tables = { create, get, list, update, setColumns, renameColumn, removeColumn, rowCount, rowsPage, appendRows, clearRows, remove, save };

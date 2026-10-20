@@ -41,6 +41,17 @@ describe('db', () => {
         expect((await db.tables.get(id))?.columns).toEqual([{ id: 'title', name: 'Name', type: 'text' }]);
     });
 
+    it('keeps the user\'s renamed and removed columns when a run writes into the table again', async () => {
+        const cols = [{ id: 'title', name: 'title', type: 'text' }, { id: 'price', name: 'price', type: 'text' }, { id: 'sku', name: 'sku', type: 'text' }];
+        const id = await db.tables.save({ ...result([{ title: 'A', price: '1', sku: 'x' }]), columns: cols } as any, { name: 'Live', preview: true, jobId: 9 });
+        await db.tables.renameColumn(id, 'title', 'Name');
+        await db.tables.removeColumn(id, 'sku');
+        await db.tables.save({ ...result([{ title: 'B', price: '2', sku: 'y' }]), columns: cols } as any, { name: 'Live', preview: true, jobId: 9, tableId: id });
+        await db.tables.setColumns(id, cols as any);
+        expect((await db.tables.get(id))?.columns).toEqual([{ id: 'title', name: 'Name', type: 'text' }, { id: 'price', name: 'price', type: 'text' }]);
+        expect(await db.tables.rowCount(id)).toBe(2);
+    });
+
     it('overwrites a preview, never another job\'s table', async () => {
         const preview = await db.tables.save(result([{ title: 'A' }]), { name: 'Shop', preview: true });
         const final = await db.tables.save(result([{ title: 'B' }]), { name: 'Shop', jobId: 7, tableId: preview, replace: true });

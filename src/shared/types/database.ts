@@ -77,6 +77,9 @@ export interface Table {
         merges?: ColumnMerge[];
         typed?: TypedColumnDef[];
         mapping?: OutputMapping;
+        /** Columns the user renamed (id → name) and removed: kept when a run still writing replaces the columns. */
+        renames?: Record<string, string>;
+        removed?: string[];
         /** Sent to the user's Google Sheet: its tab, rows sent so far, and whether new rows follow (`shared/integrations/sheetsSync.ts`). */
         sheet?: { tab: string; synced: number; sync: boolean; url?: string; error?: string };
     };

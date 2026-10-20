@@ -69,14 +69,16 @@ export default function DataTablePage({ initialTableId = null }: DataTablePagePr
 
     const handleColumnDeleted = useCallback(async (colId: string) => {
         if (!selectedId || !tableData) return;
-        await db.tables.update(selectedId, { columns: tableData.columns.filter(c => c.id !== colId) });
+        await db.tables.removeColumn(selectedId, colId);
         refreshTable();
     }, [selectedId, tableData, refreshTable]);
 
     const handleColumnsMerged = useCallback(async (merge: { id: string; name: string; sources: string[]; separator: string }) => {
-        if (!selectedId || !tableData) return;
-        await db.tables.update(selectedId, { view: { merges: [...(tableData.view.merges ?? []), merge] } });
-    }, [selectedId, tableData]);
+        if (!selectedId) return;
+        // The merges as saved now (the loaded table may predate this view's earlier merges).
+        const current = await db.tables.get(selectedId);
+        await db.tables.update(selectedId, { view: { merges: [...(current?.view.merges ?? []), merge] } });
+    }, [selectedId]);
 
     const handleTypedColumnsChanged = useCallback(async (defs: TypedColumnDef[]) => {
         if (!selectedId) return;
