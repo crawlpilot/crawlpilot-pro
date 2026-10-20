@@ -57,7 +57,11 @@ export function bulkJob(start: BulkStart): RunJob {
             const response = await ctx.message(tabId, 'CMD_EXTRACT_PAGE_BACKGROUND', {
                 url,
                 elements,
-                config: { ...config, actionSpeed, ...(clicks.length > 0 ? { clickWaitMs } : {}) },
+                config: {
+                    ...config, actionSpeed, ...(clicks.length > 0 ? { clickWaitMs } : {}),
+                    // The site's page wait: fields are waited for that long.
+                    ...(ctx.settings.elementTimeout ? { waitForElements: true, elementTimeout: ctx.settings.elementTimeout } : {}),
+                },
             });
             if (!response.success) throw new Error(response.error);
             const { item, items, columns, steps } = response.result as typeof response.result & { steps?: StepResult[] };

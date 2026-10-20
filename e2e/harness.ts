@@ -5,7 +5,8 @@
  *
  * - `/corpus/<name>` serves `src/test/fixtures/corpus/<name>.html.gz` with page scripts blocked
  *   (saved retail pages would otherwise try to boot their apps); content scripts are not affected.
- * - `/site/<file>` serves `e2e/site/<file>` as is, scripts allowed; `?delay=ms` sends it that much later.
+ * - `/site/<file>` serves `e2e/site/<file>` as is, scripts allowed; `?delay=ms` sends it that much later,
+ *   `?status=429` with that status.
  * - `/feed/posts?after=&size=&total=` a social feed's posts as a GraphQL-style connection (`total=0`: endless).
  * - `/img/<name>-<w>x<h>.<ext>` and `/cdn/<name>?id=&w=&h=` serve a generated PNG of that size (any
  *   extension: the bytes are PNG, which browsers sniff), for the Image Downloader: one picture per
@@ -190,7 +191,8 @@ function serve(): Promise<{ server: Server; origin: string }> {
                 const delay = Number(url.searchParams.get('delay') || 0);
                 if (delay > 0) await new Promise(r => setTimeout(r, Math.min(delay, 60_000)));
                 const body = await readFile(path.join(SITE, path.basename(url.pathname)));
-                res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+                // `?status=429`: the page answered with that status (a rate limit, an error).
+                res.writeHead(Number(url.searchParams.get('status') || 200), { 'content-type': 'text/html; charset=utf-8' });
                 res.end(body);
                 return;
             }

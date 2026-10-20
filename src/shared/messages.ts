@@ -170,6 +170,8 @@ export interface ListPageRequest {
     container: Chain;
     items: Chain;
     columns?: unknown;
+    /** How long the page has to show its list (the site's page wait). */
+    waitMs?: number;
 }
 
 /** A list over numbered pages by their addresses (`listing/urlPages.ts`), read in background tabs. */

@@ -29,7 +29,7 @@ export function listPagesJob(start: ListPagesStart): RunJob {
         async extract(tabId, url, ctx) {
             const index = start.urls.indexOf(url);
             if (ctx.stopped() || index > end) return null;
-            const response = await ctx.message(tabId, 'READ_LIST_PAGE', { container: start.container, items: start.items, columns: start.columns });
+            const response = await ctx.message(tabId, 'READ_LIST_PAGE', { container: start.container, items: start.items, columns: start.columns, waitMs: ctx.settings.elementTimeout });
             // A page that doesn't load is past the end too (most sites answer a page number past the last with an error).
             if (!response.success) { end = Math.min(end, index); throw new Error(response.error); }
             const { rows, columns } = response;

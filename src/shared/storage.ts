@@ -62,6 +62,8 @@ interface StorageSchema {
     pagination_stopped_at: number;
     /** Page assistant, "Does it fit me?": what matters to the user, in their words (kept on this device). */
     assistantNeeds: string;
+    /** Per-site speed, page wait and wall handling, by host (`shared/sites/siteSettings.ts`). */
+    siteSettings: Record<string, import('./sites/siteSettings').SiteSettings>;
 }
 
 export type StorageKey = keyof StorageSchema;

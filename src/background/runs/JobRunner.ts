@@ -12,6 +12,7 @@ import type { UrlStatus } from '../../shared/messages';
 import { db } from '../../shared/db';
 import type { Column, RecipeSpec } from '../../shared/types/database';
 import { classifyPage, collectPageSignals, PageClassification, VERDICT_LABELS } from '../../shared/verdict/classifyPage';
+import { learnCareful, siteOf, siteRun, siteSettings } from '../../shared/sites/siteSettings';
 import { TabPool } from './TabPool';
 import { buildFinalName, buildInitialName, buildPreviewName } from './naming';
 import { storage } from '../../shared/storage';
@@ -33,10 +34,17 @@ export interface RunSettings {
     viewportHeight?: number;
     loadTimeout?: number;
     waitForLoad?: boolean;
+    /** How long a page has to show its content (waitForElements' timeout, a list page's list). */
+    elementTimeout?: number;
+    waitForElements?: boolean;
+    /** A login page pauses like a bot check (the site's "Pause" choice): the user signs in in the tab. */
+    pauseOnLogin?: boolean;
 }
 
 export interface RunContext {
     stopped(): boolean;
+    /** The run's settings, the site's applied (its page wait reaches the page this way). */
+    settings: RunSettings;
     /** Sends to the page's content script, retrying while it connects. */
     message: TabPool['sendMessage'];
     /** Rows read so far on a long unit (an API run's pages): saved and shown before the unit ends. */
@@ -195,6 +203,22 @@ export class JobRunner {
         if (job.urls.length === 0) throw new Error('No URLs provided');
 
         const urls = Array.from(new Set(job.urls));
+        // The site's settings (speed, page wait, walls), set once for every recipe of the site, win over the run's.
+        const site = await siteSettings(siteOf(urls[0]));
+        if (site) {
+            const s = siteRun(site);
+            job = {
+                ...job,
+                maxConcurrent: s.tabs,
+                settings: {
+                    ...job.settings,
+                    requestDelay: s.delayMs,
+                    elementTimeout: s.pageWaitMs,
+                    pauseOnChallenge: s.onWall === 'pause',
+                    pauseOnLogin: s.onWall === 'pause',
+                },
+            };
+        }
         this.job = job;
         this.stopping = false;
         try {
@@ -348,8 +372,8 @@ export class JobRunner {
         }
     }
 
-    /** Shows a bot-check tab to the user and waits until it clears, times out, or the run stops. */
-    private async waitForChallenge(tabId: number, url: string, status: UrlState): Promise<PageClassification | null> {
+    /** Shows a bot-check (or login) tab to the user and waits until it clears, times out, or the run stops. */
+    private async waitForChallenge(tabId: number, url: string, status: UrlState, wall: 'challenge' | 'login_wall' = 'challenge'): Promise<PageClassification | null> {
         status.status = 'waiting';
         this.broadcast();
         try {
@@ -363,7 +387,7 @@ export class JobRunner {
         while (!this.stopping && Date.now() < deadline) {
             await sleep(CHALLENGE_POLL_MS);
             last = await this.classify(tabId, url);
-            if (!last || last.verdict !== 'challenge') break;
+            if (!last || last.verdict !== wall) break;
         }
         status.status = 'extracting';
         this.broadcast();
@@ -378,11 +402,18 @@ export class JobRunner {
             check = await this.waitForChallenge(tabId, url, status);
             if (!check) return 'extract';
         }
+        // The site's "Pause" choice: a login page waits for the user to sign in in the tab, like a bot check.
+        if (check.verdict === 'login_wall' && this.job?.settings.pauseOnLogin) {
+            check = await this.waitForChallenge(tabId, url, status, 'login_wall');
+            if (!check) return 'extract';
+        }
         status.verdict = check.verdict;
         if (check.verdict === 'ok') return 'extract';
 
         const label = VERDICT_LABELS[check.verdict];
         status.error = check.reason ? `${label}: ${check.reason}` : label;
+        // Rate-limited once: the site goes Careful for every later run (unless the user set its speed).
+        if (check.verdict === 'rate_limited') void learnCareful(siteOf(url), check.reason || 'The site said too many requests');
         if (check.verdict === 'rate_limited' || check.verdict === 'waiting_room') {
             const attempt = (status.attempts ?? 0) + 1;
             status.attempts = attempt;
@@ -404,6 +435,7 @@ export class JobRunner {
         let emitted = 0;
         const ctx: RunContext = {
             stopped: () => this.stopping,
+            settings: job.settings,
             message: tabPool.sendMessage.bind(tabPool),
             emit: (rows, columns) => {
                 if (rows.length === 0) return;

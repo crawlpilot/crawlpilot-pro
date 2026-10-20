@@ -240,7 +240,9 @@ async function readListPage(req: ListPageRequest): Promise<{ rows: Record<string
     };
     // A page past the last one (an error page, an empty listing) never shows the list: no long wait once it has loaded.
     const started = Date.now();
-    await until(() => find().length > 0 || (document.readyState === 'complete' && Date.now() - started > LIST_WAIT_LOADED_MS), LIST_WAIT_MS);
+    const maxWait = req.waitMs ?? LIST_WAIT_MS;
+    const loadedWait = Math.min(maxWait, Math.max(LIST_WAIT_LOADED_MS, maxWait / 3));
+    await until(() => find().length > 0 || (document.readyState === 'complete' && Date.now() - started > loadedWait), maxWait);
     const items = find();
     if (items.length === 0) return { rows: [], columns: hasReaders(req.columns) ? req.columns : [] };
     let columns: ReaderColumn[];
