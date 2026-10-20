@@ -180,6 +180,8 @@ export interface PaginationRequest {
 export interface Messages {
     // ---- side panel / background → content script
     PING: { reply: Res<{ status: string }> };
+    /** A run's page asks the worker to answer after `ms`: the worker's timers aren't throttled in hidden tabs (`content/utils/clock.ts`). */
+    RUN_SLEEP: { payload: { ms: number }; reply: Res };
     /** Reads a list from its chains (switching a pick to one of its alternatives). */
     /** `adjust`: open on a picked field or list (its chains), locked, to make it wider or narrower (plan L6). */
     START_PICKER: { payload: { mode?: 'list' | 'single' | 'detail'; action?: 'extract' | 'click'; adjust?: PickerAdjust }; reply: Res };

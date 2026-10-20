@@ -424,7 +424,7 @@ What T1 built:
   - `findTables.test.ts` (9): the fixture's plain, spans, two-row header, ARIA grid, header-less and one-row tables; the Table N fallback; Wikipedia's 3 data tables with no navboxes or footnote links; MDN's one-column table left out.
   - `tables.test.ts` (3): the exports.
   - `e2e/tables.spec.ts` (2): the finder on a live page, and the screen (cards, Show on page, Save to My data).
-- **Differs from the plan:** a "many pages" table run (§3.5, last bullet) isn't built; it belongs with the bulk-run work. A one-column table counts as a list, not a table.
+- **Differs from the plan:** a "many pages" table run (§3.5, last bullet) isn't built; it belongs with the bulk-run work (#53). A one-column table counts as a list, not a table.
 
 What T2 built:
 

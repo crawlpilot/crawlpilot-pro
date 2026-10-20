@@ -1,14 +1,15 @@
 /**
  * Finds one Page Extractor element on the page and extracts (or clicks) it. Runs in tabs that are
- * often in the background, so nothing waits on timers that hidden tabs throttle: highlights are
- * fire-and-forget, scrolling is instant, and clicks yield with microtasks (the post-click wait
- * happens in the service worker).
+ * often in the background, so nothing waits on the page's own timers, which hidden tabs throttle:
+ * highlights are fire-and-forget, scrolling is instant, and every wait (a click's answer, an element
+ * to appear, a scroll step) is timed by the service worker (`utils/clock.ts`).
  */
 import { ElementDefinition, ExtractionConfig, ProcessedElementResult, ExtractionResult } from '../types';
 import { DataExtractor } from '../../extraction/DataExtractor';
 import { atomText, isTextAtom, readValue } from '../../extraction/atoms';
 import { clickElementRobust } from '../../../utils/click';
 import { settle } from '../../../utils/settle';
+import { sleep, until } from '../../../utils/clock';
 import { whileShown } from '../reveal';
 import { readBinding } from '../dataBinding';
 import { looksLikeXPath, resolveOne } from '../../../../shared/selectors/resolve';
@@ -200,20 +201,8 @@ export class ElementProcessor {
         }
     }
 
-    private waitForElement(selectors: string[], timeout: number): Promise<void> {
-        return new Promise((resolve) => {
-            if (this.find(selectors)) { resolve(); return; }
-
-            const deadline = setTimeout(() => { observer.disconnect(); resolve(); }, timeout);
-            const observer = new MutationObserver(() => {
-                if (this.find(selectors)) {
-                    clearTimeout(deadline);
-                    observer.disconnect();
-                    resolve();
-                }
-            });
-            observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
-        });
+    private async waitForElement(selectors: string[], timeout: number): Promise<void> {
+        await until(() => !!this.find(selectors), timeout);
     }
 
     private extract(elementDef: ElementDefinition, element: HTMLElement): ExtractionResult {
@@ -317,12 +306,12 @@ export class ElementProcessor {
     /** Scrolls the whole page a viewport at a time (so lazy loaders fire), looking for the element at each step. */
     private async scrollPageToReveal(selectors: string[]): Promise<HTMLElement | null> {
         const viewportHeight = window.innerHeight || 800;
-        const STEP_DELAY_MS = 600;  // clamped to ~1000ms in inactive background tabs
+        const STEP_DELAY_MS = 600;
         const totalHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
         for (let y = 0; y < totalHeight; y += viewportHeight) {
             window.scrollTo({ top: y, behavior: 'instant' });
             window.dispatchEvent(new Event('scroll'));
-            await new Promise(r => setTimeout(r, STEP_DELAY_MS));
+            await sleep(STEP_DELAY_MS);
             const found = this.find(selectors);
             if (found) return found;
         }

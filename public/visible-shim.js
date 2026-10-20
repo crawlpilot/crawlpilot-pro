@@ -8,8 +8,9 @@
  * pause on `visibilitychange` don't load their sections. Here:
  *   - the page is told it is visible and focused;
  *   - requestAnimationFrame runs: a frame at once (a MessageChannel task, not throttled) when 16 ms
- *     have passed since the last, otherwise on a timer (about once a second when hidden). Animations
- *     driven by elapsed time end on their next frame; nothing spins.
+ *     have passed since the last, otherwise on a timer (about once a second when hidden), and on every
+ *     tick of a CrawlPilot wait (`crawlpilot:frame`, about 10 a second). Animations driven by elapsed
+ *     time end on their next frame; nothing spins.
  */
 (function () {
     if (window.__crawlpilotVisible || document.visibilityState !== 'hidden') return;
@@ -64,4 +65,8 @@
         return id;
     };
     window.cancelAnimationFrame = function (id) { callbacks.delete(id); };
+
+    // CrawlPilot's waits tick on the service worker's clock (not throttled) and run a frame on each
+    // tick, so an animation advances in real time while a run waits for it to finish.
+    document.addEventListener('crawlpilot:frame', function () { if (callbacks.size) frame(); });
 })();

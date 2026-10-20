@@ -1,6 +1,6 @@
 # AI Extract v2: JSON Schema in, JSON out, resilient on a small on-device model
 
-Status: A1, A2, A2b and A3 done. Next: A4 (resilience). Builds on `ai-extract-markdown-plan.md`, where X0 (model host), M1 (markdown
+Status: A1, A2, A2b and A3 done. Next: A4 (resilience, #50). Clicking to reveal is off (#54). Builds on `ai-extract-markdown-plan.md`, where X0 (model host), M1 (markdown
 engine) and X1 (single-page AI Extract) are done; X2 (compile to a recipe) and X3 (many pages) are still open.
 
 ## 1. What the user gets
@@ -364,7 +364,9 @@ closed), as already planned, on top of this.
 | A2b | **Done** | See the details below |
 | A2 | **Done** | See the details below |
 | A3 | **Done** | See the details below |
-| A4–A6 | Open | |
+| A4 | Open | #50 |
+| A5 | Open | #51 (embedded app state: #22) |
+| A6 | Open | #52 |
 
 What A1 built:
 

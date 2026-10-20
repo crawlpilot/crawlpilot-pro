@@ -1,30 +1,12 @@
+import { quiet } from './clock';
 /**
  * Waiting for a page to finish what it started (`docs/plans/list-extraction-reliability-plan.md` L2):
  * quiet for `quietMs` (no DOM changes, no images finishing), at most `maxMs`. A fixed delay is too
- * short on a slow site and wasted on a fast one.
+ * short on a slow site and wasted on a fast one. Timed by `clock.ts`, so it holds in a hidden tab.
  */
 export function settle(root: Node = document.body, quietMs = 300, maxMs = 2000, signal?: AbortSignal): Promise<void> {
-    return new Promise(resolve => {
-        let quiet: ReturnType<typeof setTimeout>;
-        const finish = () => {
-            observer.disconnect();
-            root.removeEventListener('load', touch, true);
-            clearTimeout(quiet);
-            clearTimeout(deadline);
-            signal?.removeEventListener('abort', finish);
-            resolve();
-        };
-        const touch = () => {
-            clearTimeout(quiet);
-            quiet = setTimeout(finish, quietMs);
-        };
-        const observer = new MutationObserver(touch);
-        observer.observe(root, { childList: true, subtree: true, attributes: true, characterData: true });
-        root.addEventListener('load', touch, true);
-        const deadline = setTimeout(finish, maxMs);
-        signal?.addEventListener('abort', finish);
-        touch();
-    });
+    // On the run's clock: a hidden tab's own timers would stretch this wait many times over.
+    return quiet(root, quietMs, maxMs, { signal });
 }
 
 /** Text of a control that loads more of the list: "Show more", "Load more results", "See more products". */

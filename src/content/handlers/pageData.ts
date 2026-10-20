@@ -5,26 +5,11 @@ import { fail, ok, on } from '../../shared/messages';
 import { summarizePage } from '../services/pageSummary';
 import { findNextControl } from '../services/pagination/findNext';
 import { BULK_BUDGET, revealForReading, revealSummary } from '../services/reveal';
+import { quiet, sleep } from '../utils/clock';
 
-/** Resolves once the DOM has been quiet for `stableMs` (SPA hydration, API data), or after `timeoutMs`. */
+/** Resolves once nodes have stopped being added or removed for `stableMs` (SPA hydration, API data), or after `timeoutMs`. */
 function waitForDomStability(stableMs = 1500, timeoutMs = 12000): Promise<void> {
-    return new Promise(resolve => {
-        let stableTimer: ReturnType<typeof setTimeout>;
-        const finish = () => {
-            observer.disconnect();
-            clearTimeout(deadline);
-            clearTimeout(stableTimer);
-            resolve();
-        };
-        const deadline = setTimeout(finish, timeoutMs);
-        const reset = () => {
-            clearTimeout(stableTimer);
-            stableTimer = setTimeout(finish, stableMs);
-        };
-        const observer = new MutationObserver(reset);
-        observer.observe(document.body, { childList: true, subtree: true });
-        reset();
-    });
+    return quiet(document.body, stableMs, timeoutMs, { attributes: false });
 }
 
 /** Scrolls down up to 12 viewports so lazy loaders fire, then back to the top. */
@@ -35,10 +20,10 @@ async function scrollToRevealLazyContent(): Promise<void> {
         if (y >= Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)) break;
         window.scrollTo({ top: y, behavior: 'instant' });
         window.dispatchEvent(new Event('scroll'));
-        await new Promise(r => setTimeout(r, 600)); // clamped to ~1000ms in inactive background tabs
+        await sleep(600);
     }
     window.scrollTo({ top: 0, behavior: 'instant' });
-    await new Promise(r => setTimeout(r, 800));
+    await sleep(800);
 }
 
 export function registerPageDataHandlers() {

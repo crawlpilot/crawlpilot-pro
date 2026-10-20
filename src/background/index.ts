@@ -56,6 +56,9 @@ chrome.sidePanel
     .catch((error) => console.error('Side panel setup error:', error));
 
 
+// The clock for a run's page waits (`content/utils/clock.ts`): a hidden tab's own timers are throttled.
+on('RUN_SLEEP', ({ ms }) => new Promise(resolve => setTimeout(() => resolve(ok()), Math.max(0, Math.min(Number(ms) || 0, 5000)))));
+
 on('BULK_EXTRACTION_START', async (payload) => {
     try {
         return ok(await bulkRuns.start(bulkJob(payload)));
