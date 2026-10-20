@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { on, sendToActiveTab, sendToTab } from '../../shared/messages';
 import { db } from '../../shared/db';
 import { storage } from '../../shared/storage';
@@ -30,40 +30,42 @@ async function answers(tabId: number, ms = 2000): Promise<boolean> {
     return Promise.race([reply, new Promise<boolean>(r => setTimeout(() => r(false), ms))]);
 }
 
+/*
+ * The run lives here, outside any screen: the side panel can show another screen (or the History
+ * page re-run it) while the page is still scrolling or paging, and the run must keep receiving its
+ * rows and save them. A screen that mounts later sees the same run (status, picks, Stop).
+ */
+const IDLE: ExtractionStatus = { isExtracting: false, status: 'idle', progress: null, totalProcessed: 0, error: null };
+
+/** The current (or last) list run: its status, and the picks and pages it runs with. */
+interface ListRun { status: ExtractionStatus; picks: ListPick[]; pagination: PaginationConfig | null }
+let run: ListRun = { status: IDLE, picks: [], pagination: null };
+const watchers = new Set<() => void>();
+
+function setStatus(update: ExtractionStatus | ((prev: ExtractionStatus) => ExtractionStatus)) {
+    run = { ...run, status: typeof update === 'function' ? update(run.status) : update };
+    watchers.forEach(w => w());
+}
+const subscribe = (w: () => void) => { watchers.add(w); return () => { watchers.delete(w); }; };
+
+/** The list run as it is now, for a screen that mounts while one runs (or after it ended). */
+export const currentListRun = () => run;
+/** The list run's status, live, wherever the side panel is. */
+export const useListRunStatus = () => useSyncExternalStore(subscribe, () => run.status);
+
+const stopExtractionRef = { current: false };
+const activeModeRef: { current: 'auto' | 'pagination' | 'loadMore' | null } = { current: null };
+const pagesVisitedRef = { current: 1 };
+/** The tab the run reads: Stop goes there, and only its messages are the run's. */
+const extractionTabIdRef: { current: number | null } = { current: null };
+/** Ends the wait for the page's "complete" message (the page never answered a Stop). */
+const giveUpRef: { current: (() => void) | null } = { current: null };
+
+/** Removes a run's message handlers together (when the run's step ends, not when a screen unmounts). */
+const track = (...offs: Array<() => void>) => () => offs.forEach(off => off());
+
 export function useExtractionProcess(onComplete?: (tableId: number) => void, onStart?: (jobId: number) => void) {
-    const [status, setStatus] = useState<ExtractionStatus>({
-        isExtracting: false,
-        status: 'idle', // [NEW] Set default status
-        progress: null,
-        totalProcessed: 0,
-        error: null
-    });
-
-    const stopExtractionRef = useRef(false);
-    const activeModeRef = useRef<'auto' | 'pagination' | 'loadMore' | null>(null);
-    const pagesVisitedRef = useRef(1);
-    const extractionTabIdRef = useRef<number | null>(null); // [NEW] Track the extraction tab ID
-    /** Ends the wait for the page's "complete" message (the page never answered a Stop). */
-    const giveUpRef = useRef<(() => void) | null>(null);
-
-    // Message handlers registered by startExtraction's auto-scroll / pagination promises, removed
-    // on unmount too: navigating away mid-extraction would otherwise leak them.
-    const activeOffsRef = useRef<Array<() => void>>([]);
-
-    const track = useCallback((...offs: Array<() => void>) => {
-        activeOffsRef.current.push(...offs);
-        return () => {
-            offs.forEach(off => off());
-            activeOffsRef.current = activeOffsRef.current.filter(o => !offs.includes(o));
-        };
-    }, []);
-
-    useEffect(() => {
-        return () => {
-            activeOffsRef.current.forEach(off => off());
-            activeOffsRef.current = [];
-        };
-    }, []);
+    const status = useListRunStatus();
 
     const stopExtraction = useCallback((force: boolean = false) => {
         stopExtractionRef.current = true;
@@ -99,7 +101,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
     }, []);
 
     const startExtraction = useCallback(async (selectors: ListPick[], pagination: PaginationConfig, options?: { tableId?: number; customName?: string; maxPages?: number }) => {
-        if (selectors.length === 0) return;
+        if (selectors.length === 0 || run.status.isExtracting) return;
 
         // Each "Next" loads a new page, and Chrome starts CrawlPilot in it only with access to the
         // site (the click's temporary access ends when the page changes): asked now, while the
@@ -111,6 +113,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             pagination.maxPages = maxPages;
         }
 
+        run = { ...run, picks: selectors, pagination };
         setStatus({
             isExtracting: true,
             status: 'running',
@@ -246,12 +249,14 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                                 let streamedColumns: any[] = sel.data?.columns ?? [];
                                 giveUpRef.current = () => { untrack(); resolve({ items: streamed, columns: streamedColumns }); };
                                 const untrack = track(
-                                    on('AUTO_SCROLL_COMPLETE', payload => {
+                                    on('AUTO_SCROLL_COMPLETE', (payload, sender) => {
+                                        if (sender.tab?.id !== activeTabId) return;
                                         untrack();
                                         const items = payload.success && payload.items?.length ? payload.items : streamed;
                                         resolve({ items, columns: payload.success && payload.columns?.length ? payload.columns : streamedColumns });
                                     }),
-                                    on('AUTO_SCROLL_UPDATE', payload => {
+                                    on('AUTO_SCROLL_UPDATE', (payload, sender) => {
+                                        if (sender.tab?.id !== activeTabId) return;
                                         if (payload.items?.length) streamed.push(...payload.items);
                                         if (payload.columns?.length) streamedColumns = payload.columns;
                                         const currentCount = payload.count;
@@ -317,13 +322,15 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                         chrome.tabs.onUpdated.addListener(onLoaded);
                         const offLoaded = () => { chrome.tabs.onUpdated.removeListener(onLoaded); if (checkTimer) clearTimeout(checkTimer); };
                         const untrack = track(offLoaded,
-                            on('PAGINATION_COMPLETE', p => {
+                            on('PAGINATION_COMPLETE', (p, sender) => {
+                                if (sender.tab?.id !== activeTabId) return;
                                 untrack();
                                 stopReason = p.reason || (p.success === false ? 'error' : undefined);
                                 setStatus(prev => ({ ...prev, stopReason }));
                                 resolve();
                             }),
-                            on('PAGINATION_UPDATE', ({ items, page, columns, unmapped, fallback, healedItems, healedFields, brokenFields, loading }) => {
+                            on('PAGINATION_UPDATE', ({ items, page, columns, unmapped, fallback, healedItems, healedFields, brokenFields, loading }, sender) => {
+                                if (sender.tab?.id !== activeTabId) return;
                                 if (page) pagesVisitedRef.current = page;
                                 // The fields the run reads every page with (frozen): save them as the columns.
                                 if (Array.isArray(columns) && columns.length > 0) sel.data.columns = columns;
@@ -425,16 +432,12 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                 error: (err as Error).message || 'Failed to save extracted data.'
             }));
         }
-    }, [onComplete, track]);
+    }, [onComplete, onStart]);
 
     const reset = useCallback(() => {
-        setStatus({
-            isExtracting: false,
-            status: 'idle',
-            progress: null,
-            totalProcessed: 0,
-            error: null
-        });
+        if (run.status.isExtracting) return;
+        run = { ...run, picks: [], pagination: null };
+        setStatus(IDLE);
     }, []);
 
     return {

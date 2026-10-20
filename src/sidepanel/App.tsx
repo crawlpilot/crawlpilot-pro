@@ -25,10 +25,11 @@ const KitPage = lazy(() => import('./pages/KitPage'));
 
 import Header from './components/ui/Header';
 import { useTabSync } from './hooks/useTabSync';
+import { useListRunStatus } from './hooks/useExtractionProcess';
 
 function App() {
     const [currentView, setCurrentView] = useState('home');
-    const [isGlobalExtracting, setIsGlobalExtracting] = useState(false);
+    const isGlobalExtracting = useListRunStatus().isExtracting;
     const { isTabConnected, isConnecting, connectTab } = useTabSync();
     const { t } = useTranslation('common');
     useColorMode();
@@ -46,10 +47,7 @@ function App() {
     const renderView = () => {
         switch (currentView) {
             case 'list-extractor':
-                return <ListExtractorPage
-                    onBack={() => setCurrentView('home')}
-                    onExtractionStatusChange={setIsGlobalExtracting}
-                />;
+                return <ListExtractorPage onBack={() => setCurrentView('home')} />;
             case 'page-extractor':
                 return <PageExtractorPage onBack={() => setCurrentView('home')} />;
             case 'metadata-extractor':

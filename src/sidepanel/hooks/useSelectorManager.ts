@@ -2,9 +2,9 @@ import { useState, useCallback } from 'react';
 import type { ListPick } from '../../shared/types/extraction';
 
 /** The List Extractor's picks: the lists, and the Next / Load more control's chain. */
-export function useSelectorManager() {
-    const [selectors, setSelectors] = useState<ListPick[]>([]);
-    const [next, setNext] = useState<string[]>([]);
+export function useSelectorManager(initial?: { selectors: ListPick[]; next: string[] }) {
+    const [selectors, setSelectors] = useState<ListPick[]>(initial?.selectors ?? []);
+    const [next, setNext] = useState<string[]>(initial?.next ?? []);
 
     const addSelector = useCallback((pick: ListPick) => {
         setSelectors(prev => [...prev, pick]);

@@ -3,7 +3,7 @@ import { on, sendToTab } from '../../shared/messages';
 import { useTranslation } from 'react-i18next';
 import { useSelectorManager } from '../hooks/useSelectorManager';
 import { useSelectionMode } from '../hooks/useSelectionMode';
-import { useExtractionProcess } from '../hooks/useExtractionProcess';
+import { currentListRun, useExtractionProcess } from '../hooks/useExtractionProcess';
 import type { ListPick, PaginationMode } from '../../shared/types/extraction';
 import { db } from '../../shared/db';
 import { WizardLayout } from '../components/wizard/WizardLayout';
@@ -16,11 +16,16 @@ import { consolidateSelectors } from '../../shared/utils/extractionLogic';
 
 interface ListExtractorPageProps {
     onBack?: () => void;
-    onExtractionStatusChange?: (isExtracting: boolean) => void;
 }
 
-export default function ListExtractorPage({ onBack, onExtractionStatusChange }: ListExtractorPageProps) {
+export default function ListExtractorPage({ onBack }: ListExtractorPageProps) {
     const { t } = useTranslation('listExtractor');
+    // A run started here (or re-run from History) goes on while the panel shows other screens: back
+    // here, the page opens on its progress (or its result) with the picks it runs with.
+    const [resumed] = useState(() => {
+        const run = currentListRun();
+        return run.status.status !== 'idle' && run.picks.length ? run : null;
+    });
     // 1. Logic Hooks
     const {
         selectors,
@@ -29,7 +34,7 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
         addSelector,
         removeSelector,
         updateSelector
-    } = useSelectorManager();
+    } = useSelectorManager(resumed ? { selectors: resumed.picks, next: resumed.pagination?.next ?? [] } : undefined);
 
     const {
         status: selectionStatus,
@@ -46,22 +51,11 @@ export default function ListExtractorPage({ onBack, onExtractionStatusChange }: 
         reset
     } = useExtractionProcess(); // Removed callback to stop auto-opening results
 
-    // Notify parent of extraction status changes
-    useEffect(() => {
-        if (onExtractionStatusChange) {
-            onExtractionStatusChange(extractionStatus.isExtracting);
-        }
-    }, [extractionStatus.isExtracting, onExtractionStatusChange]);
-
-    // ... (rest of code) ...
-
-
-
     // 2. Wizard State
-    const [step, setStep] = useState(1);
-    const [paginationMode, setPaginationMode] = useState<PaginationMode>('auto');
-    const [speed, setSpeed] = useState<PaginationSpeed>(DEFAULT_PAGINATION_SPEED);
-    const [maxPages, setMaxPages] = useState<number>(3);
+    const [step, setStep] = useState(resumed ? 3 : 1);
+    const [paginationMode, setPaginationMode] = useState<PaginationMode>(resumed?.pagination?.mode ?? 'auto');
+    const [speed, setSpeed] = useState<PaginationSpeed>(resumed?.pagination?.speed ?? DEFAULT_PAGINATION_SPEED);
+    const [maxPages, setMaxPages] = useState<number>(resumed?.pagination?.maxPages ?? 3);
     const [previewTableId, setPreviewTableId] = useState<number | null>(null);
     // How more items load, found on the page after the first pick (undefined: still looking; null: none).
     const [pages, setPages] = useState<{ mode: PaginationMode; label: string } | null | undefined>(undefined);

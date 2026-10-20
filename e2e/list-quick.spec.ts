@@ -58,3 +58,34 @@ test('point at one card, then one click gets all three pages', async ({ panel, e
         await table.screenshot({ path: `${SHOTS}/data-table.png` });
     }
 });
+
+test('the run goes on while the panel shows another screen, and the list page opens on it', async ({ panel, ext, origin }) => {
+    test.setTimeout(120_000);
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/list-1.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 900 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=list-extractor&tabId=${tabId}`);
+    await ui.getByRole('button', { name: 'Point at one item' }).click();
+    const box = (await page.locator('li.card').first().boundingBox())!;
+    await page.mouse.move(box.x + 20, box.y + 10);
+    await page.waitForTimeout(150);
+    await page.mouse.click(box.x + 20, box.y + 10);
+    await expect(ui.getByText('4 items found')).toBeVisible({ timeout: 15_000 });
+    await ui.getByRole('button', { name: 'Get the data from 3 pages' }).click();
+
+    // Away to Home while the first page is read; the run's screen is gone.
+    for (let i = 0; i < 3; i++) await ui.getByRole('button', { name: 'Back', exact: true }).first().click();
+    await expect(ui.getByText('A list', { exact: true })).toBeVisible();
+    await ui.waitForTimeout(2500);
+    await ui.getByText('A list', { exact: true }).click();
+
+    await expect(ui.getByText('Done · 12 items from 3 pages')).toBeVisible({ timeout: 60_000 });
+    // Saved by the run, not left as "running" with the preview's rows.
+    const job = (await panel.store('jobs')).at(-1);
+    expect(job.status).toBe('completed');
+    expect((await panel.store('rows')).filter(r => r.tableId === job.tableId)).toHaveLength(12);
+});
