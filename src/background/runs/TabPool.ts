@@ -2,9 +2,9 @@ import { MessageType, Payload, Reply, sendToTab } from '../../shared/messages';
 /**
  * TabPool — the browser tabs a run reads its pages in (`docs/plans/page-extractor-background-plan.md` P4).
  *
- *   'background' (every run): a tab opened with active:false, never discarded while in use. A run with
- *     click steps also gets `visible-shim.js` (JobRunner), so the hidden tab animates and loads its
- *     sections as a visible one would. Nothing is put on the user's screen.
+ *   'background' (every run): a tab opened with active:false, never discarded while in use, with
+ *     `visible-shim.js` (JobRunner), so the hidden tab renders, animates and loads its sections as a
+ *     visible one would. Nothing is put on the user's screen.
  *
  *   'window' (last resort): a small unfocused popup parked in the screen's bottom-right corner, for
  *     a site whose clicks have no effect in a hidden tab. It is never placed over the user's window.

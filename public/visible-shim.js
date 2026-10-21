@@ -1,6 +1,6 @@
 /*
  * CrawlPilot run tabs — a hidden tab that behaves like a visible one (runs in the page's MAIN world at
- * document_start, registered only during a Page Extractor run with click steps, only for the run's
+ * document_start, registered only during a run in background tabs, only for the run's
  * hosts, and only acting in a tab that starts hidden: the run's background tabs, not the user's).
  *
  * Chrome stops requestAnimationFrame in hidden tabs and throttles their timers, so an accordion or a

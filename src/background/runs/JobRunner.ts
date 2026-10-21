@@ -56,10 +56,7 @@ export interface RunJob {
     urls: string[];
     maxConcurrent?: number;
     settings: RunSettings;
-    /**
-     * The run clicks: its hidden tabs get `visible-shim.js` (they animate and load as visible ones),
-     * and a page whose clicks had no effect there is read again in a parked window.
-     */
+    /** The run clicks: a page whose clicks had no effect in a hidden tab is read again in a parked window. */
     interactive?: boolean;
     /**
      * Every unit is read through one tab at this page, opened once and kept to the end (an API run:
@@ -235,7 +232,9 @@ export class JobRunner {
             this.tabPool = new TabPool(job.maxConcurrent ?? defaultConcurrency(), s.viewportWidth || 800, s.viewportHeight || 600, s.loadTimeout || 30000, s.waitForLoad !== false);
             this.tabPool.setOnTabRemoved(tabId => this.tabClosed(tabId));
             this.windowPages = 0;
-            if (job.interactive) await registerShim(urls);
+            // Every run's hidden tabs behave as visible ones: an app that renders in animation frames or
+            // waits to be seen (a product page's details) otherwise draws nothing until its tab is shown.
+            await registerShim(urls);
 
             this.run().catch(err => {
                 console.error(`[${this.kind} run] Fatal error:`, err);

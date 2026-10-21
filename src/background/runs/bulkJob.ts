@@ -32,7 +32,7 @@ export function bulkJob(start: BulkStart): RunJob {
         urls: start.urls,
         maxConcurrent: start.maxConcurrent,
         settings: config,
-        // Clicks run in hidden tabs made to behave as visible ones (`visible-shim.js`).
+        // A click with no effect in a hidden tab is tried again in a parked window.
         interactive: clicks.length > 0,
         jobId: start.jobId,
         name: start.customName,
