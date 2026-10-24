@@ -28,31 +28,42 @@ interface HomePageProps {
 
 const RECENT = 3;
 
+// What Home last showed, kept while the panel is open: coming back shows the same screen at once
+// (no placeholders, no sections popping in) while each part is checked again quietly.
+const summaries = new Map<string, PageSummary>();
+let recentCache: Table[] | null = null;
+let aiCache: boolean | null = null;
+
 /** The page check, redone when the page changes; null while it runs, `none` when it can't run. */
 function usePageSummary(page: ReturnType<typeof usePageTab>, connected: boolean): PageSummary | null {
-    const [summary, setSummary] = useState<PageSummary | null>(null);
+    const key = `${page.tab?.id}|${page.url}`;
+    const [summary, setSummary] = useState<PageSummary | null>(() => summaries.get(key) ?? null);
     useEffect(() => {
         let alive = true;
-        setSummary(null);
-        if (!page.web || !connected) { setSummary({ kind: 'none', noun: 'items' }); return; }
+        const show = (s: PageSummary) => { summaries.set(key, s); setSummary(s); };
+        setSummary(summaries.get(key) ?? null);
+        if (!page.web || !connected) { show({ kind: 'none', noun: 'items' }); return; }
         // The page may still be loading its list: ask again once after a moment if nothing was found.
         const ask = (retry: boolean) => sendToPage(page.tab, 'PAGE_SUMMARY')
             .then(res => {
                 if (!alive) return;
-                setSummary(res.summary);
+                show(res.summary);
                 if (retry && res.summary.kind === 'none') setTimeout(() => alive && ask(false), 1500);
             })
-            .catch(() => alive && setSummary({ kind: 'none', noun: 'items' }));
+            .catch(() => alive && !summaries.has(key) && show({ kind: 'none', noun: 'items' }));
         void ask(true);
         return () => { alive = false; };
-    }, [page.tab?.id, page.url, page.web, connected]);
+    }, [key, page.tab, page.web, connected]);
     return summary;
 }
 
 function useRecentTables(): Table[] {
-    const [tables, setTables] = useState<Table[]>([]);
+    const [tables, setTables] = useState<Table[]>(() => recentCache ?? []);
     useEffect(() => {
-        db.tables.list(20).then(all => setTables(all.filter(t => !t.preview && t.rowCount > 0).slice(0, RECENT))).catch(() => undefined);
+        db.tables.list(20).then(all => {
+            recentCache = all.filter(t => !t.preview && t.rowCount > 0).slice(0, RECENT);
+            setTables(recentCache);
+        }).catch(() => undefined);
     }, []);
     return tables;
 }
@@ -62,12 +73,13 @@ function useRecentTables(): Table[] {
  * the AI tools need it, so Home leads with the tools that work everywhere. null while checking.
  */
 function useAiReady(): boolean | null {
-    const [ready, setReady] = useState<boolean | null>(null);
+    const [ready, setReady] = useState<boolean | null>(aiCache);
     useEffect(() => {
+        if (aiCache !== null) return;
         let alive = true;
         Promise.all([modelStatus().then(s => s.availability), getSummarizerAvailability()])
-            .then(all => alive && setReady(all.some(a => a !== 'unavailable')))
-            .catch(() => alive && setReady(false));
+            .then(all => { aiCache = all.some(a => a !== 'unavailable'); if (alive) setReady(aiCache); })
+            .catch(() => { aiCache = false; if (alive) setReady(false); });
         return () => { alive = false; };
     }, []);
     return ready;

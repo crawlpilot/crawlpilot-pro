@@ -66,8 +66,12 @@ test('Extract: a list in the page\'s JSON, its attributes ticked and renamed, th
     await ui.getByRole('button', { name: 'Review & run' }).click();
     await ui.getByRole('button', { name: 'Get 1 page' }).click();
     await expect(ui.getByRole('button', { name: 'Open the table' })).toBeVisible({ timeout: 60_000 });
+    // One Back leaves the finished run and returns to where it started: the toolkit, then Home.
+    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await expect(ui.getByRole('tab', { name: 'Extract' })).toBeVisible();
 
-    const table = (await panel.store('tables')).find((t: any) => !t.preview && t.source === 'bulk-page');
+    // This run's table: the newest (other tests in this worker saved tables too).
+    const table = (await panel.store('tables')).filter((t: any) => !t.preview && t.source === 'bulk-page').sort((a: any, b: any) => b.createdAt - a.createdAt)[0];
     const title = table.columns.find((c: any) => c.name === 'title');
     expect(title).toBeTruthy();
     const rows = (await panel.store('rows')).filter((r: any) => r.tableId === table.id);

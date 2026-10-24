@@ -526,6 +526,10 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
         }
     };
 
+    // A finished run is done with: Back clears it and leaves in one step, not back through the steps.
+    const finished = hasCompleted || hasStopped || article.hasCompleted || article.hasStopped;
+    const leave = () => { handleReset(); onBack(); };
+
     return (
         <WizardLayout
             title={t('title')}
@@ -537,7 +541,7 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
             currentStep={step}
             totalSteps={3}
             stepLabels={t('stepLabels', { returnObjects: true }) as string[]}
-            onBack={step === 1 ? onBack : goBack}
+            onBack={step === 1 || (step === 3 && finished) ? leave : goBack}
             isLoading={isTabLoading && step === 2 && details === 'fields'}
         >
             {forList && step > 1 && (

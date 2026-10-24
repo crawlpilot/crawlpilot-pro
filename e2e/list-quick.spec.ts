@@ -39,6 +39,12 @@ test('point at one card, then one click gets all three pages', async ({ panel, e
     await expect(ui.getByRole('button', { name: 'See your table' })).toBeVisible();
     if (SHOTS) await ui.screenshot({ path: `${SHOTS}/list-quick-done.png` });
 
+    // Done: one Back leaves the finished run, and the next visit starts fresh.
+    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await expect(ui.getByRole('heading', { name: 'Or choose what you want' })).toBeVisible();
+    await ui.getByRole('button', { name: /^A list/ }).first().click();
+    await expect(ui.getByRole('button', { name: 'Point at one item' })).toBeVisible();
+
     // My data has it as one card: open, download (CSV with every row), run again.
     await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=history&tabId=${tabId}`);
     // Other tests in this worker saved data too: this run's card is the one with 12 rows, newest first.

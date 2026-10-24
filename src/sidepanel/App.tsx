@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Button } from './ui';
 import { Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +29,19 @@ import { useListRunStatus } from './hooks/useExtractionProcess';
 
 function App() {
     const [currentView, setCurrentView] = useState('home');
+    // The screens that led here: Back returns to the one before (Toolkit → Page Extractor → Toolkit), Home when none.
+    const [trail, setTrail] = useState<string[]>([]);
+    const navigate = useCallback((view: string) => {
+        if (view === currentView) return;
+        // Home, or a screen already on the trail, cuts the trail back to it: no loops of Back.
+        const at = trail.indexOf(view);
+        setTrail(view === 'home' ? [] : at >= 0 ? trail.slice(0, at) : [...trail, currentView]);
+        setCurrentView(view);
+    }, [currentView, trail]);
+    const goBack = useCallback(() => {
+        setCurrentView(trail[trail.length - 1] ?? 'home');
+        setTrail(trail.slice(0, -1));
+    }, [trail]);
     const isGlobalExtracting = useListRunStatus().isExtracting;
     const { isTabConnected, isConnecting, connectTab } = useTabSync();
     const { t } = useTranslation('common');
@@ -47,31 +60,31 @@ function App() {
     const renderView = () => {
         switch (currentView) {
             case 'list-extractor':
-                return <ListExtractorPage onBack={() => setCurrentView('home')} onNavigate={setCurrentView} />;
+                return <ListExtractorPage onBack={goBack} onNavigate={navigate} />;
             case 'page-extractor':
-                return <PageExtractorPage onBack={() => setCurrentView('home')} />;
+                return <PageExtractorPage onBack={goBack} />;
             case 'metadata-extractor':
                 // Merged into "Same details from many pages": the article details, starting from this page.
-                return <PageExtractorPage onBack={() => setCurrentView('home')} preset="article" />;
+                return <PageExtractorPage onBack={goBack} preset="article" />;
             case 'ai-extract':
-                return <AiExtractPage onBack={() => setCurrentView('home')} />;
+                return <AiExtractPage onBack={goBack} />;
             case 'text-summarizer':
-                return <TextSummarizerPage onBack={() => setCurrentView('home')} onNavigate={setCurrentView} />;
+                return <TextSummarizerPage onBack={goBack} onNavigate={navigate} />;
             case 'image-downloader':
-                return <ImageDownloaderPage onBack={() => setCurrentView('home')} />;
+                return <ImageDownloaderPage onBack={goBack} />;
             case 'email-extractor':
-                return <EmailExtractorPage onBack={() => setCurrentView('home')} />;
+                return <EmailExtractorPage onBack={goBack} />;
             case 'utilities':
-                return <UtilitiesPage onBack={() => setCurrentView('home')} />;
+                return <UtilitiesPage onBack={goBack} />;
             case 'tables':
-                return <TablesPage onBack={() => setCurrentView('home')} onNavigate={setCurrentView} />;
+                return <TablesPage onBack={goBack} onNavigate={navigate} />;
             case 'markdown':
-                return <MarkdownPage onBack={() => setCurrentView('home')} />;
+                return <MarkdownPage onBack={goBack} />;
             case 'toolkit':
-                return <ToolkitPage onBack={() => setCurrentView('home')} onNavigate={setCurrentView} />;
+                return <ToolkitPage onBack={goBack} onNavigate={navigate} />;
             case 'history':
                 return <HistoryPage
-                    onBack={() => setCurrentView('home')}
+                    onBack={goBack}
                     onViewData={(tableId) => {
                         const url = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${tableId}`);
                         chrome.tabs.create({ url });
@@ -80,13 +93,13 @@ function App() {
             case 'data-table':
                 return <DataTablePage />;
             case 'settings':
-                return <SettingsPage onBack={() => setCurrentView('home')} />;
+                return <SettingsPage onBack={goBack} />;
             case 'kit':
                 return <KitPage />;
             case 'welcome':
-                return <WelcomePage onNavigate={setCurrentView} />;
+                return <WelcomePage onNavigate={navigate} />;
             default:
-                return <HomePage onNavigate={setCurrentView} isTabConnected={isTabConnected} />;
+                return <HomePage onNavigate={navigate} isTabConnected={isTabConnected} />;
         }
     };
 
@@ -110,7 +123,7 @@ function App() {
                     </div>
                 )}
                 {/* Home and Welcome have the brand header; every other view has its own header with back. */}
-                {(currentView === 'home' || currentView === 'welcome') && <Header onNavigate={setCurrentView} activeView={currentView} disabled={isGlobalExtracting} />}
+                {(currentView === 'home' || currentView === 'welcome') && <Header onNavigate={navigate} activeView={currentView} disabled={isGlobalExtracting} />}
                 <div className="relative flex-1 overflow-hidden">
                     <Suspense fallback={null}>{renderView()}</Suspense>
                 </div>

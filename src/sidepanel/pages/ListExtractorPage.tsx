@@ -307,6 +307,10 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
         }
     };
 
+    // A finished run is done with: Back clears it and leaves in one step, and the next visit starts fresh.
+    const finished = !extractionStatus.isExtracting && extractionStatus.status !== 'idle';
+    const leave = () => { reset(); onBack?.(); };
+
     return (
         <WizardLayout
             title={t('title')}
@@ -314,7 +318,7 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
             currentStep={step}
             totalSteps={3}
             stepLabels={t('stepLabels', { returnObjects: true }) as string[]}
-            onBack={step === 1 ? onBack : () => setStep(step - 1)}
+            onBack={step === 1 || (step === 3 && finished) ? leave : () => setStep(step - 1)}
         >
             {renderStep()}
         </WizardLayout>
