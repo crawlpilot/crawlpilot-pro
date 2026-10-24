@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { HighlightSender } from '../../../../shared/messages';
 import { PickerControls } from '../../shared/PickerControls';
-import { ArrowRight, Crosshair, Image as ImageIcon, Link2, List, MousePointerClick, Pencil, Sparkles, Type, X, Zap } from 'lucide-react';
-import AiSchemaDialog from '../AiSchemaDialog';
+import { ArrowRight, Crosshair, Image as ImageIcon, Link2, List, MousePointerClick, Pencil, Type, X, Zap } from 'lucide-react';
+import PageAttributesDialog, { PageAttributesCard } from '../PageAttributesDialog';
 import { Button, Card, CardButton, Chip, Dialog, Heading, IconButton, Select, Spinner, Stack, Text, TextArea, TextField } from '../../../ui';
 
 interface Step2SchemaProps {
@@ -32,7 +32,7 @@ interface Step2SchemaProps {
     onNext: () => void;
     onCancel: () => void;
     sendHighlightMessage: HighlightSender;
-    /** Adds fields built by the AI schema flow. */
+    /** Adds fields picked from the attributes found in the page's data. */
     onAddElements?: (elements: any[]) => void;
 }
 
@@ -62,7 +62,7 @@ export function Step2Schema({
     sendHighlightMessage,
     onAddElements
 }: Step2SchemaProps) {
-    const [aiOpen, setAiOpen] = useState(false);
+    const [attributesOpen, setAttributesOpen] = useState(false);
     // --- Persistent Selection Highlights Sync ---
     useEffect(() => {
         // Show highlights for all already-selected elements when Step 2 mounts
@@ -112,6 +112,8 @@ export function Step2Schema({
 
             {selectionStatus === 'selecting' && <PickerControls onCancel={onCancel} />}
 
+            {onAddElements && selectionStatus !== 'selecting' && !isTabLoading && <PageAttributesCard onOpen={() => setAttributesOpen(true)} />}
+
             {elements.length === 0 && selectionStatus !== 'selecting' ? (
                 <div className="grid grid-cols-2 gap-2">
                     <CardButton tone="lilac" pad="sm" onClick={() => startSelection('detail', 'extract')} className="flex flex-col items-start gap-1">
@@ -133,12 +135,15 @@ export function Step2Schema({
                                 <div className="flex min-w-0 items-center gap-2.5">
                                     <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg [&_svg]:size-3.5 ${el.action === 'click' ? 'bg-tile-butter' : 'bg-tile-lilac'} text-ink`}>{kindIcon(el)}</span>
                                     <div className="min-w-0">
-                                        <Text size="small" weight="semibold" truncate>{el.name}</Text>
+                                        <div className="flex min-w-0 items-center gap-1.5">
+                                            <Text size="small" weight="semibold" truncate>{el.name}</Text>
+                                            {el.data && <Chip tone="success" title="Read from the page's own data (JSON-LD, app state): holds when the layout changes">Page data</Chip>}
+                                        </div>
                                         <Text size="caption" tone="faint" mono truncate>{el.value || 'No preview'}</Text>
                                     </div>
                                 </div>
                                 <div className="flex shrink-0 items-center">
-                                    {handleAdjustElement && <IconButton size="sm" label="Adjust on the page (wider or narrower)" onClick={() => handleAdjustElement(el)} disabled={selectionStatus === 'selecting'}><Crosshair /></IconButton>}
+                                    {handleAdjustElement && el.selectors?.length > 0 && <IconButton size="sm" label="Adjust on the page (wider or narrower)" onClick={() => handleAdjustElement(el)} disabled={selectionStatus === 'selecting'}><Crosshair /></IconButton>}
                                     <IconButton size="sm" label="Edit" onClick={() => handleEditElement(el)}><Pencil /></IconButton>
                                     <IconButton size="sm" label="Remove" className="hover:text-danger" onClick={() => handleDeleteElement(el.id)}><X /></IconButton>
                                 </div>
@@ -149,10 +154,11 @@ export function Step2Schema({
                                     {handleRepickElement && <Button size="sm" variant="ghost" onClick={() => handleRepickElement(el)}>Pick again</Button>}
                                 </div>
                             )}
-                            {el.action === 'extract' && (
+                            {el.action === 'extract' && el.selectors?.length > 0 && (
                                 <Select size="sm" className="mt-2" aria-label="Type" value={el.type || 'text'} onChange={v => handleChangeElementType(el.id, v)}
                                     options={[
                                         { value: 'text', label: 'Text' },
+                                        { value: 'text_array', label: 'List of texts' },
                                         { value: 'link', label: 'Link (href)' },
                                         { value: 'image', label: 'Image (src)' },
                                         { value: 'list', label: 'List (rows)' },
@@ -171,12 +177,7 @@ export function Step2Schema({
                 </Stack>
             )}
 
-            {onAddElements && selectionStatus !== 'selecting' && (
-                <>
-                    <Button fullWidth variant="ghost" icon={<Sparkles />} onClick={() => setAiOpen(true)}>Fill fields from a schema (on-device AI)</Button>
-                    <AiSchemaDialog open={aiOpen} onClose={() => setAiOpen(false)} onAddElements={onAddElements} />
-                </>
-            )}
+            {onAddElements && <PageAttributesDialog open={attributesOpen} onClose={() => setAttributesOpen(false)} onAdd={onAddElements} />}
 
             <Dialog open={showEditModal} onClose={() => setShowEditModal(false)} size="sm" title="Name this field"
                 actions={<>
@@ -189,6 +190,7 @@ export function Step2Schema({
                         <Select label="What to take" value={pendingElement.type || 'text'} onChange={v => setPendingElement({ ...pendingElement, type: v })}
                             options={[
                                 { value: 'text', label: 'Text (default)' },
+                                { value: 'text_array', label: 'List of texts (each item or line)' },
                                 { value: 'link', label: 'Link target (href)' },
                                 { value: 'image', label: 'Image source (src)' },
                                 { value: 'list', label: 'Structured fields (smart)' },

@@ -254,9 +254,16 @@ export class ElementProcessor {
                 return { success: true, data: { [elementDef.id]: [...new Set(hrefs)] } };
             }
             case 'text_array': {
+                // Each child's text; through wrappers with one child; a block of lines (`<br>`) by line.
                 const skipTags = new Set(['BR', 'HR', 'SCRIPT', 'STYLE', 'LINK', 'META']);
-                const kids = Array.from(element.children).filter(c => !skipTags.has(c.tagName));
-                return { success: true, data: { [elementDef.id]: kids.map(c => ((c as HTMLElement).innerText || c.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean) } };
+                const kidsOf = (el: Element) => Array.from(el.children).filter(c => !skipTags.has(c.tagName));
+                let box: Element = element;
+                while (kidsOf(box).length === 1 && kidsOf(kidsOf(box)[0]).length > 0) box = kidsOf(box)[0];
+                const kids = kidsOf(box);
+                const texts = kids.length > 1
+                    ? kids.map(c => ((c as HTMLElement).innerText || c.textContent || '').replace(/\s+/g, ' ').trim())
+                    : ((box as HTMLElement).innerText || box.textContent || '').split(/\n+/).map(t => t.replace(/\s+/g, ' ').trim());
+                return { success: true, data: { [elementDef.id]: texts.filter(Boolean) } };
             }
             case 'smart':
             case 'list': {

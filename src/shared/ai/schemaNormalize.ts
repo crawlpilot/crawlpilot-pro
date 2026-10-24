@@ -5,7 +5,7 @@
  * JSON in its shape.
  *
  * Normalising keeps what shapes the output (`type`, `properties`, `required`, `items`, `enum`, `format`,
- * `minItems`/`maxItems`, `description` cut to 120 characters), resolves `$ref`s, and turns unions into one
+ * `minItems`/`maxItems`, `additionalProperties` of an object without properties, `description` cut to 120 characters), resolves `$ref`s, and turns unions into one
  * type. What can't be supported is reported as a problem ("`oneOf` of objects: read as the first
  * option"), never dropped silently.
  */
@@ -77,6 +77,10 @@ function normalizeJsonSchema(root: JsonSchema, problems: string[]): JsonSchema {
         }
         if (type === 'object') {
             const props = node.properties ?? {};
+            // Name → value pairs the page decides (`additionalProperties`): kept as an object of strings.
+            if (!Object.keys(props).length && node.additionalProperties && at) {
+                return { type: 'object', additionalProperties: { type: 'string' }, ...(description ? { description } : {}) };
+            }
             if (!Object.keys(props).length) {
                 problems.push(`${at || 'the schema'}: an object with no properties, read as text`);
                 return { type: 'string', ...(description ? { description } : {}) };
@@ -202,6 +206,7 @@ function fromLines(text: string): JsonSchema {
 /** Number of values the schema asks for (leaves, list item fields counted once). */
 export function countLeaves(schema: JsonSchema | null | undefined): number {
     if (!schema) return 0;
+    if (schema.type === 'object' && schema.additionalProperties && !Object.keys(schema.properties ?? {}).length) return 1;
     if (schema.type === 'object') return Object.values(schema.properties ?? {}).reduce((n: number, v) => n + countLeaves(v as JsonSchema), 0);
     if (schema.type === 'array') return countLeaves(schema.items);
     return 1;

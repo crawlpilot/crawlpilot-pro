@@ -9,6 +9,7 @@
  * panel needs no second trip, and the binding a run reads (`bindingsFor`).
  */
 import type { DataBinding, JsonStep } from '../types/database';
+import type { TransformOp } from '../transforms/chain';
 import { attributesOf, type JsonAttribute } from './attributes';
 import { isNoiseKey } from './noise';
 import { formatSteps, stablePath } from './path';
@@ -48,7 +49,7 @@ const MIN_ITEM_VALUES = 5;
 const LIST_NAMES = /^(products?|items?|results?|listings?|hits|edges|nodes|records|entries|posts|articles|jobs|reviews|comments|offers|stores|locations|cards|tiles|docs|rows|data|search(results)?|itemlistelement)$/i;
 const ITEM_NAMES = /(product|item|article|post|job|listing|detail|offer|event|recipe|place|business|profile|video)/i;
 /** The app's own setup (feature flags, page layout, translations), not the page's data. */
-const SETUP = /(config|flags?|features?|experiments?|bootstrap|settings|abtests?|i18n|translations|messages|layout|modules?|metadata|schedule|widgets?|zones?|slots?|_all_)/i;
+const SETUP = /(config|flags?|features?|experiments?|bootstrap|settings|abtests?|i18n|translations|messages|labels|strings|dictionary|layout|modules?|metadata|schedule|widgets?|zones?|slots?|_all_)/i;
 
 const isPlain = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -155,7 +156,8 @@ export function scanPageJson(sources: JsonSource[]): JsonCandidate[] {
                     const steps = stablePath(root.data, path);
                     if (shared >= 2 && steps) {
                         const named = [...path].reverse().find(p => typeof p === 'string') as string | undefined;
-                        const attributes = attributesOf(objs);
+                        // A row is one line: an item's name → value list is picked entry by entry there.
+                        const attributes = attributesOf(objs).filter(a => !a.pairs);
                         if (attributes.length >= 2) {
                             lists.push({
                                 ...base, id: `list:${source.kind}:${source.label}:${source.nth}:${root.type ?? ''}:${JSON.stringify(steps)}`,
@@ -194,8 +196,11 @@ export function scanPageJson(sources: JsonSource[]): JsonCandidate[] {
     return [...best(items), ...best(lists)];
 }
 
-/** A ticked attribute, with the name the person gave it. */
-export interface PickedAttribute { key: string; name: string; many?: boolean }
+/**
+ * A ticked attribute, with the name the person gave it (their schema's name for it) and how it is read:
+ * several values as a list, or `first` of them as one value.
+ */
+export interface PickedAttribute { key: string; name: string; many?: boolean; first?: boolean }
 
 /** A Page Extractor element that reads from the page's data only (no selectors). */
 export interface DataElement {
@@ -221,9 +226,20 @@ export function bindingsFor(c: JsonCandidate, picks: PickedAttribute[], idBase =
             value: `List (${c.count} items)`,
         }];
     }
-    return picks.map((p, i) => ({
-        id: `${idBase}_${i}`, name: p.name, action: 'extract', type: p.many ? 'text_array' : 'text', selectors: [],
-        data: { ...at, as: p.many ? 'list' : 'text', key: p.key },
-        value: c.attributes.find(a => a.key === p.key)?.sample,
-    }));
+    return picks.map((p, i) => {
+        const a = c.attributes.find(x => x.key === p.key);
+        const base = { id: `${idBase}_${i}`, name: p.name, action: 'extract' as const, selectors: [], value: a?.sample };
+        // A name → value list: one object (`{"Fit": "Relaxed"}`).
+        if (a?.pairs) return { ...base, type: 'text', data: { ...at, path: [...c.path, ...p.key.split('.')], as: 'object' as const, keys: a.pairs } };
+        // Links written as paths are made whole; HTML in a value is taken out.
+        const ops: TransformOp[] = [
+            ...(a?.type === 'url' ? [{ op: 'absoluteUrl' } as const] : []),
+            ...(a && /<[a-z][^>]*>/i.test(a.sample) ? [{ op: 'stripHtml' } as const] : []),
+        ];
+        const list = !!p.many && !p.first;
+        return {
+            ...base, type: list ? 'text_array' : 'text',
+            data: { ...at, as: list ? 'list' as const : 'text' as const, key: p.key, ...(p.first ? { first: true } : {}), ...(ops.length ? { ops } : {}) },
+        };
+    });
 }

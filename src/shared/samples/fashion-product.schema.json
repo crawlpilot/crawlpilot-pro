@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fashion Product Extraction Schema",
+  "description": "Structured product information from fashion product pages (UNIQLO, ZARA, H&M, COS).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "brand": { "type": "string", "description": "Product brand or manufacturer" },
+    "title": { "type": "string", "description": "Full product name or title" },
+    "description": { "type": "string", "description": "Full product description including design, construction and functional details" },
+    "product_url": { "type": "string", "format": "uri", "description": "Canonical product URL" },
+    "product_code": { "type": "string", "description": "Product reference or product code" },
+    "product_id": { "type": "string", "description": "Product ID" },
+    "images": { "type": "array", "description": "All product image URLs available on the page", "items": { "type": "string", "format": "uri" } },
+    "price": { "type": "string", "description": "Current product price displayed on the page" },
+    "color": { "type": "string", "description": "Product color or color variant" },
+    "size": { "type": "string", "description": "Selected or available product size" },
+    "product_specifications": { "type": "object", "description": "Major product specifications as attribute-value pairs explicitly available on the product page.", "additionalProperties": { "type": "string" } },
+    "composition": { "type": "array", "description": "Product material composition and percentages", "items": { "type": "string" } },
+    "care": { "type": "array", "description": "Care, washing, drying, ironing and cleaning instructions", "items": { "type": "string" } },
+    "highlights": { "type": "array", "description": "Key product features, design details and selling points", "items": { "type": "string" } },
+    "origin": { "type": "string", "description": "Country or countries of production" }
+  },
+  "required": ["brand", "title", "description", "product_url", "images", "product_specifications", "composition", "care", "highlights"]
+}

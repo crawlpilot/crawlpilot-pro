@@ -349,9 +349,12 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
     };
 
     const handleChangeElementType = (id: string, newType: string) => {
-        setElements(prev => prev.map(el =>
-            el.id === id ? { ...el, type: newType } : el
-        ));
+        // The page-data binding was found for the old type (a text, not a list): a selector field reads the page again.
+        setElements(prev => prev.map(el => {
+            if (el.id !== id) return el;
+            const { data, ...rest } = el;
+            return { ...rest, type: newType, ...(data && !el.selectors?.length ? { data } : {}) };
+        }));
     };
 
 

@@ -22,6 +22,8 @@ export interface SchemaField {
     enum?: (string | number)[];
     /** Several values (an array of scalars). */
     many?: boolean;
+    /** Name → value pairs (an object with `additionalProperties`). */
+    map?: boolean;
 }
 
 /** An entity list: many items on the page, each read into `fields`. */

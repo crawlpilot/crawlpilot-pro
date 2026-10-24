@@ -48,4 +48,28 @@ describe('elementChain', () => {
         expect(chain[0].selector).toBe('#results > div:nth-of-type(2) > p:nth-of-type(2)');
         for (const c of chain) expect(resolve(c.selector)).toEqual([target]);
     });
+
+    it('names a value under a section heading by the heading, so added sections do not move it (zara.com)', () => {
+        const section = (title: string, body: string) => `<div class="product-detail-extra-detail__section">
+            <div class="structured-component-text-block-subtitle"><span class="structured-component-text zds-heading-s"><span>${title}</span></span></div>
+            <div class="structured-component-spacer"></div>
+            <div class="structured-component-text-block-paragraph"><span class="structured-component-text zds-body-m"><span>${body}</span></span></div>
+        </div>`;
+        document.body.innerHTML = `<div class="product-detail-extra-detail">${section('COMPOSITION', '100% cotton')}${section('ORIGIN', 'Made in Bangladesh')}</div>`;
+        const origin = document.querySelectorAll('.structured-component-text-block-paragraph span span')[1];
+        const chain = elementChain(origin);
+        expect(chain[0]).toEqual({ selector: '//div[normalize-space()="ORIGIN"]/following-sibling::div[normalize-space()][1]/span/span', strategy: 'label' });
+        // Another product shows a "Certified materials" section first: the heading still finds it.
+        document.querySelector('.product-detail-extra-detail')!.insertAdjacentHTML('afterbegin', section('Certified materials', 'OCS CERTIFIED ORGANICALLY GROWN COTTON'));
+        expect(resolve(chain[0].selector).map(e => e.textContent)).toEqual(['Made in Bangladesh']);
+    });
+
+    it('names a value after a heading set larger than it (uniqlo.com)', () => {
+        document.body.innerHTML = `<div id="productSustainabilityInfo-content"><div><div>
+            <p style="font-size: 18px">Country of origin</p><p style="font-size: 14px">Production: China, India, Vietnam</p>
+            <p style="font-size: 15px">Imported and marketed by</p><p style="font-size: 15px">Uniqlo India Pvt. Ltd.</p>
+        </div></div></div>`;
+        const value = document.querySelectorAll('p')[1];
+        expect(first(value)).toBe('//p[normalize-space()="Country of origin"]/following-sibling::p[normalize-space()][1]');
+    });
 });

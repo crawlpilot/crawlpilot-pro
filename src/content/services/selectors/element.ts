@@ -14,6 +14,7 @@
  * | text     | `//a[normalize-space()="Next"]` (controls only, never values)      | 300+       |
  * | class    | `span.a-price`                                                     | 400        |
  * | scoped   | `#productTitle_feature_div h1`, `[data-testid="buybox"] .price`    | + 50 + 1/10 of the scope |
+ * | heading  | `//div[normalize-space()="ORIGIN"]/following-sibling::div[normalize-space()][1]/span` (before a position) | — |
  * | position | `#results > div:nth-of-type(3) > a` (only when nothing else names it) | + 10,000 |
  *
  * Every CSS candidate has an XPath twin, so a chain can hold both and they fail independently.
@@ -123,6 +124,56 @@ function labelXPaths(el: Element): string[] {
         const forLabel = el.ownerDocument.querySelector(`label[for="${CSS.escape(id)}"]`);
         const text = normalizeSpace(forLabel?.textContent);
         if (forLabel && isLabelText(text)) out.push(`//*[@id=//label[normalize-space()=${xpathLiteral(text)}]/@for]`);
+    }
+    return out;
+}
+
+/** Levels climbed looking for a heading before a value, and empty spacers skipped between them. */
+const MAX_HEADING_LEVELS = 3;
+const HEADING_NAME = /(^|[-_\s])(title|subtitle|heading|header|label|caption)([-_\s]|$)/i;
+
+/**
+ * Short text that reads as a heading of `value`: a label element, a heading role, a class that names it
+ * a title or heading (on it or what it wraps), bold text, or text clearly larger than the value's.
+ */
+function looksLikeHeading(el: Element, value: Element): boolean {
+    if (isLabelElement(el) || el.getAttribute('role') === 'heading') return true;
+    const named = (e: Element) => typeof e.className === 'string' && HEADING_NAME.test(e.className);
+    if (named(el) || Array.from(el.querySelectorAll('*')).slice(0, 4).some(named)) return true;
+    const view = el.ownerDocument.defaultView;
+    const style = view?.getComputedStyle(el);
+    if (Number(style?.fontWeight) >= 600) return true;
+    if (/^(B|STRONG)$/.test(el.firstElementChild?.tagName ?? '') && normalizeSpace(el.firstElementChild!.textContent) === normalizeSpace(el.textContent)) return true;
+    const size = parseFloat(style?.fontSize ?? '');
+    const valueSize = parseFloat(view?.getComputedStyle(value).fontSize ?? '');
+    return size > 0 && valueSize > 0 && size >= valueSize * 1.15;
+}
+
+/**
+ * A value under a section's heading, where only positions would otherwise name it ("ORIGIN" then
+ * "Made in Bangladesh"; "Washing instructions" then the instructions): the heading's text, then the
+ * first non-empty sibling after it, then the steps down to the value. Holds when sections are added
+ * before it (a "Certified materials" block on one product and not the next).
+ */
+function headingXPaths(el: Element): string[] {
+    const out: string[] = [];
+    const doc = el.ownerDocument;
+    let cell: Element | null = el;
+    for (let level = 0; cell && cell !== doc.body && level <= MAX_HEADING_LEVELS; level++, cell = cell.parentElement) {
+        let label = cell.previousElementSibling;
+        while (label && !normalizeSpace(label.textContent)) label = label.previousElementSibling;
+        if (!label || !looksLikeHeading(label, el)) continue;
+        const text = normalizeSpace(label.textContent);
+        if (!isLabelText(text) || text === normalizeSpace(cell.textContent)) continue;
+        const heading = `//${tagOf(label)}[normalize-space()=${xpathLiteral(text)}]`;
+        if (doc.evaluate(`count(${heading})`, doc, null, XPathResult.NUMBER_TYPE, null).numberValue !== 1) continue;
+        // The steps from the section's block down to the value, by tag (a position only among same-tag siblings).
+        const steps: string[] = [];
+        for (let node: Element = el; node !== cell; node = node.parentElement!) {
+            const same = Array.from(node.parentElement!.children).filter(c => c.tagName === node.tagName);
+            steps.unshift(`${tagOf(node)}${same.length > 1 ? `[${same.indexOf(node) + 1}]` : ''}`);
+        }
+        out.push(`${heading}/following-sibling::${tagOf(cell)}[normalize-space()][1]${steps.map(s => `/${s}`).join('')}`);
     }
     return out;
 }
@@ -252,7 +303,11 @@ export function elementChain(el: Element, options: ElementOptions = {}): ChainEn
     }
     if (css.length === 0 && !xpath) {
         const path = anchoredPath(el);
-        return [{ selector: path.css, strategy: 'structure' }, { selector: path.xpath, strategy: 'xpath' }];
+        const heading = headingXPaths(el).find(x => namesAlone(el, x));
+        return [
+            ...(heading ? [{ selector: heading, strategy: 'label' }] : []),
+            { selector: path.css, strategy: 'structure' }, { selector: path.xpath, strategy: 'xpath' },
+        ];
     }
     const chain = xpath ? [...css, xpath] : css;
     return chain.sort((a, b) => cost(a.selector, labelled) - cost(b.selector, labelled) || a.selector.length - b.selector.length);

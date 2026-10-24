@@ -31,6 +31,8 @@ export interface Leaf {
     required: boolean;
     /** An array of scalars: several values. */
     many: boolean;
+    /** An object of name → value pairs the page decides (`additionalProperties` only): specs, attributes. */
+    map?: boolean;
     description?: string;
 }
 
@@ -64,6 +66,14 @@ function kindOf(type: Leaf['type'], format: string | undefined, name: string): S
 
 /** The leaves under `node` at `path`. Arrays of objects below the top level are read as text. */
 function leavesOf(node: JsonSchema, path: string[], required: boolean, problems: string[], out: Leaf[]) {
+    if (node.type === 'object' && !Object.keys(node.properties ?? {}).length && node.additionalProperties) {
+        out.push({
+            key: path.join('__') || 'value', path, pointer: pointerOf(path), label: path.join('.') || 'value',
+            type: 'string', kind: 'string', required, many: false, map: true,
+            ...(node.description ? { description: node.description } : {}),
+        });
+        return;
+    }
     if (node.type === 'object') {
         const req = new Set<string>(node.required ?? []);
         for (const [name, child] of Object.entries(node.properties ?? {})) leavesOf(child as JsonSchema, [...path, name], req.has(name), problems, out);
@@ -128,6 +138,7 @@ function guidance(leaf: Leaf): string | undefined {
     if (leaf.format === 'date' || leaf.format === 'date-time') parts.push('a date');
     if (leaf.format === 'email') parts.push('an email address');
     if (leaf.many) parts.push("every one shown, separated by ' | '");
+    if (leaf.map) parts.push("each as 'name: value', separated by ' | '");
     return parts.length ? parts.join('; ') : undefined;
 }
 
@@ -141,6 +152,7 @@ export function fieldOf(leaf: Leaf): SchemaField {
         label: leaf.label,
         ...(leaf.enum ? { enum: leaf.enum } : {}),
         ...(leaf.many ? { many: true } : {}),
+        ...(leaf.map ? { map: true } : {}),
     };
 }
 

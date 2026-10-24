@@ -20,6 +20,8 @@ export interface JsonAttribute {
     many: boolean;
     /** Ticked by default. */
     suggested: boolean;
+    /** A list of name → value items read whole as one object (`specs` → `{Fit: "Relaxed"}`): its name key and value key. */
+    pairs?: [string, string];
 }
 
 const MAX_DEPTH = 4;
@@ -56,7 +58,7 @@ const isPlain = (v: unknown): v is Record<string, unknown> => !!v && typeof v ==
 /** A name → value list (`[{name: "Color", value: "Red"}, …]`): its label key and value key. */
 function pairKeys(list: unknown[]): { label: string; value: string } | null {
     const objs = list.filter(isPlain);
-    if (objs.length < 2 || objs.length < list.length * 0.8) return null;
+    if (objs.length < 1 || objs.length < list.length * 0.8) return null;
     const label = LABEL_KEYS.find(k => objs.every(o => typeof o[k] === 'string'));
     const value = label && VALUE_KEYS.find(k => objs.filter(o => isScalar(o[k])).length >= objs.length * 0.8);
     return label && value ? { label, value } : null;
@@ -74,6 +76,8 @@ function keysOf(item: Record<string, unknown>, out: Set<string>, prefix = '', de
             if (v.every(x => x === null || isScalar(x))) { out.add(key); continue; }
             const pairs = pairKeys(v);
             if (pairs) {
+                // The whole list as one object, then each entry on its own.
+                out.add(`${key}{${pairs.label}:${pairs.value}}`);
                 for (const o of v.filter(isPlain).slice(0, MAX_LABELS)) {
                     const label = String(o[pairs.label]);
                     if (spellable(label)) out.add(`${key}[${pairs.label}=${label}].${pairs.value}`);
@@ -82,9 +86,16 @@ function keysOf(item: Record<string, unknown>, out: Set<string>, prefix = '', de
             }
             const first = v.find(isPlain);
             if (!first) continue;
-            // One level of an array of objects, each scalar key as a list (`images[*].url`).
+            // An array of objects: each scalar key as a list (`images[*].url`), and one object deeper
+            // (`variants[*].offers.price`).
             for (const [sk, sv] of Object.entries(first)) {
-                if (isScalar(sv) && !SKIP.has(sk) && !isNoiseKey(sk) && spellable(sk)) out.add(`${key}[*].${sk}`);
+                if (SKIP.has(sk) || isNoiseKey(sk) || !spellable(sk)) continue;
+                if (isScalar(sv)) out.add(`${key}[*].${sk}`);
+                else if (isPlain(sv)) {
+                    for (const [dk, dv] of Object.entries(sv)) {
+                        if (isScalar(dv) && !SKIP.has(dk) && !isNoiseKey(dk) && spellable(dk)) out.add(`${key}[*].${sk}.${dk}`);
+                    }
+                }
             }
             continue;
         }
@@ -129,6 +140,20 @@ export function attributesOf(items: unknown[]): JsonAttribute[] {
     const names = distinctNames(list);
 
     const attrs = list.map((key, i): JsonAttribute => {
+        const group = /^(.*)\{([^:}]+):([^}]+)\}$/.exec(key);
+        if (group) {
+            // `specs{name:value}`: the list read as one object of its entries.
+            const [, prefix, label, value] = group;
+            const texts = rows.map(r => {
+                const items = readKey(r, prefix);
+                return Array.isArray(items) ? items.map(o => `${cellText(readKey(o, label))}: ${cellText(readKey(o, value))}`).join(', ') : '';
+            });
+            const filled = texts.filter(Boolean);
+            return {
+                key: prefix, name: attributeName(prefix), sample: (filled[0] ?? '').slice(0, 80), fill: filled.length / rows.length,
+                type: 'text', many: false, suggested: false, pairs: [label, value],
+            };
+        }
         const values = rows.map(r => readKey(r, key));
         const cells = values.map(cellText);
         const filled = cells.filter(Boolean);

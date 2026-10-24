@@ -28,6 +28,8 @@ const NEW_OP: Record<TransformOp['op'], TransformOp> = {
     split: { op: 'split', sep: ',', index: 0 },
     prefix: { op: 'prefix', text: '' },
     suffix: { op: 'suffix', text: '' },
+    stripHtml: { op: 'stripHtml' },
+    absoluteUrl: { op: 'absoluteUrl' },
 };
 
 function show(v: unknown): string {

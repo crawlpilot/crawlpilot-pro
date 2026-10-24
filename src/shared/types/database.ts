@@ -174,14 +174,21 @@ export interface DataBinding {
     /** JSON-LD: the entity's `@type`, found in whichever block has it; `path` is then inside the entity. */
     type?: string;
     path: JsonStep[];
-    /** Text; a list of strings; or rows of cells (a table), each column read from `keys`. */
-    as: 'text' | 'list' | 'rows';
+    /**
+     * Text; a list of strings; rows of cells (a table), each column read from `keys`; or an object of
+     * name → value pairs (`keys`: the items' name key and value key; none for an object of its own).
+     */
+    as: 'text' | 'list' | 'rows' | 'object';
     /** Attribute keys (`offers.price`, `images[*].url`: `shared/pageJson/path.ts`), one per column. */
     keys?: string[];
     /** Rows picked in "Data on this page": the columns' names, one per key. */
     names?: string[];
     /** Text or a list picked in "Data on this page": the attribute key read inside the value at `path`. */
     key?: string;
+    /** The key gives several values and the field wants one: the first that has something. */
+    first?: boolean;
+    /** Text steps on each value read (`absoluteUrl`, `stripHtml`…): the value made the type the schema asks. */
+    ops?: import('../transforms/chain').TransformOp[];
     /** What the page writes around a bare number ("$" before 194). */
     prefix?: string;
     suffix?: string;

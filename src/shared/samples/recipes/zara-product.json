@@ -1,0 +1,330 @@
+{
+  "name": "ZARA · product details",
+  "site": "zara.com",
+  "contract": "fashion-product.schema.json",
+  "built_with": "Page Extractor: Smart detection for the page data fields, Add a click + Add field for the lazy sections (scripts/samples/build-recipe.mjs)",
+  "built_on": "https://www.zara.com/in/en/straight-leg-jeans-p00774360.html",
+  "checked_on": [
+    "https://www.zara.com/in/en/lightweight-100-silk-jumper-aaron-levine-x-zara-p00077418.html",
+    "https://www.zara.com/in/en/aaron-levine-x-zara-pocket-t-shirt-p01887426.html"
+  ],
+  "spec": {
+    "kind": "page",
+    "elements": [
+      {
+        "id": "1792854926025_0",
+        "name": "title",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "name"
+        },
+        "shape": "text"
+      },
+      {
+        "id": "1792854926025_1",
+        "name": "product_url",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "url",
+          "ops": [
+            {
+              "op": "absoluteUrl"
+            }
+          ]
+        },
+        "shape": "url"
+      },
+      {
+        "id": "1792854926025_2",
+        "name": "product_id",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "productGroupID"
+        },
+        "shape": "number"
+      },
+      {
+        "id": "1792854926025_3",
+        "name": "brand",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "brand.name"
+        },
+        "shape": "text"
+      },
+      {
+        "id": "1792854926025_4",
+        "name": "description",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "description"
+        },
+        "shape": "text"
+      },
+      {
+        "id": "1792854926025_5",
+        "name": "images",
+        "action": "extract",
+        "type": "text_array",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "list",
+          "key": "image",
+          "ops": [
+            {
+              "op": "absoluteUrl"
+            }
+          ]
+        }
+      },
+      {
+        "id": "1792854926025_6",
+        "name": "composition",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "material"
+        },
+        "shape": "number"
+      },
+      {
+        "id": "1792854926025_7",
+        "name": "product_specifications",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [
+            "additionalProperty"
+          ],
+          "as": "object",
+          "keys": [
+            "name",
+            "value"
+          ]
+        },
+        "shape": "number"
+      },
+      {
+        "id": "1792854926025_8",
+        "name": "color",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "hasVariant[*].color",
+          "first": true
+        },
+        "shape": "text"
+      },
+      {
+        "id": "1792854926025_9",
+        "name": "size",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "hasVariant[*].size",
+          "first": true
+        },
+        "shape": "text"
+      },
+      {
+        "id": "1792854926025_10",
+        "name": "price",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "hasVariant[*].offers.price",
+          "first": true
+        },
+        "shape": "text"
+      },
+      {
+        "id": "1792854927009",
+        "name": "product_code",
+        "action": "extract",
+        "type": "text",
+        "selectors": [
+          "[data-qa-action=\"product-detail-info-color-copy\"]",
+          "//button[@data-qa-action=\"product-detail-info-color-copy\"]",
+          "button.product-color-extended-name__reference"
+        ],
+        "shape": "text"
+      },
+      {
+        "id": "1792854928243",
+        "name": "highlights",
+        "action": "extract",
+        "type": "text_array",
+        "selectors": [
+          "div.expandable-text p",
+          "//div[contains(concat(' ', normalize-space(@class), ' '), ' expandable-text ')]//p"
+        ]
+      },
+      {
+        "id": "1792854929501",
+        "name": "button",
+        "action": "click",
+        "type": "text",
+        "selectors": [
+          "[data-qa-action=\"show-extra-detail\"]",
+          "//button[@data-qa-action=\"show-extra-detail\"]"
+        ]
+      },
+      {
+        "id": "1792854933724",
+        "name": "care",
+        "action": "extract",
+        "type": "text_array",
+        "selectors": [
+          "[role=\"presentation\"] ul.structured-component-icon-list",
+          "ul.structured-component-icon-list",
+          "//ul[contains(concat(' ', normalize-space(@class), ' '), ' structured-component-icon-list ')]"
+        ]
+      },
+      {
+        "id": "1792854934725",
+        "name": "origin",
+        "action": "extract",
+        "type": "text",
+        "selectors": [
+          "//div[normalize-space()=\"ORIGIN\"]/following-sibling::div[normalize-space()][1]/span/span"
+        ],
+        "shape": "text"
+      }
+    ],
+    "settings": {
+      "requestDelay": 1000,
+      "viewportWidth": 1280,
+      "viewportHeight": 900,
+      "clickWaitMs": 1000,
+      "loadTimeout": 10000,
+      "waitForLoad": true,
+      "enableRandomization": false,
+      "waitForElements": false,
+      "elementTimeout": 0,
+      "domainMinGapMs": 0,
+      "pauseOnChallenge": true,
+      "listOutput": "nested"
+    }
+  },
+  "example": {
+    "url": "https://www.zara.com/in/en/straight-leg-jeans-p00774360.html",
+    "record": {
+      "title": "STRAIGHT-LEG JEANS",
+      "product_url": "https://www.zara.com/in/en/straight-leg-jeans-p00774360.html",
+      "product_id": "00774360",
+      "brand": "ZARA",
+      "description": "Model height: 188 cm\n\nStraight leg from the hip to the ankle, with a fit that neither tapers nor widens. Mid-waist. Rigid fabric.\n\nStraight-leg jeans made from cotton denim. Five pockets. Front button fastening.",
+      "images": [
+        "https://static.zara.net/assets/public/e787/b261/3ec84291aace/b68c3f426445/04365330251-p/04365330251-p.jpg?ts=1788881716508&w=1920",
+        "https://static.zara.net/assets/public/b411/45b5/c116436c9cf5/b7bc60caef6b/04365330251-a1/04365330251-a1.jpg?ts=1788881715194&w=1920",
+        "https://static.zara.net/assets/public/cffc/6f39/8c204c4c8edc/d10cb6c16899/04365330251-a2/04365330251-a2.jpg?ts=1788881715782&w=1920",
+        "https://static.zara.net/assets/public/c4f8/c363/109c497180b6/fc36652e6f01/04365330251-a3/04365330251-a3.jpg?ts=1788881715363&w=1920",
+        "https://static.zara.net/assets/public/bc28/0a56/e78041edbf69/b4f1296f4fa6/04365330251-a4/04365330251-a4.jpg?ts=1788881718963&w=1920",
+        "https://static.zara.net/assets/public/e764/88c3/e87c40969d90/cc8e33ddb9aa/04365330251-a5/04365330251-a5.jpg?ts=1788881714791&w=1920",
+        "https://static.zara.net/assets/public/e1d0/605b/45cd4711ad74/97488af14b54/04365330251-a6/04365330251-a6.jpg?ts=1788881720547&w=1920",
+        "https://static.zara.net/assets/public/e19b/4d9b/b62243cfafe6/c2c8fec12a8d/04365330251-a7/04365330251-a7.jpg?ts=1788881716011&w=1920",
+        "https://static.zara.net/assets/public/d2d3/e03d/7ef34ed7ae4c/0ab60a8e0102/04365330251-e1/04365330251-e1.jpg?ts=1784726058419&w=1920",
+        "https://static.zara.net/assets/public/4397/b2cb/25ca48bb82c0/f813f76c76a3/04365330251-e2/04365330251-e2.jpg?ts=1784726058011&w=1920",
+        "https://static.zara.net/assets/public/5b4b/f9b1/3558415988ba/a7fb32be58c4/04365330251-e3/04365330251-e3.jpg?ts=1784726057746&w=1920",
+        "https://static.zara.net/assets/public/5b9f/f91c/f04d4225a9e3/d2aec43b24fd/04365330251-e4/04365330251-e4.jpg?ts=1784726057816&w=1920"
+      ],
+      "composition": "100% cotton",
+      "product_specifications": "{\"OUTER SHELL\":\"100% cotton\"}",
+      "color": "Oyster-white",
+      "size": "EU 36 (UK 29)",
+      "price": "2950",
+      "product_code": "0774/360/251",
+      "highlights": [
+        "Model height: 188 cm",
+        "Straight leg from the hip to the ankle, with a fit that neither tapers nor widens. Mid-waist. Rigid fabric.",
+        "Straight-leg jeans made from cotton denim. Five pockets. Front button fastening."
+      ],
+      "care": [
+        "Machine wash at max. 40ºC/104ºF with short spin cycle",
+        "Do not use bleach",
+        "Iron at a maximum of 150ºC/302ºF",
+        "Do not dry clean",
+        "Tumble dry low"
+      ],
+      "origin": "Made in Bangladesh"
+    }
+  }
+}

@@ -106,3 +106,58 @@ test('a recipe bound to the page\'s data reads the same rows after the page\'s m
     expect(await read(`${origin}/site/json-shop.html`)).toEqual(expected);
     expect(await read(`${origin}/site/json-shop-redesign.html`)).toEqual(expected);
 });
+
+test('Page Extractor: smart detection lists the page\'s attributes; ticked and named as a schema, they are the fields', async ({ ext, origin, panel }) => {
+    test.setTimeout(90_000);
+    await panel.clear();
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 900 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=page-extractor&tabId=${tabId}`);
+    await ui.getByText('This page', { exact: true }).click();
+    await ui.getByRole('button', { name: 'Next: 1 page' }).click();
+    await ui.getByText('Pick the fields yourself').click();
+
+    await ui.getByTestId('smart-detection').click();
+    const dialog = ui.getByRole('dialog');
+    // The page's main item opens at once: tick only what the schema needs, named as it names them.
+    await expect(dialog).toContainText('ProductGroup');
+    const all = dialog.getByLabel('All', { exact: true });
+    await all.check();
+    await all.uncheck();
+    const pick = async (key: string, name: string) => {
+        await dialog.getByLabel(`Extract ${key}`, { exact: true }).check();
+        await dialog.getByLabel(`Column name for ${key}`, { exact: true }).fill(name);
+    };
+    await pick('brand.name', 'brand');
+    await pick('url', 'product_url');
+    await pick('description', 'description');
+    await pick('image', 'images');
+    await pick('hasVariant[*].offers.price', 'price');
+    await dialog.getByLabel('How to read hasVariant[*].offers.price').selectOption('first');
+    await pick('additionalProperty', 'product_specifications');
+    const preview = dialog.getByTestId('json-preview');
+    await expect(preview).toContainText('Fit: Relaxed, Length: Regular');
+    await expect(preview).toContainText('79.00');
+    await dialog.getByRole('button', { name: 'Add 6 fields' }).click();
+    await expect(ui.getByText('Page data')).toHaveCount(6);
+
+    await ui.getByRole('button', { name: 'Review & run' }).click();
+    await ui.getByRole('button', { name: 'Get 1 page' }).click();
+    await expect(ui.getByRole('button', { name: 'Open the table' })).toBeVisible({ timeout: 60_000 });
+
+    const table = (await panel.store('tables')).filter((t: any) => !t.preview && t.source === 'bulk-page').sort((a: any, b: any) => b.createdAt - a.createdAt)[0];
+    const row = (await panel.store('rows')).find((r: any) => r.tableId === table.id).data;
+    const value = (name: string) => row[table.columns.find((c: any) => c.name === name).id];
+    expect(value('brand')).toBe('Northpeak');
+    expect(value('product_url')).toBe(`${origin}/products/linen-overshirt`);
+    expect(value('description')).toBe('Relaxed overshirt in washed linen.\nChest pockets\nButton cuffs');
+    expect(value('price')).toBe('79.00');
+    expect(JSON.parse(value('product_specifications'))).toEqual({ Fit: 'Relaxed', Length: 'Regular' });
+    expect(JSON.stringify(value('images'))).toContain(`${origin}/img/overshirt-2.jpg`);
+    await ui.close();
+    await page.close();
+});

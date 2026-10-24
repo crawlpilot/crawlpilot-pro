@@ -1,14 +1,16 @@
 /**
- * Data on this page → Extract: the items and lists in the page's JSON (JSON-LD, `__NEXT_DATA__`, app
- * state) as cards; pick one, tick its attributes, see the rows, then run the same fields on more pages
- * (a Page Extractor recipe bound to the data, no selectors) or keep this page's rows as a table.
+ * The items and lists in the page's JSON (JSON-LD, `__NEXT_DATA__`, app state) as cards; pick one, tick
+ * its attributes, name each the way your schema does, see the rows. Two homes:
+ * - Toolkit → Data on this page: run the same fields on more pages (a Page Extractor recipe bound to the
+ *   data, no selectors) or keep this page's rows as a table;
+ * - Page Extractor → fields (`onUse`): the ticked attributes become the recipe's fields.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Braces, Files, List, RotateCw, Search, Table2 } from 'lucide-react';
-import { Button, CardButton, Checkbox, Chip, IconButton, Notice, Skeleton, Stack, Text, TextField } from '../../../ui';
+import { ArrowLeft, Braces, Files, List, Plus, RotateCw, Search, Sparkles, Table2 } from 'lucide-react';
+import { Button, CardButton, Checkbox, Chip, IconButton, Notice, Select, Skeleton, Stack, Text, TextField } from '../../../ui';
 import { useToolkit } from '../context';
 import { GroupLabel } from '../ui';
-import { bindingsFor, type JsonCandidate, type PickedAttribute } from '../../../../shared/pageJson/scan';
+import { bindingsFor, type DataElement, type JsonCandidate, type PickedAttribute } from '../../../../shared/pageJson/scan';
 import { FIELD_TYPE_LABELS } from '../../../../shared/transforms/chain';
 import { setPageDataDraft } from '../../../services/pageDataDraft';
 import { db } from '../../../../shared/db';
@@ -16,7 +18,14 @@ import { db } from '../../../../shared/db';
 /** Rows shown in the preview. */
 const PREVIEW_ROWS = 8;
 
-interface Pick { on: boolean; name: string }
+interface Pick { on: boolean; name: string; /** Of several values, only the first. */ first?: boolean }
+
+/** A read value as one cell: an object of name → value pairs as "Fit: Relaxed, Length: Regular". */
+function cell(v: string | string[] | null | undefined): string {
+    if (Array.isArray(v)) return v.join(', ');
+    if (v && v.startsWith('{')) { try { return Object.entries(JSON.parse(v)).map(([k, x]) => `${k}: ${x}`).join(', '); } catch { /* not an object */ } }
+    return v ?? '';
+}
 
 function CandidateCard({ c, onOpen }: { c: JsonCandidate; onOpen: () => void }) {
     return (
@@ -32,7 +41,11 @@ function CandidateCard({ c, onOpen }: { c: JsonCandidate; onOpen: () => void }) 
     );
 }
 
-export default function PageDataExtract({ onBrowse }: { onBrowse: () => void }) {
+export default function PageDataExtract({ onBrowse, onUse }: {
+    onBrowse?: () => void;
+    /** Page Extractor: the ticked attributes, as fields bound to the page's data. */
+    onUse?: (elements: DataElement[]) => void;
+}) {
     const { page, send, navigate } = useToolkit();
     const [candidates, setCandidates] = useState<JsonCandidate[] | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -47,25 +60,30 @@ export default function PageDataExtract({ onBrowse }: { onBrowse: () => void }) 
         setCandidates(null);
         setChosen(null);
         try {
-            setCandidates((await send('PAGE_JSON_SCAN')).candidates);
+            const found = (await send('PAGE_JSON_SCAN')).candidates;
+            setCandidates(found);
+            // A details page: its main item opens at once.
+            const item = onUse ? found.find(c => c.kind === 'item') : undefined;
+            if (item) open(item);
         } catch (e) {
             setError((e as Error).message);
             setCandidates([]);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [send]);
 
     useEffect(() => { if (page.web) void scan(); }, [scan, page.url, page.web]);
 
-    const open = (c: JsonCandidate) => {
+    function open(c: JsonCandidate) {
         setChosen(c);
         setQuery('');
         setSaved(null);
         setPicks(Object.fromEntries(c.attributes.map(a => [a.key, { on: a.suggested, name: a.name }])));
-    };
+    }
 
     const ticked: PickedAttribute[] = useMemo(() => !chosen ? [] : chosen.attributes
         .filter(a => picks[a.key]?.on)
-        .map(a => ({ key: a.key, name: picks[a.key].name.trim() || a.name, many: a.many })), [chosen, picks]);
+        .map(a => ({ key: a.key, name: picks[a.key].name.trim() || a.name, many: a.many, ...(picks[a.key].first ? { first: true } : {}) })), [chosen, picks]);
 
     // The preview reads the page the way a run does (`readBinding`), so what is shown is what a run gets.
     useEffect(() => {
@@ -80,7 +98,7 @@ export default function PageDataExtract({ onBrowse }: { onBrowse: () => void }) 
                     const cells = (values[0] ?? []) as string[][];
                     setRows(cells.map(r => Object.fromEntries(ticked.map((p, i) => [p.name, r[i] ?? '']))));
                 } else {
-                    setRows([Object.fromEntries(ticked.map((p, i) => [p.name, Array.isArray(values[i]) ? (values[i] as string[]).join(', ') : (values[i] as string | null) ?? '']))]);
+                    setRows([Object.fromEntries(ticked.map((p, i) => [p.name, cell(values[i] as string | string[] | null)]))]);
                 }
             } catch (e) {
                 if (live) setError((e as Error).message);
@@ -117,16 +135,19 @@ export default function PageDataExtract({ onBrowse }: { onBrowse: () => void }) 
         return (
             <Stack gap={3}>
                 <div className="flex items-center gap-2">
-                    <Text size="caption" tone="muted" className="flex-1">Pick what to extract from the data this page carries. It holds when the page's layout changes.</Text>
+                    <Text size="caption" tone="muted" className="flex-1">{onUse
+                        ? 'What this page carries as data. Open one and tick the attributes you need.'
+                        : 'Pick what to extract from the data this page carries. It holds when the page\'s layout changes.'}</Text>
                     <IconButton label="Scan again" variant="ghost" size="sm" onClick={() => void scan()}><RotateCw /></IconButton>
                 </div>
                 {error && <Notice tone="warning">{error}</Notice>}
                 {candidates.length === 0 && !error && (
                     <Notice tone="info">No items or lists in this page's JSON. Use the Page or List Extractor to pick from the page instead.</Notice>
                 )}
-                {lists.length > 0 && <div><GroupLabel>Lists</GroupLabel><Stack gap={2}>{lists.map(c => <CandidateCard key={c.id} c={c} onOpen={() => open(c)} />)}</Stack></div>}
+                {!onUse && lists.length > 0 && <div><GroupLabel>Lists</GroupLabel><Stack gap={2}>{lists.map(c => <CandidateCard key={c.id} c={c} onOpen={() => open(c)} />)}</Stack></div>}
                 {items.length > 0 && <div><GroupLabel>Items</GroupLabel><Stack gap={2}>{items.map(c => <CandidateCard key={c.id} c={c} onOpen={() => open(c)} />)}</Stack></div>}
-                <Button size="sm" variant="ghost" onClick={onBrowse}>Browse the raw data</Button>
+                {onUse && lists.length > 0 && <div><GroupLabel>Lists</GroupLabel><Stack gap={2}>{lists.map(c => <CandidateCard key={c.id} c={c} onOpen={() => open(c)} />)}</Stack></div>}
+                {onBrowse && <Button size="sm" variant="ghost" onClick={onBrowse}>Browse the raw data</Button>}
             </Stack>
         );
     }
@@ -147,6 +168,12 @@ export default function PageDataExtract({ onBrowse }: { onBrowse: () => void }) 
                 </div>
             </div>
 
+            {onUse && (
+                <Text size="caption" tone="muted" className="flex items-start gap-1.5">
+                    <Sparkles size={13} className="mt-0.5 shrink-0 text-accent" />
+                    <span>Tick what you need and name each the way your schema does: that name is the field's name in your data.</span>
+                </Text>
+            )}
             <div className="flex items-center gap-2">
                 <TextField size="sm" className="flex-1" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search attributes" start={<Search size={14} />} aria-label="Search attributes" />
                 <Checkbox checked={allOn} indeterminate={!allOn && shown.some(a => picks[a.key]?.on)} label="All"
@@ -162,11 +189,16 @@ export default function PageDataExtract({ onBrowse }: { onBrowse: () => void }) 
                                 <input value={picks[a.key]?.name ?? a.name} onChange={e => setPick(a.key, { name: e.target.value, on: true })}
                                     aria-label={`Column name for ${a.key}`}
                                     className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 text-small font-semibold text-ink hover:border-line focus:border-line-strong focus:outline-none" />
-                                <Chip>{a.many ? `${FIELD_TYPE_LABELS[a.type]} list` : FIELD_TYPE_LABELS[a.type]}</Chip>
+                                <Chip>{a.pairs ? 'Name → value' : a.many ? `${FIELD_TYPE_LABELS[a.type]} list` : FIELD_TYPE_LABELS[a.type]}</Chip>
                                 {chosen.kind === 'list' && <Text size="caption" tone={a.fill < 0.5 ? 'warning' : 'faint'}>{Math.round(a.fill * 100)}%</Text>}
                             </div>
                             <Text size="caption" tone="faint" mono truncate className="px-1">{a.key}</Text>
                             {a.sample && <Text size="caption" tone="muted" truncate className="px-1">{a.sample}</Text>}
+                            {a.many && chosen.kind === 'item' && picks[a.key]?.on && (
+                                <Select size="sm" className="mt-1" aria-label={`How to read ${a.key}`} value={picks[a.key].first ? 'first' : 'all'}
+                                    onChange={v => setPick(a.key, { first: v === 'first' })}
+                                    options={[{ value: 'all', label: 'Every value (a list)' }, { value: 'first', label: 'The first value only' }]} />
+                            )}
                         </div>
                     </div>
                 ))}
@@ -190,10 +222,16 @@ export default function PageDataExtract({ onBrowse }: { onBrowse: () => void }) 
             )}
 
             {saved && <Notice tone="success">{saved}</Notice>}
-            <div className="flex flex-wrap gap-2">
-                <Button variant="primary" size="sm" icon={<Files />} disabled={ticked.length === 0 || !navigate} onClick={runOnPages}>Run on more pages</Button>
-                <Button size="sm" icon={<Table2 />} disabled={rows.length === 0} onClick={() => void saveTable()}>Save as table</Button>
-            </div>
+            {onUse ? (
+                <Button variant="primary" icon={<Plus />} disabled={ticked.length === 0} onClick={() => onUse(bindingsFor(chosen, ticked))}>
+                    {chosen.kind === 'list' ? `Add the list (${ticked.length} column${ticked.length !== 1 ? 's' : ''})` : `Add ${ticked.length} field${ticked.length !== 1 ? 's' : ''}`}
+                </Button>
+            ) : (
+                <div className="flex flex-wrap gap-2">
+                    <Button variant="primary" size="sm" icon={<Files />} disabled={ticked.length === 0 || !navigate} onClick={runOnPages}>Run on more pages</Button>
+                    <Button size="sm" icon={<Table2 />} disabled={rows.length === 0} onClick={() => void saveTable()}>Save as table</Button>
+                </div>
+            )}
         </Stack>
     );
 }

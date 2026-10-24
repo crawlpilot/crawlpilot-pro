@@ -10,8 +10,9 @@
  */
 import type { DataBinding, JsonStep } from '../../../shared/types/database';
 import { pageSources } from '../extraction/structuredRows';
-import { atomText, isTextAtom } from '../extraction/atoms';
+import { atomText, isTextAtom, readValue } from '../extraction/atoms';
 import { cellText, follow, readKey, stablePath } from '../../../shared/pageJson/path';
+import { applyOps } from '../../../shared/transforms/chain';
 import { entityByType, type JsonSource } from '../../../shared/pageJson/scan';
 
 const MAX_NODES = 200_000;
@@ -76,6 +77,30 @@ function bindScalar(value: string): DataBinding | null {
     return best?.b ?? null;
 }
 
+/** A URL's place, whatever its query (`?w=1920`, `?ts=…`) and whether it is written whole or from `/`. */
+function urlPlace(u: string): string {
+    if (!/^(https?:)?\/\//i.test(u) && !u.startsWith('/')) return '';
+    try { const x = new URL(u, document.baseURI); return (x.host + x.pathname).replace(/\/+$/, '').toLowerCase(); } catch { return ''; }
+}
+
+/** A picked link or image: the same address in the page's data, read whole (`absoluteUrl`). */
+function bindUrl(url: string): DataBinding | null {
+    const want = urlPlace(url);
+    if (!want) return null;
+    let best: { b: DataBinding; score: number } | null = null;
+    for (const src of sourcesOf()) {
+        for (const { value: v, path } of walk(src.data)) {
+            if (typeof v !== 'string' || urlPlace(v) !== want) continue;
+            const stable = stablePath(src.data, path);
+            if (!stable) continue;
+            const score = rank(stable);
+            if (best && best.score <= score) continue;
+            best = { score, b: { kind: src.kind, label: src.label, nth: src.nth, path: stable, as: 'text', ops: [{ op: 'absoluteUrl' }] } };
+        }
+    }
+    return best?.b ?? null;
+}
+
 /** Rows (cells) or items: an array whose items are them, read by the keys that hold each column. */
 function bindRows(rows: string[][], as: 'rows' | 'list'): DataBinding | null {
     const wanted = rows.filter(r => r.length > 0);
@@ -117,9 +142,17 @@ function readItems(list: unknown[], keys: string[]): string[][] {
 }
 
 /** The picked element's value as the Page Extractor reads it, for finding it in the page's data. */
-function shownValue(el: HTMLElement, type: string): string | string[][] | null {
+function shownValue(el: HTMLElement, type: string): string | string[][] | { url: string } | null {
     const text = (e: Element) => ((isTextAtom(e) ? atomText(e) : (e as HTMLElement).innerText) || e.textContent || '').replace(/\s+/g, ' ').trim();
     if (type === 'text') return text(el);
+    if (type === 'image' || type === 'image_url') {
+        const img = el.tagName === 'IMG' ? el : el.querySelector('img');
+        return img ? { url: readValue(img, 'src') ?? '' } : null;
+    }
+    if (type === 'link' || type === 'link_url') {
+        const link = el.closest('a[href]') ?? el.querySelector('a[href]');
+        return link ? { url: readValue(link, 'href') ?? '' } : null;
+    }
     if (type === 'text_array') return Array.from(el.children).map(c => [text(c)]).filter(r => r[0]);
     if (type === 'table') {
         const body = el.querySelector('tbody') ?? el;
@@ -134,10 +167,26 @@ export function bindToData(el: HTMLElement, type: string): DataBinding | null {
         const v = shownValue(el, type);
         if (v === null) return null;
         if (typeof v === 'string') return bindScalar(v);
+        if (!Array.isArray(v)) return bindUrl(v.url);
         return bindRows(v, type === 'table' ? 'rows' : 'list');
     } catch {
         return null;
     }
+}
+
+/** An object of name → value pairs: from items with a name key and a value key, or an object's own text values. */
+function pairsOf(v: unknown, keys: string[] | undefined): Record<string, string> | undefined {
+    const out: Record<string, string> = {};
+    if (Array.isArray(v) && keys?.length === 2) {
+        for (const o of v) {
+            const name = cellText(readKey(o, keys[0]));
+            const value = cellText(readKey(o, keys[1]));
+            if (name && value && !(name in out)) out[name] = value;
+        }
+    } else if (v && typeof v === 'object' && !Array.isArray(v)) {
+        for (const [k, x] of Object.entries(v as Record<string, unknown>)) if (isPrimitive(x) && String(x).trim()) out[k] = String(x).trim();
+    }
+    return Object.keys(out).length ? out : undefined;
 }
 
 /** The bound value on this page: text, a list of strings, or rows of cells; undefined when it isn't there. */
@@ -149,13 +198,21 @@ export function readBinding(b: DataBinding): string | string[] | string[][] | un
     if (!root && !src) return undefined;
     let v = follow(root ?? src!.data, b.path);
     if (b.key !== undefined) v = readKey(v, b.key);
+    if (b.first && Array.isArray(v)) v = v.find(x => cellText(x) !== '');
+    const clean = (text: string) => (b.ops?.length ? applyOps(text, b.ops, document.baseURI) : text);
+    if (b.as === 'object') {
+        const pairs = pairsOf(v, b.keys);
+        return pairs ? JSON.stringify(Object.fromEntries(Object.entries(pairs).map(([k, x]) => [k, clean(x)]))) : undefined;
+    }
     if (b.as === 'text') {
         if (Array.isArray(v) || typeof v === 'boolean') v = cellText(v);
         if (!isPrimitive(v) || String(v).trim() === '') return undefined;
-        return `${b.prefix ?? ''}${typeof v === 'number' && b.prefix && /[\p{Sc}]/u.test(b.prefix) ? v.toFixed(2) : v}${b.suffix ?? ''}`.trim();
+        const text = `${b.prefix ?? ''}${typeof v === 'number' && b.prefix && /[\p{Sc}]/u.test(b.prefix) ? v.toFixed(2) : v}${b.suffix ?? ''}`.trim();
+        return clean(text) || undefined;
     }
+    if (b.key !== undefined && v !== undefined && v !== null && !Array.isArray(v)) v = [v];
     if (!Array.isArray(v) || v.length === 0) return undefined;
-    if (b.key !== undefined) return v.map(cellText).filter(Boolean);
+    if (b.key !== undefined) return v.map(x => clean(cellText(x))).filter(Boolean);
     const rows = readItems(v, b.keys ?? []);
-    return b.as === 'list' ? rows.map(r => r[0]).filter(Boolean) : rows;
+    return b.as === 'list' ? rows.map(r => clean(r[0])).filter(Boolean) : rows.map(r => r.map(clean));
 }

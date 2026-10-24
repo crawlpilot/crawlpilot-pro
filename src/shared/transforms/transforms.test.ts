@@ -105,3 +105,14 @@ describe('detectType', () => {
         expect(detectType(['24.99', '149'], 'Price').type).toBe('money');
     });
 });
+
+describe('applyOps', () => {
+    it('takes HTML out, keeping line breaks, and makes a link whole', async () => {
+        const { applyOps } = await import('./chain');
+        expect(applyOps('<p>Soft &amp; light.</p><ul><li>Pockets</li><li>Cuffs</li></ul>', [{ op: 'stripHtml' }])).toBe('Soft & light.\nPockets\nCuffs');
+        expect(applyOps('/p/shirt', [{ op: 'absoluteUrl' }], 'https://shop.example.com/c/men')).toBe('https://shop.example.com/p/shirt');
+        expect(applyOps('https://cdn.example.com/a.jpg', [{ op: 'absoluteUrl' }], 'https://shop.example.com/')).toBe('https://cdn.example.com/a.jpg');
+        expect(applyOps('//cdn.example.com/a.jpg', [{ op: 'absoluteUrl' }], 'https://shop.example.com/')).toBe('https://cdn.example.com/a.jpg');
+        expect(applyOps('Relaxed fit', [{ op: 'absoluteUrl' }], 'https://shop.example.com/')).toBe('Relaxed fit');
+    });
+});

@@ -21,11 +21,14 @@ export type TransformOp =
     | { op: 'replace'; find: string; with: string; regex?: boolean }
     | { op: 'split'; sep: string; index: number }
     | { op: 'prefix'; text: string }
-    | { op: 'suffix'; text: string };
+    | { op: 'suffix'; text: string }
+    | { op: 'stripHtml' }
+    | { op: 'absoluteUrl' };
 
 export const OP_LABELS: Record<TransformOp['op'], string> = {
     trim: 'Trim', collapse: 'Collapse spaces', lower: 'Lowercase', upper: 'Uppercase', regex: 'Extract (regex)',
     replace: 'Replace', split: 'Split & pick', prefix: 'Add prefix', suffix: 'Add suffix',
+    stripHtml: 'Remove HTML tags', absoluteUrl: 'Full URL',
 };
 
 export interface StepResult {
@@ -42,7 +45,8 @@ export interface ChainResult {
     steps: StepResult[];
 }
 
-function applyOp(v: string, o: TransformOp): string {
+/** `base`: the page's address, for `absoluteUrl` (a relative link made whole). */
+function applyOp(v: string, o: TransformOp, base?: string): string {
     switch (o.op) {
         case 'trim': return v.trim();
         case 'collapse': return v.replace(/\s+/g, ' ').trim();
@@ -68,7 +72,21 @@ function applyOp(v: string, o: TransformOp): string {
         }
         case 'prefix': return o.text + v;
         case 'suffix': return v + o.text;
+        case 'stripHtml':
+            return v.replace(/<(br|\/p|\/li|\/div|\/h\d)\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')
+                .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+                .replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+        case 'absoluteUrl': {
+            // Only what is written as a path (`/p/1`, `//cdn…`, `../a.jpg`): plain text stays text.
+            if (!/^(\/|\.\.?\/)/.test(v)) return v;
+            try { return new URL(v, base).href; } catch { return v; }
+        }
     }
+}
+
+/** Text steps on one value (no typed parse): what a field bound to the page's data runs on what it reads. */
+export function applyOps(v: string, ops: TransformOp[], base?: string): string {
+    return ops.reduce((acc, o) => applyOp(acc, o, base), v);
 }
 
 export function parseAs(type: FieldType, v: string, ctx: { baseUrl?: string; dayFirst?: boolean } = {}): { value: unknown; currency?: string | null } | undefined {
@@ -121,7 +139,7 @@ export function applyChain(raw: unknown, type: FieldType, ops: TransformOp[], ct
     let v = typeof raw === 'string' ? raw : typeof raw === 'object' ? JSON.stringify(raw) : String(raw);
     const steps: StepResult[] = [];
     for (const o of ops) {
-        v = applyOp(v, o);
+        v = applyOp(v, o, ctx.baseUrl);
         steps.push({ label: OP_LABELS[o.op], value: v });
     }
     if (v === '') return { value: null, ok: true, steps };
