@@ -254,6 +254,10 @@ export interface Messages {
     TABLES_SHOW: { payload: { index: number }; reply: Res<{ shown: boolean }> };
     /** What the page publishes as data (Toolkit → Data on this page). */
     PAGE_DATA: { reply: Res<{ sources: PageDataSource[] }> };
+    /** Items and lists in the page's JSON, with their attributes, to pick from (Data on this page → Extract). */
+    PAGE_JSON_SCAN: { reply: Res<{ candidates: import('./pageJson/scan').JsonCandidate[] }> };
+    /** Data bindings read on this page, as a run reads them: the preview. */
+    PAGE_JSON_READ: { payload: { bindings: import('./types/database').DataBinding[] }; reply: Res<{ values: (string | string[] | string[][] | null)[] }> };
     AI_PAGE_VIEW: { payload: { chunkChars: number; maxChunks: number; reveal?: RevealMode }; reply: Res<{ view: PageView }> };
     AI_GROUND: { payload: { requests: GroundRequest[] }; reply: Res<{ results: Grounded[] }> };
     /** Page assistant: checks claims against the last page view's blocks, and shows a cited block. */

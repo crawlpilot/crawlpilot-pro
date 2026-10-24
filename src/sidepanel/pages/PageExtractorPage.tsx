@@ -16,6 +16,7 @@ import type { MetadataExtractOptions } from '../../shared/types/metadata';
 import { pageTabId } from '../hooks/usePageTab';
 import { defaultConcurrency } from '@/shared/utils/concurrency';
 import { takeDetailsDraft, type DetailsDraft } from '../services/detailsDraft';
+import { takePageDataDraft } from '../services/pageDataDraft';
 import { Notice } from '../ui';
 
 interface PageExtractorPageProps {
@@ -55,6 +56,16 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
         setDetails('fields');
         setStep(2);
         void pageTabId().then(id => { if (id && draft.urls[0]) void chrome.tabs.update(id, { url: draft.urls[0] }); });
+    }, []);
+
+    // Opened from "Data on this page": the fields are already picked; the user adds the pages.
+    useEffect(() => {
+        const draft = takePageDataDraft();
+        if (!draft) return;
+        setElements(draft.elements);
+        setListOutput(draft.listOutput);
+        setSelectedUrls([draft.url]);
+        setDetails('fields');
     }, []);
 
     // Track active tab loading state for the YouTube-style loading bar
@@ -168,10 +179,11 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
         if (!viewport) {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (tab?.id) {
+                // A tab scripts can't run in (chrome://, the extension's own pages): the run uses its default size.
                 const [result] = await chrome.scripting.executeScript({
                     target: { tabId: tab.id },
                     func: () => ({ width: window.outerWidth, height: window.outerHeight })
-                });
+                }).catch(() => []);
                 if (result?.result) viewport = result.result as { width: number; height: number };
             }
         }

@@ -11,6 +11,8 @@ import { pickRegion } from '../services/ai-view/pickRegion';
 import { siteContacts } from '../services/contacts/site';
 import { findTables, showTable } from '../services/tables/findTables';
 import { collectPageData } from '../services/structured/pageData';
+import { readBinding, sourcesOf } from '../services/page/dataBinding';
+import { scanPageJson } from '../../shared/pageJson/scan';
 
 const labPicker = new LabPicker();
 
@@ -39,6 +41,8 @@ export function registerToolkitHandlers() {
     on('TABLES_FIND', () => ok({ tables: findTables() }));
     on('TABLES_SHOW', ({ index }) => ok({ shown: showTable(index) }));
     on('PAGE_DATA', () => ok({ sources: collectPageData() }));
+    on('PAGE_JSON_SCAN', () => ok({ candidates: scanPageJson(sourcesOf()) }));
+    on('PAGE_JSON_READ', ({ bindings }) => ok({ values: bindings.map(b => readBinding(b) ?? null) }));
 
     on('NET_LIST', async () => ok(await requestNetEntries()));
     on('NET_CLEAR', () => { clearNetEntries(); return ok(); });

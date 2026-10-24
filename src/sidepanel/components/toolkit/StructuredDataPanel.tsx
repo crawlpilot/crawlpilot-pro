@@ -1,15 +1,17 @@
 /**
- * Data on this page (docs/plans/automation-and-page-tools-plan.md §3.8): JSON-LD, microdata, RDFa, meta
- * tags and app state as trees, with search, checks against schema.org, copy value / path / pointer,
- * and "Use in AI Extract" for an entity.
+ * Data on this page (docs/plans/automation-and-page-tools-plan.md §3.8), two tabs:
+ * - Extract: the items and lists in the page's JSON, their attributes ticked into rows (`page-data/`);
+ * - Inspect: JSON-LD, microdata, RDFa, meta tags and app state as trees, with search, checks against
+ *   schema.org, copy value / path / pointer, and "Use in AI Extract" for an entity.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Database, RotateCw, Search, Sparkles } from 'lucide-react';
-import { Button, Chip, IconButton, Notice, Skeleton, Stack, Text, TextField, cx } from '../../ui';
+import { Button, Chip, IconButton, Notice, Segmented, Skeleton, Stack, Text, TextField, cx } from '../../ui';
 import { useToolkit } from './context';
 import { CopyButton, GroupLabel } from './ui';
 import { checkSources, dottedPath, jsonPointer, schemaLines, searchTree, typeOf, type PageDataSource, type Path } from '../../../shared/structured/pageData';
 import { setExtractDraft } from '../../services/ai/extractDraft';
+import PageDataExtract from './page-data/PageDataExtract';
 
 /** Children shown before "Show more". */
 const PAGE = 100;
@@ -67,7 +69,7 @@ function Node({ name, value, path, depth, source, open, toggle, selected, select
     );
 }
 
-export default function StructuredDataPanel() {
+function InspectData() {
     const { page, send, navigate } = useToolkit();
     const [sources, setSources] = useState<PageDataSource[] | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -171,6 +173,19 @@ export default function StructuredDataPanel() {
                     </div>
                 </div>
             )}
+        </Stack>
+    );
+}
+
+export default function StructuredDataPanel() {
+    const { page } = useToolkit();
+    const [tab, setTab] = useState<'extract' | 'inspect'>('extract');
+    if (!page.web) return <Notice tone="info">Open a web page to see its data.</Notice>;
+    return (
+        <Stack gap={3}>
+            <Segmented tabs fullWidth size="sm" value={tab} onChange={setTab} aria-label="Data on this page"
+                options={[{ value: 'extract', label: 'Extract' }, { value: 'inspect', label: 'Inspect' }]} />
+            {tab === 'extract' ? <PageDataExtract onBrowse={() => setTab('inspect')} /> : <InspectData />}
         </Stack>
     );
 }

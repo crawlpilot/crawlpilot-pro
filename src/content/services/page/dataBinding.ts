@@ -11,26 +11,23 @@
 import type { DataBinding, JsonStep } from '../../../shared/types/database';
 import { pageSources } from '../extraction/structuredRows';
 import { atomText, isTextAtom } from '../extraction/atoms';
+import { cellText, follow, readKey, stablePath } from '../../../shared/pageJson/path';
+import { entityByType, type JsonSource } from '../../../shared/pageJson/scan';
 
 const MAX_NODES = 200_000;
 const MAX_DEPTH = 14;
-/** Keys that are labels of an object in a list ("name": "Btu"), tried first to choose an item. */
-const LABEL_KEYS = ['name', 'label', 'key', 'title', 'displayName', 'attribute', 'attributeName', 'type'];
 
 const norm = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 const isPrimitive = (v: unknown) => typeof v === 'string' || typeof v === 'number';
-/** A key that is one item's own ID, not a name the next page also has. */
-const idLike = (k: string) => /\d{5,}/.test(k) || (k.length >= 8 && /\d/.test(k) && /^[A-Z0-9_-]+$/.test(k));
 
-type Source = ReturnType<typeof pageSources>[number];
-
-function sourcesOf(): { src: Source; nth: number }[] {
+/** The page's JSON sources (recorded API responses left out), each with its place among sources of its name. */
+export function sourcesOf(): JsonSource[] {
     const seen = new Map<string, number>();
     return pageSources().filter(s => s.kind !== 'api').map(src => {
         const key = `${src.kind}|${src.label}`;
         const nth = seen.get(key) ?? 0;
         seen.set(key, nth + 1);
-        return { src, nth };
+        return { kind: src.kind as JsonSource['kind'], label: src.label, nth, data: src.data };
     });
 }
 
@@ -47,46 +44,6 @@ function* walk(data: unknown): Generator<{ value: unknown; path: (string | numbe
     }
 }
 
-function at(data: unknown, path: (string | number)[]): unknown {
-    let cur: any = data;
-    for (const k of path) { if (cur == null) return undefined; cur = cur[k]; }
-    return cur;
-}
-
-/**
- * A raw path made to hold on other pages: each array index becomes "the item whose label is …" when
- * the items have a label key telling them apart; an index stays an index otherwise. Null when a key
- * is an item's own ID.
- */
-function stablePath(data: unknown, raw: (string | number)[]): JsonStep[] | null {
-    const out: JsonStep[] = [];
-    for (let i = 0; i < raw.length; i++) {
-        const k = raw[i];
-        if (typeof k === 'string') {
-            if (idLike(k)) return null;
-            out.push(k);
-            continue;
-        }
-        const list = at(data, raw.slice(0, i)) as unknown[];
-        const item = list[k] as Record<string, unknown> | undefined;
-        const label = item && typeof item === 'object' && !Array.isArray(item)
-            ? LABEL_KEYS.find(key => typeof item[key] === 'string' && list.filter(o => (o as any)?.[key] === item[key]).length === 1)
-            : undefined;
-        out.push(label ? { where: label, is: item![label] as string } : k);
-    }
-    return out;
-}
-
-function follow(data: unknown, path: JsonStep[]): unknown {
-    let cur: any = data;
-    for (const step of path) {
-        if (cur == null) return undefined;
-        if (typeof step === 'object') cur = Array.isArray(cur) ? cur.find(o => o?.[step.where] === step.is) : undefined;
-        else cur = cur[step];
-    }
-    return cur;
-}
-
 /** Fewer positions first (they may differ on another page), then shorter. */
 const rank = (p: JsonStep[]) => p.filter(s => typeof s === 'number').length * 100 + p.length;
 
@@ -101,7 +58,8 @@ function bindScalar(value: string): DataBinding | null {
     if (want.length === 0 || want.length > 300) return null;
     const num = numberIn(value);
     let best: { b: DataBinding; score: number } | null = null;
-    for (const { src, nth } of sourcesOf()) {
+    for (const src of sourcesOf()) {
+        const { nth } = src;
         for (const { value: v, path } of walk(src.data)) {
             if (!isPrimitive(v)) continue;
             const exact = norm(v) === want;
@@ -112,7 +70,7 @@ function bindScalar(value: string): DataBinding | null {
             // A written match beats a bare number; then the path most likely to hold elsewhere.
             const score = (exact ? 0 : 10_000) + rank(stable);
             if (best && best.score <= score) continue;
-            best = { score, b: { kind: src.kind as DataBinding['kind'], label: src.label, nth, path: stable, as: 'text', ...(asNumber ? { prefix: num!.prefix, suffix: num!.suffix } : {}) } };
+            best = { score, b: { kind: src.kind, label: src.label, nth, path: stable, as: 'text', ...(asNumber ? { prefix: num!.prefix, suffix: num!.suffix } : {}) } };
         }
     }
     return best?.b ?? null;
@@ -123,7 +81,8 @@ function bindRows(rows: string[][], as: 'rows' | 'list'): DataBinding | null {
     const wanted = rows.filter(r => r.length > 0);
     if (wanted.length < 2) return null;
     let best: { b: DataBinding; score: number } | null = null;
-    for (const { src, nth } of sourcesOf()) {
+    for (const src of sourcesOf()) {
+        const { nth } = src;
         for (const { value: v, path } of walk(src.data)) {
             if (!Array.isArray(v) || v.length < 2) continue;
             let keys: string[] | null = null;
@@ -147,14 +106,14 @@ function bindRows(rows: string[][], as: 'rows' | 'list'): DataBinding | null {
             if (!stable) continue;
             const score = rank(stable) - matched * 1000;
             if (best && best.score <= score) continue;
-            best = { score, b: { kind: src.kind as DataBinding['kind'], label: src.label, nth, path: stable, as, keys } };
+            best = { score, b: { kind: src.kind, label: src.label, nth, path: stable, as, keys } };
         }
     }
     return best?.b ?? null;
 }
 
 function readItems(list: unknown[], keys: string[]): string[][] {
-    return list.map(o => (keys.length === 0 ? [String(o)] : keys.map(k => String((o as any)?.[k] ?? ''))));
+    return list.map(o => (keys.length === 0 ? [String(o)] : keys.map(k => cellText(readKey(o, k)))));
 }
 
 /** The picked element's value as the Page Extractor reads it, for finding it in the page's data. */
@@ -183,15 +142,20 @@ export function bindToData(el: HTMLElement, type: string): DataBinding | null {
 
 /** The bound value on this page: text, a list of strings, or rows of cells; undefined when it isn't there. */
 export function readBinding(b: DataBinding): string | string[] | string[][] | undefined {
-    const src = sourcesOf().find(s => s.src.kind === b.kind && s.src.label === b.label && s.nth === b.nth)?.src
-        ?? sourcesOf().find(s => s.src.kind === b.kind && s.src.label === b.label)?.src;
-    if (!src) return undefined;
-    const v = follow(src.data, b.path);
+    const sources = sourcesOf();
+    const root = b.type ? entityByType(sources, b.type) : undefined;
+    const src = root ? null : sources.find(s => s.kind === b.kind && s.label === b.label && s.nth === b.nth)
+        ?? sources.find(s => s.kind === b.kind && s.label === b.label);
+    if (!root && !src) return undefined;
+    let v = follow(root ?? src!.data, b.path);
+    if (b.key !== undefined) v = readKey(v, b.key);
     if (b.as === 'text') {
+        if (Array.isArray(v) || typeof v === 'boolean') v = cellText(v);
         if (!isPrimitive(v) || String(v).trim() === '') return undefined;
         return `${b.prefix ?? ''}${typeof v === 'number' && b.prefix && /[\p{Sc}]/u.test(b.prefix) ? v.toFixed(2) : v}${b.suffix ?? ''}`.trim();
     }
     if (!Array.isArray(v) || v.length === 0) return undefined;
+    if (b.key !== undefined) return v.map(cellText).filter(Boolean);
     const rows = readItems(v, b.keys ?? []);
     return b.as === 'list' ? rows.map(r => r[0]).filter(Boolean) : rows;
 }

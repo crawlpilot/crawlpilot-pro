@@ -84,8 +84,18 @@ export class ElementProcessor {
     fromData(def: ElementDefinition): ProcessedElementResult | null {
         if (!def.data || def.action === 'click') return null;
         const v = readBinding(def.data);
-        if (v === undefined) return null;
+        // Picked in "Data on this page": no selectors to fall back on, so missing data is an empty value.
+        const dataOnly = !def.selectors?.length;
+        if (v === undefined && !dataOnly) return null;
         const base = { elementId: def.id, elementName: def.name, success: true, error: null, fromData: true };
+        if (def.data.names) {
+            // A list of the page's items: one row each, its columns the picked attributes.
+            const columns = def.data.names.map((name: string, i: number) => ({ id: `${def.id}_c${i}`, name, type: 'text', elementId: def.id, elementName: def.name }));
+            const rows = Array.isArray(v) ? v as string[][] : [];
+            const items = rows.map(r => Object.fromEntries(columns.map((c: { id: string }, i: number) => [c.id, r[i] ?? ''])));
+            return { ...base, data: { type: 'list', items }, columns };
+        }
+        if (v === undefined) return { ...base, data: { [def.id]: null }, columns: extractColumns(def, { success: true, data: {} }) };
         if (typeof v === 'string') return { ...base, data: { [def.id]: v }, columns: extractColumns(def, { success: true, data: { [def.id]: v } }) };
         if (def.data.as === 'list') return { ...base, data: { [def.id]: v }, columns: extractColumns(def, { success: true, data: { [def.id]: v } }) };
         const rows = v as string[][];
