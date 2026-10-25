@@ -6,6 +6,8 @@ and are merged in here.
 ## One-time setup
 ```sh
 git remote add upstream git@github-work:crawlpilot/crawlpilot.git
+# Pro code must never reach the public repo: pushes to upstream fail.
+git remote set-url --push upstream no-push-to-public-upstream
 ```
 
 ## Each sync
