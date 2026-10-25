@@ -4,7 +4,7 @@
  * and output live next to it, so the digest means "the same fields".
  */
 import type { Chain, Column, DataBinding, ListTarget } from '../../shared/types/database';
-import type { TransformOp } from '../../shared/transforms/chain';
+import type { ProOp } from './ops';
 import type { Shape } from '../../shared/extraction/shape';
 
 export type RecipeKind = 'page' | 'list';
@@ -47,7 +47,7 @@ export interface Field {
     read: string;
     ways: Way[];
     /** Cleanup applied to the winning value, whichever way found it. */
-    ops: TransformOp[];
+    ops: ProOp[];
     /** A list or table field's frozen columns. */
     columns?: Column[];
     /** The kind of value picked; a healed match must be the same kind. */

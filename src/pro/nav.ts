@@ -1,10 +1,10 @@
-/** Which recipe the History screen shows: set before navigating to it (the panel's routes take no params). */
-let historyRecipeId: string | null = null;
+/** Which recipe the History and Editor screens show: set before navigating (the panel's routes take no params). */
+let openedRecipeId: string | null = null;
 
-export function openHistory(recipeId: string) {
-    historyRecipeId = recipeId;
+export function openRecipe(recipeId: string) {
+    openedRecipeId = recipeId;
 }
 
-export function historyRecipe(): string | null {
-    return historyRecipeId;
+export function openedRecipe(): string | null {
+    return openedRecipeId;
 }

@@ -3,7 +3,7 @@
  * added, removed, renamed or changed (type, ways in order, cleanup), clicks, lists, pagination, settings
  * and pages, and whether the output consumers see changed.
  */
-import type { ListRecipeSpec, PageRecipeSpec, PageSource, Version, Way } from './types';
+import type { Field, ListRecipeSpec, PageRecipeSpec, PageSource, Version, Way } from './types';
 import type { Column, ListTarget } from '../../shared/types/database';
 
 export type ChangeKind = 'added' | 'removed' | 'renamed' | 'changed' | 'moved';
@@ -52,37 +52,48 @@ function waysDetails(a: Way[], b: Way[]): string[] {
 
 type Named = { name: string };
 
-/** Matches two lists of named things; a removed and an added one with the same identity are a rename. */
-function matchByName<T extends Named>(a: T[], b: T[], identity: (t: T) => string) {
+/**
+ * Matches two lists of named things by name. A removed and an added one that share an identity are a
+ * rename; identities are tried in order (an id first, then what it reads).
+ */
+function matchByName<T extends Named>(a: T[], b: T[], ...identities: ((t: T) => string | undefined)[]) {
     const removed = a.filter(x => !b.some(y => y.name === x.name));
     const added = b.filter(y => !a.some(x => x.name === y.name));
     const renamed: [T, T][] = [];
-    for (const r of [...removed]) {
-        const twin = added.find(x => identity(x) === identity(r));
-        if (twin) { renamed.push([r, twin]); removed.splice(removed.indexOf(r), 1); added.splice(added.indexOf(twin), 1); }
+    for (const identity of identities) {
+        for (const r of [...removed]) {
+            const key = identity(r);
+            const twin = key === undefined ? undefined : added.find(x => identity(x) === key);
+            if (twin) { renamed.push([r, twin]); removed.splice(removed.indexOf(r), 1); added.splice(added.indexOf(twin), 1); }
+        }
     }
     const both = a.flatMap(x => { const y = b.find(z => z.name === x.name); return y ? [[x, y] as [T, T]] : []; });
     return { removed, added, renamed, both };
 }
 
+function fieldDetails(x: Field, y: Field): string[] {
+    return [
+        ...(x.type !== y.type ? [`type ${x.type} → ${y.type}`] : []),
+        ...(!!x.required !== !!y.required ? [y.required ? 'now required' : 'no longer required'] : []),
+        ...(x.read !== y.read ? [`reads ${x.read} → ${y.read}`] : []),
+        ...waysDetails(x.ways, y.ways),
+        ...(json(x.ops) !== json(y.ops) ? [`cleanup ${x.ops.map(o => o.op).join(', ') || 'none'} → ${y.ops.map(o => o.op).join(', ') || 'none'}`] : []),
+        ...(json(x.columns) !== json(y.columns) ? ['its columns changed'] : []),
+    ];
+}
+
 function pageChanges(a: PageRecipeSpec, b: PageRecipeSpec, prefix = ''): Change[] {
     const fieldsA = a.steps.flatMap(s => s.kind === 'field' ? [s.field] : []);
     const fieldsB = b.steps.flatMap(s => s.kind === 'field' ? [s.field] : []);
-    const m = matchByName(fieldsA, fieldsB, f => json(f.ways));
+    // A field keeps its id across versions; one picked again keeps its ways.
+    const m = matchByName(fieldsA, fieldsB, f => f.id, f => json(f.ways));
     const changes: Change[] = [
         ...m.added.map(f => ({ kind: 'added' as const, subject: `${prefix}field ${f.name}`, details: [] })),
         ...m.removed.map(f => ({ kind: 'removed' as const, subject: `${prefix}field ${f.name}`, details: [] })),
-        ...m.renamed.map(([x, y]) => ({ kind: 'renamed' as const, subject: `${prefix}field ${x.name} → ${y.name}`, details: [] })),
+        ...m.renamed.map(([x, y]) => ({ kind: 'renamed' as const, subject: `${prefix}field ${x.name} → ${y.name}`, details: fieldDetails(x, y) })),
     ];
     for (const [x, y] of m.both) {
-        const details = [
-            ...(x.type !== y.type ? [`type ${x.type} → ${y.type}`] : []),
-            ...(!!x.required !== !!y.required ? [y.required ? 'now required' : 'no longer required'] : []),
-            ...(x.read !== y.read ? [`reads ${x.read} → ${y.read}`] : []),
-            ...waysDetails(x.ways, y.ways),
-            ...(json(x.ops) !== json(y.ops) ? [`cleanup ${x.ops.map(o => o.op).join(', ') || 'none'} → ${y.ops.map(o => o.op).join(', ') || 'none'}`] : []),
-            ...(json(x.columns) !== json(y.columns) ? ['its columns changed'] : []),
-        ];
+        const details = fieldDetails(x, y);
         if (details.length) changes.push({ kind: 'changed', subject: `${prefix}field ${y.name}`, details });
     }
     const clicksA = a.steps.flatMap(s => s.kind === 'click' ? [json(s.click.ways)] : []);
@@ -112,7 +123,7 @@ function listChanges(a: ListRecipeSpec, b: ListRecipeSpec): Change[] {
             ...(x.mode !== y.mode ? [`read as ${x.mode} → ${y.mode}`] : []),
         ];
         if (details.length) changes.push({ kind: 'changed', subject, details });
-        const m = matchByName<Column>(x.fields, y.fields, c => c.selector ?? c.id);
+        const m = matchByName<Column>(x.fields, y.fields, c => c.id, c => c.selector);
         changes.push(
             ...m.added.map(c => ({ kind: 'added' as const, subject: `${subject} field ${c.name}`, details: [] })),
             ...m.removed.map(c => ({ kind: 'removed' as const, subject: `${subject} field ${c.name}`, details: [] })),

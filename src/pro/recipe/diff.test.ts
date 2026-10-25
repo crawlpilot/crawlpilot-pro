@@ -40,6 +40,16 @@ describe('diffVersions, page recipes', () => {
         expect(d.outputChanged).toBe(true);
     });
 
+    it('knows a renamed field by its id, and says what else changed in it', async () => {
+        const b = structuredClone(base);
+        const origin = field(b, 'origin');
+        origin.name = 'country';
+        origin.ways.push({ kind: 'selector', selector: '.country' });
+        const d = diffVersions(await version(1, base), await version(2, b));
+        expect(d.changes).toContainEqual({ kind: 'renamed', subject: 'field origin → country', details: ['way added: .country'] });
+        expect(d.changes.filter(c => c.kind === 'added' || c.kind === 'removed')).toEqual([]);
+    });
+
     it('notices reordered ways and steps, settings and pages', async () => {
         const b = structuredClone(base);
         field(b, 'highlights').ways.reverse();

@@ -91,7 +91,7 @@ export interface Field {
   type: FieldType;            // text | number | integer | money | date | url | boolean | enum | list | object | table
   required?: boolean;
   ways: Way[];                // ordered fallbacks; first that yields a value wins
-  ops: TransformOp[];         // cleanup, applied to the winning raw value
+  ops: ProOp[];               // cleanup on the winning value: the public TransformOps plus splitList, toObject (recipe/ops.ts)
   checks?: Check[];           // slice 3
   shape?: Shape;              // kept from upstream, used by healing
 }
@@ -262,7 +262,7 @@ Every hook is a few lines and is listed in `docs/UPSTREAM.md`.
 ## 10. UI
 Screens are routes in the side panel, built from the upstream UI kit (`src/sidepanel/ui`) and its tokens.
 - **Recipes (home):** a search box, filters (site, label, health), and a row per recipe showing name, site icon, `live vN` / `latest vN` badges, last test, and health. Actions: Open, New from this page, Import.
-- **Editor:** a fields panel (name, type, required, ways with flash and test, ops chips from `ColumnCleanDialog`), steps in order, pages, settings, a sticky bar with the autosave state, Test, and Save version.
+- **Editor** (`pages/EditorPage.tsx`, built): a page recipe's latest version without the page. Each field: name, type, required, move, remove; its selectors moved, removed or added (page data stays first); cleanup steps (`recipe/ops.ts`, own editor rather than `ColumnCleanDialog`, which needs table values) tried on a typed value. A sticky bar lists the changes (the version diff) and saves the next version. Re-pick on page opens the extractor. List recipes are edited by re-picking. Still to come: flash and test each way on the page, autosave.
 - **History:** versions newest first with notes and labels; select two to compare with the diff; Restore; Move label (with a reason).
 - **Test panel:** This page / N pages, a grid of fields × pages, and a trace for each cell.
 - **Submit dialog:** version, pages, schedule, the gate's reasons, Confirm.

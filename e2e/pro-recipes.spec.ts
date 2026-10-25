@@ -54,6 +54,7 @@ test('edit: a version opens in the Page Extractor; unchanged is refused, an edit
     };
     await ui.getByTestId('recipe-import').setInputFiles({ name: 'local.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
     await ui.getByRole('button', { name: 'Edit Local product' }).click();
+    await ui.getByRole('banner').getByRole('button', { name: 'Re-pick on page' }).click();
 
     await expect(ui.getByRole('button', { name: 'Remove' })).toHaveCount(2);
     await ui.getByRole('button', { name: 'Next: pages' }).click();
@@ -137,6 +138,8 @@ test('build new: a list picked on the page saves as version 1, then opens again 
 
     await ui.getByRole('button', { name: 'Back to recipes' }).click();
     await ui.getByRole('button', { name: 'Edit Local list' }).click();
+    await expect(ui.getByText("A list recipe's fields are edited by picking the list again.")).toBeVisible();
+    await ui.getByRole('banner').getByRole('button', { name: 'Re-pick on page' }).click();
     await expect(ui.getByRole('button', { name: 'Title' })).toBeVisible();
     await ui.getByRole('button', { name: 'Change pages & settings' }).click();
     await ui.getByRole('button', { name: 'Continue' }).click();
@@ -145,4 +148,59 @@ test('build new: a list picked on the page saves as version 1, then opens again 
     await expect(ui.getByText('Nothing changed since the version this was edited from')).toBeVisible();
     await ui.close();
     await page.close();
+});
+
+test('fields panel: rename, type, required, a selector and cleanup, saved as the next version', async ({ panel }) => {
+    const ui = panel.page;
+    await ui.setViewportSize({ width: 400, height: 900 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html`);
+    await proClear(ui);
+    await ui.reload();
+    const file = {
+        name: 'Shop product', site: 'shop.test', built_on: 'https://shop.test/p/1',
+        spec: {
+            kind: 'page', settings: {}, elements: [
+                { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] },
+                { id: 'b', name: 'specs', action: 'extract', type: 'text', selectors: ['.specs'] },
+            ],
+        },
+    };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'shop.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await ui.getByRole('button', { name: 'Edit Shop product' }).click();
+    await expect(ui.getByTestId('pro-field')).toHaveCount(2);
+    await expect(ui.getByText('No changes yet.')).toBeVisible();
+
+    const title = ui.getByTestId('pro-field').first();
+    await title.getByRole('button').first().click();
+    await title.getByLabel('Name').fill('name');
+    await title.getByLabel('Required').check();
+    await title.getByLabel('Add a selector').fill('h1.product-title');
+    await title.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(title).toContainText('h1.product-title');
+
+    const specs = ui.getByTestId('pro-field').nth(1);
+    await specs.getByRole('button').first().click();
+    await specs.getByLabel('Type').selectOption('object');
+    await specs.getByLabel('Add a step').selectOption('toObject');
+    await specs.getByLabel('Try on a value').fill('Fit: Relaxed\\nLength: Regular');
+    await expect(specs.getByTestId('pro-try-result')).toHaveText('→ {"Fit":"Relaxed","Length":"Regular"}');
+
+    await expect(ui.getByTestId('pro-editor-changes')).toHaveText('2 changes: field title → name, field specs');
+    if (process.env.UX_SHOTS) await ui.screenshot({ path: `${process.env.UX_SHOTS}/pro-editor.png` });
+    await ui.getByLabel('What changed').fill('typed fields');
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+
+    // Saved: History shows v2 and what it changed.
+    await expect(ui.getByTestId('pro-version')).toHaveCount(2);
+    const diff = ui.getByTestId('pro-diff');
+    await expect(diff).toContainText('field title → name');
+    await expect(diff).toContainText('now required');
+    await expect(diff).toContainText('way added: h1.product-title');
+    await expect(diff).toContainText('type text → object');
+    await expect(diff).toContainText('cleanup none → toObject');
+    const [v2] = (await proStore(ui, 'versions')).filter(v => v.version === 2);
+    const fields = v2.spec.steps.map((s: any) => s.field);
+    expect(fields[0]).toMatchObject({ name: 'name', required: true });
+    expect(fields[0].ways.map((w: any) => w.selector)).toEqual(['h1', 'h1.product-title']);
+    expect(fields[1]).toMatchObject({ type: 'object', ops: [{ op: 'toObject', sep: ':' }] });
 });

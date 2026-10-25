@@ -12,7 +12,7 @@ import zara from '../../shared/samples/recipes/zara-product.json';
 import { pro } from '../db';
 import { writeRecipeFile } from '../recipe/file';
 import { LOCAL_AUTHOR, setProEdit } from '../edit';
-import { openHistory } from '../nav';
+import { openRecipe } from '../nav';
 import type { ProRecipe, RecipeKind } from '../recipe/types';
 
 interface Props {
@@ -65,12 +65,10 @@ export default function RecipesPage({ onNavigate }: Props) {
         onNavigate(extractor(kind));
     };
 
-    /** Opens the latest version in its extractor; Save version there writes the next one. */
-    const editRecipe = async (r: ProRecipe) => {
-        const version = await pro.versions.get(r.id, r.latestVersion);
-        if (!version) return;
-        setProEdit({ kind: r.kind, recipe: r, version });
-        onNavigate(extractor(r.kind));
+    /** Opens the latest version in the fields panel (re-picking on the page is one click from there). */
+    const editRecipe = (r: ProRecipe) => {
+        openRecipe(r.id);
+        onNavigate('pro-editor');
     };
 
     const exportRecipe = async (r: ProRecipe) => {
@@ -115,7 +113,7 @@ export default function RecipesPage({ onNavigate }: Props) {
                                 {r.labels.test && <Chip tone="warning">test v{r.labels.test}</Chip>}
                             </div>
                         </div>
-                        <IconButton label={`History of ${r.name}`} onClick={() => { openHistory(r.id); onNavigate('pro-history'); }}><History /></IconButton>
+                        <IconButton label={`History of ${r.name}`} onClick={() => { openRecipe(r.id); onNavigate('pro-history'); }}><History /></IconButton>
                         <IconButton label={`Edit ${r.name}`} onClick={() => editRecipe(r)}><Pencil /></IconButton>
                         <IconButton label={`Export ${r.name}`} onClick={() => exportRecipe(r)}><Download /></IconButton>
                     </div>

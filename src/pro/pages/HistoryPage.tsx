@@ -9,8 +9,8 @@ import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Card, Chip, Dialog, Notice, Select, Text, TextField, type ChipTone } from '../../sidepanel/ui';
 import { pro } from '../db';
 import { diffVersions, type ChangeKind } from '../recipe/diff';
-import { LOCAL_AUTHOR, setProEdit } from '../edit';
-import { historyRecipe } from '../nav';
+import { LOCAL_AUTHOR } from '../edit';
+import { openedRecipe } from '../nav';
 import type { LabelMove, LabelName, ProRecipe, Version } from '../recipe/types';
 
 interface Props {
@@ -27,7 +27,7 @@ function LabelChips({ recipe, version }: { recipe: ProRecipe; version: number })
 }
 
 export default function HistoryPage({ onBack, onNavigate }: Props) {
-    const [recipeId] = useState(historyRecipe);
+    const [recipeId] = useState(openedRecipe);
     const [recipe, setRecipe] = useState<ProRecipe | null>(null);
     const [versions, setVersions] = useState<Version[]>([]);
     const [log, setLog] = useState<LabelMove[]>([]);
@@ -63,11 +63,6 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
 
     const options = versions.map(v => ({ value: v.version, label: `v${v.version}${v.note ? ` · ${v.note.slice(0, 30)}` : ''}` }));
 
-    const edit = (version: Version) => {
-        setProEdit({ kind: recipe.kind, recipe, version });
-        onNavigate(recipe.kind === 'page' ? 'page-extractor' : 'list-extractor');
-    };
-
     const restore = async (version: number) => {
         setError(null);
         try {
@@ -91,7 +86,7 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
                 title={recipe.name}
                 subtitle={`${recipe.site} · ${recipe.kind} · ${versions.length} version${versions.length === 1 ? '' : 's'}`}
                 onBack={onBack}
-                actions={<Button size="sm" variant="primary" icon={<Pencil />} onClick={() => edit(versions[0])} disabled={!versions[0]}>Edit latest</Button>}
+                actions={<Button size="sm" variant="primary" icon={<Pencil />} onClick={() => onNavigate('pro-editor')} disabled={!versions[0]}>Edit fields</Button>}
             />
             <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
                 {error && <Notice tone="danger" onClose={() => setError(null)}>{error}</Notice>}
