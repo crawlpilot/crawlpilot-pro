@@ -9,6 +9,7 @@ import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Card, Chip, Dialog, Notice, Select, Text, TextField, type ChipTone } from '../../sidepanel/ui';
 import { pro } from '../db';
 import { diffVersions, type ChangeKind } from '../recipe/diff';
+import { readiness, type Readiness } from '../recipe/ready';
 import { LOCAL_AUTHOR } from '../edit';
 import { openedRecipe } from '../nav';
 import type { LabelMove, LabelName, ProRecipe, Version } from '../recipe/types';
@@ -31,6 +32,7 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
     const [recipe, setRecipe] = useState<ProRecipe | null>(null);
     const [versions, setVersions] = useState<Version[]>([]);
     const [log, setLog] = useState<LabelMove[]>([]);
+    const [ready, setReady] = useState<Map<number, Readiness>>(new Map());
     const [pair, setPair] = useState<{ from: number; to: number } | null>(null);
     const [labelling, setLabelling] = useState<{ label: Exclude<LabelName, 'latest'>; version: number } | null>(null);
     const [reason, setReason] = useState('');
@@ -42,6 +44,8 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
         setRecipe(r ?? null);
         setVersions(vs);
         setLog(moves);
+        // Each version is ready by the newest multi-page test of its spec.
+        setReady(new Map(await Promise.all(vs.map(async v => [v.version, readiness((await pro.tests.latest(recipeId, v.digest, 'pages'))?.results)] as const))));
         // What the newest version changed, until another pair is chosen.
         setPair(p => p ?? (vs.length > 1 ? { from: vs[1].version, to: vs[0].version } : null));
     }, [recipeId]);
@@ -119,6 +123,9 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
                             <LabelChips recipe={recipe} version={v.version} />
                         </div>
                         {v.note && <Text size="small">{v.note}</Text>}
+                        {ready.get(v.version) && (ready.get(v.version)!.ready
+                            ? <div><Chip tone="success">ready to submit</Chip></div>
+                            : <Text size="caption" tone="warning" data-testid="pro-not-ready">Not ready: {ready.get(v.version)!.reasons.join(' ')}</Text>)}
                         <Text size="caption" tone="faint">{when(v.createdAt)} · {v.author}{v.parentVersion ? ` · from v${v.parentVersion}` : ''}</Text>
                         <div className="flex flex-wrap gap-1">
                             {versions[i + 1] && <Button size="sm" variant="ghost" icon={<GitCompare />} onClick={() => setPair({ from: v.parentVersion ?? versions[i + 1].version, to: v.version })}>Changes</Button>}

@@ -5,7 +5,7 @@
  * fields on the page stays in the Page Extractor (Re-pick).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Crosshair, FlaskConical, MousePointerClick, Save, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crosshair, FlaskConical, Layers, MousePointerClick, Plus, Save, Trash2, X } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Chip, Disclosure, IconButton, Notice, Select, Switch, Text, TextArea, TextField } from '../../sidepanel/ui';
 import { pro } from '../db';
@@ -15,10 +15,13 @@ import { usePageTab } from '../../sidepanel/hooks/usePageTab';
 import { specDigest } from '../recipe/canonical';
 import { passed } from '../db/tests';
 import { summarize, testOnTab, type FieldResult, type PageResult } from '../runner/testPage';
+import { testOnPages, type PagesProgress } from '../runner/testPages';
+import { TestGrid } from './TestGrid';
+import { readiness } from '../recipe/ready';
 import { diffVersions, wayLabel } from '../recipe/diff';
 import * as edits from '../recipe/editSpec';
 import { applyProOps, NEW_OP, opSummary, PRO_OP_LABELS, type ProOp } from '../recipe/ops';
-import type { Click, Field, FieldType, PageRecipeSpec, ProRecipe, Version } from '../recipe/types';
+import type { Click, Field, FieldType, PageRecipeSpec, ProRecipe, Sample, Version } from '../recipe/types';
 
 interface Props {
     onBack: () => void;
@@ -34,6 +37,11 @@ function ResultChip({ result }: { result?: FieldResult }) {
     if (!result.ok) return <Chip tone="danger">{result.problem}</Chip>;
     return result.filled ? <Chip tone="success">found</Chip> : <Chip>empty</Chip>;
 }
+
+/** Sample pages a multi-page test reads, at most. */
+const TEST_PAGES = 5;
+
+const shortUrl = (url: string) => { try { const u = new URL(url); return u.host + u.pathname + u.search; } catch { return url; } };
 
 const TYPES: FieldType[] = ['text', 'number', 'integer', 'money', 'date', 'url', 'boolean', 'enum', 'list', 'object', 'table'];
 
@@ -109,6 +117,9 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     const page = usePageTab();
     const [test, setTest] = useState<{ result: PageResult; spec: string } | null>(null);
     const [testing, setTesting] = useState(false);
+    const [samples, setSamples] = useState<Sample[]>([]);
+    const [pagesTest, setPagesTest] = useState<{ results: PageResult[]; spec: string } | null>(null);
+    const [progress, setProgress] = useState<PagesProgress | null>(null);
 
     useEffect(() => {
         if (!recipeId) return;
@@ -118,6 +129,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
             setRecipe(r ?? null);
             setBase(v ?? null);
             if (v?.spec.kind === 'page') setSpec(v.spec);
+            if (r) setSamples(await pro.samples.list(r.id));
         })();
     }, [recipeId]);
 
@@ -139,6 +151,29 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(spec), kind: 'page', results: [result], passed: passed([result]), at: Date.now() });
         setTesting(false);
     };
+    const addSample = async (url: string) => {
+        if (!recipe) return;
+        await pro.samples.add(recipe.id, [url]);
+        setSamples(await pro.samples.list(recipe.id));
+    };
+    const removeSample = async (url: string) => {
+        if (!recipe) return;
+        await pro.samples.remove(recipe.id, url);
+        setSamples(await pro.samples.list(recipe.id));
+    };
+
+    /** Runs the spec on the first sample pages, in background tabs, and keeps the run for its digest. */
+    const runPagesTest = async () => {
+        if (!recipe || !base || !spec) return;
+        const tested = spec;
+        const results = await testOnPages(samples.slice(0, TEST_PAGES).map(x => x.url), tested, base.settings, setProgress);
+        setProgress(null);
+        setPagesTest({ results, spec: JSON.stringify(tested) });
+        await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(tested), kind: 'pages', results, passed: passed(results), at: Date.now() });
+    };
+    const pagesStale = !!pagesTest && pagesTest.spec !== JSON.stringify(spec);
+    const ready = pagesTest && !pagesStale ? readiness(pagesTest.results) : null;
+
     const results = new Map((test?.result.fields ?? []).map(f => [f.fieldId, f]));
     const stale = !!test && test.spec !== JSON.stringify(spec);
 
@@ -221,6 +256,33 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                         {summarize(test.result).total - summarize(test.result).ok ? `${summarize(test.result).total - summarize(test.result).ok} with a problem. ` : ''}
                         {stale ? 'You changed the recipe since this test.' : ''}
                     </Notice></div>)}
+                <div data-testid="pro-samples"><Disclosure icon={<Layers />} defaultOpen
+                    summary={`Sample pages (${samples.length})`}
+                    meta={pagesTest && <Chip tone={passed(pagesTest.results) ? 'success' : 'warning'}>{passed(pagesTest.results) ? 'passed' : 'problems'} on {pagesTest.results.length}</Chip>}>
+                    <div className="flex flex-col gap-2 pt-2">
+                        {samples.map((x, i) => (
+                            <div key={x.url} className="flex items-center gap-1.5">
+                                <Text size="caption" mono className="min-w-0 flex-1 truncate" title={x.url}>{i + 1}. {shortUrl(x.url)}</Text>
+                                <IconButton size="sm" label={`Remove sample ${i + 1}`} onClick={() => removeSample(x.url)}><X /></IconButton>
+                            </div>
+                        ))}
+                        <div className="flex flex-wrap gap-1.5">
+                            <Button size="sm" variant="ghost" icon={<Plus />} onClick={() => addSample(page.url)}
+                                disabled={!page.web || samples.some(x => x.url === page.url)}>Add this page</Button>
+                            <Button size="sm" variant="secondary" icon={<FlaskConical />} loading={!!progress}
+                                disabled={samples.length === 0 || blockers.length > 0 || !!progress} onClick={runPagesTest}>
+                                Test on {Math.min(samples.length, TEST_PAGES)} page{Math.min(samples.length, TEST_PAGES) === 1 ? '' : 's'}
+                            </Button>
+                        </div>
+                        {progress && <Text size="caption" tone="muted">Testing page {progress.done + 1} of {progress.total}…</Text>}
+                        {pagesStale && <Text size="caption" tone="warning">You changed the recipe since this test.</Text>}
+                        {pagesTest && <TestGrid results={pagesTest.results}
+                            fields={spec.steps.flatMap(st => st.kind === 'field' ? [{ id: st.field.id, name: st.field.name }] : [])} />}
+                        {ready && (ready.ready
+                            ? <Text size="caption" tone="success" data-testid="pro-readiness">Ready to submit{changes.length ? ' once saved' : ''}.</Text>
+                            : <Text size="caption" tone="warning" data-testid="pro-readiness">Not ready: {ready.reasons.join(' ')}</Text>)}
+                    </div>
+                </Disclosure></div>
                 <Text size="caption" tone="faint">Steps run in this order: a click, then the fields it reveals.</Text>
                 {spec.steps.map((s, i) => s.kind === 'field' ? fieldCard(s.field, i) : clickRow(s.click, i))}
             </div>

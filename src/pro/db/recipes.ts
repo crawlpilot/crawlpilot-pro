@@ -68,3 +68,9 @@ export async function listSamples(recipeId: string): Promise<Sample[]> {
     const samples = await req<Sample[]>(tx.objectStore(STORES.samples).index('recipeId').getAll(recipeId));
     return samples.sort((a, b) => a.addedAt - b.addedAt);
 }
+
+export async function removeSample(recipeId: string, url: string): Promise<void> {
+    const tx = await proTransaction(STORES.samples, 'readwrite');
+    tx.objectStore(STORES.samples).delete([recipeId, url]);
+    await done(tx);
+}

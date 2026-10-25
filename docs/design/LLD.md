@@ -209,9 +209,10 @@ The output is `{ fields: { added, removed, renamed, changed: {name, parts[]}[] }
 4. Run checks (§7.3), store a `TestRun` of kind `page`, and highlight each field on the page (`SHOW_SELECTION_HIGHLIGHTS`).
 
 ### 7.2 Test on N pages
-- The service worker takes the first N sample URLs (5 by default) and opens them through `TabPool` with the version's `settings` (pace, wait).
-- On each page it calls `extractPage` the same way as upstream `bulkJob`, but writes no job, table or rows. It reports progress to the side panel.
-- It stores one `TestRun` of kind `pages`, and can be cancelled. Tabs are closed when it finishes.
+- Built (`runner/testPages.ts`). It runs from the side panel, not the service worker, so no upstream background hook is needed.
+- It reads the recipe's first 5 sample pages, one at a time and the recipe's pace apart. Each page opens in a background tab (`active: false`); Pro waits for the load and for the content script to answer, runs the page test (§7.1), and closes the tab.
+- It writes no job, table or rows: one `TestRun` of kind `pages`, under the tested spec's digest.
+- Still to do: cancel, and clicks in tabs that never become visible (the public runner's parked window).
 
 ### 7.3 Checks
 - **Value checks** (slice 3): `notEmpty`, `pattern`, `range`, `oneOf`, `uniqueInList`, `compare(a op b)` and `waysAgree`. Each has a severity of `warn` or `error`.

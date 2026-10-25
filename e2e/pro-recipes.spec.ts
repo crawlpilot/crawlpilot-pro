@@ -256,3 +256,70 @@ test('test on this page: each field found, typed and checked; the run is kept fo
     await ui.close();
     await page.close();
 });
+
+test('test on sample pages: background tabs, a grid of fields × pages, the run kept', async ({ panel, ext, origin }) => {
+    test.setTimeout(90_000);
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 900 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+
+    const file = {
+        name: 'Any product', site: '127.0.0.1', built_on: `${origin}/site/json-shop.html`, checked_on: [`${origin}/site/article.html`],
+        spec: {
+            kind: 'page', settings: { requestDelay: 100 }, elements: [
+                { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] },
+                { id: 'b', name: 'price', action: 'extract', type: 'text', selectors: ['.price'] },
+                { id: 'c', name: 'code', action: 'extract', type: 'text', selectors: [], data: { kind: 'ld', label: 'JSON-LD', nth: 0, type: 'ProductGroup', path: [], as: 'text', key: 'productGroupID' } },
+            ],
+        },
+    };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'p.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await ui.getByRole('button', { name: 'Edit Any product' }).click();
+
+    // The imported pages are the samples; the open page joins them.
+    const samples = ui.getByTestId('pro-samples');
+    await expect(samples).toContainText('Sample pages (2)');
+    await samples.getByRole('button', { name: 'Add this page' }).click();
+    await expect(samples).toContainText('Sample pages (3)');
+    await expect(samples.getByRole('button', { name: 'Add this page' })).toBeDisabled();
+
+    const before = (await ext.pages()).length;
+    await samples.getByRole('button', { name: 'Test on 3 pages' }).click();
+    const grid = samples.getByTestId('pro-test-grid');
+    await expect(grid).toBeVisible({ timeout: 60_000 });
+    expect((await ext.pages()).length).toBe(before);
+    const row = (name: string) => grid.locator('tr', { has: ui.getByRole('cell', { name, exact: true }) });
+    await expect(row('title')).toContainText('3/3');
+    await expect(row('price')).toContainText('2/3');
+    await expect(row('code')).toContainText('1/3');
+    await expect(samples).toContainText('passed on 3');
+
+    await grid.getByRole('button', { name: 'code on page 3: found' }).click();
+    await expect(samples.getByTestId('pro-grid-cell')).toContainText('LX-2041');
+
+    const runs = await proStore(ui, 'tests');
+    expect(runs.find((r: any) => r.kind === 'pages')).toMatchObject({ passed: true });
+    expect(runs.find((r: any) => r.kind === 'pages').results.map((r: any) => new URL(r.url).pathname))
+        .toEqual(['/site/json-shop.html', '/site/article.html', '/site/json-product.html']);
+    if (process.env.UX_SHOTS) await ui.screenshot({ path: `${process.env.UX_SHOTS}/pro-grid.png` });
+    await expect(samples.getByTestId('pro-readiness')).toHaveText('Ready to submit.');
+
+    // code required: empty on two pages, so the next version is not ready; the tested v1 is.
+    const code = ui.getByTestId('pro-field').filter({ has: ui.getByText('code', { exact: true }) });
+    await code.getByRole('button').first().click();
+    await code.getByLabel('Required').check();
+    await expect(samples.getByTestId('pro-readiness')).toHaveCount(0);
+    await samples.getByRole('button', { name: 'Test on 3 pages' }).click();
+    await expect(samples.getByTestId('pro-readiness')).toHaveText('Not ready: code: required, but empty on 2 pages.', { timeout: 60_000 });
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    await expect(ui.getByTestId('pro-version')).toHaveCount(2);
+    await expect(ui.getByTestId('pro-version').first()).toContainText('Not ready: code: required, but empty on 2 pages.');
+    await expect(ui.getByTestId('pro-version').nth(1)).toContainText('ready to submit');
+    await ui.close();
+    await page.close();
+});
