@@ -25,6 +25,16 @@ export async function listRecipes(): Promise<ProRecipe[]> {
     return all.sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+/** The backend's id for the recipe, set on the first submit. */
+export async function setRemoteId(id: string, remoteId: string): Promise<void> {
+    const tx = await proTransaction(STORES.recipes, 'readwrite');
+    const store = tx.objectStore(STORES.recipes);
+    const recipe = await req<ProRecipe | undefined>(store.get(id));
+    if (!recipe) throw new Error(`No recipe ${id}`);
+    store.put({ ...recipe, remoteId });
+    await done(tx);
+}
+
 export async function renameRecipe(id: string, name: string): Promise<void> {
     const tx = await proTransaction(STORES.recipes, 'readwrite');
     const store = tx.objectStore(STORES.recipes);

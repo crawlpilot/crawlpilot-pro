@@ -69,6 +69,19 @@ export async function listVersions(recipeId: string): Promise<Version[]> {
     return all.sort((a, b) => b.version - a.version);
 }
 
+/** Marks a version submitted, once: the only change a saved version ever takes. */
+export async function markSubmitted(recipeId: string, version: number, at = Date.now()): Promise<Version> {
+    const tx = await proTransaction(STORES.versions, 'readwrite');
+    const store = tx.objectStore(STORES.versions);
+    const v = await req<Version | undefined>(store.get([recipeId, version]));
+    if (!v) { tx.abort(); throw new Error(`No version ${version}`); }
+    if (v.submittedAt) { await done(tx); return v; }
+    const submitted = { ...v, submittedAt: at };
+    store.put(submitted);
+    await done(tx);
+    return submitted;
+}
+
 /** An older version saved again as the newest: history is only ever added to. */
 export async function restoreVersion(recipeId: string, version: number, author: string): Promise<Version> {
     const old = await getVersion(recipeId, version);

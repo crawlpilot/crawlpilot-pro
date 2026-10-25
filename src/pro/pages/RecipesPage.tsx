@@ -4,7 +4,7 @@
  * Internal tool, so the text is English only.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BookOpen, Download, FileText, Hammer, History, List, Pencil, Upload } from 'lucide-react';
+import { BookOpen, Download, FileText, Hammer, History, List, Pencil, Server, Upload } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Chip, Dialog, EmptyState, IconButton, Notice, Text } from '../../sidepanel/ui';
 import uniqlo from '../../shared/samples/recipes/uniqlo-product.json';
@@ -13,6 +13,7 @@ import { pro } from '../db';
 import { writeRecipeFile } from '../recipe/file';
 import { LOCAL_AUTHOR, setProEdit } from '../edit';
 import { openRecipe } from '../nav';
+import { BackendDialog } from './BackendDialog';
 import type { ProRecipe, RecipeKind } from '../recipe/types';
 
 interface Props {
@@ -32,6 +33,7 @@ export default function RecipesPage({ onNavigate }: Props) {
     const [recipes, setRecipes] = useState<ProRecipe[] | null>(null);
     const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
     const [choosing, setChoosing] = useState(false);
+    const [backend, setBackend] = useState(false);
     const input = useRef<HTMLInputElement>(null);
 
     const load = useCallback(() => pro.recipes.list().then(setRecipes), []);
@@ -82,10 +84,12 @@ export default function RecipesPage({ onNavigate }: Props) {
                 title="Recipes"
                 subtitle="Versioned crawl recipes"
                 actions={<>
+                    <IconButton label="Backend" onClick={() => setBackend(true)}><Server /></IconButton>
                     <Button size="sm" variant="ghost" icon={<Upload />} onClick={() => input.current?.click()}>Import</Button>
                     <Button size="sm" variant="primary" icon={<Hammer />} onClick={() => setChoosing(true)}>Build new</Button>
                 </>}
             />
+            <BackendDialog open={backend} onClose={() => setBackend(false)} />
             <Dialog open={choosing} onClose={() => setChoosing(false)} size="sm" title="Build a new recipe" description="Pick it on the open page. Its last step saves version 1; nothing runs.">
                 <div className="flex flex-col gap-2">
                     <Button variant="secondary" icon={<FileText />} onClick={() => buildNew('page')}>Page recipe: the same fields from each page</Button>

@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { test, expect } from './harness';
-import { proClear, proStore } from './pro';
+import { proClear, proStore, serveMockBackend } from './pro';
 
 test('recipes: samples, re-import and export', async ({ panel }) => {
     const ui = panel.page;
@@ -377,6 +377,81 @@ test('output contract: pasted, mapped, checked on the tested pages, and part of 
     await expect(ui.getByTestId('pro-version').first()).toContainText('Contract: "brand" is filled on 33% of pages');
     const [v2] = (await proStore(ui, 'versions')).filter(v => v.version === 2);
     expect(v2.output).toMatchObject({ contract: { label: 'Pasted schema' }, mapping: { brand: 'maker' } });
+    await ui.close();
+    await page.close();
+});
+
+test('submit: a ready version goes to the backend, becomes live, and its crawl is followed', async ({ panel, ext, origin }) => {
+    test.setTimeout(90_000);
+    const mock = await serveMockBackend();
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 900 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+
+    // The backend: a wrong token first.
+    await ui.getByRole('button', { name: 'Backend' }).click();
+    await ui.getByLabel('Address').fill(`${mock.origin}/`);
+    await ui.getByLabel('Access token').fill('wrong');
+    await ui.getByRole('button', { name: 'Save' }).click();
+
+    const file = {
+        name: 'Submitted product', site: '127.0.0.1', built_on: `${origin}/site/json-product.html`,
+        checked_on: [`${origin}/site/json-shop.html`, `${origin}/site/article.html`],
+        spec: { kind: 'page', settings: { requestDelay: 100 }, elements: [{ id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] }] },
+    };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 's.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+
+    // Not tested: no Submit. Tested on the 3 samples: ready, and Submit appears.
+    await ui.getByRole('button', { name: 'History of Submitted product' }).click();
+    await expect(ui.getByTestId('pro-version')).toContainText('Not ready: Not tested on sample pages yet.');
+    await expect(ui.getByRole('button', { name: 'Submit' })).toHaveCount(0);
+    await ui.getByRole('button', { name: 'Edit fields' }).click();
+    await ui.getByTestId('pro-samples').getByRole('button', { name: 'Test on 3 pages' }).click();
+    await expect(ui.getByTestId('pro-readiness')).toHaveText('Ready to submit.', { timeout: 60_000 });
+    // Back from the editor is History again, now with the test.
+    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await expect(ui.getByTestId('pro-version')).toContainText('ready to submit');
+
+    await ui.getByRole('button', { name: 'Submit' }).click();
+    await ui.getByRole('radio', { name: 'Daily' }).click();
+    await ui.getByRole('dialog').getByRole('button', { name: 'Submit' }).click();
+    await expect(ui.getByRole('dialog')).toContainText('Sign in again: the token was not accepted.');
+    expect(mock.backend.recipes.size).toBe(0);
+    await ui.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+
+    // The right token: submitted, live, and a crawl to follow.
+    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await ui.getByRole('button', { name: 'Backend' }).click();
+    await ui.getByLabel('Access token').fill('dev-token');
+    await ui.getByRole('button', { name: 'Save' }).click();
+    await ui.getByRole('button', { name: 'History of Submitted product' }).click();
+    await ui.getByRole('button', { name: 'Submit' }).click();
+    await ui.getByRole('radio', { name: 'Daily' }).click();
+    await ui.getByRole('dialog').getByRole('button', { name: 'Submit' }).click();
+    await expect(ui.getByRole('dialog')).toHaveCount(0);
+
+    const v1 = ui.getByTestId('pro-version').first();
+    await expect(v1).toContainText('submitted');
+    await expect(v1).toContainText('live');
+    const crawl = ui.getByTestId('pro-crawl');
+    await expect(crawl).toContainText('v1');
+    await expect(crawl).toContainText('daily');
+    expect([...mock.backend.recipes.values()][0]).toMatchObject({ name: 'Submitted product', live: 1 });
+
+    const refresh = ui.getByTestId('pro-crawls').getByRole('button', { name: 'Refresh' });
+    await refresh.click();
+    await expect(crawl).toContainText('queued');
+    await refresh.click();
+    await refresh.click();
+    await expect(crawl).toContainText('done');
+    await expect(crawl).toContainText('3 pages done · title 100%');
+    if (process.env.UX_SHOTS) await ui.screenshot({ path: `${process.env.UX_SHOTS}/pro-submit.png` });
+    mock.close();
     await ui.close();
     await page.close();
 });

@@ -4,12 +4,16 @@
  * reason. Every label move is listed.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { GitCompare, Pencil, RotateCcw, Tag } from 'lucide-react';
+import { GitCompare, Pencil, RefreshCw, RotateCcw, Send, Tag } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Card, Chip, Dialog, Notice, Select, Text, TextField, type ChipTone } from '../../sidepanel/ui';
 import { pro } from '../db';
 import { diffVersions, type ChangeKind } from '../recipe/diff';
 import { readiness, type Readiness } from '../recipe/ready';
+import { SubmitDialog } from './SubmitDialog';
+import type { CrawlRecord } from '../db/crawls';
+import { backendApi } from '../backend/settings';
+import { refreshCrawls } from '../backend/submit';
 import { LOCAL_AUTHOR } from '../edit';
 import { openedRecipe } from '../nav';
 import type { LabelMove, LabelName, ProRecipe, Version } from '../recipe/types';
@@ -33,6 +37,9 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
     const [versions, setVersions] = useState<Version[]>([]);
     const [log, setLog] = useState<LabelMove[]>([]);
     const [ready, setReady] = useState<Map<number, Readiness>>(new Map());
+    const [submitting, setSubmitting] = useState<Version | null>(null);
+    const [crawls, setCrawls] = useState<CrawlRecord[]>([]);
+    const [refreshing, setRefreshing] = useState(false);
     const [pair, setPair] = useState<{ from: number; to: number } | null>(null);
     const [labelling, setLabelling] = useState<{ label: Exclude<LabelName, 'latest'>; version: number } | null>(null);
     const [reason, setReason] = useState('');
@@ -44,6 +51,7 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
         setRecipe(r ?? null);
         setVersions(vs);
         setLog(moves);
+        setCrawls(await pro.crawls.list(recipeId));
         // Each version is ready by the newest multi-page test of its spec.
         setReady(new Map(await Promise.all(vs.map(async v => [v.version, readiness((await pro.tests.latest(recipeId, v.digest, 'pages'))?.results, v)] as const))));
         // What the newest version changed, until another pair is chosen.
@@ -67,6 +75,18 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
 
     const options = versions.map(v => ({ value: v.version, label: `v${v.version}${v.note ? ` · ${v.note.slice(0, 30)}` : ''}` }));
 
+    const refresh = async () => {
+        if (!recipe) return;
+        setRefreshing(true);
+        setError(null);
+        try {
+            const api = await backendApi();
+            if (!api) throw new Error('Set the backend address and token first (Backend, on the Recipes screen).');
+            setCrawls(await refreshCrawls(api, recipe.id));
+        } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+        setRefreshing(false);
+    };
+
     const restore = async (version: number) => {
         setError(null);
         try {
@@ -76,8 +96,21 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
         await load();
     };
 
+    /** Live on a recipe the backend has moves there first: what it runs and what Pro shows stay the same. */
     const moveLabel = async () => {
         if (!labelling) return;
+        setError(null);
+        if (labelling.label === 'live' && recipe.remoteId) {
+            try {
+                const api = await backendApi();
+                if (!api) throw new Error('Set the backend address and token first (Backend, on the Recipes screen).');
+                await api.setLive(recipe.remoteId, labelling.version, reason.trim());
+            } catch (e) {
+                setError(e instanceof Error ? e.message : String(e));
+                setLabelling(null);
+                return;
+            }
+        }
         await pro.recipes.moveLabel(recipe.id, labelling.label, labelling.version, LOCAL_AUTHOR, reason.trim());
         setLabelling(null);
         setReason('');
@@ -120,6 +153,7 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
                         <div className="flex flex-wrap items-center gap-1.5">
                             <Text weight="semibold">v{v.version}</Text>
                             <Chip tone="outline">{v.origin}</Chip>
+                            {v.submittedAt && <Chip tone="brand">submitted</Chip>}
                             <LabelChips recipe={recipe} version={v.version} />
                         </div>
                         {v.note && <Text size="small">{v.note}</Text>}
@@ -132,9 +166,29 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
                             <Button size="sm" variant="ghost" icon={<Tag />} onClick={() => setLabelling({ label: 'live', version: v.version })} disabled={recipe.labels.live === v.version}>Mark live</Button>
                             <Button size="sm" variant="ghost" icon={<Tag />} onClick={() => setLabelling({ label: 'test', version: v.version })} disabled={recipe.labels.test === v.version}>Mark test</Button>
                             {i > 0 && <Button size="sm" variant="ghost" icon={<RotateCcw />} onClick={() => restore(v.version)}>Restore</Button>}
+                            {ready.get(v.version)?.ready && <Button size="sm" variant="primary" icon={<Send />} onClick={() => setSubmitting(v)}>{v.submittedAt ? 'Crawl again' : 'Submit'}</Button>}
                         </div>
                     </div>
                 ))}
+
+                {crawls.length > 0 && (
+                    <section className="flex flex-col gap-1.5" data-testid="pro-crawls">
+                        <div className="flex items-center justify-between">
+                            <Text size="small" weight="semibold" tone="muted">Crawls</Text>
+                            <Button size="sm" variant="ghost" icon={<RefreshCw />} loading={refreshing} onClick={refresh}>Refresh</Button>
+                        </div>
+                        {crawls.map(c => (
+                            <div key={c.crawlId} className="flex flex-col gap-0.5 rounded-xl border border-line px-3 py-2" data-testid="pro-crawl">
+                                <div className="flex items-center gap-1.5">
+                                    <Text size="small" weight="semibold">v{c.version}</Text>
+                                    <Chip tone={c.last?.status === 'done' ? 'success' : c.last?.status === 'failed' ? 'danger' : 'info'}>{c.last?.status ?? 'started'}</Chip>
+                                    <Text size="caption" tone="faint">{c.schedule} · {when(c.startedAt)}</Text>
+                                </div>
+                                {c.last && <Text size="caption" tone="muted">{c.last.pagesDone} pages done{c.last.pagesFailed ? `, ${c.last.pagesFailed} failed` : ''}{c.last.fields.length ? ` · ${c.last.fields.map(f => `${f.name} ${Math.round(f.fill * 100)}%`).join(', ')}` : ''}</Text>}
+                            </div>
+                        ))}
+                    </section>
+                )}
 
                 {log.length > 0 && (
                     <section className="flex flex-col gap-1">
@@ -148,6 +202,7 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
                 )}
             </div>
 
+            <SubmitDialog recipe={recipe} version={submitting} onClose={() => setSubmitting(null)} onSubmitted={() => void load()} />
             <Dialog open={!!labelling} onClose={() => setLabelling(null)} size="sm"
                 title={labelling ? `Mark v${labelling.version} as ${labelling.label}` : ''}
                 description={labelling?.label === 'live' ? 'Live is the version the backend runs. Moving it back is a rollback.' : 'Test is the version being tried before it goes live.'}

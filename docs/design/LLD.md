@@ -243,7 +243,8 @@ Proposed contract; the backend team owns it. Base URL is a Pro setting. All call
 | `POST /recipes/{id}/labels/live` | `{ version, reason }` | `{ live }` |
 | `POST /recipes/{id}/pause`, `/resume` | none | `{ status }` |
 
-- **Auth** (`auth.ts`): `chrome.identity.launchWebAuthFlow` against the identity provider. The redirect URL is `https://gpehmmoohclacmpomaekjklfncabiiip.chromiumapp.org/`, which works because the extension ID is fixed. The token is cached in `chrome.storage.session`, and on a 401 Pro signs in again once.
+- **Built so far** (`backend/client.ts`, `mock.ts`, `submit.ts`, `settings.ts`): the calls above, retries and error kinds as described, the submit flow with the readiness gate, crawl refresh. Until the identity provider is chosen, the address and an access token are set in the Backend dialog (address in `chrome.storage.local`, token in `chrome.storage.session`). The e2e tests serve `mock.ts` on a local port (`e2e/pro.ts`).
+- **Auth, later** (`auth.ts`): `chrome.identity.launchWebAuthFlow` against the identity provider. The redirect URL is `https://gpehmmoohclacmpomaekjklfncabiiip.chromiumapp.org/`, which works because the extension ID is fixed. The token is cached in `chrome.storage.session`, and on a 401 Pro signs in again once.
 - **Retries:** up to 3 tries with exponential backoff (0.5s, 1s, 2s) on network errors, 429 and 5xx. Never on other 4xx errors.
 - **Errors** are mapped to `BackendError { kind: 'auth' | 'invalid' | 'conflict' | 'unavailable', message, details }`, which the UI shows as is.
 - **Mock** (`mock.ts`): the same interface held in memory. Vitest uses it directly. Playwright runs it as a local HTTP server in the e2e harness.
