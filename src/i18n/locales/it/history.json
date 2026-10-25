@@ -17,8 +17,6 @@
   "runNamePlaceholder": "Inserisci un nome per questa esecuzione",
   "maxPages": "MAX. PAGINE DA ESTRARRE",
   "maxPagesHelper": "Limita la paginazione per evitare esecuzioni lunghe",
-  "parallelMode": "Modalità Parallela",
-  "parallelModeHelper": "Estrarre più URL contemporaneamente",
   "concurrencyLimit": "LIMITE DI CONCORRENZA",
   "concurrencyHelper": "Numero di schede da eseguire in parallelo",
   "startNow": "Avvia Ora",

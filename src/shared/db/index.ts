@@ -23,4 +23,4 @@ export const db = {
 };
 
 export type { SaveOptions } from './tables';
-export type { JobWithRecipe } from './jobs';
+export type { JobWithRecipe, RecipeRuns } from './jobs';

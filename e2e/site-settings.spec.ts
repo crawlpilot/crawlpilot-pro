@@ -60,7 +60,7 @@ test('the list run\'s step 3 shows the site\'s settings; a change is saved for t
     await expect(ui.getByText(/^Done · /)).toBeVisible({ timeout: 90_000 });
     await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=history&tabId=${tabId}`);
     await ui.getByRole('tab', { name: 'Recipes' }).click();
-    await ui.getByTestId('recipe-card').first().getByRole('button', { name: 'Site settings' }).click();
+    await ui.getByTestId('recipe-card').filter({ hasText: '127.0.0.1' }).first().getByRole('button', { name: 'Site settings' }).click();
     await expect(ui.getByRole('dialog').getByTestId('site-settings')).toContainText('4 s between pages · 1 tab at a time');
     await panel.page.evaluate(() => chrome.storage.local.remove('siteSettings'));
 });

@@ -1,25 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { on, send, UrlStatus } from '../../shared/messages';
+import { bulkConfig, type BulkSettings } from '../../shared/recipes/spec';
 import { hasAllUrlsPermission, requestAllUrlsPermission, openSiteAccessSettings } from '../../shared/utils/hostPermissions';
 
 
-interface BulkExtractionOptions {
+interface BulkExtractionOptions extends BulkSettings {
     maxConcurrent?: number;
-    viewportWidth?: number;
-    viewportHeight?: number;
-    clickWaitMs?: number;
-    requestDelay?: number;
-    loadTimeout?: number;
-    waitForLoad?: boolean;
-    enableRandomization?: boolean;
-    waitForElements?: boolean;
-    elementTimeout?: number;
-    /** Minimum gap between two pages of the same site (ms). */
-    domainMinGapMs?: number;
-    /** Pause and show the tab when a page asks to verify you are human. */
-    pauseOnChallenge?: boolean;
-    /** How list elements land in the output: one JSON column, one row per item, or numbered columns. */
-    listOutput?: 'nested' | 'rows' | 'numbered';
     /** A list's details: the rows join onto that list's rows by its links (`listing/join.ts`). */
     joinInto?: { tableId: number; urlColumn: string };
     onProgress?: (completed: number) => void;
@@ -121,18 +107,6 @@ export function useBulkExtraction() {
     ) => {
         const {
             maxConcurrent = 3,
-            viewportWidth,
-            viewportHeight,
-            clickWaitMs,
-            requestDelay,
-            loadTimeout,
-            waitForLoad,
-            enableRandomization,
-            waitForElements,
-            elementTimeout,
-            domainMinGapMs,
-            pauseOnChallenge,
-            listOutput,
             onProgress,
             onStart,
             jobId: existingJobId,
@@ -161,19 +135,7 @@ export function useBulkExtraction() {
         setTotalPages(urls.length);
         setUrlStatuses(urls.map(url => ({ url, status: 'queued' })));
 
-        const config: Record<string, unknown> = { requestDelay: 1000 };
-        if (viewportWidth) config.viewportWidth = viewportWidth;
-        if (viewportHeight) config.viewportHeight = viewportHeight;
-        if (clickWaitMs != null) config.clickWaitMs = clickWaitMs;
-        if (requestDelay != null) config.requestDelay = requestDelay;
-        if (loadTimeout != null) config.loadTimeout = loadTimeout;
-        if (waitForLoad != null) config.waitForLoad = waitForLoad;
-        if (enableRandomization != null) config.enableRandomization = enableRandomization;
-        if (waitForElements != null) config.waitForElements = waitForElements;
-        if (elementTimeout != null) config.elementTimeout = elementTimeout;
-        if (domainMinGapMs != null) config.domainMinGapMs = domainMinGapMs;
-        if (pauseOnChallenge != null) config.pauseOnChallenge = pauseOnChallenge;
-        if (listOutput) config.listOutput = listOutput;
+        const config = bulkConfig(options);
 
         const response = await send('BULK_EXTRACTION_START', {
             urls,

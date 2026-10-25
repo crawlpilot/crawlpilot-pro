@@ -17,8 +17,6 @@
   "runNamePlaceholder": "この実行の名前を入力してください",
   "maxPages": "最大抽出ページ数",
   "maxPagesHelper": "長時間の実行を避けるためにページ数を制限します",
-  "parallelMode": "並列モード",
-  "parallelModeHelper": "複数の URL を同時に抽出します",
   "concurrencyLimit": "同時実行制限",
   "concurrencyHelper": "並列実行するタブ数",
   "startNow": "今すぐ開始",

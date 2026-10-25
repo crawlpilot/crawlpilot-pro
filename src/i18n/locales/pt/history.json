@@ -23,8 +23,6 @@
   "runNamePlaceholder": "Digite um nome para esta execução",
   "maxPages": "MÁXIMO DE PÁGINAS A EXTRAIR",
   "maxPagesHelper": "Limita a paginação para evitar execuções longas",
-  "parallelMode": "Modo paralelo",
-  "parallelModeHelper": "Extrair múltiplos URLs simultaneamente",
   "concurrencyLimit": "LIMITE DE SIMULTANEIDADE",
   "concurrencyHelper": "Número de abas a executar em paralelo",
   "startNow": "Iniciar agora",

@@ -8,11 +8,11 @@ import { useBulkExtraction } from './useBulkExtraction';
 import contentScriptPath from '../../content/element-selector?script';
 import { isBulkJob, JobWithRecipe } from '../components/history/jobFilters';
 import { listRunInput, pageRunInput } from '../../shared/recipes/spec';
-import type { RerunOptions } from '../components/history/RerunDialog';
+import type { RunOptions, RunTarget } from '../components/history/RunDialog';
 
 /**
- * Re-runs a saved job: opens (or navigates to) its page, makes sure the content script answers,
- * then starts a bulk run or a list extraction with the job's recipe.
+ * Runs a saved (or ready-made) recipe on the pages given: a bulk run in background tabs, or a list
+ * extraction on its start page once the content script there answers.
  */
 export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: number) => void; onFinished: () => void }) {
     /** A list with details: once the list is read again, its items' pages are read and joined onto it. */
@@ -109,40 +109,25 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
         }
     };
 
-    /** Reruns a job with its recipe as it is now (edits and healed selectors included) on the job's pages. */
-    const rerun = useCallback(async (job: JobWithRecipe, options: RerunOptions) => {
-        const spec = job.recipe?.spec;
-        if (!spec) {
-            alert("This job's recipe is gone, so it can't be re-run.");
-            return;
-        }
+    /**
+     * Runs a recipe (as it is now: edits and healed selectors included) on the pages the Run dialog
+     * gives: page recipes in background tabs, a list on its start page in the active tab.
+     */
+    const rerun = useCallback(async (target: RunTarget, options: RunOptions) => {
+        const { spec, job } = target;
+        const urls = options.urls;
         try {
-            if (job.id) onStarted(job.id);
-            const urls = job.input?.urls ?? [];
-            const targetUrl = urls[0];
-            const isFullPageExtension = window.location.protocol === 'chrome-extension:';
-            const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-            if (isFullPageExtension && targetUrl) {
-                await chrome.tabs.create({ url: targetUrl, active: true });
-                await waitForTabReady();
-            } else if (activeTab && targetUrl && activeTab.url !== targetUrl) {
-                await chrome.tabs.update(activeTab.id!, { url: targetUrl });
-                await waitForTabReady();
-            } else {
-                // Same URL — just ensure content script is injected
-                await ensureContentScriptInjected();
-            }
-
-            // The tab after any navigation or new tab.
-            const [finalActiveTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (job?.id) onStarted(job.id);
+            // Ready-made: saved under its own name first; the run finds it by its spec and adds a run to it.
+            if (target.readyMade) await db.jobs.saveRecipe(target.name, spec);
 
             if (spec.kind === 'page') {
                 if (urls.length === 0 || spec.elements.length === 0) {
-                    alert("This bulk extraction job doesn't have enough configuration to re-run.");
+                    alert("This recipe doesn't have enough configuration to run.");
                     return;
                 }
                 const { elements, settings } = pageRunInput(spec);
+                // The bulk runner opens its own tabs: the open page stays as it is.
                 await startBulkExtraction(urls, elements, {
                     // The recipe's settings (pace, waits, viewport, list output), as it was set up.
                     ...(settings as Record<string, unknown>),
@@ -154,9 +139,24 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
                     alert("Bulk re-run failed: " + err.message);
                 });
             } else if (spec.kind === 'list') {
+                const targetUrl = urls[0];
+                const isFullPageExtension = window.location.protocol === 'chrome-extension:';
+                const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (isFullPageExtension && targetUrl) {
+                    await chrome.tabs.create({ url: targetUrl, active: true });
+                    await waitForTabReady();
+                } else if (activeTab && targetUrl && activeTab.url !== targetUrl) {
+                    await chrome.tabs.update(activeTab.id!, { url: targetUrl });
+                    await waitForTabReady();
+                } else {
+                    // Same URL — just ensure content script is injected
+                    await ensureContentScriptInjected();
+                }
+                // The tab after any navigation or new tab.
+                const [finalActiveTab] = await chrome.tabs.query({ active: true, currentWindow: true });
                 const { picks, pagination } = listRunInput(spec, options.maxPages);
-                pendingDetails.current = spec.details ? { details: spec.details, name: options.name || job.recipe?.name || 'List', concurrent: options.concurrent } : null;
-                pendingOnlyNew.current = options.onlyNew && job.tableId !== undefined ? job.tableId : null;
+                pendingDetails.current = spec.details ? { details: spec.details, name: options.name || target.name || 'List', concurrent: options.concurrent } : null;
+                pendingOnlyNew.current = options.onlyNew && job?.tableId !== undefined ? job.tableId : null;
                 await startExtraction(
                     picks.map(p => ({ ...p, sourceTabId: finalActiveTab?.id })),
                     pagination,

@@ -6,19 +6,22 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Database, RefreshCcw, Search, Table2, X } from 'lucide-react';
 import ToolHeader from '../components/ui/ToolHeader';
-import { Button, Dialog, EmptyState, IconButton, Segmented, Spinner, Stack, TextField } from '../ui';
+import { Button, Dialog, EmptyState, IconButton, Segmented, Spinner, Stack, Text, TextField } from '../ui';
 import { RecipeCard } from '../components/history/RecipeCard';
 import { SiteSettingsCard } from '../components/sites/SiteSettingsCard';
-import { recipeEntries } from '../components/history/recipes';
+import { recipeEntries, type RecipeEntry } from '../components/history/recipes';
+import { READY_MADE } from '@/shared/recipes/readyMade';
+import { specHash } from '@/shared/recipes/spec';
 import { useJobHistory } from '../hooks/useDatabase';
 import { useJobRerun } from '../hooks/useJobRerun';
 import type { JobWithRecipe } from '../components/history/jobFilters';
 import { DataCard } from '../components/history/DataCard';
 import { dataEntries, searchEntries, type DataEntry } from '../components/history/myData';
-import { RerunDialog } from '../components/history/RerunDialog';
+import { RunDialog, runTargetOf, type RunTarget } from '../components/history/RunDialog';
 import { JobDetailsDialog } from '../components/history/JobDetailsDialog';
 import { db } from '@/shared/db';
 import type { Table } from '@/shared/types/database';
+import type { RecipeRuns } from '@/shared/db';
 import { downloadTableCsv } from '../services/download';
 
 interface HistoryPageProps {
@@ -29,6 +32,12 @@ interface HistoryPageProps {
 /** Above this many, a search box helps. */
 const SEARCH_FROM = 5;
 
+/** A ready-made recipe as a card shows it: not run yet. */
+const readyEntry = (r: (typeof READY_MADE)[number]): RecipeEntry => ({
+    recipe: { name: r.name, spec: r.spec, hash: '', rev: 1, createdAt: 0, updatedAt: 0 },
+    kind: r.spec.kind, site: r.site, runs: 0, notes: [],
+});
+
 export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
     const { t } = useTranslation('history');
     const { t: tc } = useTranslation('common');
@@ -36,16 +45,29 @@ export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
     const [tables, setTables] = useState<Table[] | null>(null);
     const [query, setQuery] = useState('');
     const [detailsJob, setDetailsJob] = useState<JobWithRecipe | null>(null);
-    const [rerunTarget, setRerunTarget] = useState<JobWithRecipe | null>(null);
+    const [runTarget, setRunTarget] = useState<RunTarget | null>(null);
     /** Data: one card per table. Recipes: one card per recipe, with how its last run went. */
     const [tab, setTab] = useState<'data' | 'recipes'>('data');
-    const recipes = useMemo(() => recipeEntries(jobs), [jobs]);
+    const [savedRecipes, setSavedRecipes] = useState<RecipeRuns[]>([]);
+    const recipes = useMemo(() => recipeEntries(savedRecipes), [savedRecipes]);
+    /** Ready-made recipes not saved yet: once run, each is one of the user's recipes. */
+    const readyMade = useMemo(() => {
+        const saved = new Set(savedRecipes.map(r => r.recipe.hash));
+        return READY_MADE.filter(r => !saved.has(specHash(r.spec)));
+    }, [savedRecipes]);
     const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
     const [siteFor, setSiteFor] = useState<string | null>(null);
 
     const loadTables = useCallback(() => db.tables.list(500).then(setTables).catch(() => setTables([])), []);
-    const refresh = useCallback(() => { void refreshJobs(); void loadTables(); }, [refreshJobs, loadTables]);
-    useEffect(() => { void loadTables(); }, [loadTables]);
+    const loadRecipes = useCallback(() => db.jobs.listRecipes().then(setSavedRecipes).catch(() => setSavedRecipes([])), []);
+    const refresh = useCallback(() => { void refreshJobs(); void loadTables(); void loadRecipes(); }, [refreshJobs, loadTables, loadRecipes]);
+    useEffect(() => { void loadTables(); void loadRecipes(); }, [loadTables, loadRecipes]);
+
+    const runJob = (job: JobWithRecipe) => {
+        const target = runTargetOf(job);
+        if (target) setRunTarget(target);
+        else alert("This job's recipe is gone, so it can't be re-run.");
+    };
 
     const { rerun, stop, busy, bulkDone } = useJobRerun({ onStarted: () => refresh(), onFinished: () => refresh() });
     useEffect(() => {
@@ -89,26 +111,31 @@ export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
 
             <div className="flex-1 overflow-y-auto p-4">
                 {tab === 'recipes' ? (
-                    recipes.length > 0 ? (
-                        <Stack gap={2.5}>
-                            {recipes.map(r => (
-                                <RecipeCard key={r.recipe.id} entry={r} busy={busy}
-                                    onRun={() => setRerunTarget(r.last)}
-                                    onOpen={r.lastWithData?.tableId !== undefined ? () => onViewData(r.lastWithData!.tableId!) : undefined}
-                                    onRename={() => setRenaming({ id: r.recipe.id!, name: r.recipe.name })}
-                                    onSiteSettings={() => setSiteFor(r.site)} />
-                            ))}
-                        </Stack>
-                    ) : (
-                        <EmptyState className="mt-10" icon={<BookOpen />} title={t('recipes.empty')}>{t('recipes.emptyHint')}</EmptyState>
-                    )
+                    <Stack gap={2.5}>
+                        {readyMade.length > 0 && <Text size="caption" weight="semibold" tone="muted">{t('recipes.readyMade')}</Text>}
+                        {readyMade.map(r => (
+                            <RecipeCard key={r.key} entry={readyEntry(r)} busy={busy}
+                                onRun={() => setRunTarget({ name: r.name, spec: r.spec, pages: r.pages, readyMade: true })} />
+                        ))}
+                        {readyMade.length > 0 && recipes.length > 0 && <Text size="caption" weight="semibold" tone="muted" className="mt-2">{t('recipes.mine')}</Text>}
+                        {recipes.map(r => (
+                            <RecipeCard key={r.recipe.id} entry={r} busy={busy}
+                                onRun={() => setRunTarget({ name: r.recipe.name, spec: r.recipe.spec, job: r.last, pages: r.last?.input?.urls ?? [] })}
+                                onOpen={r.lastWithData?.tableId !== undefined ? () => onViewData(r.lastWithData!.tableId!) : undefined}
+                                onRename={() => setRenaming({ id: r.recipe.id!, name: r.recipe.name })}
+                                onSiteSettings={() => setSiteFor(r.site)} />
+                        ))}
+                        {recipes.length === 0 && (
+                            <EmptyState className="mt-6" icon={<BookOpen />} title={t('recipes.empty')}>{t('recipes.emptyHint')}</EmptyState>
+                        )}
+                    </Stack>
                 ) : shown.length > 0 ? (
                     <Stack gap={2.5}>
                         {shown.map(entry => (
                             <DataCard key={entry.key} entry={entry} busy={busy}
                                 onOpen={() => entry.table?.id !== undefined && onViewData(entry.table.id)}
                                 onDownload={() => (entry.table ? downloadTableCsv(entry.table) : Promise.resolve())}
-                                onRerun={entry.job ? () => setRerunTarget(entry.job!) : undefined}
+                                onRerun={entry.job ? () => runJob(entry.job!) : undefined}
                                 onStop={entry.job ? () => stop(entry.job!) : undefined}
                                 onDetails={entry.job ? () => setDetailsJob(entry.job!) : undefined}
                                 onRemove={() => void remove(entry)} />
@@ -139,11 +166,11 @@ export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
                 {siteFor && <SiteSettingsCard site={siteFor} />}
             </Dialog>
 
-            <RerunDialog job={rerunTarget} onClose={() => setRerunTarget(null)}
-                onStart={(job, options) => { setRerunTarget(null); void rerun(job, options); }} />
+            <RunDialog target={runTarget} onClose={() => setRunTarget(null)}
+                onStart={(target, options) => { setRunTarget(null); void rerun(target, options); }} />
             <JobDetailsDialog detailsJob={detailsJob} onClose={() => setDetailsJob(null)}
                 onDelete={id => { void Promise.resolve(deleteJob(id)).then(refresh); }}
-                onRerun={job => setRerunTarget(job)} />
+                onRerun={runJob} />
         </div>
     );
 }

@@ -9,13 +9,19 @@ const job = (id: number, r: any, at: number, extra: Partial<JobWithRecipe> = {},
 }) as JobWithRecipe;
 
 describe('recipes', () => {
-    it('one entry per recipe, its runs counted, newest first, with the site', () => {
-        const a = recipe(1, 'Lamps'), b = recipe(2, 'Chairs');
-        const entries = recipeEntries([job(1, a, 100), job(2, b, 300), job(3, a, 200, { tableId: undefined, status: 'running' }), { ...job(4, a, 50), recipe: undefined }]);
-        expect(entries.map(e => [e.recipe.name, e.runs, e.site])).toEqual([['Chairs', 1, 'shop.test'], ['Lamps', 2, 'shop.test']]);
+    it('one entry per recipe, newest run first, with the site; a recipe not run yet too', () => {
+        const a = recipe(1, 'Lamps'), b = recipe(2, 'Chairs'), c = { ...recipe(3, 'Desks'), updatedAt: 150 };
+        const entries = recipeEntries([
+            { recipe: a, runs: 2, last: job(3, a, 200, { tableId: undefined, status: 'running' }), lastWithData: job(1, a, 100) },
+            { recipe: b, runs: 1, last: job(2, b, 300), lastWithData: job(2, b, 300) },
+            { recipe: c, runs: 0 },
+        ]);
+        expect(entries.map(e => [e.recipe.name, e.runs, e.site])).toEqual([['Chairs', 1, 'shop.test'], ['Lamps', 2, 'shop.test'], ['Desks', 0, '']]);
         // The newest run is running; its data is the one before.
         expect(entries[1].health).toBe('running');
         expect(entries[1].lastWithData?.id).toBe(1);
+        // Not run yet: no health, no data.
+        expect(entries[2]).toMatchObject({ health: undefined, last: undefined, notes: [] });
     });
 
     it('health: failed and broken fields are bad; healed, sparse, failed pages and walls a warning', () => {

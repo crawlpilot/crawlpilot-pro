@@ -17,8 +17,6 @@
   "runNamePlaceholder": "输入此次运行的名称",
   "maxPages": "最大提取页数",
   "maxPagesHelper": "限制分页以避免长时间运行",
-  "parallelMode": "并行模式",
-  "parallelModeHelper": "同时提取多个 URL",
   "concurrencyLimit": "并发限制",
   "concurrencyHelper": "并行运行的标签页数量",
   "startNow": "立即开始",

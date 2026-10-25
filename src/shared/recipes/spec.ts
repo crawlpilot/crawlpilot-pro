@@ -98,10 +98,51 @@ export function pageSpec(elements: RunElement[], settings: Record<string, unknow
             ...(Array.isArray(e.fields) && e.fields.length > 0 ? { fields: e.fields as Column[] } : {}),
             ...(e.data ? { data: e.data } : {}),
             // The picked value's kind, for healing (a preview like "List (12 items)" says nothing).
-            ...(e.action !== 'click' && (e.type || 'text') === 'text' && typeof e.value === 'string' && e.value.trim() ? { shape: shapeOf(e.value.trim()) } : {}),
+            // A rerun has no preview: the shape it was saved with stays, so it is the same recipe.
+            ...(e.action !== 'click' && (e.type || 'text') === 'text' && typeof e.value === 'string' && e.value.trim() ? { shape: shapeOf(e.value.trim()) }
+                : e.shape ? { shape: e.shape } : {}),
         })),
         settings,
     };
+}
+
+/** A Page Extractor run's settings (pace, waits, viewport, list output). */
+export interface BulkSettings {
+    viewportWidth?: number;
+    viewportHeight?: number;
+    clickWaitMs?: number;
+    requestDelay?: number;
+    loadTimeout?: number;
+    waitForLoad?: boolean;
+    enableRandomization?: boolean;
+    waitForElements?: boolean;
+    elementTimeout?: number;
+    /** Minimum gap between two pages of the same site (ms). */
+    domainMinGapMs?: number;
+    /** Pause and show the tab when a page asks to verify you are human. */
+    pauseOnChallenge?: boolean;
+    /** How list elements land in the output: one JSON column, one row per item, or numbered columns. */
+    listOutput?: 'nested' | 'rows' | 'numbered';
+}
+
+/** The run's settings as the background gets them (and as the recipe saves them): only what was set. */
+export function bulkConfig(options: BulkSettings): Record<string, unknown> {
+    const { viewportWidth, viewportHeight, clickWaitMs, requestDelay, loadTimeout, waitForLoad, enableRandomization,
+        waitForElements, elementTimeout, domainMinGapMs, pauseOnChallenge, listOutput } = options;
+    const config: Record<string, unknown> = { requestDelay: 1000 };
+    if (viewportWidth) config.viewportWidth = viewportWidth;
+    if (viewportHeight) config.viewportHeight = viewportHeight;
+    if (clickWaitMs != null) config.clickWaitMs = clickWaitMs;
+    if (requestDelay != null) config.requestDelay = requestDelay;
+    if (loadTimeout != null) config.loadTimeout = loadTimeout;
+    if (waitForLoad != null) config.waitForLoad = waitForLoad;
+    if (enableRandomization != null) config.enableRandomization = enableRandomization;
+    if (waitForElements != null) config.waitForElements = waitForElements;
+    if (elementTimeout != null) config.elementTimeout = elementTimeout;
+    if (domainMinGapMs != null) config.domainMinGapMs = domainMinGapMs;
+    if (pauseOnChallenge != null) config.pauseOnChallenge = pauseOnChallenge;
+    if (listOutput) config.listOutput = listOutput;
+    return config;
 }
 
 export function pageRunInput(spec: PageSpec): { elements: RunElement[]; settings: Record<string, unknown> } {

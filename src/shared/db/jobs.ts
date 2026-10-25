@@ -87,6 +87,35 @@ async function list(limit = 100): Promise<JobWithRecipe[]> {
     return found.map(j => ({ ...j, recipe: byId.get(j.recipeId) }));
 }
 
+/** A recipe with how often it ran: its newest run, and the newest that wrote data. */
+export interface RecipeRuns {
+    recipe: Recipe;
+    runs: number;
+    last?: JobWithRecipe;
+    lastWithData?: JobWithRecipe;
+}
+
+/** Every saved recipe (not only those of recent jobs), each with its runs. */
+async function listRecipes(): Promise<RecipeRuns[]> {
+    const tx = await transaction([STORES.jobs, STORES.recipes]);
+    const all: Recipe[] = await req(tx.objectStore(STORES.recipes).getAll());
+    const byRecipe = tx.objectStore(STORES.jobs).index('recipeId');
+    const out: RecipeRuns[] = [];
+    for (const recipe of all) {
+        const range = IDBKeyRange.only(recipe.id!);
+        const runs = await req(byRecipe.count(range));
+        let last: JobWithRecipe | undefined, lastWithData: JobWithRecipe | undefined;
+        // Newest first: job ids grow with each run.
+        await walk<Job>(byRecipe.openCursor(range, 'prev'), j => {
+            last ??= { ...j, recipe };
+            if (j.tableId !== undefined) lastWithData = { ...j, recipe };
+            return !lastWithData;
+        });
+        out.push({ recipe, runs, last, lastWithData });
+    }
+    return out;
+}
+
 /** Deletes a job and its table; its recipe too, unless another job still uses it. */
 async function remove(job: Job): Promise<void> {
     if (job.tableId) await tables.remove(job.tableId);
@@ -125,4 +154,4 @@ async function carryColumnSetup(jobId: number, tableId: number): Promise<void> {
     await tables.setColumns(tableId, to.columns);
 }
 
-export const jobs = { saveRecipe, carryColumnSetup, reviseRecipe, renameRecipe, getRecipe, create, get, update, list, remove };
+export const jobs = { saveRecipe, carryColumnSetup, reviseRecipe, renameRecipe, getRecipe, listRecipes, create, get, update, list, remove };

@@ -17,8 +17,6 @@
   "runNamePlaceholder": "Geben Sie einen Namen für diese Ausführung ein",
   "maxPages": "MAX. SEITEN ZUM EXTRAHIEREN",
   "maxPagesHelper": "Begrenzt die Paginierung, um lange Ausführungen zu vermeiden",
-  "parallelMode": "Parallelmodus",
-  "parallelModeHelper": "Mehrere URLs gleichzeitig extrahieren",
   "concurrencyLimit": "GLEICHZEITIGKEITSLIMIT",
   "concurrencyHelper": "Anzahl der parallel laufenden Tabs",
   "startNow": "Jetzt Starten",

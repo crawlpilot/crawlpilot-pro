@@ -3,6 +3,7 @@ import { ArrowRight, Check, ChevronRight, Compass, Database, FileText, Upload, X
 import { pageTabId } from '../../../hooks/usePageTab';
 import { Button, Card, CardButton, Chip, Disclosure, Heading, IconButton, Stack, Text, type Tone } from '../../../ui';
 import SiteDiscoveryDialog from '../SiteDiscoveryDialog';
+import { urlsFromText } from '../../../../shared/utils/urls';
 
 interface Step1UrlsProps {
     selectedUrls: string[];
@@ -27,22 +28,8 @@ export function Step1Urls({
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (event) => {
-            const text = event.target?.result as string;
-            const lines = text.split(/\r?\n/);
-            const newUrls: string[] = [];
-            for (const line of lines) {
-                // Support comma or tab separated — take the first column
-                const parts = line.split(/[,\t]/);
-                for (const part of parts) {
-                    const url = part.trim().replace(/^"|"$/g, '');
-                    if (url.startsWith('http://') || url.startsWith('https://')) {
-                        newUrls.push(url);
-                    }
-                }
-            }
             // Deduplicate and merge with existing
-            const merged = Array.from(new Set([...selectedUrls, ...newUrls]));
-            setSelectedUrls(merged);
+            setSelectedUrls(Array.from(new Set([...selectedUrls, ...urlsFromText(event.target?.result as string)])));
         };
         reader.readAsText(file);
         // Reset so same file can be re-uploaded if needed

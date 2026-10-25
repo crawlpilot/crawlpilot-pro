@@ -4,7 +4,8 @@
  * is seen before its data goes bad.
  */
 import type { Recipe } from '@/shared/types/database';
-import { jobKind, jobUrl, type JobWithRecipe } from './jobFilters';
+import type { RecipeRuns } from '@/shared/db';
+import { jobUrl, type JobWithRecipe } from './jobFilters';
 
 export type Health = 'good' | 'warn' | 'bad' | 'running';
 
@@ -13,10 +14,11 @@ export interface RecipeEntry {
     kind: Recipe['spec']['kind'];
     site: string;
     runs: number;
-    /** The newest run, and the newest that wrote data (the one to open). */
-    last: JobWithRecipe;
+    /** The newest run, and the newest that wrote data (the one to open). None: saved, not run yet. */
+    last?: JobWithRecipe;
     lastWithData?: JobWithRecipe;
-    health: Health;
+    /** How the newest run went (none before the first run). */
+    health?: Health;
     /** Why, shortest first: "Price found again by meaning", "2 pages failed". */
     notes: string[];
 }
@@ -54,30 +56,20 @@ export function healthOf(job: JobWithRecipe): { health: Health; notes: string[] 
     return { health: 'good', notes: [] };
 }
 
-/** One entry per recipe, newest run first. Jobs without a recipe (removed) are left out. */
-export function recipeEntries(jobs: JobWithRecipe[]): RecipeEntry[] {
-    const byRecipe = new Map<number, JobWithRecipe[]>();
-    for (const j of jobs) {
-        if (!j.recipe?.id) continue;
-        const list = byRecipe.get(j.recipe.id) ?? [];
-        list.push(j);
-        byRecipe.set(j.recipe.id, list);
-    }
-    const out: RecipeEntry[] = [];
-    for (const runs of byRecipe.values()) {
-        runs.sort((a, b) => b.createdAt - a.createdAt);
-        const last = runs[0];
-        const { health, notes } = healthOf(last);
-        out.push({
-            recipe: last.recipe!,
-            kind: jobKind(last)!,
-            site: host(jobUrl(last)),
-            runs: runs.length,
+/** One entry per recipe, newest run first (a recipe not run yet by when it was saved). */
+export function recipeEntries(recipes: RecipeRuns[]): RecipeEntry[] {
+    const when = (e: RecipeEntry) => e.last?.createdAt ?? e.recipe.updatedAt;
+    return recipes.map(({ recipe, runs, last, lastWithData }) => {
+        const { health, notes } = last ? healthOf(last) : { health: undefined, notes: [] };
+        return {
+            recipe,
+            kind: recipe.spec.kind,
+            site: host(last ? jobUrl(last) : undefined),
+            runs,
             last,
-            lastWithData: runs.find(r => r.tableId !== undefined),
+            lastWithData,
             health,
             notes,
-        });
-    }
-    return out.sort((a, b) => b.last.createdAt - a.last.createdAt);
+        };
+    }).sort((a, b) => when(b) - when(a));
 }

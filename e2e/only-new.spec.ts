@@ -34,7 +34,7 @@ test('a rerun with "Only new items" keeps the items the first run didn\'t have',
     await ui.getByLabel('Pages to read at most').fill('3');
     await ui.getByText('Only new items').click();
     await ui.getByRole('button', { name: 'Start' }).click();
-    await panel.next('BULK_EXTRACTION_COMPLETE', 90_000);
+    await panel.next('PAGINATION_COMPLETE', 90_000);
     await expect.poll(async () => (await panel.store('tables')).filter(t => !t.preview && t.id !== first.id && t.view?.onlyNew).length, { timeout: 15_000 }).toBe(1);
     const again = (await panel.store('tables')).find(t => !t.preview && t.id !== first.id && t.view?.onlyNew);
     expect(again.view.onlyNew).toMatchObject({ against: first.id, removed: 4 });
