@@ -1,13 +1,38 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { crx } from '@crxjs/vite-plugin';
+import { minify } from 'terser';
+import { readFile, writeFile } from 'fs/promises';
 import manifest from './manifest.json';
 import path from 'path';
+
+/** Page hooks copied from public/ as they are: minified like the bundle, their comments dropped. */
+const PUBLIC_SCRIPTS = ['net-hook.js', 'visible-shim.js'];
+
+function minifyPublicScripts(): Plugin {
+    return {
+        name: 'minify-public-scripts',
+        apply: 'build',
+        async closeBundle() {
+            for (const name of PUBLIC_SCRIPTS) {
+                const file = path.resolve(__dirname, 'dist', name);
+                const { code } = await minify(await readFile(file, 'utf8'), {
+                    compress: { drop_debugger: true, passes: 2 },
+                    mangle: true,
+                    format: { comments: false },
+                });
+                if (!code) throw new Error(`Could not minify ${name}`);
+                await writeFile(file, code);
+            }
+        },
+    };
+}
 
 export default defineConfig({
     plugins: [
         react(),
         crx({ manifest }),
+        minifyPublicScripts(),
     ],
     resolve: {
         alias: {
