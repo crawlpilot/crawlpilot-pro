@@ -26,7 +26,9 @@ test('a listing page: Home suggests getting its products as a table, in one clic
 test('a product page: Home suggests the product details', async ({ panel, ext, origin }) => {
     const ui = await home(panel, ext, origin, '/corpus/pdp-walmart');
     await expect(ui.getByText('A product page')).toBeVisible({ timeout: 10_000 });
-    await expect(ui.getByRole('button', { name: "Get this product's details" })).toBeVisible();
+    // The details are picked in the Page Extractor, which works on any product page.
+    await ui.getByRole('button', { name: "Get this product's details" }).click();
+    await expect(ui.getByText('Which pages should CrawlPilot read?')).toBeVisible();
 });
 
 test('Home leads with the tools that work everywhere; without Chrome AI the AI tools wait under More tools', async ({ panel, ext, origin }) => {
