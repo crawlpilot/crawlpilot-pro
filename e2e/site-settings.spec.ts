@@ -2,7 +2,7 @@
  * Site settings: speed, page wait and walls set once per site, used by every run of it; a rate limit
  * makes a site Careful by itself.
  */
-import { test, expect } from './harness';
+import { test, expect, saveAsRecipe } from './harness';
 
 const elements = [{ id: 'title', name: 'Title', action: 'extract', type: 'text', selectors: ['h1'] }];
 
@@ -59,7 +59,7 @@ test('the list run\'s step 3 shows the site\'s settings; a change is saved for t
     await ui.getByRole('button', { name: /Get the data|Start/ }).last().click();
     await expect(ui.getByText(/^Done · /)).toBeVisible({ timeout: 90_000 });
     await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=history&tabId=${tabId}`);
-    await ui.getByRole('tab', { name: 'Recipes' }).click();
+    await saveAsRecipe(ui, '127.0.0.1');
     await ui.getByTestId('recipe-card').filter({ hasText: '127.0.0.1' }).first().getByRole('button', { name: 'Site settings' }).click();
     await expect(ui.getByRole('dialog').getByTestId('site-settings')).toContainText('4 s between pages · 1 tab at a time');
     await panel.page.evaluate(() => chrome.storage.local.remove('siteSettings'));

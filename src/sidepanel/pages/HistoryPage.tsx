@@ -55,7 +55,8 @@ export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
         const saved = new Set(savedRecipes.map(r => r.recipe.hash));
         return READY_MADE.filter(r => !saved.has(specHash(r.spec)));
     }, [savedRecipes]);
-    const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
+    /** The recipe being named: renamed, or a run's recipe saved to the Recipes screen. */
+    const [renaming, setRenaming] = useState<{ id: number; name: string; save?: boolean } | null>(null);
     const [siteFor, setSiteFor] = useState<string | null>(null);
 
     const loadTables = useCallback(() => db.tables.list(500).then(setTables).catch(() => setTables([])), []);
@@ -123,7 +124,8 @@ export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
                                 onRun={() => setRunTarget({ name: r.recipe.name, spec: r.recipe.spec, job: r.last, pages: r.last?.input?.urls ?? [] })}
                                 onOpen={r.lastWithData?.tableId !== undefined ? () => onViewData(r.lastWithData!.tableId!) : undefined}
                                 onRename={() => setRenaming({ id: r.recipe.id!, name: r.recipe.name })}
-                                onSiteSettings={() => setSiteFor(r.site)} />
+                                onSiteSettings={() => setSiteFor(r.site)}
+                                onUnsave={() => void db.jobs.setRecipeSaved(r.recipe.id!, false).then(refresh)} />
                         ))}
                         {recipes.length === 0 && (
                             <EmptyState className="mt-6" icon={<BookOpen />} title={t('recipes.empty')}>{t('recipes.emptyHint')}</EmptyState>
@@ -138,6 +140,8 @@ export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
                                 onRerun={entry.job ? () => runJob(entry.job!) : undefined}
                                 onStop={entry.job ? () => stop(entry.job!) : undefined}
                                 onDetails={entry.job ? () => setDetailsJob(entry.job!) : undefined}
+                                onSaveRecipe={entry.job?.recipe?.id !== undefined && !entry.job.recipe.saved
+                                    ? () => setRenaming({ id: entry.job!.recipe!.id!, name: entry.job!.recipe!.name, save: true }) : undefined}
                                 onRemove={() => void remove(entry)} />
                         ))}
                     </Stack>
@@ -149,13 +153,14 @@ export default function HistoryPage({ onBack, onViewData }: HistoryPageProps) {
                 )}
             </div>
 
-            <Dialog open={!!renaming} onClose={() => setRenaming(null)} size="sm" title={t('recipes.renameTitle')}
+            <Dialog open={!!renaming} onClose={() => setRenaming(null)} size="sm" title={renaming?.save ? t('recipes.saveAs') : t('recipes.renameTitle')}
+                description={renaming?.save ? t('recipes.saveAsHint') : undefined}
                 actions={<>
                     <Button variant="ghost" onClick={() => setRenaming(null)}>{tc('cancel')}</Button>
                     <Button variant="primary" onClick={() => {
                         const r = renaming;
                         setRenaming(null);
-                        if (r) void db.jobs.renameRecipe(r.id, r.name).then(refresh);
+                        if (r) void (r.save ? db.jobs.setRecipeSaved(r.id, true, r.name) : db.jobs.renameRecipe(r.id, r.name)).then(refresh);
                     }}>{t('recipes.save')}</Button>
                 </>}>
                 <TextField label={t('runName')} value={renaming?.name ?? ''} onChange={e => setRenaming(prev => (prev ? { ...prev, name: e.target.value } : prev))} autoFocus />

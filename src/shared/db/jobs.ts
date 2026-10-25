@@ -9,19 +9,37 @@ export type JobWithRecipe = Job & { recipe?: Recipe };
 
 /**
  * The recipe for a spec: the one already saved with the same spec (running a pick again, a rerun),
- * otherwise a new one. Returns its id and revision.
+ * otherwise a new one. Returns its id and revision. `saved`: it goes on the Recipes screen, under
+ * this name (a ready-made recipe run).
  */
-async function saveRecipe(name: string, spec: RecipeSpec): Promise<{ id: number; rev: number }> {
+async function saveRecipe(name: string, spec: RecipeSpec, options: { saved?: boolean } = {}): Promise<{ id: number; rev: number }> {
     const hash = specHash(spec);
     const json = specJson(spec);
     const tx = await transaction(STORES.recipes, 'readwrite');
     const store = tx.objectStore(STORES.recipes);
     const sameHash: Recipe[] = await req(store.index('hash').getAll(IDBKeyRange.only(hash)));
     const existing = sameHash.find(r => specJson(r.spec) === json);
-    if (existing) return { id: existing.id!, rev: existing.rev };
+    if (existing) {
+        if (options.saved && !existing.saved) {
+            store.put({ ...existing, name, saved: true, updatedAt: Date.now() } satisfies Recipe);
+            await done(tx);
+        }
+        return { id: existing.id!, rev: existing.rev };
+    }
     const now = Date.now();
-    const id = await req(store.add({ name, spec, hash, rev: 1, createdAt: now, updatedAt: now } satisfies Recipe)) as number;
+    const id = await req(store.add({ name, spec, hash, rev: 1, ...(options.saved ? { saved: true } : {}), createdAt: now, updatedAt: now } satisfies Recipe)) as number;
     return { id, rev: 1 };
+}
+
+/** Puts a run's recipe on the Recipes screen under `name` (Save as recipe), or takes it off (it stays for its runs). */
+async function setRecipeSaved(id: number, saved: boolean, name?: string): Promise<void> {
+    const tx = await transaction(STORES.recipes, 'readwrite');
+    const store = tx.objectStore(STORES.recipes);
+    const current: Recipe | undefined = await req(store.get(id));
+    if (!current) throw new Error(`Recipe ${id} not found`);
+    const { saved: _was, ...rest } = current;
+    store.put({ ...rest, ...(saved ? { saved: true } : {}), name: name?.trim() || current.name, updatedAt: Date.now() } satisfies Recipe);
+    await done(tx);
 }
 
 /** Replaces a recipe's spec (an edit, a healed selector): its revision goes up; jobs keep the revision they ran. */
@@ -95,10 +113,10 @@ export interface RecipeRuns {
     lastWithData?: JobWithRecipe;
 }
 
-/** Every saved recipe (not only those of recent jobs), each with its runs. */
+/** The recipes the user saved (not ad-hoc runs' ones), each with its runs. */
 async function listRecipes(): Promise<RecipeRuns[]> {
     const tx = await transaction([STORES.jobs, STORES.recipes]);
-    const all: Recipe[] = await req(tx.objectStore(STORES.recipes).getAll());
+    const all: Recipe[] = (await req(tx.objectStore(STORES.recipes).getAll()) as Recipe[]).filter(r => r.saved);
     const byRecipe = tx.objectStore(STORES.jobs).index('recipeId');
     const out: RecipeRuns[] = [];
     for (const recipe of all) {
@@ -116,13 +134,14 @@ async function listRecipes(): Promise<RecipeRuns[]> {
     return out;
 }
 
-/** Deletes a job and its table; its recipe too, unless another job still uses it. */
+/** Deletes a job and its table; its recipe too, unless another job still uses it or the user saved it. */
 async function remove(job: Job): Promise<void> {
     if (job.tableId) await tables.remove(job.tableId);
     const tx = await transaction([STORES.jobs, STORES.recipes], 'readwrite');
     tx.objectStore(STORES.jobs).delete(job.id!);
     const users = await req(tx.objectStore(STORES.jobs).index('recipeId').count(IDBKeyRange.only(job.recipeId)));
-    if (users === 0) tx.objectStore(STORES.recipes).delete(job.recipeId);
+    const recipe: Recipe | undefined = await req(tx.objectStore(STORES.recipes).get(job.recipeId));
+    if (users === 0 && !recipe?.saved) tx.objectStore(STORES.recipes).delete(job.recipeId);
     await done(tx);
 }
 
@@ -154,4 +173,4 @@ async function carryColumnSetup(jobId: number, tableId: number): Promise<void> {
     await tables.setColumns(tableId, to.columns);
 }
 
-export const jobs = { saveRecipe, carryColumnSetup, reviseRecipe, renameRecipe, getRecipe, listRecipes, create, get, update, list, remove };
+export const jobs = { saveRecipe, setRecipeSaved, carryColumnSetup, reviseRecipe, renameRecipe, getRecipe, listRecipes, create, get, update, list, remove };

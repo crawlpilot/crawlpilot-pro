@@ -75,7 +75,7 @@
   "tabs": { "data": "Data", "recipes": "Recipes" },
   "recipes": {
     "empty": "No recipes yet",
-    "emptyHint": "Every list or page run is saved as a recipe here, to run again whenever you like.",
+    "emptyHint": "Runs stay in Data. To keep one as a recipe, use Save as recipe in its ⋮ menu.",
     "runs_one": "{{count}} run",
     "runs_other": "{{count}} runs",
     "lastRun_one": "Last run {{when}} · {{count}} row",
@@ -86,6 +86,9 @@
     "siteSettings": "Site settings",
     "renameTitle": "Rename recipe",
     "save": "Save",
+    "saveAs": "Save as recipe",
+    "saveAsHint": "It shows under Recipes, ready to run on any pages.",
+    "unsave": "Remove from recipes",
     "readyMade": "Ready-made",
     "mine": "Your recipes",
     "notRunYet": "Not run yet",

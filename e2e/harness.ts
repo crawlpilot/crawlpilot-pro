@@ -284,6 +284,19 @@ export class Panel {
  * Picks the list holding `target` the way a user does: start the list picker, hover, click.
  * Returns the `ELEMENT_SELECTED` payload.
  */
+/**
+ * On My data, saves the newest run whose card shows `hasText` as a recipe (a run's recipe is off the
+ * Recipes screen until saved), named `name` if given, and opens the Recipes tab.
+ */
+export async function saveAsRecipe(ui: Page, hasText: string | RegExp, name?: string): Promise<void> {
+    await ui.getByRole('tab', { name: 'Data' }).click();
+    await ui.getByTestId('data-card').filter({ hasText }).first().getByRole('button', { name: 'More' }).click();
+    await ui.getByRole('menuitem', { name: 'Save as recipe' }).click();
+    if (name) await ui.getByRole('dialog').getByRole('textbox').fill(name);
+    await ui.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+    await ui.getByRole('tab', { name: 'Recipes' }).click();
+}
+
 export async function pickList(panel: Panel, page: Page, target: string): Promise<any> {
     await panel.clear();
     const tabId = await panel.tabId(page.url());

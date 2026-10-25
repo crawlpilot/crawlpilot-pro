@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Button, Chip, IconButton, Menu, MenuItem, Text, Tooltip, type ChipTone } from '../../ui';
-import { Download, Info, MoreVertical, RefreshCcw, Square, Table2, Trash2 } from 'lucide-react';
+import { BookmarkPlus, Download, Info, MoreVertical, RefreshCcw, Square, Table2, Trash2 } from 'lucide-react';
 import type { DataEntry, DataStatus } from './myData';
 
 const STATUS: Record<DataStatus, ChipTone> = { ready: 'success', running: 'info', stopped: 'warning', failed: 'danger' };
@@ -27,10 +27,12 @@ interface Props {
     onRerun?: () => void;
     onStop?: () => void;
     onDetails?: () => void;
+    /** Puts this run's recipe on the Recipes screen (absent: it is there already, or there is none). */
+    onSaveRecipe?: () => void;
     onRemove: () => void;
 }
 
-export function DataCard({ entry, busy, onOpen, onDownload, onRerun, onStop, onDetails, onRemove }: Props) {
+export function DataCard({ entry, busy, onOpen, onDownload, onRerun, onStop, onDetails, onSaveRecipe, onRemove }: Props) {
     const { t } = useTranslation('history');
     const { t: tc } = useTranslation('common');
     const [menu, setMenu] = useState<HTMLElement | null>(null);
@@ -38,7 +40,7 @@ export function DataCard({ entry, busy, onOpen, onDownload, onRerun, onStop, onD
     const hasTable = !!entry.table && entry.rows > 0;
 
     return (
-        <div className="rounded-card border border-line bg-surface p-3.5 transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-press">
+        <div className="rounded-card border border-line bg-surface p-3.5 transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-press" data-testid="data-card">
             <div className="flex items-start gap-3">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-tile-butter text-ink"><Table2 size={17} /></span>
                 <div className="min-w-0 flex-1">
@@ -72,6 +74,7 @@ export function DataCard({ entry, busy, onOpen, onDownload, onRerun, onStop, onD
             </div>
 
             <Menu anchor={menu} onClose={() => setMenu(null)} align="end">
+                {onSaveRecipe && <MenuItem icon={<BookmarkPlus />} onClick={() => { setMenu(null); onSaveRecipe(); }}>{t('recipes.saveAs')}</MenuItem>}
                 {onDetails && <MenuItem icon={<Info />} onClick={() => { setMenu(null); onDetails(); }}>{t('details')}</MenuItem>}
                 <MenuItem icon={<Trash2 />} danger onClick={() => { setMenu(null); onRemove(); }}>{t('remove')}</MenuItem>
             </Menu>

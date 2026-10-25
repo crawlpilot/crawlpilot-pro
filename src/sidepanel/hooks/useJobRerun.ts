@@ -119,7 +119,7 @@ export function useJobRerun({ onStarted, onFinished }: { onStarted: (jobId: numb
         try {
             if (job?.id) onStarted(job.id);
             // Ready-made: saved under its own name first; the run finds it by its spec and adds a run to it.
-            if (target.readyMade) await db.jobs.saveRecipe(target.name, spec);
+            if (target.readyMade) await db.jobs.saveRecipe(target.name, spec, { saved: true });
 
             if (spec.kind === 'page') {
                 if (urls.length === 0 || spec.elements.length === 0) {

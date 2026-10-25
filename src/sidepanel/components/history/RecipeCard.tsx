@@ -1,6 +1,6 @@
 /** One recipe on the Recipes screen: what it reads, from where, how its last run went (or that it hasn't run), and Run / Open / Rename. */
 import { useTranslation } from 'react-i18next';
-import { BookOpen, Gauge, Pencil, RefreshCcw } from 'lucide-react';
+import { BookmarkMinus, BookOpen, Gauge, Pencil, RefreshCcw } from 'lucide-react';
 import { Button, Chip, IconButton, Text, Tooltip, type ChipTone } from '../../ui';
 import { ago } from './DataCard';
 import type { Health, RecipeEntry } from './recipes';
@@ -14,9 +14,11 @@ interface Props {
     onOpen?: () => void;
     onRename?: () => void;
     onSiteSettings?: () => void;
+    /** Takes it off the Recipes screen (its runs and data stay). */
+    onUnsave?: () => void;
 }
 
-export function RecipeCard({ entry, busy, onRun, onOpen, onRename, onSiteSettings }: Props) {
+export function RecipeCard({ entry, busy, onRun, onOpen, onRename, onSiteSettings, onUnsave }: Props) {
     const { t } = useTranslation('history');
     const { t: tc } = useTranslation('common');
     const rows = entry.last?.stats?.itemsExtracted ?? 0;
@@ -49,6 +51,7 @@ export function RecipeCard({ entry, busy, onRun, onOpen, onRename, onSiteSetting
                 </Tooltip>
                 {onOpen && <Button size="sm" onClick={onOpen}>{t('recipes.openData')}</Button>}
                 {onSiteSettings && entry.site && <Button size="sm" variant="ghost" icon={<Gauge />} onClick={onSiteSettings}>{t('recipes.siteSettings')}</Button>}
+                {onUnsave && <Button size="sm" variant="ghost" icon={<BookmarkMinus />} onClick={onUnsave}>{t('recipes.unsave')}</Button>}
             </div>
         </div>
     );

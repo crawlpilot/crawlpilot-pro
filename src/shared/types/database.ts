@@ -223,6 +223,11 @@ export interface Recipe {
     /** Hash of the spec: the same pick saved twice is one recipe. */
     hash: string;
     rev: number;
+    /**
+     * Saved by the user ("Save as recipe", or a ready-made one run): shown on the Recipes screen and
+     * kept when its runs are removed. Every run has a recipe; an ad-hoc run's stays out of sight.
+     */
+    saved?: boolean;
     createdAt: number;
     updatedAt: number;
 }

@@ -2,9 +2,9 @@
  * The Recipes screen (docs/plans/product-improvements-plan.md §5, S1): every saved recipe once, how
  * its last run went, and Run / Rename from there.
  */
-import { test, expect } from './harness';
+import { test, expect, saveAsRecipe } from './harness';
 
-test('a list run is a recipe: its health shown, renamed, run again from its card', async ({ panel, ext, origin }) => {
+test('a list run saved as a recipe: its health shown, renamed, run again from its card', async ({ panel, ext, origin }) => {
     test.setTimeout(150_000);
     const page = await ext.newPage();
     await page.goto(`${origin}/site/list-1.html`);
@@ -24,8 +24,10 @@ test('a list run is a recipe: its health shown, renamed, run again from its card
     await expect(ui.getByText('Done · 12 items from 3 pages')).toBeVisible({ timeout: 60_000 });
 
     await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=history&tabId=${tabId}`);
+    // A run is not a recipe until saved: the Recipes screen has only what the user keeps.
     await ui.getByRole('tab', { name: 'Recipes' }).click();
-    // The newest recipe of this site is this list (the same pick run before, in another test, is the same recipe).
+    await expect(ui.getByTestId('recipe-card').filter({ hasText: '127.0.0.1' })).toHaveCount(0);
+    await saveAsRecipe(ui, '127.0.0.1');
     const card = ui.getByTestId('recipe-card').filter({ hasText: '127.0.0.1' }).first();
     await expect(card).toContainText('127.0.0.1');
     await expect(card).toContainText('12 rows');
@@ -81,7 +83,8 @@ test('a page recipe runs on the pages given, as one more run of the same recipe'
     const ui = await ext.newPage();
     await ui.setViewportSize({ width: 400, height: 900 });
     await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=history`);
-    await ui.getByRole('tab', { name: 'Recipes' }).click();
+    // The newest data card is that run (a page run's table is named by its site); its recipe by the run.
+    await saveAsRecipe(ui, '127.0.0.1');
     const card = ui.getByTestId('recipe-card').filter({ hasText: 'Lamp models' }).first();
     await card.getByRole('button', { name: 'Run' }).click();
     const pages = [`${origin}/site/product.html?id=2`, `${origin}/site/product.html?id=3`];
@@ -98,4 +101,24 @@ test('a page recipe runs on the pages given, as one more run of the same recipe'
     expect(job.input.urls).toEqual(pages);
     const rows = (await panel.store('rows')).filter(r => r.tableId === done.tableId);
     expect(rows.map(r => r.data.model).sort()).toEqual(['Lamp model 2', 'Lamp model 3']);
+});
+
+test('a recipe taken off the Recipes screen keeps its data', async ({ panel, ext, origin }) => {
+    test.setTimeout(90_000);
+    await panel.clear();
+    await panel.toExtension('BULK_EXTRACTION_START', {
+        urls: [`${origin}/site/product.html?id=4`],
+        elements: [{ id: 'price', name: 'Price', action: 'extract', type: 'text', selectors: ['#price'] }],
+        config: { requestDelay: 0 }, maxConcurrent: 1, customName: 'Lamp prices',
+    });
+    const run = await panel.next('BULK_EXTRACTION_COMPLETE', 60_000);
+    const ui = await ext.newPage();
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=history`);
+    await saveAsRecipe(ui, '127.0.0.1', 'Lamp prices daily');
+    const card = ui.getByTestId('recipe-card').filter({ hasText: 'Lamp prices daily' });
+    await expect(card).toHaveCount(1);
+    await card.getByRole('button', { name: 'Remove from recipes' }).click();
+    await expect(card).toHaveCount(0);
+    expect((await panel.store('tables')).some(t => t.id === run.tableId)).toBe(true);
+    expect((await panel.store('recipes')).find(r => r.name === 'Lamp prices daily')?.saved).toBeUndefined();
 });

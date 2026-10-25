@@ -164,6 +164,29 @@ describe('recipes', () => {
     });
 });
 
+describe('saved recipes', () => {
+    it('a run\'s recipe is off the Recipes screen until saved; saved, it stays when its runs go', async () => {
+        const { id } = await db.jobs.saveRecipe('zara.com · 1 URL', metadata('s'));
+        const run = await db.jobs.create(job(id));
+        expect(await db.jobs.listRecipes()).toEqual([]);
+
+        await db.jobs.setRecipeSaved(id, true, 'Zara products');
+        expect((await db.jobs.listRecipes()).map(r => [r.recipe.name, r.runs])).toEqual([['Zara products', 1]]);
+        await db.jobs.remove({ ...job(id), id: run });
+        expect((await db.jobs.listRecipes()).map(r => [r.recipe.name, r.runs])).toEqual([['Zara products', 0]]);
+
+        await db.jobs.setRecipeSaved(id, false);
+        expect(await db.jobs.listRecipes()).toEqual([]);
+        expect((await db.jobs.getRecipe(id))?.saved).toBeUndefined();
+    });
+
+    it('a ready-made recipe run is saved under its name, also when the same spec ran before', async () => {
+        const { id } = await db.jobs.saveRecipe('ad hoc', metadata('r'));
+        expect((await db.jobs.saveRecipe('ZARA · product details', metadata('r'), { saved: true })).id).toBe(id);
+        expect(await db.jobs.getRecipe(id)).toMatchObject({ name: 'ZARA · product details', saved: true });
+    });
+});
+
 describe('migration v5 → v6', () => {
     const fullSelector = (container: string) => ({
         id: 'sel-1', containerSelector: 'div > div:nth-of-type(2)', containerXPath: '//*[@id="x"]/div[1]/div[2]/div[3]',
