@@ -11,7 +11,6 @@ import { QuickRun } from '../components/list-extractor/QuickRun';
 import { Step1Selection } from '../components/list-extractor/wizard/Step1Selection';
 import { Step2Navigation } from '../components/list-extractor/wizard/Step2Navigation';
 import { Step3Review } from '../components/list-extractor/wizard/Step3Review';
-import { PaginationSpeed, DEFAULT_PAGINATION_SPEED } from '../../shared/constants/paginationConfig';
 import { consolidateSelectors } from '../../shared/utils/extractionLogic';
 import { itemUrlColumn, itemUrls } from '../../shared/listing/join';
 import { setDetailsDraft } from '../services/detailsDraft';
@@ -58,7 +57,6 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
     // 2. Wizard State
     const [step, setStep] = useState(resumed ? 3 : 1);
     const [paginationMode, setPaginationMode] = useState<PaginationMode>(resumed?.pagination?.mode ?? 'auto');
-    const [speed, setSpeed] = useState<PaginationSpeed>(resumed?.pagination?.speed ?? DEFAULT_PAGINATION_SPEED);
     const [maxPages, setMaxPages] = useState<number>(resumed?.pagination?.maxPages ?? 3);
     const [previewTableId, setPreviewTableId] = useState<number | null>(null);
     // How more items load, found on the page after the first pick (undefined: still looking; null: none).
@@ -214,7 +212,6 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
         startExtraction(selectors, {
             mode: paginationMode,
             next,
-            speed,
             maxPages,
         }, { tableId: previewTableId || undefined });
 
@@ -286,8 +283,6 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
                             reset();
                             setStep(2);
                         }}
-                        speed={speed}
-                        onSpeedChange={setSpeed}
                         maxPages={maxPages}
                         onMaxPagesChange={setMaxPages}
                         onAddDetails={onNavigate ? () => void addDetails() : undefined}

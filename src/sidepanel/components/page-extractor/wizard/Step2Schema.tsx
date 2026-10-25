@@ -211,7 +211,7 @@ export function Step2Schema({
 
             <div className="flex justify-between gap-3 border-t border-line pt-4">
                 <Button variant="ghost" onClick={onBack}>Back</Button>
-                <Button variant="primary" onClick={onNext} disabled={elements.length === 0} iconEnd={<ArrowRight />}>Review & run</Button>
+                <Button variant="primary" onClick={onNext} disabled={elements.length === 0} iconEnd={<ArrowRight />}>Next: pages</Button>
             </div>
         </Stack>
     );

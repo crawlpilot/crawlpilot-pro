@@ -1,4 +1,4 @@
-/** Step 2 of "Same details from many pages": a ready-made set of details, or the user's own fields. */
+/** Step 1 of "Same details from many pages": a ready-made set of details, or the user's own fields. */
 import { ChevronRight, FileText, MousePointerClick } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CardButton, Heading, Stack, Text, type Tone } from '../../../ui';
@@ -16,13 +16,13 @@ function Choice({ icon, tone, title, hint, onClick }: { icon: React.ReactNode; t
     );
 }
 
-export function DetailsChoice({ pages, onArticle, onFields }: { pages: number; onArticle: () => void; onFields: () => void }) {
+export function DetailsChoice({ onArticle, onFields }: { onArticle: () => void; onFields: () => void }) {
     const { t } = useTranslation('pageExtractor');
     return (
         <Stack gap={3}>
             <div>
                 <Heading size="heading">{t('details.title')}</Heading>
-                <Text size="small" tone="muted" className="mt-0.5">{t('details.subtitle', { count: pages })}</Text>
+                <Text size="small" tone="muted" className="mt-0.5">{t('details.subtitle')}</Text>
             </div>
             <Choice tone="sky" icon={<FileText size={20} />} title={t('details.article.title')} hint={t('details.article.hint')} onClick={onArticle} />
             <Choice tone="lilac" icon={<MousePointerClick size={20} />} title={t('details.fields.title')} hint={t('details.fields.hint')} onClick={onFields} />

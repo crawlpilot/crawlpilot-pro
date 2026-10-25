@@ -1,9 +1,8 @@
 import { ListPick, PaginationMode } from '../../../../shared/types/extraction';
-import { Settings2, Play, Gauge, RotateCcw, PartyPopper, FileSearch } from 'lucide-react';
+import { Play, RotateCcw, PartyPopper, FileSearch } from 'lucide-react';
 import { ExtractionStatusBar } from '../ExtractionStatusBar';
 import { SiteSettingsCard } from '../../sites/SiteSettingsCard';
-import { Button, Card, Disclosure, Divider, Heading, Notice, Row, Select, Stack, Text, TextField } from '../../../ui';
-import { PaginationSpeed, PAGINATION_PROFILES } from '../../../../shared/constants/paginationConfig';
+import { Button, Card, Divider, Heading, Notice, Row, Stack, Text, TextField } from '../../../ui';
 import { useTranslation } from 'react-i18next';
 
 interface Step3ReviewProps {
@@ -15,8 +14,6 @@ interface Step3ReviewProps {
     status: any;
     onStop: (force?: boolean) => void;
     onReset: () => void; // [NEW] Reset callback
-    speed: PaginationSpeed;
-    onSpeedChange: (speed: PaginationSpeed) => void;
     maxPages: number;
     onMaxPagesChange: (pages: number) => void;
     /** The list run ended: open each item's page and add its fields to this table. */
@@ -35,8 +32,6 @@ export function Step3Review({
     status,
     onStop,
     onReset,
-    speed,
-    onSpeedChange,
     maxPages,
     onMaxPagesChange,
     onAddDetails,
@@ -46,7 +41,6 @@ export function Step3Review({
 
     const { t } = useTranslation('listExtractor');
 
-    const currentProfile = PAGINATION_PROFILES[speed];
     const ended = !isExtracting && (status?.status === 'completed' || status?.status === 'stopped');
     const fieldCount = selectors[0]?.data?.columns?.length ?? selectors.length;
 
@@ -83,42 +77,17 @@ export function Step3Review({
                     </div>
                     <Divider />
                     <div className="px-4 py-2.5">
-                        <Text size="caption" tone="muted">{t('step3.pageLimit')}</Text>
-                        <Text weight="semibold">{paginationMode === 'pagination' ? t('step3.pages', { count: maxPages }) : t('step3.singlePage')}</Text>
-                    </div>
-                </Card>
-            )}
-
-            {!isExtracting && !ended && (
-                <Card>
-                    <Row justify="between" className="mb-3">
-                        <Text size="small" weight="semibold" tone="muted">{t('step3.crawlSpeed')}</Text>
-                        <Gauge size={16} className="text-ink-3" />
-                    </Row>
-                    <Select label={t('step3.speed')} value={speed} onChange={onSpeedChange} hint={t('step3.waitTime', { ms: currentProfile.navigationDelay })}
-                        options={[{ value: 'slow', label: t('step3.careful') }, { value: 'normal', label: t('step3.balanced') }, { value: 'fast', label: t('step3.aggressive') }]} />
-                </Card>
-            )}
-
-            {!isExtracting && !ended && (
-                <Disclosure icon={<Settings2 />} summary={t('step3.advancedSettings')}>
-                    <Stack gap={3}>
-                        <Row justify="between">
-                            <div>
-                                <Text weight="medium">{t('step3.waitDelay')}</Text>
-                                <Text size="caption" tone="muted">{t('step3.basedOnSpeed')}</Text>
-                            </div>
-                            <Text mono size="small">{currentProfile.navigationDelay}ms</Text>
-                        </Row>
-                        {paginationMode === 'pagination' && (
+                        {paginationMode === 'pagination' && !isExtracting ? (
+                            <TextField type="number" min={1} size="sm" label={t('step3.maxPagesToExtract')} hint={t('step3.maxPagesHelper')} value={maxPages}
+                                onChange={e => onMaxPagesChange(Math.max(1, parseInt(e.target.value) || 1))} />
+                        ) : (
                             <>
-                                <Divider />
-                                <TextField type="number" min={1} size="sm" label={t('step3.maxPagesToExtract')} hint={t('step3.maxPagesHelper')} value={maxPages}
-                                    onChange={e => onMaxPagesChange(Math.max(1, parseInt(e.target.value) || 1))} />
+                                <Text size="caption" tone="muted">{t('step3.pageLimit')}</Text>
+                                <Text weight="semibold">{paginationMode === 'pagination' ? t('step3.pages', { count: maxPages }) : t('step3.singlePage')}</Text>
                             </>
                         )}
-                    </Stack>
-                </Disclosure>
+                    </div>
+                </Card>
             )}
 
             {isExtracting && (

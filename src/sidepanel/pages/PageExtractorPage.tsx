@@ -21,8 +21,11 @@ import { Notice } from '../ui';
 
 interface PageExtractorPageProps {
     onBack: () => void;
-    /** `article`: the ready-made article details, starting from the open page (the old Metadata Extractor). */
-    preset?: 'article';
+    /**
+     * `article`: the ready-made article details, starting from the open page (the old Metadata Extractor);
+     * `fields`: straight to picking fields on the open page (Home's product suggestion).
+     */
+    preset?: 'article' | 'fields';
 }
 
 /** The picked list's fields (columns that carry readers), if the pick was a list. */
@@ -32,11 +35,20 @@ function listFields(payload: any): any[] | undefined {
     return isList && Array.isArray(cols) && cols.some((c: any) => c?.reader) ? cols : undefined;
 }
 
+/** A page run's waits beyond the site's pace: fixed, so the review step asks only what matters. */
+const PAGE_RUN_DEFAULTS = {
+    clickWaitMs: 1000, loadTimeout: 10000, waitForLoad: true, enableRandomization: false,
+    waitForElements: false, elementTimeout: 0, domainMinGapMs: 0, pauseOnChallenge: true,
+};
+
 export default function PageExtractorPage({ onBack, preset }: PageExtractorPageProps) {
     const { t } = useTranslation('pageExtractor');
-    const [step, setStep] = useState(1);
+    // Details first (picked on the open page), then the pages to read them from, then the run.
+    const firstStep = preset === 'article' ? 2 : 1;
+    const firstDetails = preset ?? 'choose';
+    const [step, setStep] = useState(firstStep);
     // Which details: not chosen yet, the article set (metadata run), or fields the user points at.
-    const [details, setDetails] = useState<'choose' | 'article' | 'fields'>(preset === 'article' ? 'article' : 'choose');
+    const [details, setDetails] = useState<'choose' | 'article' | 'fields'>(firstDetails);
     const [articleOptions, setArticleOptions] = useState<MetadataExtractOptions>({
         includeLinks: true, includeTables: true, includeImages: false, includeMetadata: true, outputText: false,
     });
@@ -54,7 +66,6 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
         setForList(draft);
         setSelectedUrls(draft.urls);
         setDetails('fields');
-        setStep(2);
         void pageTabId().then(id => { if (id && draft.urls[0]) void chrome.tabs.update(id, { url: draft.urls[0] }); });
     }, []);
 
@@ -133,39 +144,23 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
     } = useBulkExtraction();
 
     const [maxConcurrent, setMaxConcurrent] = useState(defaultConcurrency);
-    const [clickWaitMs, setClickWaitMs] = useState(1000);
     const [requestDelay, setRequestDelay] = useState(1000);
-    const [loadTimeout, setLoadTimeout] = useState(10000);
-    const [waitForLoad, setWaitForLoad] = useState(true);
-    const [enableRandomization, setEnableRandomization] = useState(false);
-    const [waitForElements, setWaitForElements] = useState(false);
-    const [elementTimeout, setElementTimeout] = useState(0);
-    const [domainMinGapMs, setDomainMinGapMs] = useState(0);
-    const [pauseOnChallenge, setPauseOnChallenge] = useState(true);
     const [listOutput, setListOutput] = useState<'nested' | 'rows' | 'numbered'>('nested');
     const [extractionViewport, setExtractionViewport] = useState<{ width: number; height: number } | null>(null);
 
     const handleReset = useCallback(() => {
-        setStep(1);
-        setDetails(preset === 'article' ? 'article' : 'choose');
+        setStep(firstStep);
+        setDetails(firstDetails);
         setForList(null);
         article.resetState();
         setSelectedUrls([]);
         setElements([]);
         setExtractionViewport(null);
         setMaxConcurrent(3);
-        setClickWaitMs(1000);
         setRequestDelay(1000);
-        setLoadTimeout(10000);
-        setWaitForLoad(true);
-        setEnableRandomization(false);
-        setWaitForElements(false);
-        setElementTimeout(0);
-        setDomainMinGapMs(0);
-        setPauseOnChallenge(true);
         setListOutput('nested');
         resetStoppedState();
-    }, [resetStoppedState, preset, article]);
+    }, [resetStoppedState, firstStep, firstDetails, article]);
 
     const handleViewPartialResults = useCallback((tableId: number) => {
         const targetUrl = chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${tableId}`);
@@ -190,15 +185,9 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
 
         await startBulkExtraction(selectedUrls, elements, {
             maxConcurrent,
-            clickWaitMs,
             requestDelay,
-            loadTimeout,
-            waitForLoad,
-            enableRandomization,
-            waitForElements,
-            elementTimeout,
-            domainMinGapMs,
-            pauseOnChallenge,
+            // Speed, page wait and walls are the site's (its settings card, applied by the runner).
+            ...PAGE_RUN_DEFAULTS,
             listOutput,
             viewportWidth: viewport?.width,
             viewportHeight: viewport?.height,
@@ -358,11 +347,21 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
     };
 
 
-    /** One step back: from the run to the choice of details (or to the pages, for the article preset). */
+    /** One step back: from the run to the pages, from the pages to the details, from the fields to the choice. */
     const goBack = () => {
-        if (step === 3 && details === 'article') { setStep(preset === 'article' ? 1 : 2); if (preset !== 'article') setDetails('choose'); return; }
-        if (step === 2 && details === 'fields') { setDetails('choose'); return; }
+        if (step === 2) { setStep(1); if (details === 'article') setDetails('choose'); return; }
+        if (step === 1 && details === 'fields') { setDetails('choose'); return; }
         setStep(step - 1);
+    };
+
+    /** On to the pages: the page the details were chosen on comes first; more can be added. */
+    const toPages = () => {
+        setStep(2);
+        if (selectedUrls.length > 0) return;
+        void pageTabId().then(async id => {
+            const url = id ? (await chrome.tabs.get(id)).url : undefined;
+            if (url && /^https?:/.test(url)) setSelectedUrls(prev => (prev.length ? prev : [url]));
+        });
     };
 
     useEffect(() => {
@@ -372,6 +371,12 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
             if (url && /^https?:/.test(url)) setSelectedUrls(prev => (prev.length ? prev : [url]));
         });
     }, [preset]);
+
+    // A finished run is done with: Back clears it and leaves in one step, not back through the steps.
+    const finished = hasCompleted || hasStopped || article.hasCompleted || article.hasStopped;
+    const leave = () => { handleReset(); onBack(); };
+    /** Back from where the tool was opened leaves it (the first choice, or a preset's first step). */
+    const atStart = step === firstStep && (details === 'choose' || details === firstDetails);
 
     const handleRemoveUrl = (index: number) => {
         setSelectedUrls(prev => prev.filter((_, i) => i !== index));
@@ -392,27 +397,11 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
     const renderStep = () => {
         switch (step) {
             case 1:
-                return (
-                    <Step1Urls
-                        selectedUrls={selectedUrls}
-                        setSelectedUrls={setSelectedUrls}
-                        setShowDataSourceSelector={setShowDataSourceSelector}
-                        handleRemoveUrl={handleRemoveUrl}
-                        onNext={() => setStep(details === 'article' ? 3 : 2)}
-                    />
-                );
-            case 2:
                 if (details !== 'fields') {
                     return (
-                        <DetailsChoice pages={selectedUrls.length}
-                            onArticle={() => { setDetails('article'); setStep(3); }}
-                            onFields={() => {
-                                // Fields are picked on the first page: open it in this tab.
-                                if (selectedUrls.length > 0) {
-                                    void pageTabId().then(id => { if (id) void chrome.tabs.update(id, { url: selectedUrls[0] }); });
-                                }
-                                setDetails('fields');
-                            }} />
+                        <DetailsChoice
+                            onArticle={() => { setDetails('article'); toPages(); }}
+                            onFields={() => setDetails('fields')} />
                     );
                 }
                 return (
@@ -439,14 +428,24 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
                         setElementName={setElementName}
                         elementAction={elementAction}
                         handleSaveElement={handleSaveElement}
-                        onBack={() => setDetails('choose')}
-                        onNext={() => setStep(3)}
+                        onBack={preset === 'fields' ? leave : () => setDetails('choose')}
+                        onNext={toPages}
                         onCancel={stopSelection}
                         sendHighlightMessage={sendHighlightMessage}
                         onAddElements={(els) => {
                             setElements(prev => [...prev, ...els]);
                             els.forEach(el => sendHighlightMessage('ADD_SELECTION_HIGHLIGHT', { element: el }));
                         }}
+                    />
+                );
+            case 2:
+                return (
+                    <Step1Urls
+                        selectedUrls={selectedUrls}
+                        setSelectedUrls={setSelectedUrls}
+                        setShowDataSourceSelector={setShowDataSourceSelector}
+                        handleRemoveUrl={handleRemoveUrl}
+                        onNext={() => setStep(3)}
                     />
                 );
             case 3:
@@ -492,26 +491,6 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
                         completedPages={completedPages}
                         totalUniquePages={totalPages}
                         duplicatesRemoved={duplicatesRemoved}
-                        maxConcurrent={maxConcurrent}
-                        setMaxConcurrent={setMaxConcurrent}
-                        clickWaitMs={clickWaitMs}
-                        setClickWaitMs={setClickWaitMs}
-                        requestDelay={requestDelay}
-                        setRequestDelay={setRequestDelay}
-                        loadTimeout={loadTimeout}
-                        setLoadTimeout={setLoadTimeout}
-                        waitForLoad={waitForLoad}
-                        setWaitForLoad={setWaitForLoad}
-                        enableRandomization={enableRandomization}
-                        setEnableRandomization={setEnableRandomization}
-                        waitForElements={waitForElements}
-                        setWaitForElements={setWaitForElements}
-                        elementTimeout={elementTimeout}
-                        setElementTimeout={setElementTimeout}
-                        domainMinGapMs={domainMinGapMs}
-                        setDomainMinGapMs={setDomainMinGapMs}
-                        pauseOnChallenge={pauseOnChallenge}
-                        setPauseOnChallenge={setPauseOnChallenge}
                         listOutput={listOutput}
                         setListOutput={setListOutput}
                         activeTabs={activeTabs}
@@ -529,25 +508,22 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
         }
     };
 
-    // A finished run is done with: Back clears it and leaves in one step, not back through the steps.
-    const finished = hasCompleted || hasStopped || article.hasCompleted || article.hasStopped;
-    const leave = () => { handleReset(); onBack(); };
 
     return (
         <WizardLayout
             title={t('title')}
             subtitle={
-                step === 1 ? t('step1.subtitle') :
-                    step === 2 ? t('step2.subtitle') :
+                step === 1 ? t('step2.subtitle') :
+                    step === 2 ? t('step1.subtitle') :
                         t('step3.subtitle')
             }
             currentStep={step}
             totalSteps={3}
             stepLabels={t('stepLabels', { returnObjects: true }) as string[]}
-            onBack={step === 1 || (step === 3 && finished) ? leave : goBack}
-            isLoading={isTabLoading && step === 2 && details === 'fields'}
+            onBack={atStart || (step === 3 && finished) ? leave : goBack}
+            isLoading={isTabLoading && step === 1 && details === 'fields'}
         >
-            {forList && step > 1 && (
+            {forList && (
                 <Notice tone="info" className="mb-3">
                     {t('forList', { count: forList.urls.length, name: forList.listName })}
                 </Notice>

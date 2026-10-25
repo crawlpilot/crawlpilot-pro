@@ -1,3 +1,5 @@
+import type { Pace } from '../sites/siteSettings';
+
 export type PaginationSpeed = 'slow' | 'normal' | 'fast';
 
 export interface PaginationProfile {
@@ -36,4 +38,5 @@ export const PAGINATION_PROFILES: Record<PaginationSpeed, PaginationProfile> = {
     }
 };
 
-export const DEFAULT_PAGINATION_SPEED: PaginationSpeed = 'normal';
+/** A list run's waits by its site's pace (the site settings card): one speed setting for every run. */
+export const PACE_SPEED: Record<Pace, PaginationSpeed> = { careful: 'slow', normal: 'normal', fast: 'fast' };

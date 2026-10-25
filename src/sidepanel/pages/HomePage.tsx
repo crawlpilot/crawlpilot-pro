@@ -103,7 +103,7 @@ function Suggestion({ summary, web, ai, onNavigate }: { summary: PageSummary | n
     }
     const s: { icon: ReactNode; title: string; hint?: string; action: string; view: string; secondary?: { label: string; view: string } } =
         summary.kind === 'list' ? { icon: <List />, title: t('page.list', { count: summary.items, noun: summary.noun }), hint: t('page.listHint'), action: t('page.listAction'), view: 'list-extractor' }
-            : summary.kind === 'product' ? { icon: <ShoppingBag />, title: t('page.product'), hint: summary.name, action: t('page.productAction'), view: 'page-extractor' }
+            : summary.kind === 'product' ? { icon: <ShoppingBag />, title: t('page.product'), hint: summary.name, action: t('page.productAction'), view: 'product-details' }
                 : summary.kind === 'article'
                     ? ai ? { icon: <FileText />, title: t('page.article'), hint: summary.name, action: t('page.articleAction'), view: 'text-summarizer', secondary: { label: t('page.articleSecondary'), view: 'metadata-extractor' } }
                         : { icon: <FileText />, title: t('page.article'), hint: summary.name, action: t('page.articleSecondary'), view: 'metadata-extractor' }

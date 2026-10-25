@@ -4,7 +4,7 @@
  */
 import { test, expect } from './harness';
 
-test('this page, then "Article text & details", gets its text without any setup', async ({ panel, ext, origin }) => {
+test('"Article text & details", then this page, gets its text without any setup', async ({ panel, ext, origin }) => {
     test.setTimeout(90_000);
     const page = await ext.newPage();
     await page.goto(`${origin}/site/article.html`);
@@ -14,10 +14,10 @@ test('this page, then "Article text & details", gets its text without any setup'
     const ui = await ext.newPage();
     await ui.setViewportSize({ width: 400, height: 900 });
     await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=page-extractor&tabId=${tabId}`);
-    await ui.getByText('This page', { exact: true }).click();
-    await ui.getByRole('button', { name: 'Next: 1 page' }).click();
+    // What first, then where: the pages start with the open one.
     await expect(ui.getByText('Which details do you want?')).toBeVisible();
     await ui.getByText('Article text & details').click();
+    await ui.getByRole('button', { name: 'Next: 1 page' }).click();
     await ui.getByRole('button', { name: 'Get 1 page' }).click();
     await expect(ui.getByText('Done · text from 1 page')).toBeVisible({ timeout: 60_000 });
     await expect(ui.getByRole('button', { name: 'See your table' })).toBeVisible();

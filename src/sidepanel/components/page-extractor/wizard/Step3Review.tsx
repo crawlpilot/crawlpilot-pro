@@ -1,10 +1,9 @@
-import { Play, Settings2, ExternalLink, RotateCcw, PartyPopper, ShieldAlert, Square } from 'lucide-react';
+import { Play, ExternalLink, RotateCcw, PartyPopper, ShieldAlert, Square } from 'lucide-react';
 import { SiteSettingsCard } from '../../sites/SiteSettingsCard';
 import { siteOf } from '../../../../shared/sites/siteSettings';
-import { Button, Card, Chip, Disclosure, Heading, Notice, Progress, Segmented, Spinner, Stack, Stepper, Switch, Text } from '../../../ui';
+import { Button, Card, Chip, Heading, Notice, Progress, Segmented, Spinner, Stack, Text } from '../../../ui';
 import type { UrlStatus } from '../../../../shared/messages';
 import { VERDICT_LABELS } from '../../../../shared/verdict/classifyPage';
-import { defaultConcurrency, tabsHint } from '../../../../shared/utils/concurrency';
 
 interface Step3ReviewProps {
     elements: any[];
@@ -18,26 +17,6 @@ interface Step3ReviewProps {
     completedPages: number;
     totalUniquePages: number;
     duplicatesRemoved: number;
-    maxConcurrent: number;
-    setMaxConcurrent: (val: number) => void;
-    clickWaitMs: number;
-    setClickWaitMs: (val: number) => void;
-    requestDelay: number;
-    setRequestDelay: (val: number) => void;
-    loadTimeout: number;
-    setLoadTimeout: (val: number) => void;
-    waitForLoad: boolean;
-    setWaitForLoad: (val: boolean) => void;
-    enableRandomization: boolean;
-    setEnableRandomization: (val: boolean) => void;
-    waitForElements: boolean;
-    setWaitForElements: (val: boolean) => void;
-    elementTimeout: number;
-    setElementTimeout: (val: number) => void;
-    domainMinGapMs: number;
-    setDomainMinGapMs: (val: number) => void;
-    pauseOnChallenge: boolean;
-    setPauseOnChallenge: (val: boolean) => void;
     listOutput: 'nested' | 'rows' | 'numbered';
     setListOutput: (val: 'nested' | 'rows' | 'numbered') => void;
     activeTabs: number;
@@ -60,27 +39,6 @@ function shortUrl(url: string) {
     }
 }
 
-function SettingRow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-    return (
-        <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-                <Text size="small" weight="medium">{label}</Text>
-                {hint && <Text size="caption" tone="muted">{hint}</Text>}
-            </div>
-            <div className="shrink-0">{children}</div>
-        </div>
-    );
-}
-
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
-    return (
-        <div className="flex flex-col gap-3 border-t border-line pt-3 first:border-t-0 first:pt-0">
-            <Text size="caption" weight="bold" tone="muted">{title}</Text>
-            {children}
-        </div>
-    );
-}
-
 const LIST_OUTPUT_LABELS = { nested: 'One column', rows: 'Row per item', numbered: 'Numbered' } as const;
 const LIST_OUTPUT_HINTS = {
     nested: 'Each list is one JSON column holding all its items',
@@ -100,26 +58,6 @@ export function Step3Review({
     completedPages,
     totalUniquePages,
     duplicatesRemoved,
-    maxConcurrent,
-    setMaxConcurrent,
-    clickWaitMs,
-    setClickWaitMs,
-    requestDelay,
-    setRequestDelay,
-    loadTimeout,
-    setLoadTimeout,
-    waitForLoad,
-    setWaitForLoad,
-    enableRandomization,
-    setEnableRandomization,
-    waitForElements,
-    setWaitForElements,
-    elementTimeout,
-    setElementTimeout,
-    domainMinGapMs,
-    setDomainMinGapMs,
-    pauseOnChallenge,
-    setPauseOnChallenge,
     listOutput,
     setListOutput,
     activeTabs,
@@ -177,53 +115,13 @@ export function Step3Review({
 
             {!isActive && !done && <SiteSettingsCard site={siteOf(selectedUrls[0])} />}
 
-            {!isActive && !done && (
-                <Disclosure icon={<Settings2 />} summary="More settings for this run">
-                    <div className="flex flex-col gap-4">
-                        <Group title="Speed">
-                            <SettingRow label="Tabs at a time" hint={tabsHint(maxConcurrent, defaultConcurrency())}>
-                                <Stepper label="Tabs at a time" value={maxConcurrent} onChange={setMaxConcurrent} min={1} max={5} step={1} width={1} />
-                            </SettingRow>
-                            <SettingRow label="Wait between pages" hint="Milliseconds">
-                                <Stepper label="Wait between pages" value={requestDelay} onChange={setRequestDelay} min={0} max={10000} step={500} />
-                            </SettingRow>
-                            <SettingRow label="Wait after a click" hint="Milliseconds">
-                                <Stepper label="Wait after a click" value={clickWaitMs} onChange={setClickWaitMs} min={500} max={10000} step={500} />
-                            </SettingRow>
-                        </Group>
-                        <Group title="Page loading">
-                            <Switch checked={waitForLoad} onChange={setWaitForLoad} label="Wait for the page to load" hint="Read it only once it has fully loaded" />
-                            {waitForLoad && (
-                                <SettingRow label="Load timeout" hint="Longest wait (ms)">
-                                    <Stepper label="Load timeout" value={loadTimeout} onChange={setLoadTimeout} min={1000} max={60000} step={1000} />
-                                </SettingRow>
-                            )}
-                        </Group>
-                        <Group title="Bot checks">
-                            <Switch checked={enableRandomization} onChange={setEnableRandomization} label="Vary the timing" hint="Random jitter on each wait, so runs look less robotic" />
-                            <SettingRow label="Per-site gap" hint="Least time between two pages of one site, across all tabs (ms)">
-                                <Stepper label="Per-site gap" value={domainMinGapMs} onChange={setDomainMinGapMs} min={0} max={60000} step={500} />
-                            </SettingRow>
-                            <Switch checked={pauseOnChallenge} onChange={setPauseOnChallenge} label="Pause on a bot check" hint="Show the tab and wait for you to solve a CAPTCHA, then continue" />
-                        </Group>
-                        {elements.some((e: any) => e.type === 'list' || e.type === 'smart') && (
-                            <Group title="Lists">
-                                <Segmented size="sm" fullWidth aria-label="List output" value={listOutput} onChange={setListOutput}
-                                    options={(['nested', 'rows', 'numbered'] as const).map(m => ({ value: m, label: LIST_OUTPUT_LABELS[m] }))} />
-                                <Text size="caption" tone="muted">{LIST_OUTPUT_HINTS[listOutput]}</Text>
-                            </Group>
-                        )}
-                        <Group title="Waiting for elements">
-                            <Switch checked={waitForElements} onChange={setWaitForElements} label="Wait for the fields to appear" hint="Useful when the page fills itself in after loading" />
-                            {waitForElements && (
-                                <SettingRow label="Element timeout" hint="Longest wait (ms, 0 = 5 s)">
-                                    <Stepper label="Element timeout" value={elementTimeout} onChange={setElementTimeout} min={0} max={30000} step={1000} />
-                                </SettingRow>
-                            )}
-                        </Group>
-                        <Text size="caption" tone="faint">The run uses a background window, so you can keep browsing.</Text>
-                    </div>
-                </Disclosure>
+            {!isActive && !done && elements.some((e: any) => e.type === 'list' || e.type === 'smart') && (
+                <div className="flex flex-col gap-2">
+                    <Text size="small" weight="semibold">Lists in the output</Text>
+                    <Segmented size="sm" fullWidth aria-label="List output" value={listOutput} onChange={setListOutput}
+                        options={(['nested', 'rows', 'numbered'] as const).map(m => ({ value: m, label: LIST_OUTPUT_LABELS[m] }))} />
+                    <Text size="caption" tone="muted">{LIST_OUTPUT_HINTS[listOutput]}</Text>
+                </div>
             )}
 
             {isActive && (

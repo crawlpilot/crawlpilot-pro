@@ -4,7 +4,8 @@ import { db } from '../../shared/db';
 import { storage } from '../../shared/storage';
 import { hasAllUrlsPermission, injectContentScript, requestAllUrlsPermission } from '../../shared/utils/hostPermissions';
 import type { ExtractionStatus, ListPick, PaginationConfig } from '../../shared/types/extraction';
-import { PAGINATION_PROFILES, PaginationSpeed } from '../../shared/constants/paginationConfig';
+import { PACE_SPEED, PAGINATION_PROFILES } from '../../shared/constants/paginationConfig';
+import { siteOf, siteRun, siteSettings } from '../../shared/sites/siteSettings';
 import { consolidateSelectors } from '../../shared/utils/extractionLogic';
 import { listSpec } from '../../shared/recipes/spec';
 import { columnCoverage, ListingRunTracker } from '../../shared/listing/runStats';
@@ -229,9 +230,9 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
                 data: s.data ? { ...s.data, items: [] } : { items: [], columns: [] }
             }));
 
-            // Get speed profile
-            const speed: PaginationSpeed = pagination.speed || 'normal';
-            const profile = PAGINATION_PROFILES[speed];
+            // How fast: the site's pace (its settings card), the same for every run of the site.
+            const pace = siteRun(await siteSettings(siteOf(sourceTab?.url || currentTab?.url))).pace;
+            const profile = PAGINATION_PROFILES[PACE_SPEED[pace]];
 
             // 1. Handle Auto-Scroll or Load More
             if (pagination.mode === 'auto' || pagination.mode === 'loadMore') {

@@ -62,8 +62,8 @@ test('Extract: a list in the page\'s JSON, its attributes ticked and renamed, th
 
     // The same fields, bound to the data, go to the Page Extractor with this page.
     await ui.getByRole('button', { name: 'Run on more pages' }).click();
+    await ui.getByRole('button', { name: 'Next: pages' }).click();
     await ui.getByRole('button', { name: 'Next: 1 page' }).click();
-    await ui.getByRole('button', { name: 'Review & run' }).click();
     await ui.getByRole('button', { name: 'Get 1 page' }).click();
     await expect(ui.getByRole('button', { name: 'Open the table' })).toBeVisible({ timeout: 60_000 });
     // One Back leaves the finished run and returns to where it started: the toolkit, then Home.
@@ -117,8 +117,6 @@ test('Page Extractor: smart detection lists the page\'s attributes; ticked and n
     const ui = await ext.newPage();
     await ui.setViewportSize({ width: 400, height: 900 });
     await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=page-extractor&tabId=${tabId}`);
-    await ui.getByText('This page', { exact: true }).click();
-    await ui.getByRole('button', { name: 'Next: 1 page' }).click();
     await ui.getByText('Pick the fields yourself').click();
 
     await ui.getByTestId('smart-detection').click();
@@ -145,7 +143,9 @@ test('Page Extractor: smart detection lists the page\'s attributes; ticked and n
     await dialog.getByRole('button', { name: 'Add 6 fields' }).click();
     await expect(ui.getByText('Page data')).toHaveCount(6);
 
-    await ui.getByRole('button', { name: 'Review & run' }).click();
+    // Then the pages, starting with this one.
+    await ui.getByRole('button', { name: 'Next: pages' }).click();
+    await ui.getByRole('button', { name: 'Next: 1 page' }).click();
     await ui.getByRole('button', { name: 'Get 1 page' }).click();
     await expect(ui.getByRole('button', { name: 'Open the table' })).toBeVisible({ timeout: 60_000 });
 

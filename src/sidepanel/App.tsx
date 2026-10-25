@@ -63,6 +63,9 @@ function App() {
                 return <ListExtractorPage onBack={goBack} onNavigate={navigate} />;
             case 'page-extractor':
                 return <PageExtractorPage onBack={goBack} />;
+            case 'product-details':
+                // Home's product suggestion: straight to picking this page's fields.
+                return <PageExtractorPage onBack={goBack} preset="fields" />;
             case 'metadata-extractor':
                 // Merged into "Same details from many pages": the article details, starting from this page.
                 return <PageExtractorPage onBack={goBack} preset="article" />;
