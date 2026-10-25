@@ -1,4 +1,4 @@
-import { Database, Settings } from 'lucide-react';
+import { BookOpen, Database, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button, IconButton, Tooltip, cx } from '../../ui';
 
@@ -23,6 +23,7 @@ export default function Header({ onNavigate, activeView, disabled }: HeaderProps
                 <img src={chrome.runtime.getURL('icons/icon32.png')} alt="" className="size-6" />
                 <span className="font-display text-lead font-extrabold tracking-[-0.03em] text-ink">CrawlPilot Pro</span>
             </button>
+            <Button size="sm" variant="ghost" icon={<BookOpen />} onClick={() => go('pro-recipes')}>Recipes</Button>
             <Tooltip title={t('nav.myDataTooltip')}>
                 <Button size="sm" variant="ghost" icon={<Database />} onClick={() => go('history')} className={cx(activeView === 'history' && 'text-ink')}>
                     {t('nav.myData')}

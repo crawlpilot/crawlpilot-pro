@@ -21,13 +21,16 @@ const ToolkitPage = lazy(() => import('./pages/ToolkitPage'));
 const TablesPage = lazy(() => import('./pages/TablesPage'));
 const MarkdownPage = lazy(() => import('./pages/MarkdownPage'));
 const KitPage = lazy(() => import('./pages/KitPage'));
+const ProRecipesPage = lazy(() => import('../pro/pages/RecipesPage'));
+const ProHistoryPage = lazy(() => import('../pro/pages/HistoryPage'));
 
 import Header from './components/ui/Header';
 import { useTabSync } from './hooks/useTabSync';
 import { useListRunStatus } from './hooks/useExtractionProcess';
 
 function App() {
-    const [currentView, setCurrentView] = useState('home');
+    // Pro opens on its Recipes screen; Build new goes to the public tools on Home.
+    const [currentView, setCurrentView] = useState('pro-recipes');
     // The screens that led here: Back returns to the one before (Toolkit → Page Extractor → Toolkit), Home when none.
     const [trail, setTrail] = useState<string[]>([]);
     const navigate = useCallback((view: string) => {
@@ -61,10 +64,10 @@ function App() {
             case 'list-extractor':
                 return <ListExtractorPage onBack={goBack} onNavigate={navigate} />;
             case 'page-extractor':
-                return <PageExtractorPage onBack={goBack} />;
+                return <PageExtractorPage onBack={goBack} onNavigate={navigate} />;
             case 'product-details':
                 // Home's product suggestion: straight to picking this page's fields.
-                return <PageExtractorPage onBack={goBack} preset="fields" />;
+                return <PageExtractorPage onBack={goBack} preset="fields" onNavigate={navigate} />;
             case 'metadata-extractor':
                 // Merged into "Same details from many pages": the article details, starting from this page.
                 return <PageExtractorPage onBack={goBack} preset="article" />;
@@ -98,6 +101,10 @@ function App() {
                 return <SettingsPage onBack={goBack} />;
             case 'kit':
                 return <KitPage />;
+            case 'pro-recipes':
+                return <ProRecipesPage onNavigate={navigate} />;
+            case 'pro-history':
+                return <ProHistoryPage onBack={goBack} onNavigate={navigate} />;
             default:
                 return <HomePage onNavigate={navigate} isTabConnected={isTabConnected} />;
         }

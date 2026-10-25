@@ -12,7 +12,7 @@ async function home(panel: Panel, ext: BrowserContext, origin: string, path: str
     await panel.toTab(tabId, 'PING');
     const ui = await ext.newPage();
     await ui.setViewportSize({ width: 400, height: 860 });
-    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?view=home&tabId=${tabId}`);
     return ui;
 }
 

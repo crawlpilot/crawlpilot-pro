@@ -30,6 +30,10 @@ Keep this list short, and check these files first when a merge conflicts.
 - `src/sidepanel/App.tsx`, `src/i18n/index.ts`, `src/types/i18next.d.ts`, `e2e/ux-shots.spec.ts`: the welcome
   screen is removed.
 - `src/sidepanel/pages/SettingsPage.tsx`: no public support links or feedback form.
+- `src/sidepanel/App.tsx`: the `pro-recipes` and `pro-history` routes, the panel opens on Recipes, and the Page Extractor gets `onNavigate`.
+- `src/sidepanel/components/ui/Header.tsx`: a Recipes button.
+- `src/sidepanel/pages/PageExtractorPage.tsx`, `ListExtractorPage.tsx`: a recipe session from Recipes (`takeProEdit`) loads the version being edited, and the last step is Save version (`PageSave`, `ListSave`) instead of a run. The List Extractor hides its one-click run in a session. Opened from Home, both run as in public.
+- `e2e/home.spec.ts`, `e2e/i18n.spec.ts`, `e2e/migration.spec.ts`: open `?view=home`. `e2e/extension.spec.ts`: the panel opens on Recipes.
 
 When upstream changes one of these files, keep the Pro side and take the rest of upstream's change.
 

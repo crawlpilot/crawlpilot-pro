@@ -15,6 +15,9 @@ import { consolidateSelectors } from '../../shared/utils/extractionLogic';
 import { itemUrlColumn, itemUrls } from '../../shared/listing/join';
 import { setDetailsDraft } from '../services/detailsDraft';
 import { siteOf } from '../../shared/sites/siteSettings';
+import { pageTabId } from '../hooks/usePageTab';
+import { listEditInput, takeProEdit } from '../../pro/edit';
+import { ListSave } from '../../pro/pages/ExtractorSave';
 
 interface ListExtractorPageProps {
     onBack?: () => void;
@@ -29,6 +32,11 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
         const run = currentListRun();
         return run.status.status !== 'idle' && run.picks.length ? run : null;
     });
+    // Pro: a list recipe built or edited from Recipes. An edit's lists and pagination load, on its start page.
+    const [pro] = useState(() => {
+        const edit = takeProEdit('list');
+        return edit ? { edit, input: edit.version ? listEditInput(edit.version) : null } : null;
+    });
     // 1. Logic Hooks
     const {
         selectors,
@@ -37,7 +45,8 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
         addSelector,
         removeSelector,
         updateSelector
-    } = useSelectorManager(resumed ? { selectors: resumed.picks, next: resumed.pagination?.next ?? [] } : undefined);
+    } = useSelectorManager(resumed ? { selectors: resumed.picks, next: resumed.pagination?.next ?? [] }
+        : pro?.input ? { selectors: pro.input.picks, next: pro.input.next } : undefined);
 
     const {
         status: selectionStatus,
@@ -56,13 +65,13 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
 
     // 2. Wizard State
     const [step, setStep] = useState(resumed ? 3 : 1);
-    const [paginationMode, setPaginationMode] = useState<PaginationMode>(resumed?.pagination?.mode ?? 'auto');
+    const [paginationMode, setPaginationMode] = useState<PaginationMode>(resumed?.pagination?.mode ?? pro?.input?.mode ?? 'auto');
     const [maxPages, setMaxPages] = useState<number>(resumed?.pagination?.maxPages ?? 3);
     const [previewTableId, setPreviewTableId] = useState<number | null>(null);
     // How more items load, found on the page after the first pick (undefined: still looking; null: none).
     const [pages, setPages] = useState<{ mode: PaginationMode; label: string } | null | undefined>(undefined);
     // Once the user sets pagination in the Pages step, the found control no longer overrides it.
-    const userSetPages = useRef(false);
+    const userSetPages = useRef(!!pro?.input);
     const choosePaginationMode = (mode: PaginationMode) => { userSetPages.current = true; setPaginationMode(mode); };
     const chooseNext = (selectors: string[]) => { userSetPages.current = true; setNext(selectors); };
 
@@ -186,6 +195,15 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
         chrome.tabs.get(sourceTabId).then(tab => setSite(siteOf(tab.url)), () => setSite(''));
     }, [sourceTabId]);
 
+    // Pro: the page the recipe starts on: an edit's, or the page its first list was picked on.
+    const [proUrl, setProUrl] = useState(pro?.input?.url);
+    useEffect(() => {
+        if (pro?.input?.url) void pageTabId().then(id => { if (id) void chrome.tabs.update(id, { url: pro.input!.url }); });
+    }, [pro]);
+    useEffect(() => {
+        if (pro && sourceTabId !== undefined) chrome.tabs.get(sourceTabId).then(tab => setProUrl(tab.url), () => {});
+    }, [pro, sourceTabId]);
+
     /** List + details: the list's item links go to the Page Extractor, whose fields join onto this list. */
     const [detailsError, setDetailsError] = useState<string | null>(null);
     const addDetails = async () => {
@@ -236,7 +254,7 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
                         onTestSelector={handleVerifySelector}
                         onNext={() => setStep(2)}
                         onCancel={stopSelection}
-                        quickRun={selectors[0] && (
+                        quickRun={!pro && selectors[0] && (
                             <QuickRun
                                 pick={selectors[0]}
                                 pages={pages}
@@ -267,6 +285,13 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
                     />
                 );
             case 3:
+                // Pro: a recipe session saves the lists as a version instead of running them.
+                if (pro) {
+                    return (
+                        <ListSave edit={pro.edit} picks={selectors} mode={paginationMode} next={next} url={proUrl}
+                            onBack={() => setStep(2)} onDone={() => onNavigate?.('pro-recipes')} />
+                    );
+                }
                 return (
                     <Step3Review
                         selectors={selectors}

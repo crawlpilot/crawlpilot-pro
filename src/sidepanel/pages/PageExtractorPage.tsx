@@ -18,6 +18,8 @@ import { defaultConcurrency } from '@/shared/utils/concurrency';
 import { takeDetailsDraft, type DetailsDraft } from '../services/detailsDraft';
 import { takePageDataDraft } from '../services/pageDataDraft';
 import { Notice } from '../ui';
+import { pageEditInput, takeProEdit, type ProEdit } from '../../pro/edit';
+import { PageSave } from '../../pro/pages/ExtractorSave';
 
 interface PageExtractorPageProps {
     onBack: () => void;
@@ -26,6 +28,8 @@ interface PageExtractorPageProps {
      * `fields`: straight to picking fields on the open page (Home's product suggestion).
      */
     preset?: 'article' | 'fields';
+    /** Pro: where Save version returns to (the Recipes screen). */
+    onNavigate?: (view: string) => void;
 }
 
 /** The picked list's fields (columns that carry readers), if the pick was a list. */
@@ -41,7 +45,7 @@ const PAGE_RUN_DEFAULTS = {
     waitForElements: false, elementTimeout: 0, domainMinGapMs: 0, pauseOnChallenge: true,
 };
 
-export default function PageExtractorPage({ onBack, preset }: PageExtractorPageProps) {
+export default function PageExtractorPage({ onBack, preset, onNavigate }: PageExtractorPageProps) {
     const { t } = useTranslation('pageExtractor');
     // Details first (picked on the open page), then the pages to read them from, then the run.
     const firstStep = preset === 'article' ? 2 : 1;
@@ -77,6 +81,22 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
         setListOutput(draft.listOutput);
         setSelectedUrls([draft.url]);
         setDetails('fields');
+    }, []);
+
+    // Pro: a recipe built or edited from Recipes. An edit's fields, pages and pace load, on its first page.
+    const [proEdit, setProEdit] = useState<ProEdit | null>(null);
+    useEffect(() => {
+        const edit = takeProEdit('page');
+        if (!edit) return;
+        setProEdit(edit);
+        setDetails('fields');
+        if (!edit.version) return;
+        const input = pageEditInput(edit.version);
+        setElements(input.elements);
+        setSelectedUrls(input.urls);
+        if (typeof input.settings.requestDelay === 'number') setRequestDelay(input.settings.requestDelay);
+        if (input.settings.listOutput) setListOutput(input.settings.listOutput as 'nested' | 'rows' | 'numbered');
+        void pageTabId().then(id => { if (id && input.urls[0]) void chrome.tabs.update(id, { url: input.urls[0] }); });
     }, []);
 
     // Track active tab loading state for the YouTube-style loading bar
@@ -476,6 +496,15 @@ export default function PageExtractorPage({ onBack, preset }: PageExtractorPageP
                             onViewResults={id => chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${id}`) })}
                             onReset={handleReset}
                         />
+                    );
+                }
+                // Pro: a recipe session saves the picks as a version instead of running them.
+                if (proEdit && !forList) {
+                    return (
+                        <PageSave edit={proEdit} elements={elements} urls={selectedUrls}
+                            settings={{ ...(proEdit.version?.settings ?? PAGE_RUN_DEFAULTS), requestDelay, listOutput }}
+                            onBack={() => setStep(2)}
+                            onDone={() => { handleReset(); setProEdit(null); onNavigate?.('pro-recipes'); }} />
                     );
                 }
                 return (

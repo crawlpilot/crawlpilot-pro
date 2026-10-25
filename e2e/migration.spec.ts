@@ -57,6 +57,8 @@ test('a v5 database migrates to v7 when the extension opens it, and My data show
     // A fresh side panel opens the database on the My data page and upgrades it (the service worker's
     // connection closed on the version change; whichever context opens it next runs the upgrade).
     const fresh = await Panel.open(ext, extensionId);
+    // Pro opens on Recipes; My data is in Home's header.
+    await fresh.page.goto(`chrome-extension://${fresh.extensionId}/sidepanel.html?view=home`);
     await fresh.page.getByText('My data', { exact: true }).first().click();
     await fresh.page.waitForFunction(() => new Promise(resolve => {
         const open = indexedDB.open('crawl-pilot');

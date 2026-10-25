@@ -22,7 +22,7 @@ test('the side panel shows the chosen language, loaded on demand', async ({ ext,
 
     await panel.page.evaluate(() => chrome.storage.local.set({ language: 'fr' }));
     const page = await ext.newPage();
-    await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
+    await page.goto(`chrome-extension://${extensionId}/sidepanel.html?view=home`);
     await expect.poll(shown).toBeGreaterThan(0);
     // English again: the bundled language.
     await panel.page.evaluate(() => chrome.storage.local.remove('language'));
