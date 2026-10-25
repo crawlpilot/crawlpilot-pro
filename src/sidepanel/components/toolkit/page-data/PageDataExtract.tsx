@@ -13,12 +13,19 @@ import { GroupLabel } from '../ui';
 import { bindingsFor, type DataElement, type JsonCandidate, type PickedAttribute } from '../../../../shared/pageJson/scan';
 import { FIELD_TYPE_LABELS } from '../../../../shared/transforms/chain';
 import { setPageDataDraft } from '../../../services/pageDataDraft';
-import { cell, saveRowsTable } from '../../../services/pageDataTable';
+import { db } from '../../../../shared/db';
 
 /** Rows shown in the preview. */
 const PREVIEW_ROWS = 8;
 
 interface Pick { on: boolean; name: string; /** Of several values, only the first. */ first?: boolean }
+
+/** A read value as one cell: an object of name → value pairs as "Fit: Relaxed, Length: Regular". */
+function cell(v: string | string[] | null | undefined): string {
+    if (Array.isArray(v)) return v.join(', ');
+    if (v && v.startsWith('{')) { try { return Object.entries(JSON.parse(v)).map(([k, x]) => `${k}: ${x}`).join(', '); } catch { /* not an object */ } }
+    return v ?? '';
+}
 
 function CandidateCard({ c, onOpen }: { c: JsonCandidate; onOpen: () => void }) {
     return (
@@ -108,7 +115,14 @@ export default function PageDataExtract({ onBrowse, onUse }: {
 
     const saveTable = async () => {
         if (!chosen || rows.length === 0) return;
-        const tableId = await saveRowsTable(rows, ticked, page.url, `${chosen.title} · ${page.host}`);
+        const tableId = await db.tables.save({
+            type: 'list',
+            items: rows.map(r => ({ ...r, source_url: page.url })),
+            columns: ticked.map((p, i) => ({ id: p.name, name: p.name, type: 'text' as const, order: i })),
+            source_url: page.url,
+            count: rows.length,
+            timestamp: new Date().toISOString(),
+        }, { name: `${chosen.title} · ${page.host}` });
         setSaved(`Saved ${rows.length} row${rows.length !== 1 ? 's' : ''} as a table.`);
         chrome.tabs.create({ url: chrome.runtime.getURL(`sidepanel.html?view=data-table&tableId=${tableId}`) });
     };

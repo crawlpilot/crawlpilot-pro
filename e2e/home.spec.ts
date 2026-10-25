@@ -29,19 +29,6 @@ test('a product page: Home suggests the product details', async ({ panel, ext, o
     await expect(ui.getByRole('button', { name: "Get this product's details" })).toBeVisible();
 });
 
-test("a product page's details come from its own data, no AI: named on the card, kept as a table in one click", async ({ panel, ext, origin }) => {
-    const ui = await home(panel, ext, origin, '/site/json-product.html');
-    await expect(ui.getByText('A product page')).toBeVisible({ timeout: 10_000 });
-    await expect(ui.getByTestId('product-details-found')).toContainText(/\d+ details found: /);
-    const tablesBefore = (await panel.store('tables')).length;
-    await ui.getByRole('button', { name: "Get this product's details" }).click();
-    await expect.poll(async () => (await panel.store('tables')).length, { timeout: 10_000 }).toBe(tablesBefore + 1);
-    const table = (await panel.store('tables')).at(-1);
-    const rows = (await panel.store('rows')).filter(r => r.tableId === table.id);
-    expect(rows).toHaveLength(1);
-    expect(Object.values(rows[0].data)).toContain('Linen Overshirt');
-});
-
 test('Home leads with the tools that work everywhere; without Chrome AI the AI tools wait under More tools', async ({ panel, ext, origin }) => {
     const ui = await home(panel, ext, origin, '/corpus/walmart-search');
     // The test browser has no on-device model, so the AI tools are not offered up front.

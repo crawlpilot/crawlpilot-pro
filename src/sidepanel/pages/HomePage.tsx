@@ -19,10 +19,6 @@ import type { Table } from '../../shared/types/database';
 import { db } from '../../shared/db';
 import { modelStatus } from '../services/ai/modelHost';
 import { getSummarizerAvailability } from '../services/ai/summarizer';
-import type { JsonCandidate } from '../../shared/pageJson/scan';
-import { bindingsFor } from '../../shared/pageJson/scan';
-import { defaultPicks, saveItemTable } from '../services/pageDataTable';
-import { setPageDataDraft } from '../services/pageDataDraft';
 import { Button, Card, CardButton, Disclosure, Heading, Row, Skeleton, Stack, Text, type Tone } from '../ui';
 
 interface HomePageProps {
@@ -35,7 +31,6 @@ const RECENT = 3;
 // What Home last showed, kept while the panel is open: coming back shows the same screen at once
 // (no placeholders, no sections popping in) while each part is checked again quietly.
 const summaries = new Map<string, PageSummary>();
-const productData = new Map<string, JsonCandidate | null>();
 let recentCache: Table[] | null = null;
 let aiCache: boolean | null = null;
 
@@ -60,26 +55,6 @@ function usePageSummary(page: ReturnType<typeof usePageTab>, connected: boolean)
         return () => { alive = false; };
     }, [key, page.tab, page.web, connected]);
     return summary;
-}
-
-/**
- * A product page's main item in its own data (JSON-LD, app state), found with no model: what the
- * suggestion offers to take. undefined while looking; null when the page publishes none.
- */
-function useProductData(page: ReturnType<typeof usePageTab>, summary: PageSummary | null): JsonCandidate | null | undefined {
-    const key = `${page.tab?.id}|${page.url}`;
-    const product = summary?.kind === 'product';
-    const [item, setItem] = useState<JsonCandidate | null | undefined>(() => productData.get(key));
-    useEffect(() => {
-        if (!product) return;
-        let alive = true;
-        setItem(productData.get(key));
-        sendToPage(page.tab, 'PAGE_JSON_SCAN')
-            .then(res => res.candidates.find(c => c.kind === 'item') ?? null, () => null)
-            .then(found => { productData.set(key, found); if (alive) setItem(found); });
-        return () => { alive = false; };
-    }, [key, page.tab, product]);
-    return product ? item : null;
 }
 
 function useRecentTables(): Table[] {
@@ -115,17 +90,8 @@ function openTable(id?: number) {
 }
 
 /** The one thing to do with this page. */
-function Suggestion({ summary, page, item, ai, onNavigate }: {
-    summary: PageSummary | null;
-    page: ReturnType<typeof usePageTab>;
-    /** A product page's item in its own data (undefined: still looking; null: none). */
-    item: JsonCandidate | null | undefined;
-    ai: boolean;
-    onNavigate: (view: string) => void;
-}) {
+function Suggestion({ summary, web, ai, onNavigate }: { summary: PageSummary | null; web: boolean; ai: boolean; onNavigate: (view: string) => void }) {
     const { t } = useTranslation('home');
-    const [busy, setBusy] = useState(false);
-    const web = page.web;
     if (!summary) {
         return (
             <Card>
@@ -135,43 +101,13 @@ function Suggestion({ summary, page, item, ai, onNavigate }: {
             </Card>
         );
     }
-    const go = (view: string) => () => onNavigate(view);
-    // A product: its details read from the data the page publishes (no model), kept as a table at once;
-    // the same fields go to the Page Extractor for more pages. No data: point at the details.
-    const productDetails = item ? defaultPicks(item) : [];
-    const keepProduct = async () => {
-        if (!item) return;
-        setBusy(true);
-        try {
-            const tableId = await saveItemTable(page.tab, item, productDetails, page.url, page.host);
-            openTable(tableId);
-        } catch {
-            onNavigate('page-extractor');
-        } finally {
-            setBusy(false);
-        }
-    };
-    const moreProducts = () => {
-        if (!item) return;
-        setPageDataDraft({ elements: bindingsFor(item, productDetails), listOutput: 'nested', url: page.url });
-        onNavigate('page-extractor');
-    };
-    const s: { icon: ReactNode; title: string; hint?: string; detail?: ReactNode; action: string; onAction: () => void; secondary?: { label: string; onClick: () => void } } =
-        summary.kind === 'list' ? { icon: <List />, title: t('page.list', { count: summary.items, noun: summary.noun }), hint: t('page.listHint'), action: t('page.listAction'), onAction: go('list-extractor') }
-            : summary.kind === 'product' ? {
-                icon: <ShoppingBag />, title: t('page.product'), hint: summary.name,
-                detail: item === undefined ? <Skeleton className="mt-1.5 h-4 w-2/3" />
-                    : item ? <Text size="small" className="mt-1.5 text-ink-2" lines={2} data-testid="product-details-found">
-                        {t('page.productFound', { count: productDetails.length, names: productDetails.slice(0, 4).map(p => p.name).join(', ') })}
-                    </Text>
-                        : <Text size="small" tone="muted" className="mt-1.5">{t('page.productNoData')}</Text>,
-                ...(item ? { action: t('page.productAction'), onAction: () => void keepProduct(), secondary: { label: t('page.productMore'), onClick: moreProducts } }
-                    : { action: t('page.productPick'), onAction: go('page-extractor') }),
-            }
+    const s: { icon: ReactNode; title: string; hint?: string; action: string; view: string; secondary?: { label: string; view: string } } =
+        summary.kind === 'list' ? { icon: <List />, title: t('page.list', { count: summary.items, noun: summary.noun }), hint: t('page.listHint'), action: t('page.listAction'), view: 'list-extractor' }
+            : summary.kind === 'product' ? { icon: <ShoppingBag />, title: t('page.product'), hint: summary.name, action: t('page.productAction'), view: 'ai-extract' }
                 : summary.kind === 'article'
-                    ? ai ? { icon: <FileText />, title: t('page.article'), hint: summary.name, action: t('page.articleAction'), onAction: go('text-summarizer'), secondary: { label: t('page.articleSecondary'), onClick: go('metadata-extractor') } }
-                        : { icon: <FileText />, title: t('page.article'), hint: summary.name, action: t('page.articleSecondary'), onAction: go('metadata-extractor') }
-                    : { icon: <MousePointerClick />, title: web ? t('page.none') : t('page.notWeb'), hint: web ? t('page.noneHint') : undefined, action: t('page.noneAction'), onAction: go('list-extractor') };
+                    ? ai ? { icon: <FileText />, title: t('page.article'), hint: summary.name, action: t('page.articleAction'), view: 'text-summarizer', secondary: { label: t('page.articleSecondary'), view: 'metadata-extractor' } }
+                        : { icon: <FileText />, title: t('page.article'), hint: summary.name, action: t('page.articleSecondary'), view: 'metadata-extractor' }
+                    : { icon: <MousePointerClick />, title: web ? t('page.none') : t('page.notWeb'), hint: web ? t('page.noneHint') : undefined, action: t('page.noneAction'), view: 'list-extractor' };
     const found = summary.kind !== 'none';
     return (
         <Card raised={found} className="animate-slide-up">
@@ -184,13 +120,12 @@ function Suggestion({ summary, page, item, ai, onNavigate }: {
                 <div className="min-w-0 flex-1">
                     <Heading size="heading">{s.title}</Heading>
                     {s.hint && <Text size="small" tone="muted" lines={2} className="mt-0.5">{s.hint}</Text>}
-                    {s.detail}
                 </div>
             </Row>
             {web && (
                 <Row gap={1} wrap className="mt-4">
-                    <Button variant="primary" onClick={s.onAction} disabled={busy || (summary.kind === 'product' && item === undefined)} iconEnd={<ArrowRight />}>{s.action}</Button>
-                    {s.secondary && <Button variant="ghost" onClick={s.secondary.onClick}>{s.secondary.label}</Button>}
+                    <Button variant="primary" onClick={() => onNavigate(s.view)} iconEnd={<ArrowRight />}>{s.action}</Button>
+                    {s.secondary && <Button variant="ghost" onClick={() => onNavigate(s.secondary!.view)}>{s.secondary.label}</Button>}
                 </Row>
             )}
         </Card>
@@ -234,7 +169,6 @@ export default function HomePage({ onNavigate, isTabConnected = true }: HomePage
     const { t: tc } = useTranslation('common');
     const page = usePageTab();
     const summary = usePageSummary(page, isTabConnected);
-    const product = useProductData(page, summary);
     const recent = useRecentTables();
     const [more, setMore] = useState(false);
     const ai = useAiReady();
@@ -247,7 +181,7 @@ export default function HomePage({ onNavigate, isTabConnected = true }: HomePage
         <div className="h-full overflow-y-auto bg-bg">
             <Stack gap={5} className="p-4 pb-6">
                 <PageStrip page={page} />
-                <Suggestion summary={summary} page={page} item={product} ai={ai === true} onNavigate={onNavigate} />
+                <Suggestion summary={summary} web={page.web} ai={ai === true} onNavigate={onNavigate} />
 
                 <Stack gap={2}>
                     <Heading size="label">{t('intents.title')}</Heading>
