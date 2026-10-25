@@ -113,7 +113,7 @@ describe('import', () => {
 });
 
 describe('test runs', () => {
-    const result = (ok: boolean) => ({ url: 'https://a.test', clicks: [], fields: [{ fieldId: 'f', name: 'f', status: 'ok' as const, raw: 'x', value: 'x', filled: true, ok }] });
+    const result = (ok: boolean) => ({ url: 'https://a.test', clicks: [], fields: [{ fieldId: 'f', name: 'f', status: 'ok' as const, raw: 'x', value: 'x', cleaned: 'x', filled: true, ok }] });
 
     it('are found by recipe and spec digest, newest first, of a kind or any', async () => {
         for (let i = 0; i < 22; i++) await pro.tests.save({ recipeId: 'r', digest: 'd1', kind: 'page', results: [result(i % 2 === 0)], passed: i % 2 === 0, at: i });

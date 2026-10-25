@@ -9,6 +9,8 @@ import type { Field } from '../recipe/types';
 export interface FieldCheck {
     /** The value after cleanup, typed where the type parses (money → amount, date → ISO). */
     value: unknown;
+    /** The value after cleanup, before typing: what the output contract converts. */
+    cleaned: unknown;
     /** A value was found. */
     filled: boolean;
     /** Filled and of its type, or empty and not required. */
@@ -34,8 +36,12 @@ function unwrap(raw: unknown): unknown {
 export function checkField(field: Field, raw: unknown, baseUrl?: string): FieldCheck {
     const cleaned = applyProOps(unwrap(raw), field.ops, baseUrl);
     if (isEmpty(cleaned)) {
-        return { value: null, filled: false, ok: !field.required, ...(field.required ? { problem: 'required, but empty' } : {}) };
+        return { value: null, cleaned: null, filled: false, ok: !field.required, ...(field.required ? { problem: 'required, but empty' } : {}) };
     }
+    return { cleaned, ...typed(field, cleaned, baseUrl) };
+}
+
+function typed(field: Field, cleaned: unknown, baseUrl?: string): Omit<FieldCheck, 'cleaned'> {
     const parsedType = PARSED[field.type];
     if (parsedType) {
         if (typeof cleaned === 'number' && parsedType !== 'url' && parsedType !== 'boolean') return { value: cleaned, filled: true, ok: true };

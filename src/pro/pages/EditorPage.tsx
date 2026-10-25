@@ -5,7 +5,7 @@
  * fields on the page stays in the Page Extractor (Re-pick).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Crosshair, FlaskConical, Layers, MousePointerClick, Plus, Save, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crosshair, FileCheck, FlaskConical, Layers, MousePointerClick, Plus, Save, Trash2, X } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Chip, Disclosure, IconButton, Notice, Select, Switch, Text, TextArea, TextField } from '../../sidepanel/ui';
 import { pro } from '../db';
@@ -17,11 +17,12 @@ import { passed } from '../db/tests';
 import { summarize, testOnTab, type FieldResult, type PageResult } from '../runner/testPage';
 import { testOnPages, type PagesProgress } from '../runner/testPages';
 import { TestGrid } from './TestGrid';
+import { ContractPanel } from './ContractPanel';
 import { readiness } from '../recipe/ready';
 import { diffVersions, wayLabel } from '../recipe/diff';
 import * as edits from '../recipe/editSpec';
 import { applyProOps, NEW_OP, opSummary, PRO_OP_LABELS, type ProOp } from '../recipe/ops';
-import type { Click, Field, FieldType, PageRecipeSpec, ProRecipe, Sample, Version } from '../recipe/types';
+import type { Click, Field, FieldType, OutputSpec, PageRecipeSpec, ProRecipe, Sample, Version } from '../recipe/types';
 
 interface Props {
     onBack: () => void;
@@ -111,6 +112,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     const [recipe, setRecipe] = useState<ProRecipe | null>(null);
     const [base, setBase] = useState<Version | null>(null);
     const [spec, setSpec] = useState<PageRecipeSpec | null>(null);
+    const [output, setOutput] = useState<OutputSpec>({});
     const [note, setNote] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -129,11 +131,12 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
             setRecipe(r ?? null);
             setBase(v ?? null);
             if (v?.spec.kind === 'page') setSpec(v.spec);
+            if (v) setOutput(v.output);
             if (r) setSamples(await pro.samples.list(r.id));
         })();
     }, [recipeId]);
 
-    const changes = useMemo(() => base && spec ? diffVersions(base, { ...base, spec, version: base.version + 1 }).changes : [], [base, spec]);
+    const changes = useMemo(() => base && spec ? diffVersions(base, { ...base, spec, output, version: base.version + 1 }).changes : [], [base, spec, output]);
     const blockers = spec ? edits.problems(spec) : [];
 
     const repick = () => {
@@ -172,7 +175,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(tested), kind: 'pages', results, passed: passed(results), at: Date.now() });
     };
     const pagesStale = !!pagesTest && pagesTest.spec !== JSON.stringify(spec);
-    const ready = pagesTest && !pagesStale ? readiness(pagesTest.results) : null;
+    const ready = pagesTest && !pagesStale && spec ? readiness(pagesTest.results, { spec, output }) : null;
 
     const results = new Map((test?.result.fields ?? []).map(f => [f.fieldId, f]));
     const stale = !!test && test.spec !== JSON.stringify(spec);
@@ -182,7 +185,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         setSaving(true);
         setError(null);
         try {
-            await saveSpecVersion(recipe, base, spec, note);
+            await saveSpecVersion(recipe, base, spec, output, note);
             onNavigate('pro-history');
         } catch (e) {
             setError(e instanceof Error ? e.message : String(e));
@@ -258,7 +261,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     </Notice></div>)}
                 <div data-testid="pro-samples"><Disclosure icon={<Layers />} defaultOpen
                     summary={`Sample pages (${samples.length})`}
-                    meta={pagesTest && <Chip tone={passed(pagesTest.results) ? 'success' : 'warning'}>{passed(pagesTest.results) ? 'passed' : 'problems'} on {pagesTest.results.length}</Chip>}>
+                    meta={ready && <Chip tone={ready.ready ? 'success' : 'warning'}>{ready.ready ? 'ready' : 'not ready'}</Chip>}>
                     <div className="flex flex-col gap-2 pt-2">
                         {samples.map((x, i) => (
                             <div key={x.url} className="flex items-center gap-1.5">
@@ -283,6 +286,14 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                             : <Text size="caption" tone="warning" data-testid="pro-readiness">Not ready: {ready.reasons.join(' ')}</Text>)}
                     </div>
                 </Disclosure></div>
+                <Disclosure icon={<FileCheck />} summary="Output contract"
+                    meta={output.contract ? <Chip tone="info">{output.contract.label}</Chip> : <Text size="caption" tone="faint">none</Text>}>
+                    <div className="pt-2">
+                        <ContractPanel output={output} onChange={setOutput}
+                            fields={spec.steps.flatMap(st => st.kind === 'field' ? [st.field] : [])}
+                            results={pagesTest && !pagesStale ? pagesTest.results : undefined} />
+                    </div>
+                </Disclosure>
                 <Text size="caption" tone="faint">Steps run in this order: a click, then the fields it reveals.</Text>
                 {spec.steps.map((s, i) => s.kind === 'field' ? fieldCard(s.field, i) : clickRow(s.click, i))}
             </div>

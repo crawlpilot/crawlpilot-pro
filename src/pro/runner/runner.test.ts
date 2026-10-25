@@ -24,7 +24,7 @@ describe('checkField', () => {
     });
 
     it('an empty field is fine unless required', () => {
-        expect(checkField(field({}), '')).toEqual({ value: null, filled: false, ok: true });
+        expect(checkField(field({}), '')).toEqual({ value: null, cleaned: null, filled: false, ok: true });
         expect(checkField(field({ required: true }), null)).toMatchObject({ filled: false, ok: false, problem: 'required, but empty' });
         expect(checkField(field({ required: true, type: 'list' }), '[]')).toMatchObject({ ok: false });
     });

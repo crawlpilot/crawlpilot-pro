@@ -84,8 +84,8 @@ export function saveListVersion(edit: ProEdit, input: { name: string; picks: Lis
     return saveDraft(edit, input.name, draft, input.note);
 }
 
-/** Saves an edited spec as the next version; settings, pages and output stay the base version's. */
-export function saveSpecVersion(recipe: ProRecipe, base: Version, spec: VersionDraft['spec'], note: string) {
-    const { settings, pages, output } = base;
+/** Saves an edited spec and output as the next version; settings and pages stay the base version's. */
+export function saveSpecVersion(recipe: ProRecipe, base: Version, spec: VersionDraft['spec'], output: VersionDraft['output'], note: string) {
+    const { settings, pages } = base;
     return saveDraft({ kind: recipe.kind, recipe, version: base }, '', { spec, settings, pages, output }, note);
 }

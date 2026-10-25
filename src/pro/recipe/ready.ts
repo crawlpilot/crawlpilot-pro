@@ -1,9 +1,12 @@
 /**
  * Ready to submit (`docs/design/LLD.md` §7.4): the version's spec passed a test on at least 3 sample
- * pages, every page was read, and no field had a problem (required and empty, or not of its type).
+ * pages, every page was read, no field had a problem (required and empty, or not of its type), and the
+ * output contract, if there is one, is met on those pages.
  * Each reason it is not ready is one line.
  */
 import type { PageResult } from '../runner/testPage';
+import { checkAgainstContract, contractReasons } from './contract';
+import type { OutputSpec, ProSpec } from './types';
 
 export const MIN_TEST_PAGES = 3;
 
@@ -13,7 +16,7 @@ export interface Readiness {
 }
 
 /** `results`: the newest multi-page test of the spec, if there is one. */
-export function readiness(results: PageResult[] | undefined): Readiness {
+export function readiness(results: PageResult[] | undefined, version?: { spec: ProSpec; output: OutputSpec }): Readiness {
     if (!results) return { ready: false, reasons: ['Not tested on sample pages yet.'] };
     const reasons: string[] = [];
     const pages = results.length;
@@ -29,6 +32,10 @@ export function readiness(results: PageResult[] | undefined): Readiness {
     }
     for (const [name, byProblem] of problems) {
         for (const [problem, n] of byProblem) reasons.push(`${name}: ${problem} on ${n} page${n === 1 ? '' : 's'}.`);
+    }
+    if (version?.output.contract && version.spec.kind === 'page') {
+        const fields = version.spec.steps.flatMap(s => s.kind === 'field' ? [s.field] : []);
+        reasons.push(...contractReasons(checkAgainstContract(version.output.contract, fields, results, version.output.mapping)));
     }
     return { ready: reasons.length === 0, reasons };
 }

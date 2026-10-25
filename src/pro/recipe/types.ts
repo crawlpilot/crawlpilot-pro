@@ -88,8 +88,10 @@ export type PageSource =
     | { kind: 'start'; url: string };
 
 export interface OutputSpec {
-    /** The output contract the records are checked against (its id or file name). */
-    contract?: string;
+    /** The output contract the records are checked against. */
+    contract?: import('../../shared/contracts/contract').Contract;
+    /** Contract field → recipe field, where set by hand; the rest map by name. */
+    mapping?: import('../../shared/contracts/contract').FieldMapping;
 }
 
 /** A saved version. Never changed once written. */

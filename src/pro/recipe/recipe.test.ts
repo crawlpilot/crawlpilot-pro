@@ -64,7 +64,8 @@ describe('recipe file', () => {
         expect(file.samples).toEqual([uniqlo.built_on, ...uniqlo.checked_on]);
         expect(file.versions).toHaveLength(1);
         expect(file.versions[0].pages).toEqual({ kind: 'urls', urls: file.samples });
-        expect(file.versions[0].output).toEqual({ contract: 'fashion-product.schema.json' });
+        expect(file.versions[0].output.contract).toMatchObject({ id: 'fashion-product.schema.json', label: 'Fashion product' });
+        expect(file.versions[0].output.contract!.fields.filter(f => f.required).map(f => f.name)).toContain('brand');
         expect(file.versions[0].settings).toEqual(uniqlo.spec.settings);
     });
 

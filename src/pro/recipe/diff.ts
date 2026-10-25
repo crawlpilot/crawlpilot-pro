@@ -162,6 +162,14 @@ function pagesChanges(a: PageSource, b: PageSource): Change[] {
     return [{ kind: 'changed', subject: 'pages', details: [`${say(a)} → ${say(b)}`] }];
 }
 
+function outputChanges(a: Version['output'], b: Version['output']): Change[] {
+    const details = [
+        ...(json(a.contract) !== json(b.contract) ? [`contract ${a.contract?.label ?? 'none'} → ${b.contract?.label ?? 'none'}`] : []),
+        ...(json(a.mapping) !== json(b.mapping) ? ['contract mapping changed'] : []),
+    ];
+    return details.length ? [{ kind: 'changed', subject: 'output', details }] : [];
+}
+
 export function diffVersions(a: Version, b: Version): VersionDiff {
     const spec: Change[] = a.spec.kind !== b.spec.kind ? [{ kind: 'changed', subject: 'kind', details: [`${a.spec.kind} → ${b.spec.kind}`] }]
         : a.spec.kind === 'page' ? pageChanges(a.spec, b.spec as PageRecipeSpec)
@@ -170,7 +178,7 @@ export function diffVersions(a: Version, b: Version): VersionDiff {
         from: a.version,
         to: b.version,
         changes: [...spec, ...settingsChanges(a.settings, b.settings), ...pagesChanges(a.pages, b.pages),
-            ...(json(a.output) !== json(b.output) ? [{ kind: 'changed' as const, subject: 'output', details: [`contract ${a.output.contract ?? 'none'} → ${b.output.contract ?? 'none'}`] }] : [])],
+            ...outputChanges(a.output, b.output)],
         outputChanged: a.outputDigest !== b.outputDigest,
     };
 }

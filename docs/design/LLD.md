@@ -216,7 +216,7 @@ The output is `{ fields: { added, removed, renamed, changed: {name, parts[]}[] }
 
 ### 7.3 Checks
 - **Value checks** (slice 3): `notEmpty`, `pattern`, `range`, `oneOf`, `uniqueInList`, `compare(a op b)` and `waysAgree`. Each has a severity of `warn` or `error`.
-- **Contract:** `checkContract(contract, mapping, records)` from upstream `shared/contracts/contract.ts`.
+- **Contract** (built, `recipe/contract.ts`): `output.contract` is a public `Contract`, from a preset, the bundled sample schema, or a pasted JSON Schema (`parseSchemaInput`). The tested records (each field's cleaned value) are mapped with `autoMap`, overridden by `output.mapping`, then `shapeRows` + `checkContract`. Unmapped required fields and fields under their floor are readiness reasons.
 - **Golden:** field-by-field equality against the approved record, after cleanup. The output lists `{field, expected, got}`.
 - **Baseline:** the fill share per field across the test pages, stored on the version at submit time (`output.baseline`).
 

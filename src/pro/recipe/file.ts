@@ -6,6 +6,7 @@
  */
 import type { ListSpec, PageSpec } from '../../shared/types/database';
 import { fromListSpec, fromPageSpec } from './fromPublic';
+import { resolveContract } from './contract';
 import type { LabelName, PageSource, ProRecipe, RecipeKind, Sample, Version, VersionDraft } from './types';
 
 export class RecipeFileError extends Error {
@@ -60,7 +61,7 @@ function readFormat1(json: Json): ImportedRecipe {
         name, site, kind, samples,
         versions: [{
             ...converted, pages,
-            output: typeof json.contract === 'string' ? { contract: json.contract } : {},
+            output: typeof json.contract === 'string' && resolveContract(json.contract) ? { contract: resolveContract(json.contract) } : {},
             note: `Imported from ${name} (format 1)`,
         }],
     };

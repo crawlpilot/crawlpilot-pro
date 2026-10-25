@@ -297,7 +297,7 @@ test('test on sample pages: background tabs, a grid of fields × pages, the run 
     await expect(row('title')).toContainText('3/3');
     await expect(row('price')).toContainText('2/3');
     await expect(row('code')).toContainText('1/3');
-    await expect(samples).toContainText('passed on 3');
+    await expect(samples.getByText('ready', { exact: true })).toBeVisible();
 
     await grid.getByRole('button', { name: 'code on page 3: found' }).click();
     await expect(samples.getByTestId('pro-grid-cell')).toContainText('LX-2041');
@@ -320,6 +320,63 @@ test('test on sample pages: background tabs, a grid of fields × pages, the run 
     await expect(ui.getByTestId('pro-version')).toHaveCount(2);
     await expect(ui.getByTestId('pro-version').first()).toContainText('Not ready: code: required, but empty on 2 pages.');
     await expect(ui.getByTestId('pro-version').nth(1)).toContainText('ready to submit');
+    await ui.close();
+    await page.close();
+});
+
+test('output contract: pasted, mapped, checked on the tested pages, and part of ready to submit', async ({ panel, ext, origin }) => {
+    test.setTimeout(90_000);
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 900 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+
+    const file = {
+        name: 'Contract product', site: '127.0.0.1', built_on: `${origin}/site/json-product.html`,
+        checked_on: [`${origin}/site/json-shop.html`, `${origin}/site/article.html`],
+        spec: {
+            kind: 'page', settings: { requestDelay: 100 }, elements: [
+                { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] },
+                { id: 'b', name: 'maker', action: 'extract', type: 'text', selectors: [], data: { kind: 'ld', label: 'JSON-LD', nth: 0, type: 'ProductGroup', path: [], as: 'text', key: 'brand.name' } },
+            ],
+        },
+    };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'c.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await ui.getByRole('button', { name: 'Edit Contract product' }).click();
+
+    await ui.getByRole('button', { name: /Output contract/ }).click();
+    const contract = ui.getByTestId('pro-contract');
+    await contract.getByLabel('Output contract').selectOption('__paste__');
+    await contract.getByLabel('JSON Schema').fill(JSON.stringify({
+        type: 'object', required: ['title', 'brand'],
+        properties: { title: { type: 'string' }, brand: { type: 'string' }, colour: { type: 'string' } },
+    }));
+    await contract.getByRole('button', { name: 'Use this schema' }).click();
+    const rows = contract.getByTestId('pro-contract-row');
+    await expect(rows).toHaveCount(3);
+    await expect(contract.getByLabel('Field for title')).toHaveValue('title');
+    await expect(contract.getByLabel('Field for brand')).toHaveValue('');
+
+    const samples = ui.getByTestId('pro-samples');
+    await samples.getByRole('button', { name: 'Test on 3 pages' }).click();
+    await expect(samples.getByTestId('pro-readiness')).toHaveText('Not ready: Contract: no field gives the required "brand".', { timeout: 60_000 });
+
+    // brand from maker: mapped by hand, filled on 1 page of 3.
+    await contract.getByLabel('Field for brand').selectOption('maker');
+    await expect(rows.filter({ hasText: 'brand' })).toContainText('33%');
+    await expect(samples.getByTestId('pro-readiness')).toHaveText('Not ready: Contract: "brand" is filled on 33% of pages; it needs 95%.');
+    if (process.env.UX_SHOTS) { await contract.scrollIntoViewIfNeeded(); await ui.screenshot({ path: `${process.env.UX_SHOTS}/pro-contract.png` }); }
+
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    await expect(ui.getByTestId('pro-version')).toHaveCount(2);
+    await expect(ui.getByTestId('pro-diff')).toContainText('contract none → Pasted schema');
+    await expect(ui.getByTestId('pro-version').first()).toContainText('Contract: "brand" is filled on 33% of pages');
+    const [v2] = (await proStore(ui, 'versions')).filter(v => v.version === 2);
+    expect(v2.output).toMatchObject({ contract: { label: 'Pasted schema' }, mapping: { brand: 'maker' } });
     await ui.close();
     await page.close();
 });
