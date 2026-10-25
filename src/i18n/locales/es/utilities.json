@@ -1,0 +1,13 @@
+{
+  "title": "Utilidades del Navegador",
+  "subtitle": "Herramientas para mejorar tu navegación",
+  "rightClickUnlocker": {
+    "title": "Desbloqueador de Clic Derecho",
+    "description": "Reactivar menú contextual, copiar, pegar y selección de texto en sitios restringidos",
+    "active": "Activo",
+    "rightClick": "Clic derecho",
+    "copyPaste": "Copiar/Pegar",
+    "textSelect": "Selección de texto"
+  },
+  "comingSoon": "Más herramientas próximamente"
+}

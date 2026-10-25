@@ -1,0 +1,22 @@
+{
+  "title": "Extracteur de Pages",
+  "subtitle": "Visitez de nombreuses URLs et extrayez les mêmes champs de chacune",
+  "step1": {
+    "subtitle": "Fournissez les URLs à scraper",
+    "pagesToScrape": "Pages à Scraper",
+    "urlsLoaded": "{{count}} Chargées",
+    "urlList": "Liste d'URLs",
+    "clear": "Effacer",
+    "chooseDifferentSource": "Choisir une Autre Source",
+    "provideUrls": "Fournissez une liste d'URLs de pages pour extraire des données structurées de chacune",
+    "uploadCsv": "Importer CSV",
+    "uploadCsvDesc": "Importer des URLs depuis un fichier",
+    "selectDataSource": "Sélectionner la Source de Données",
+    "selectDataSourceDesc": "Utiliser les liens des tables existantes",
+    "expectedFormat": "Format CSV attendu",
+    "formatDesc": "Une URL par ligne, ou séparées par des virgules avec une ligne d'en-tête.",
+    "nextStep": "Étape suivante"
+  },
+  "step2": { "subtitle": "Définissez les champs à extraire", "title": "Définir le Schéma" },
+  "step3": { "subtitle": "Vérifiez et lancez l'extraction", "title": "Réviser et Exécuter" }
+}

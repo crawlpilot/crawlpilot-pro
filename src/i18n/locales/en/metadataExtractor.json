@@ -1,0 +1,43 @@
+{
+  "title": "Article text from many pages",
+  "back": "Back",
+  "step1": {
+    "subtitle": "Which pages should CrawlPilot read?"
+  },
+  "step2": {
+    "title": "Article text & details",
+    "subtitle": "Title, author, date and full text",
+    "extract_one": "Get 1 page",
+    "extract_other": "Get {{count}} pages"
+  },
+  "options": {
+    "title": "Options",
+    "includeLinks": "Keep links in the text",
+    "includeImages": "Keep images in the text",
+    "outputText": "Also add plain text",
+    "concurrency": "Pages at once",
+    "concurrencyHint": "1–5 tabs",
+    "requestDelay": "Pause between pages (ms)",
+    "requestDelayHint": "Gentler on the site",
+    "reveal": "Read hidden sections too",
+    "revealHint": "Closed accordions and tabs already in the page are read too. Nothing is clicked."
+  },
+  "results": {
+    "extracting": "Reading pages…",
+    "complete": "Done",
+    "activeTabs": "active tabs",
+    "viewResults": "See your table",
+    "previewResults": "See what’s done so far",
+    "stop": "Stop",
+    "stopping": "Stopping…",
+    "reset": "Start over",
+    "completeSummary_one": "Done · text from 1 page",
+    "completeSummary_other": "Done · text from {{count}} pages",
+    "stoppedSummary_one": "Stopped after 1 page",
+    "stoppedSummary_other": "Stopped after {{count}} pages"
+  },
+  "stepLabels": [
+    "Pages",
+    "Run"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "tagline": "Extracción web con solo señalar y hacer clic — sin código",
+  "recentRuns": "Ejecuciones Recientes",
+  "savedData": "Datos Guardados",
+  "listExtractor": {
+    "title": "Extraer una Lista",
+    "description": "Convierte cualquier listado de productos, empleo o tabla en una hoja de cálculo",
+    "tooltip": "Haz clic en cualquier elemento repetido — productos, empleos, precios, noticias — y exporta una hoja limpia o JSON en segundos"
+  },
+  "textSummarizer": {
+    "title": "Asistente de página",
+    "description": "Resume cualquier página al instante y hazle preguntas con IA",
+    "tooltip": "Navega por cualquier artículo, informe o documentación — obtén un resumen conciso y haz preguntas de seguimiento con IA"
+  },
+  "pageExtractor": {
+    "title": "Extractor de Páginas",
+    "description": "Pega una lista de URLs y extrae los mismos campos de cada página a la vez",
+    "tooltip": "Define tus campos una vez y CrawlPilot visita cada URL automáticamente — ideal para investigación de contactos, auditorías de precios y recopilación de contenido a escala"
+  },
+  "metadataExtractor": {
+    "title": "Extractor de Metadatos",
+    "description": "Recopila en masa título, autor y texto completo de cualquier lista de URLs",
+    "tooltip": "Sin selectores — proporciona URLs y obtén datos estructurados: título, autor, fecha, palabras clave y el contenido completo en Markdown"
+  },
+  "imageDownloader": {
+    "title": "Descargador de Imágenes",
+    "description": "Encuentra y guarda todas las imágenes de una página — un clic, cualquier sitio",
+    "tooltip": "Previsualiza todas las imágenes de la página, elige las que necesitas y descarga en lote fotos de productos, activos de galería o referencias de diseño"
+  },
+  "browserUtilities": {
+    "title": "Utilidades del Navegador",
+    "description": "Reactiva el clic derecho y la selección de texto en sitios que los bloquean",
+    "tooltip": "Desbloquea copiar, pegar y los menús contextuales en sitios que los restringen — ideal para copiar citas, URLs y contenido de páginas protegidas"
+  }
+}

@@ -1,0 +1,1334 @@
+{
+  "summary": {
+    "lists": {
+      "pages": 8,
+      "itemFirstExact": 8,
+      "itemPersistedFirstExact": 8,
+      "containerFirstNamed": 8,
+      "elementSelectors": 20,
+      "elementNamesTarget": 20,
+      "elementStrong": 5,
+      "elementPositional": 18,
+      "elementInstanceValue": 0,
+      "fields": 23,
+      "fieldsRead": 22
+    },
+    "products": {
+      "targets": 30,
+      "firstNamesTarget": 28,
+      "firstStrong": 27,
+      "firstPositional": 1,
+      "anyPositionalStored": 1,
+      "specRowsWithLabelFamily": "4 of 4"
+    }
+  },
+  "pages": {
+    "amazon-search": {
+      "list": {
+        "items": 16,
+        "children": 27,
+        "keptAsItems": 16,
+        "container": [
+          {
+            "selector": "div.s-main-slot",
+            "unique": true
+          },
+          {
+            "selector": "[data-component-type=\"s-search-results\"] div.s-main-slot",
+            "unique": true
+          },
+          {
+            "selector": "//div[contains(concat(' ', normalize-space(@class), ' '), ' s-main-slot ')]",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": "div[data-component-type=\"s-search-result\"]",
+            "matches": 16,
+            "exact": true
+          },
+          {
+            "selector": "div.s-asin",
+            "matches": 16,
+            "exact": true
+          },
+          {
+            "selector": "./div[@data-component-type=\"s-search-result\"]",
+            "matches": 16,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 3,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": "div[data-component-type=\"s-search-result\"]",
+          "matches": 16,
+          "exact": true
+        },
+        "columns": [
+          "Image ← img",
+          "ASIN ← :scope",
+          "URL ← [data-cy=\"title-recipe\"] > a",
+          "Title ← h2",
+          "Rating ← [data-cy=\"reviews-block\"] > .a-row > span > a",
+          "Differentiators ← .title-differentiators",
+          "Review Count ← .s-csa-instrumentation-wrapper > a",
+          "Badge ← .puis-bold-weight-text",
+          "Sales Volume ← [data-cy=\"reviews-block\"] > .a-row > span",
+          "Display Size ← .puisg-col-inner > span",
+          "Disk Size ← .puisg-col-inner > span",
+          "RAM ← .puisg-col-inner > span",
+          "Operating System ← .puisg-col-inner > span"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 16,
+            "readBy": "Title ← h2 (16/16)"
+          },
+          {
+            "field": "url",
+            "rowsWithValue": 16,
+            "readBy": "URL ← [data-cy=\"title-recipe\"] > a (16/16)"
+          },
+          {
+            "field": "image",
+            "rowsWithValue": 16,
+            "readBy": "Image ← img (16/16)"
+          },
+          {
+            "field": "price",
+            "rowsWithValue": 1,
+            "readBy": null
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": "[data-component-type=\"s-search-results\"] > div:nth-of-type(1) > div:nth-of-type(3) > div > div > span > div > div > div > div:nth-of-type(2) > div > div > div:nth-of-type(1) > a > h2 > span",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          "xpath": {
+            "selector": "//*[@data-component-type=\"s-search-results\"]/div[1]/div[3]/div/div/span/div/div/div/div[2]/div/div/div[1]/a/h2/span",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        },
+        "price": {
+          "css": {
+            "selector": "[data-a-size=\"xl\"]",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          "xpath": {
+            "selector": "//span[@data-a-size=\"xl\"]",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        }
+      },
+      "next": {
+        "chainLength": 3,
+        "invalid": 0,
+        "first": [
+          {
+            "selector": "a.s-pagination-next",
+            "namesTarget": true
+          },
+          {
+            "selector": "[aria-label=\"pagination\"] a.s-pagination-next",
+            "namesTarget": true
+          },
+          {
+            "selector": "//a[normalize-space()=\"Next\"]",
+            "namesTarget": true
+          }
+        ]
+      }
+    },
+    "amazon-category": {
+      "list": {
+        "items": 24,
+        "children": 28,
+        "keptAsItems": 24,
+        "container": [
+          {
+            "selector": "div.s-main-slot",
+            "unique": true
+          },
+          {
+            "selector": "[data-component-type=\"s-search-results\"] div.s-main-slot",
+            "unique": true
+          },
+          {
+            "selector": "//div[contains(concat(' ', normalize-space(@class), ' '), ' s-main-slot ')]",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": "div[data-component-type=\"s-search-result\"]",
+            "matches": 24,
+            "exact": true
+          },
+          {
+            "selector": ":scope > div:has([data-cy=\"asin-faceout-container\"])",
+            "matches": 24,
+            "exact": true
+          },
+          {
+            "selector": "./div[@data-component-type=\"s-search-result\"]",
+            "matches": 24,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 3,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": "div[data-component-type=\"s-search-result\"]",
+          "matches": 24,
+          "exact": true
+        },
+        "columns": [
+          "Image ← [data-component-type=\"s-product-image\"] > a > .a-section > img",
+          "Image 2 ← [data-cy=\"s-pc-faceout-badge\"] > .a-section > img",
+          "ASIN ← :scope",
+          "Badges ← .a-nowrap",
+          "URL ← [data-cy=\"title-recipe\"] > a",
+          "Title ← h2",
+          "Links ← div[role=\"listitem\"] > a",
+          "Options ← div[role=\"listitem\"] > a",
+          "Rating ← [data-cy=\"reviews-block\"] > .a-row > span > a",
+          "Differentiators ← .title-differentiators",
+          "Badge ← .a-row > .s-background-color-platinum",
+          "Review Count ← .s-csa-instrumentation-wrapper > a",
+          "Sales Volume ← [data-cy=\"reviews-block\"] > .a-row > span",
+          "Price ← a > .a-price",
+          "Delivery ← .a-column",
+          "Was Price ← .a-section > .a-price",
+          "Text ← .a-section > div",
+          "More Buying Choices Price ← [data-cy=\"secondary-offer-recipe\"] > .a-row > span",
+          "URL 2 ← .a-row > span > a"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 24,
+            "readBy": "Title ← h2 (24/24)"
+          },
+          {
+            "field": "url",
+            "rowsWithValue": 24,
+            "readBy": "URL ← [data-cy=\"title-recipe\"] > a (24/24)"
+          },
+          {
+            "field": "image",
+            "rowsWithValue": 24,
+            "readBy": "Image ← [data-component-type=\"s-product-image\"] > a > .a-section > img (24/24)"
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": "[data-component-type=\"s-search-results\"] > div:nth-of-type(1) > div:nth-of-type(2) > div > div > span > div > div > div:nth-of-type(3) > div:nth-of-type(1) > a > h2 > span",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          "xpath": {
+            "selector": "//*[@data-component-type=\"s-search-results\"]/div[1]/div[2]/div/div/span/div/div/div[3]/div[1]/a/h2/span",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        }
+      }
+    },
+    "cos-search": {
+      "list": {
+        "items": 40,
+        "children": 40,
+        "keptAsItems": 40,
+        "container": [
+          {
+            "selector": "[data-testid=\"product-grid\"]",
+            "unique": true
+          },
+          {
+            "selector": "//div[@data-testid=\"product-grid\"]",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": ":scope > div:has(> [data-testid=\"product-card-wrapper\"])",
+            "matches": 40,
+            "exact": true
+          },
+          {
+            "selector": "div.col-span-12",
+            "matches": 40,
+            "exact": true
+          },
+          {
+            "selector": "./div[*[@data-testid=\"product-card-wrapper\"]]",
+            "matches": 40,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 3,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": ":scope > div:has(> [data-testid=\"product-card-wrapper\"])",
+          "matches": 40,
+          "exact": true
+        },
+        "columns": [
+          "Image ← [data-testid^=\"default-product-card-slider-image-\"]",
+          "Images ← [data-testid^=\"default-product-card-slider-image-\"]",
+          "URL ← [data-testid=\"product-card-image-wrapper\"] > div > a",
+          "Title ← a > span",
+          "Price ← .col-end-4",
+          "Badges ← .aspect-square > svg > title",
+          "Regular ← .label4_regular_uc",
+          "Product ← button"
+        ],
+        "fields": [
+          {
+            "field": "image",
+            "rowsWithValue": 40,
+            "readBy": "Image ← [data-testid^=\"default-product-card-slider-image-\"] (40/40)"
+          },
+          {
+            "field": "url",
+            "rowsWithValue": 40,
+            "readBy": "URL ← [data-testid=\"product-card-image-wrapper\"] > div > a (40/40)"
+          }
+        ]
+      },
+      "elements": {
+        "image": {
+          "css": {
+            "selector": "[data-testid=\"product-grid\"] > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > a > div > div:nth-of-type(2) > div:nth-of-type(1) > figure > img",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          "xpath": {
+            "selector": "//*[@data-testid=\"product-grid\"]/div[1]/div[2]/div[1]/div[1]/a/div/div[2]/div[1]/figure/img",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        }
+      }
+    },
+    "walmart-search": {
+      "list": {
+        "items": 9,
+        "children": 10,
+        "keptAsItems": 9,
+        "container": [
+          {
+            "selector": "[data-testid=\"item-stack\"]",
+            "unique": true
+          },
+          {
+            "selector": "//div[@data-testid=\"item-stack\"]",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": ":scope > div:has([data-test-id=\"gpt-main\"])",
+            "matches": 9,
+            "exact": true
+          },
+          {
+            "selector": ":scope > div:has(a[href*=\"/sp/\"], a[href*=\"/ip/\"])",
+            "matches": 9,
+            "exact": true
+          },
+          {
+            "selector": "./div[.//*[@data-test-id=\"gpt-main\"]]",
+            "matches": 9,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 3,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": ":scope > div:has([data-test-id=\"gpt-main\"])",
+          "matches": 9,
+          "exact": true
+        },
+        "columns": [
+          "Image ← [data-testid=\"productTileImage\"]",
+          "Item ID ← [data-test-id=\"gpt-main\"]",
+          "Dca ID ← [data-test-id=\"gpt-main\"]",
+          "URL ← a",
+          "Badges ← [data-test-id=\"gpt-sponsored-tag-container\"] > div > div > div",
+          "Title ← [data-automation-id=\"product-title\"]",
+          "Price ← [data-testid=\"ugpp-reduced-price\"] > span:not([data-testid])",
+          "Rating ← [data-testid=\"rating-container\"] > span",
+          "Was Price ← [data-testid=\"ugpp-was-price\"]",
+          "Review Count ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span:not([data-testid])",
+          "To Price ← [data-testid=\"ugpp-range-price\"]",
+          "Save ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] [data-testid=\"badgeTagComponent\"]",
+          "Shipping ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] [data-testid=\"badgeTagComponent\"]",
+          "Delivery ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] [data-testid=\"badgeTagComponent\"]",
+          "Pickup Today ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] [data-testid=\"badgeTagComponent\"]"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 9,
+            "readBy": "Title ← [data-automation-id=\"product-title\"] (9/9)"
+          },
+          {
+            "field": "url",
+            "rowsWithValue": 9,
+            "readBy": "URL ← a (9/9)"
+          },
+          {
+            "field": "image",
+            "rowsWithValue": 9,
+            "readBy": "Image ← [data-testid=\"productTileImage\"] (9/9)"
+          },
+          {
+            "field": "price",
+            "rowsWithValue": 6,
+            "readBy": "Price ← [data-testid=\"ugpp-reduced-price\"] > span:not([data-testid]) (6/6)"
+          },
+          {
+            "field": "was price",
+            "rowsWithValue": 6,
+            "readBy": "Was Price ← [data-testid=\"ugpp-was-price\"] (6/6)"
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": "[data-testid=\"item-stack\"] > div:nth-of-type(1) > div > div > div > div:nth-of-type(3) > span:nth-of-type(2) > div > span",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          "xpath": {
+            "selector": "//*[@data-testid=\"item-stack\"]/div[1]/div/div/div/div[3]/span[2]/div/span",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        },
+        "price": {
+          "css": {
+            "selector": "[data-testid=\"item-stack\"] > div:nth-of-type(1) > div > div > div > div:nth-of-type(3) > div:nth-of-type(2)",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          "xpath": {
+            "selector": "//*[@data-testid=\"item-stack\"]/div[1]/div/div/div/div[3]/div[2]",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        }
+      }
+    },
+    "walmart-carousel": {
+      "list": {
+        "items": 6,
+        "children": 6,
+        "keptAsItems": 6,
+        "container": [
+          {
+            "selector": "[data-testid=\"carousel-container\"]",
+            "unique": true
+          },
+          {
+            "selector": "ul[data-dca-type=\"module\"]",
+            "unique": true
+          },
+          {
+            "selector": "//ul[@data-testid=\"carousel-container\"]",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": ":scope > li:has(> [data-test-id=\"gpt-main\"])",
+            "matches": 6,
+            "exact": true
+          },
+          {
+            "selector": "li[data-slide]",
+            "matches": 6,
+            "exact": true
+          },
+          {
+            "selector": "./li[*[@data-test-id=\"gpt-main\"]]",
+            "matches": 6,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 3,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": ":scope > li:has(> [data-test-id=\"gpt-main\"])",
+          "matches": 6,
+          "exact": true
+        },
+        "columns": [
+          "Image ← [data-testid=\"productTileImage\"]",
+          "Item ID ← [data-test-id=\"gpt-main\"]",
+          "URL ← a",
+          "Deal ← [data-test-id=\"gpt-product-flag-container\"] [data-testid=\"badgeTagComponent\"]",
+          "Price ← [data-test-id=\"gpt-price-flex-container\"] > span",
+          "Was Price ← [data-test-id=\"gpt-was-price-container\"]",
+          "Title ← [data-automation-id=\"product-title\"]",
+          "Rating ← [data-testid=\"rating-container\"] > span",
+          "Review Count ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] > div > span",
+          "Shipping ← [data-test-id=\"gpt-product-descriptive-meta-data-container\"] [data-testid=\"badgeTagComponent\"]"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 6,
+            "readBy": "Title ← [data-automation-id=\"product-title\"] (6/6)"
+          },
+          {
+            "field": "image",
+            "rowsWithValue": 6,
+            "readBy": "Image ← [data-testid=\"productTileImage\"] (6/6)"
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": "[data-testid=\"carousel-container\"] > li:nth-of-type(1) > div > div > div:nth-of-type(3) > span > h3",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          "xpath": {
+            "selector": "//*[@data-testid=\"carousel-container\"]/li[1]/div/div/div[3]/span/h3",
+            "namesTarget": true,
+            "grade": "strong",
+            "positional": true
+          }
+        }
+      }
+    },
+    "bootstrap-grid": {
+      "list": {
+        "items": 4,
+        "children": 4,
+        "keptAsItems": 4,
+        "container": [
+          {
+            "selector": "#results",
+            "unique": true
+          },
+          {
+            "selector": "div.row",
+            "unique": true
+          },
+          {
+            "selector": "//div[@id=\"results\"]",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": "div.col-md-4",
+            "matches": 4,
+            "exact": true
+          },
+          {
+            "selector": ":scope > div:has(a[href*=\"/p/\"])",
+            "matches": 4,
+            "exact": true
+          },
+          {
+            "selector": "./div[contains(concat(' ', normalize-space(@class), ' '), ' col-md-4 ')]",
+            "matches": 4,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 3,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": "div.col-md-4",
+          "matches": 4,
+          "exact": true
+        },
+        "columns": [
+          "Image ← img",
+          "Title ← h5",
+          "URL ← a",
+          "Price ← .price"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 4,
+            "readBy": "Title ← h5 (4/4)"
+          },
+          {
+            "field": "url",
+            "rowsWithValue": 4,
+            "readBy": "URL ← a (4/4)"
+          },
+          {
+            "field": "price",
+            "rowsWithValue": 4,
+            "readBy": "Price ← .price (4/4)"
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": "#results > div:nth-of-type(1) > div > div > h5 > a",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          "xpath": {
+            "selector": "//*[@id=\"results\"]/div[1]/div/div/h5/a",
+            "namesTarget": true,
+            "grade": "strong",
+            "positional": true
+          }
+        }
+      }
+    },
+    "tailwind-grid": {
+      "list": {
+        "items": 5,
+        "children": 5,
+        "keptAsItems": 5,
+        "container": [
+          {
+            "selector": "[data-role=\"results\"]",
+            "unique": true
+          },
+          {
+            "selector": "//ul[@data-role=\"results\"]",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": "li[data-product-sku]",
+            "matches": 5,
+            "exact": true
+          },
+          {
+            "selector": "li:has(> a[href*=\"/item/\"])",
+            "matches": 5,
+            "exact": true
+          },
+          {
+            "selector": "./li[@data-product-sku]",
+            "matches": 5,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 3,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": "li[data-product-sku]",
+          "matches": 5,
+          "exact": true
+        },
+        "columns": [
+          "Product SKU ← :scope",
+          "Title ← a",
+          "URL ← a",
+          "Price ← p"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 5,
+            "readBy": "Title ← a (5/5)"
+          },
+          {
+            "field": "price",
+            "rowsWithValue": 5,
+            "readBy": "Price ← p (5/5)"
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": "[data-role=\"results\"] > li:nth-of-type(1) > a",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          "xpath": {
+            "selector": "//*[@data-role=\"results\"]/li[1]/a",
+            "namesTarget": true,
+            "grade": "strong",
+            "positional": true
+          }
+        }
+      }
+    },
+    "emotion-hashed": {
+      "list": {
+        "items": 4,
+        "children": 4,
+        "keptAsItems": 4,
+        "container": [
+          {
+            "selector": "section",
+            "unique": true
+          },
+          {
+            "selector": "//section",
+            "unique": true
+          }
+        ],
+        "itemChain": [
+          {
+            "selector": "article[data-testid=\"job-card\"]",
+            "matches": 4,
+            "exact": true
+          },
+          {
+            "selector": "article:has(a[href*=\"/jobs/\"])",
+            "matches": 4,
+            "exact": true
+          },
+          {
+            "selector": "./article[@data-testid=\"job-card\"]",
+            "matches": 4,
+            "exact": true
+          }
+        ],
+        "itemChainLength": 3,
+        "firstExactAt": 0,
+        "persistedFirst": {
+          "selector": "article[data-testid=\"job-card\"]",
+          "matches": 4,
+          "exact": true
+        },
+        "columns": [
+          "Title ← h3",
+          "URL ← a",
+          "Badge ← span"
+        ],
+        "fields": [
+          {
+            "field": "title",
+            "rowsWithValue": 4,
+            "readBy": "Title ← h3 (4/4)"
+          },
+          {
+            "field": "location",
+            "rowsWithValue": 4,
+            "readBy": "Badge ← span (4/4)"
+          }
+        ]
+      },
+      "elements": {
+        "title": {
+          "css": {
+            "selector": "body > div > section > article:nth-of-type(1) > h3 > a",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          "xpath": {
+            "selector": "/html/body/div/section/article[1]/h3/a",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          }
+        }
+      }
+    }
+  },
+  "products": {
+    "amazon": {
+      "title": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "span#productTitle",
+            "family": "id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//span[@id=\"productTitle\"]",
+            "family": "id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "span.product-title-word-break",
+            "family": "class",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "spec_warranty": {
+        "kind": "value",
+        "label": "Warranty Description",
+        "chain": [
+          {
+            "selector": "//th[normalize-space()=\"Warranty Description\"]/following-sibling::td[1]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "spec_hard_drive": {
+        "kind": "value",
+        "label": "Hard-Drive Size",
+        "chain": [
+          {
+            "selector": "//th[normalize-space()=\"Hard-Drive Size\"]/following-sibling::td[1]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "spec_graphics": {
+        "kind": "value",
+        "label": "Graphics Description",
+        "chain": [
+          {
+            "selector": "//th[normalize-space()=\"Graphics Description\"]/following-sibling::td[1]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "overview_screen_size": {
+        "kind": "value",
+        "label": "Screen Size",
+        "chain": [
+          {
+            "selector": "//td[normalize-space()=\"Screen Size\"]/following-sibling::td[1]//span",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "bullets": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "//h1[normalize-space()=\"About this item\"]/following-sibling::ul[1]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "#centerCol ul.a-vertical",
+            "family": "id",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "description": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "//h2[normalize-space()=\"Product Description\"]/following-sibling::div[1]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "#productDescription",
+            "family": "id",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "store_link": {
+        "kind": "control",
+        "chain": [
+          {
+            "selector": "#bylineInfo",
+            "family": "id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//a[@id=\"bylineInfo\"]",
+            "family": "id",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "add_to_list": {
+        "kind": "control",
+        "chain": [
+          {
+            "selector": "[name=\"submit.add-to-registry.wishlist.unrecognized\"]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//a[@name=\"submit.add-to-registry.wishlist.unrecognized\"]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "#addToCart a[name=\"submit.add-to-registry.wishlist.unrecognized\"]",
+            "family": "id",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "expand_display": {
+        "kind": "control",
+        "chain": [
+          {
+            "selector": "//span[normalize-space()=\"Display\"]",
+            "family": "text",
+            "namesTarget": false,
+            "grade": "fragile"
+          }
+        ]
+      }
+    },
+    "walmart": {
+      "title": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "[itemprop=\"name\"]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "#main-title",
+            "family": "id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//h1[@id=\"main-title\"]",
+            "family": "id",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "price": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "[itemprop=\"price\"]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//span[@itemprop=\"price\"]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "[data-fs-element=\"price\"]",
+            "family": "attribute",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "features": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "[data-testid=\"ui-collapse-panel\"] ul",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//div[@data-testid=\"ui-collapse-panel\"]//ul",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "#top-highlights-module ul",
+            "family": "id",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "rating_count": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "[data-testid=\"item-review-section-link\"]",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//a[@data-testid=\"item-review-section-link\"]",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "[itemprop=\"ratingCount\"]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "add_to_cart": {
+        "kind": "control",
+        "chain": [
+          {
+            "selector": "[data-automation-id=\"atc\"]",
+            "family": "test id",
+            "namesTarget": false,
+            "grade": "fragile"
+          },
+          {
+            "selector": "//button[@data-automation-id=\"atc\"]",
+            "family": "test id",
+            "namesTarget": false,
+            "grade": "fragile"
+          },
+          {
+            "selector": "[data-dca-verb=\"addToCart\"]",
+            "family": "attribute",
+            "namesTarget": false,
+            "grade": "fragile"
+          }
+        ]
+      },
+      "expand_specs": {
+        "kind": "control",
+        "chain": [
+          {
+            "selector": "[aria-label=\"Specs\"]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//div[@aria-label=\"Specs\"]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "[data-testid=\"flex-container\"] div[aria-label=\"Specs\"]",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      }
+    },
+    "uniqlo": {
+      "title": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "h1[data-testid=\"ITOTypography\"]",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//h1[@data-testid=\"ITOTypography\"]",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "h1",
+            "family": "structure",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "price": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "[data-testid=\"ITOGutterContainer\"] p.fr-ec-price-text",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//div[@data-testid=\"ITOGutterContainer\"]//p[contains(concat(' ', normalize-space(@class), ' '), ' fr-ec-price-text ')]",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "main.fr-ec-layout--span-5-md p.fr-ec-price-text",
+            "family": "class",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "product_id": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "//h2[normalize-space()=\"Description\"]/following-sibling::p[1]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "features": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "[data-testid=\"ECGrid\"] > div:nth-of-type(1) > div:nth-of-type(2) > p",
+            "family": "structure",
+            "namesTarget": true,
+            "grade": "fragile",
+            "positional": true
+          },
+          {
+            "selector": "//*[@data-testid=\"ECGrid\"]/div[1]/div[2]/p",
+            "family": "xpath",
+            "namesTarget": true,
+            "grade": "strong",
+            "positional": true
+          }
+        ]
+      },
+      "size_chart_cell": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "//td[normalize-space()=\"S\"]/following-sibling::td[1]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "add_to_cart": {
+        "kind": "control",
+        "chain": [
+          {
+            "selector": "//button[normalize-space()=\"Add to cart\"]",
+            "family": "text",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "[data-testid=\"ITOGutterContainer\"] button.ito-white",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "expand_details": {
+        "kind": "control",
+        "chain": [
+          {
+            "selector": "#productLongDescription",
+            "family": "id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//button[@id=\"productLongDescription\"]",
+            "family": "id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "[data-testid=\"ITOList\"] button#productLongDescription",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      }
+    },
+    "zara": {
+      "title": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "[data-qa-qualifier=\"product-detail-info-name\"]",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//h1[@data-qa-qualifier=\"product-detail-info-name\"]",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "h1.product-detail-info__header-name",
+            "family": "class",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "price": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "div.product-detail-info__price span.money-amount__main",
+            "family": "class",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//div[contains(concat(' ', normalize-space(@class), ' '), ' product-detail-info__price ')]//span[contains(concat(' ', normalize-space(@class), ' '), ' money-amount__main ')]",
+            "family": "class",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "color": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "span.product-color-extended-name__name",
+            "family": "class",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//span[contains(concat(' ', normalize-space(@class), ' '), ' product-color-extended-name__name ')]",
+            "family": "class",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "[data-qa-qualifier=\"product-detail-info-color\"] span.product-color-extended-name__name",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "description": {
+        "kind": "value",
+        "chain": [
+          {
+            "selector": "div.expandable-text__inner-content",
+            "family": "class",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//div[contains(concat(' ', normalize-space(@class), ' '), ' expandable-text__inner-content ')]",
+            "family": "class",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "add_to_cart": {
+        "kind": "control",
+        "chain": [
+          {
+            "selector": "[data-qa-action=\"add-to-cart\"]",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//button[@data-qa-action=\"add-to-cart\"]",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "button.zds-button",
+            "family": "class",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "select_blue": {
+        "kind": "control",
+        "chain": [
+          {
+            "selector": "//button[normalize-space()=\"Blue\"]",
+            "family": "text",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      },
+      "wishlist": {
+        "kind": "control",
+        "chain": [
+          {
+            "selector": "[data-qa-action=\"add-to-wishlist\"]",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "//button[@data-qa-action=\"add-to-wishlist\"]",
+            "family": "test id",
+            "namesTarget": true,
+            "grade": "strong"
+          },
+          {
+            "selector": "[aria-label=\"Add item to the wish list\"]",
+            "family": "label",
+            "namesTarget": true,
+            "grade": "strong"
+          }
+        ]
+      }
+    }
+  }
+}

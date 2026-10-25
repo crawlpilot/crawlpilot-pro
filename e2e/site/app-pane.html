@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Places: app shell with a results pane</title>
+<!-- A map-style app (picker plan PK0): every element a div with atomic classes; a scrolling results
+     pane (role=feed) of place cards separated by spacer divs, beside a "map" full of marker divs. -->
+<style>
+body{margin:0;font:14px sans-serif}.x1{display:flex;height:100vh}.x2{width:400px;overflow-y:auto;border-right:1px solid #ccc}
+.x3{padding:12px;border-bottom:1px solid #eee;height:96px}.x4{height:8px}.x5{flex:1;position:relative;background:#e8f0e0}
+.x6{position:absolute;width:22px;height:22px;border-radius:50%;background:#d33}.x7{font-weight:bold}.x8{color:#666}.x9{height:48px;background:#fff;border-bottom:1px solid #ccc}
+</style></head><body>
+<div class="x9"><div class="xa">Search places</div></div>
+<div class="x1">
+  <div class="x2" role="feed" aria-label="Results for cars">
+    <script>
+      for (let i = 1; i <= 20; i++) document.write(`<div class="xb"><div class="x3"><a class="xc" href="/maps/place/${i}" aria-label="Car shop ${i}"></a><div class="x7">Car shop ${i}</div><div class="x8">4.${i % 10} (${i * 13}) · Car dealer</div><div class="x8">Open · Closes 7 pm</div></div></div><div class="x4"></div>`);
+    </script>
+  </div>
+  <div class="x5">
+    <script>for (let i = 0; i < 60; i++) document.write(`<div class="x6" style="left:${(i * 37) % 700}px;top:${(i * 53) % 600}px"></div>`);</script>
+  </div>
+</div>
+</body></html>

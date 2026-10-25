@@ -1,0 +1,35 @@
+{
+  "tagline": "点击式网页抓取 — 无需编程",
+  "recentRuns": "最近运行",
+  "savedData": "已保存数据",
+  "listExtractor": {
+    "title": "提取列表",
+    "description": "将产品列表、招聘板块或表格一键转为电子表格",
+    "tooltip": "点击页面上任意重复元素——产品、职位、价格、新闻——几秒内导出整洁的表格或 JSON"
+  },
+  "textSummarizer": {
+    "title": "页面助手",
+    "description": "即时摘要任意页面，并用 AI 对话提问",
+    "tooltip": "浏览任意文章、报告或文档页面——获取简洁摘要，并用 AI 进行追问"
+  },
+  "pageExtractor": {
+    "title": "页面提取器",
+    "description": "粘贴 URL 列表，一次性从每个页面提取相同字段",
+    "tooltip": "只需定义一次字段，CrawlPilot 自动访问每个 URL——适合线索研究、价格审计和大规模内容采集"
+  },
+  "metadataExtractor": {
+    "title": "元数据提取器",
+    "description": "批量采集任意 URL 列表的标题、作者和全文",
+    "tooltip": "无需选择器——提供 URL 即可获取结构化数据：标题、作者、发布日期、关键词及 Markdown 全文"
+  },
+  "imageDownloader": {
+    "title": "图片下载器",
+    "description": "一键找到并保存页面上的所有图片，支持任意网站",
+    "tooltip": "预览当前页面所有图片，选择所需内容，批量下载产品图、画廊素材或设计参考"
+  },
+  "browserUtilities": {
+    "title": "浏览器工具",
+    "description": "在屏蔽右键的网站上重新启用右键菜单和文本选择",
+    "tooltip": "解锁受限网站上的复制、粘贴和右键菜单——适合从受保护页面复制引用、URL 和内容"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/background/index.ts",
+    "src/content/element-selector.ts",
+    "src/content/readable-extract.ts",
+    "src/sidepanel/index.tsx",
+    "public/net-hook.js",
+    "e2e/*.spec.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "public/*.js",
+    "e2e/**/*.ts"
+  ],
+  "ignoreExportsUsedInFile": true
+}

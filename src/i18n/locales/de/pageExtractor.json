@@ -1,0 +1,22 @@
+{
+  "title": "Seitenextraktor",
+  "subtitle": "Besuchen Sie viele URLs und extrahieren Sie dieselben Felder von jeder",
+  "step1": {
+    "subtitle": "URLs zum Scrapen angeben",
+    "pagesToScrape": "Zu Scrapende Seiten",
+    "urlsLoaded": "{{count}} Geladen",
+    "urlList": "URL-Liste",
+    "clear": "Leeren",
+    "chooseDifferentSource": "Andere Quelle Wählen",
+    "provideUrls": "Geben Sie eine Liste von Seiten-URLs an, um strukturierte Daten von jeder zu extrahieren",
+    "uploadCsv": "CSV Hochladen",
+    "uploadCsvDesc": "URLs aus einer Datei importieren",
+    "selectDataSource": "Datenquelle Auswählen",
+    "selectDataSourceDesc": "Links aus vorhandenen Tabellen verwenden",
+    "expectedFormat": "Erwartetes CSV-Format",
+    "formatDesc": "Eine URL pro Zeile oder kommagetrennt mit einer Kopfzeile.",
+    "nextStep": "Nächster Schritt"
+  },
+  "step2": { "subtitle": "Zu extrahierende Felder definieren", "title": "Schema Definieren" },
+  "step3": { "subtitle": "Überprüfen und Extraktion starten", "title": "Überprüfen & Ausführen" }
+}

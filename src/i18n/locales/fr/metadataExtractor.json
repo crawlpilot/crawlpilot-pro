@@ -1,0 +1,34 @@
+{
+  "title": "Extracteur de Métadonnées",
+  "back": "Retour",
+  "step1": {
+    "subtitle": "Ajoutez des URLs pour extraire des métadonnées"
+  },
+  "step2": {
+    "title": "Extraction de Métadonnées",
+    "subtitle": "Configurer et lancer l'extraction",
+    "extract": "Extraire {{count}} URL(s)"
+  },
+  "options": {
+    "title": "Options d'Extraction",
+    "includeLinks": "Conserver les liens en markdown",
+    "includeImages": "Inclure les images en markdown",
+    "outputText": "Exporter aussi en texte brut",
+    "concurrency": "Onglets simultanés",
+    "concurrencyHint": "Max. onglets ouverts en même temps (1–5)",
+    "requestDelay": "Délai entre les pages (ms)",
+    "requestDelayHint": "Pause entre les requêtes"
+  },
+  "results": {
+    "extracting": "Extraction en cours…",
+    "complete": "Extraction Terminée",
+    "activeTabs": "onglets actifs",
+    "viewResults": "Voir les Résultats",
+    "previewResults": "Aperçu en direct",
+    "stop": "Arrêter l'Extraction",
+    "stopping": "Arrêt en cours…",
+    "reset": "Recommencer",
+    "completeSummary": "Métadonnées extraites de {{count}} page(s)",
+    "stoppedSummary": "Arrêté après {{count}} page(s)"
+  }
+}

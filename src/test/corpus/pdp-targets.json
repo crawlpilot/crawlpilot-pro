@@ -1,0 +1,164 @@
+{
+ "amazon": [
+  {
+   "name": "title",
+   "kind": "value",
+   "at": "//span[@id='productTitle']"
+  },
+  {
+   "name": "spec_warranty",
+   "kind": "value",
+   "at": "//th[normalize-space()='Warranty Description']/following-sibling::td",
+   "label": "Warranty Description"
+  },
+  {
+   "name": "spec_hard_drive",
+   "kind": "value",
+   "at": "//th[normalize-space()='Hard-Drive Size']/following-sibling::td",
+   "label": "Hard-Drive Size"
+  },
+  {
+   "name": "spec_graphics",
+   "kind": "value",
+   "at": "//th[normalize-space()='Graphics Description']/following-sibling::td",
+   "label": "Graphics Description"
+  },
+  {
+   "name": "overview_screen_size",
+   "kind": "value",
+   "at": "//tr[contains(@class, 'po-display.size')]/td[2]/span",
+   "label": "Screen Size"
+  },
+  {
+   "name": "bullets",
+   "kind": "value",
+   "at": "//div[@id='feature-bullets']//ul"
+  },
+  {
+   "name": "description",
+   "kind": "value",
+   "at": "//div[@id='productDescription']"
+  },
+  {
+   "name": "store_link",
+   "kind": "control",
+   "at": "//a[@id='bylineInfo']"
+  },
+  {
+   "name": "add_to_list",
+   "kind": "control",
+   "at": "//a[@name='submit.add-to-registry.wishlist.unrecognized']"
+  },
+  {
+   "name": "expand_display",
+   "kind": "control",
+   "at": "//span[@data-action='voyager-expander-heading-toggle'][normalize-space()='Display']"
+  }
+ ],
+ "walmart": [
+  {
+   "name": "title",
+   "kind": "value",
+   "at": "//h1[@id='main-title']"
+  },
+  {
+   "name": "price",
+   "kind": "value",
+   "at": "//span[@itemprop='price']"
+  },
+  {
+   "name": "features",
+   "kind": "value",
+   "at": "//div[@id='top-highlights-module']//ul"
+  },
+  {
+   "name": "rating_count",
+   "kind": "value",
+   "at": "//a[@data-testid='item-review-section-link']"
+  },
+  {
+   "name": "add_to_cart",
+   "kind": "control",
+   "at": "//div[@data-testid='add-to-cart-section']//button[@data-automation-id='atc']"
+  },
+  {
+   "name": "expand_specs",
+   "kind": "control",
+   "at": "//div[@role='button'][@aria-label='Specs']"
+  }
+ ],
+ "uniqlo": [
+  {
+   "name": "title",
+   "kind": "value",
+   "at": "//h1"
+  },
+  {
+   "name": "price",
+   "kind": "value",
+   "at": "//div[contains(@aria-label, 'price is MRP')]/div/p"
+  },
+  {
+   "name": "product_id",
+   "kind": "value",
+   "at": "//p[normalize-space()='Product ID: 486125']"
+  },
+  {
+   "name": "features",
+   "kind": "value",
+   "at": "//button[@id='productFeatures']/following-sibling::*[1]//p[starts-with(normalize-space(), 'Crisp, supple')]"
+  },
+  {
+   "name": "size_chart_cell",
+   "kind": "value",
+   "at": "//table[@class='size-chart']//tr[2]/td[2]"
+  },
+  {
+   "name": "add_to_cart",
+   "kind": "control",
+   "at": "//button[normalize-space()='Add to cart']"
+  },
+  {
+   "name": "expand_details",
+   "kind": "control",
+   "at": "//button[@id='productLongDescription']"
+  }
+ ],
+ "zara": [
+  {
+   "name": "title",
+   "kind": "value",
+   "at": "//h1"
+  },
+  {
+   "name": "price",
+   "kind": "value",
+   "at": "//div[contains(@class, 'product-detail-info__price')]//span[@class='money-amount__main']"
+  },
+  {
+   "name": "color",
+   "kind": "value",
+   "at": "//p[@data-qa-qualifier='product-detail-info-color']/span[@class='product-color-extended-name__name']"
+  },
+  {
+   "name": "description",
+   "kind": "value",
+   "at": "//section[contains(@class, 'product-detail-description')]//div[@class='expandable-text__inner-content']"
+  },
+  {
+   "name": "add_to_cart",
+   "kind": "control",
+   "at": "//button[@data-qa-action='add-to-cart']"
+  },
+  {
+   "name": "select_blue",
+   "kind": "control",
+   "at": "//button[@data-qa-action='select-color'][normalize-space()='Blue']"
+  },
+  {
+   "name": "wishlist",
+   "kind": "control",
+   "at": "//button[@data-qa-action='add-to-wishlist']"
+  }
+ ]
+}

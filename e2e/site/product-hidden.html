@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Product, sections closed</title>
+<style>
+  body{font:14px sans-serif;margin:24px}
+  .acc-body{height:0;overflow:hidden;transition:height .3s}
+  .tab-panel[hidden]{display:none}
+  .materials-note{visibility:hidden}
+</style>
+</head><body>
+  <h1 id="title"></h1>
+  <!-- An accordion collapsed to zero height. -->
+  <button class="acc-toggle" aria-expanded="false" aria-controls="acc">Specifications</button>
+  <div id="acc" class="acc-body"><ul class="highlights"><li>Dimmable <b>to 5%</b></li><li>Weighted base</li></ul></div>
+  <!-- A closed details. -->
+  <details><summary>Materials</summary><p class="materials">Steel and linen</p></details>
+  <!-- Kept in place but invisible (a panel faded out). -->
+  <p class="materials-note">Shade fabric is washable</p>
+  <!-- An inactive tab panel (display: none), its table in the DOM. -->
+  <div role="tablist"><button role="tab" aria-selected="true">Overview</button><button role="tab" aria-selected="false">Reviews</button></div>
+  <div class="tab-panel">A warm desk lamp.</div>
+  <div class="tab-panel" hidden><ul class="features"><li><span class="f">Dimmer</span> <span class="v">Touch</span></li><li><span class="f">Base</span> <span class="v">Weighted</span></li><li><span class="f">Bulb</span> <span class="v">E27</span></li><li><span class="f">Switch</span> <span class="v">Inline</span></li></ul><table class="specs"><tbody>
+    <tr><td>Wattage</td><td id="watt"></td></tr>
+    <tr><td>Cable</td><td>2 m</td></tr>
+  </tbody></table></div>
+  <script>
+    const id = new URLSearchParams(location.search).get('id') || '0';
+    document.getElementById('title').textContent = 'Lamp model ' + id;
+    document.getElementById('watt').textContent = (10 * id) + ' W';
+  </script>
+</body></html>

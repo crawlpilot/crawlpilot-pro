@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>alpha • Photos</title>
+<!--
+  A profile grid built like Instagram's (docs/plans/virtual-feeds-plan.md V0):
+  - generated (atomic) class names and a root id whose number changes on every load;
+  - rows of 3 posts inside a windowing wrapper: only the rows near the viewport are in the DOM, the
+    rest are padding (`padding-top` / `padding-bottom`); a row that comes back is a new node, its image
+    URL signed anew;
+  - the first 12 posts in an embedded JSON script (14 levels deep), the next ones fetched 12 at a time
+    as the end comes near (`/feed/posts`); after the second fetch the wrapper is replaced by a new one.
+  `?total=N` posts in all (default 120).
+-->
+<style>
+  body { margin: 0; font: 14px sans-serif; }
+  .x1hdr { height: 220px; padding: 24px; box-sizing: border-box; }
+  .x9grid { width: 930px; margin: 0 auto; }
+  .x1row { display: flex; gap: 4px; height: 300px; margin-bottom: 4px; }
+  .x1cell { width: 306px; height: 300px; position: relative; }
+  .x1cell a { display: block; width: 100%; height: 100%; }
+  .x1cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .x1ovl { position: absolute; inset: 0; }
+  .x1foot { height: 400px; }
+</style>
+</head><body>
+<div id="mount_0_0_00">
+  <div><main><section>
+    <div class="x1hdr x1n2onr6"><h2 class="x1lliihq">alpha</h2><div class="x1lliihq">120 posts</div></div>
+    <div class="x9grid x1n2onr6"></div>
+    <div class="x1foot"></div>
+  </section></main></div>
+</div>
+<script type="application/json" id="initial"></script>
+<script>
+  const ROW = 304, PER_ROW = 3;
+  const total = Number(new URLSearchParams(location.search).get('total') || 120);
+  document.getElementById('mount_0_0_00').id = 'mount_0_0_' + Math.floor(Math.random() * 90 + 10);
+  const posts = [];
+  let wrapper = null, fetching = false, fetches = 0, more = true;
+  const rendered = new Map();
+
+  function sig() { return Math.random().toString(36).slice(2, 10); }
+  function newWrapper() {
+    const w = document.createElement('div');
+    w.className = 'x1n2onr6 xh8yej3';
+    w.style.cssText = 'display:flex;flex-direction:column;padding-bottom:0px;padding-top:0px;position:relative';
+    return w;
+  }
+  function rowEl(r) {
+    const row = document.createElement('div');
+    row.className = 'x1row _ac7v x1n2onr6';
+    for (const p of posts.slice(r * PER_ROW, r * PER_ROW + PER_ROW)) {
+      const cell = document.createElement('div');
+      cell.className = 'x1cell x1lliihq x1n2onr6';
+      cell.innerHTML = `<a class="x1i10hfl xjbqb8w" href="/${p.user.username}/${p.media_type === 2 ? 'reel' : 'p'}/${p.code}/" role="link" tabindex="0">`
+        + `<div class="x1lliihq x1n2onr6"><img class="x5yr21d xu96u03" alt="Photo by ${p.user.username}: ${p.caption.text.split(':')[0]}" src="/img/${p.code}-300x300.png?sig=${sig()}"></div>`
+        + `<div class="x1ovl x1ey2m1c"></div></a>`;
+      row.appendChild(cell);
+    }
+    return row;
+  }
+  // More posts load as the end comes near while scrolling (none at page load, as on Instagram).
+  function render(scrolled = false) {
+    const rows = Math.ceil(posts.length / PER_ROW);
+    const top = wrapper.getBoundingClientRect().top;
+    const first = Math.max(0, Math.floor(-top / ROW) - 1);
+    const last = Math.min(rows - 1, Math.floor((innerHeight - top) / ROW) + 1);
+    for (const [r, el] of rendered) if (r < first || r > last) { el.remove(); rendered.delete(r); }
+    for (let r = first; r <= last; r++) {
+      if (rendered.has(r)) continue;
+      const el = rowEl(r);
+      const after = [...rendered.keys()].filter(k => k > r).sort((a, b) => a - b)[0];
+      wrapper.insertBefore(el, after === undefined ? null : rendered.get(after));
+      rendered.set(r, el);
+    }
+    wrapper.style.paddingTop = `${first * ROW}px`;
+    wrapper.style.paddingBottom = `${Math.max(0, rows - 1 - last) * ROW}px`;
+    if (scrolled && last >= rows - 2 && more && !fetching) load();
+  }
+  async function load() {
+    fetching = true;
+    await new Promise(r => setTimeout(r, 300));
+    const res = await fetch(`/feed/posts?after=${posts.length}&size=12&total=${total}`);
+    const { data } = await res.json();
+    posts.push(...data.user.timeline.edges.map(e => e.node));
+    more = data.user.timeline.page_info.has_next_page;
+    fetching = false;
+    if (++fetches === 2) {
+      // The app re-renders the grid: a new wrapper, the old one gone.
+      const next = newWrapper();
+      wrapper.replaceWith(next);
+      wrapper = next;
+      rendered.clear();
+    }
+    render(true);
+  }
+  (async () => {
+    const res = await fetch(`/feed/posts?after=0&size=12&total=${total}`);
+    const json = await res.json();
+    // The first page in the HTML, deep in the app's bootstrap (Instagram's is 14 levels down).
+    let nested = { result: { data: { xig_user_by_username: { polaris_ordered_timeline_connection: { edges: json.data.user.timeline.edges, page_info: json.data.user.timeline.page_info } } } } };
+    for (let i = 0; i < 4; i++) nested = { __bbox: { require: [['RelayPrefetchedStreamCache', 'next', [], ['adp_' + i, nested]]] } };
+    document.getElementById('initial').textContent = JSON.stringify({ require: [['ScheduledServerJS', 'handle', null, [nested]]] });
+    posts.push(...json.data.user.timeline.edges.map(e => e.node));
+    more = json.data.user.timeline.page_info.has_next_page;
+    wrapper = newWrapper();
+    document.querySelector('.x9grid').appendChild(wrapper);
+    render();
+    addEventListener('scroll', () => render(true), { passive: true });
+  })();
+</script>
+</body></html>

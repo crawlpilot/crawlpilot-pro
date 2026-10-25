@@ -1,0 +1,13 @@
+{
+  "title": "Utilità Browser",
+  "subtitle": "Strumenti per migliorare la navigazione",
+  "rightClickUnlocker": {
+    "title": "Sbloccatore Clic Destro",
+    "description": "Riattiva menu contestuale, copia, incolla e selezione testo su siti con restrizioni",
+    "active": "Attivo",
+    "rightClick": "Clic destro",
+    "copyPaste": "Copia/Incolla",
+    "textSelect": "Selezione testo"
+  },
+  "comingSoon": "Altri strumenti in arrivo"
+}

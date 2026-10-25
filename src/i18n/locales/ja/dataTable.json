@@ -1,0 +1,80 @@
+{
+  "toolbar": {
+    "filters": "フィルター",
+    "filtersActive": "{{count}} 件有効",
+    "mergeColumns": "列を結合",
+    "filterTooltip": "データ品質フィルターを切り替えてビューを整理",
+    "mergeTooltip": "区切り文字を使って2列を1列に結合",
+    "status": "{{rows}} 行 · {{cols}} 列",
+    "statusTooltip": "すべてのフィルター適用後の行数と列数"
+  },
+  "filters": {
+    "title": "グローバルフィルター",
+    "resetToDefault": "リセット",
+    "resetTooltip": "すべてのフィルターをデフォルト状態にリセット",
+    "emptyRows": "空行",
+    "emptyRowsDesc": "すべてのセルが空の行を削除",
+    "emptyColumns": "空列",
+    "emptyColumnsDesc": "いずれの行にもデータがない列を非表示",
+    "repeatingData": "繰り返しデータ",
+    "repeatingDataDesc": "すべての行で同じ値を持つ列を非表示",
+    "noDuplicates": "重複なし",
+    "noDuplicatesDesc": "内容が同一の列を削除",
+    "richFirst": "充実列を優先",
+    "richFirstDesc": "データの充実度で列を並べ替え（最も多く埋まっているものを優先）",
+    "showImages": "画像を表示",
+    "showImagesDesc": "セル内の画像プレビューを切り替え",
+    "sparseColumns": "疎な列",
+    "sparseColumnsDesc": "20%未満の行しか埋まっていない列を非表示"
+  },
+  "merge": {
+    "title": "2列を結合",
+    "column1": "列 1",
+    "column2": "列 2",
+    "separator": "区切り文字",
+    "newName": "新しい名前",
+    "selectColumn": "列を選択...",
+    "separatorPlaceholder": "（スペース）",
+    "newNamePlaceholder": "結合列",
+    "tip": "ヒント：姓と名を結合したり、住所フィールドをまとめたりできます。",
+    "button": "結合"
+  },
+  "header": {
+    "saveName": "名前を保存",
+    "cancel": "キャンセル",
+    "confirmDelete": "削除を確認",
+    "rename": "列名を変更",
+    "delete": "列を削除",
+    "deletePrompt": "削除しますか？"
+  },
+  "empty": {
+    "waiting": "抽出データを待機中",
+    "runCrawl": "クロールを実行して結果を取得"
+  },
+  "preview": {
+    "close": "プレビューを閉じる"
+  },
+  "page": {
+    "loadingDatasets": "データセットを読み込み中...",
+    "loadingTable": "テーブルデータを読み込み中...",
+    "errorTitle": "データの読み込みエラー",
+    "noExtractionsTitle": "抽出データなし",
+    "noExtractionsDesc": "まだデータを抽出していません。ホームページの抽出ツールを使用してください。",
+    "selectDataset": "データセットを選択",
+    "selectDatasetDesc": "ドロップダウンからデータセットを選択して内容を表示",
+    "selectPlaceholder": "抽出データを選択...",
+    "source": "ソース",
+    "export": "エクスポート",
+    "localExport": "ローカルエクスポート",
+    "integrations": "インテグレーション",
+    "exportCSV": "CSV / Excel",
+    "exportJSON": "JSON",
+    "exportMarkdown": "Markdown (.md)",
+    "exportGoogleSheets": "Google スプレッドシート",
+    "exportWebhook": "Webhook",
+    "exportAirtable": "Airtable",
+    "exportZapier": "Zapier",
+    "rows": "行",
+    "columns": "列"
+  }
+}

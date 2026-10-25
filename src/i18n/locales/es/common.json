@@ -1,0 +1,50 @@
+{
+  "cancel": "Cancelar",
+  "save": "Guardar",
+  "back": "Atrás",
+  "close": "Cerrar",
+  "delete": "Eliminar",
+  "confirm": "Confirmar",
+  "export": "Exportar",
+  "clear": "Limpiar",
+  "search": "Buscar",
+  "stop": "Detener",
+  "rerun": "Reejecutar",
+  "data": "Datos",
+  "copy": "Copiar",
+  "loading": "Cargando...",
+  "yes": "Sí",
+  "no": "No",
+  "na": "N/D",
+  "status": {
+    "running": "En ejecución",
+    "completed": "Completado",
+    "stopped": "Detenido",
+    "failed": "Fallido",
+    "paused": "Pausado",
+    "pending": "Pendiente",
+    "active": "Activo"
+  },
+  "time": {
+    "justNow": "Ahora mismo",
+    "minutesAgo": "Hace {{count}}m",
+    "hoursAgo": "Hace {{count}}h",
+    "daysAgo": "Hace {{count}}d",
+    "yesterday": "Ayer",
+    "days": "{{count}} Días"
+  },
+  "connection": {
+    "notConnected": "La extensión no está conectada a esta pestaña",
+    "notConnectedHint": "Navega a una página web y haz clic en Conectar para habilitar el scraping",
+    "connect": "Conectar",
+    "connecting": "Conectando..."
+  },
+  "nav": {
+    "home": "Inicio",
+    "homeTooltip": "Todas las herramientas y funciones",
+    "runs": "Ejecuciones",
+    "runsTooltip": "Trabajos de extracción anteriores que puedes volver a ejecutar",
+    "data": "Datos",
+    "dataTooltip": "Navega y exporta tus conjuntos de datos extraídos"
+  }
+}

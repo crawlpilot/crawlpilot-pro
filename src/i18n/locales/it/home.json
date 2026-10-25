@@ -1,0 +1,35 @@
+{
+  "tagline": "Web scraping punta e clicca — nessun codice necessario",
+  "recentRuns": "Esecuzioni Recenti",
+  "savedData": "Dati Salvati",
+  "listExtractor": {
+    "title": "Estrai una Lista",
+    "description": "Trasforma elenchi di prodotti, offerte di lavoro o tabelle in un foglio di calcolo",
+    "tooltip": "Clicca su qualsiasi elemento ripetuto — prodotti, lavori, prezzi, notizie — ed esporta un foglio pulito o JSON in pochi secondi"
+  },
+  "textSummarizer": {
+    "title": "Assistente di pagina",
+    "description": "Riassumi istantaneamente qualsiasi pagina e fai domande con l'IA",
+    "tooltip": "Sfoglia un articolo, un report o una documentazione — ottieni un riassunto conciso e fai domande di approfondimento con l'IA"
+  },
+  "pageExtractor": {
+    "title": "Estrattore di Pagine",
+    "description": "Incolla una lista di URL ed estrai gli stessi campi da ogni pagina in una volta",
+    "tooltip": "Definisci i tuoi campi una volta — CrawlPilot visita ogni URL automaticamente. Perfetto per ricerca lead, audit dei prezzi e raccolta di contenuti su larga scala"
+  },
+  "metadataExtractor": {
+    "title": "Estrattore di Metadati",
+    "description": "Raccogli in massa titolo, autore e testo completo da qualsiasi lista di URL",
+    "tooltip": "Nessun selettore necessario — fornisci URL e ottieni dati strutturati: titolo, autore, data, parole chiave e il contenuto completo in Markdown"
+  },
+  "imageDownloader": {
+    "title": "Scaricatore di Immagini",
+    "description": "Trova e salva tutte le immagini di una pagina — un clic, qualsiasi sito",
+    "tooltip": "Anteprima di tutte le immagini della pagina, scegli quelle che ti servono e scarica in batch foto di prodotti, asset di galleria o riferimenti di design"
+  },
+  "browserUtilities": {
+    "title": "Utilità Browser",
+    "description": "Riattiva il clic destro e la selezione testo sui siti che li bloccano",
+    "tooltip": "Sblocca copia, incolla e menu contestuali sui siti che li limitano — ideale per copiare citazioni, URL e contenuti da pagine protette"
+  }
+}

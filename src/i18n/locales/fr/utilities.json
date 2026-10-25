@@ -1,0 +1,13 @@
+{
+  "title": "Utilitaires Navigateur",
+  "subtitle": "Outils pour améliorer votre navigation",
+  "rightClickUnlocker": {
+    "title": "Déverrouilleur de Clic Droit",
+    "description": "Réactiver le menu contextuel, copier, coller et sélection de texte sur les sites restreints",
+    "active": "Actif",
+    "rightClick": "Clic droit",
+    "copyPaste": "Copier/Coller",
+    "textSelect": "Sélection de texte"
+  },
+  "comingSoon": "Plus d'outils bientôt"
+}

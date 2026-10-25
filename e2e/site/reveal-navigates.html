@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Reveal must not navigate</title></head>
+<body>
+<main>
+  <h1>Toy</h1>
+  <p>A small digital pet.</p>
+  <!-- A lazy section that really opens in place. -->
+  <button id="specs" aria-expanded="false" aria-controls="specs-panel">Specifications</button>
+  <div id="specs-panel"></div>
+  <!-- A button that loads the reviews page through script: never clicked ("all" is another page). -->
+  <button id="assign">View all reviews</button>
+  <!-- A single-page app's button: changes the URL through history (a router push); cancelled. -->
+  <button id="spa">Show more</button>
+</main>
+<script>
+document.getElementById('spa').onclick = () => {
+  history.pushState({}, '', '/site/reviews-spa.html');
+  if (location.pathname.endsWith('reviews-spa.html')) document.title = 'Reviews (spa)';
+};
+document.getElementById('assign').onclick = () => { location.href = '/site/list-1.html'; };
+const specs = document.getElementById('specs');
+specs.onclick = () => {
+  const open = specs.getAttribute('aria-expanded') !== 'true';
+  specs.setAttribute('aria-expanded', String(open));
+  document.getElementById('specs-panel').textContent = open ? 'Battery: 2 x AAA, screen 1.5 inch colour' : '';
+};
+</script>
+</body></html>

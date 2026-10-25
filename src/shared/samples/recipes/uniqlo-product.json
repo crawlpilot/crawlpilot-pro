@@ -1,0 +1,332 @@
+{
+  "name": "UNIQLO · product details",
+  "site": "uniqlo.com",
+  "contract": "fashion-product.schema.json",
+  "built_with": "Page Extractor: Smart detection for the page data fields, Add a click + Add field for the lazy sections (scripts/samples/build-recipe.mjs)",
+  "built_on": "https://www.uniqlo.com/in/en/products/E481040-000/00",
+  "checked_on": [
+    "https://www.uniqlo.com/in/en/products/E471809-000/00",
+    "https://www.uniqlo.com/in/en/products/E471808-000/01",
+    "https://www.uniqlo.com/in/en/products/E485735-000/00"
+  ],
+  "spec": {
+    "kind": "page",
+    "elements": [
+      {
+        "id": "1792855106594_0",
+        "name": "product_code",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "productGroupID"
+        },
+        "shape": "text"
+      },
+      {
+        "id": "1792855106594_1",
+        "name": "title",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "name"
+        },
+        "shape": "text"
+      },
+      {
+        "id": "1792855106594_2",
+        "name": "description",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "description"
+        },
+        "shape": "text"
+      },
+      {
+        "id": "1792855106594_3",
+        "name": "product_url",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "url",
+          "ops": [
+            {
+              "op": "absoluteUrl"
+            }
+          ]
+        },
+        "shape": "url"
+      },
+      {
+        "id": "1792855106594_4",
+        "name": "brand",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "brand.name"
+        },
+        "shape": "text"
+      },
+      {
+        "id": "1792855106594_5",
+        "name": "composition",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "material"
+        },
+        "shape": "number"
+      },
+      {
+        "id": "1792855106594_6",
+        "name": "images",
+        "action": "extract",
+        "type": "text_array",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "list",
+          "key": "image",
+          "ops": [
+            {
+              "op": "absoluteUrl"
+            }
+          ]
+        }
+      },
+      {
+        "id": "1792855106594_7",
+        "name": "color",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "hasVariant[*].color",
+          "first": true
+        },
+        "shape": "text"
+      },
+      {
+        "id": "1792855106594_8",
+        "name": "size",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "hasVariant[*].size",
+          "first": true
+        },
+        "shape": "text"
+      },
+      {
+        "id": "1792855106594_9",
+        "name": "price",
+        "action": "extract",
+        "type": "text",
+        "selectors": [],
+        "data": {
+          "kind": "ld",
+          "label": "JSON-LD",
+          "nth": 0,
+          "type": "ProductGroup",
+          "path": [],
+          "as": "text",
+          "key": "hasVariant[*].offers.price",
+          "first": true
+        },
+        "shape": "text"
+      },
+      {
+        "id": "1792855108488",
+        "name": "highlights",
+        "action": "extract",
+        "type": "text_array",
+        "selectors": [
+          "[data-testid=\"ITOAccordion\"] div[data-testid=\"ECGrid\"]",
+          "//div[@data-testid=\"ITOAccordion\"]//div[@data-testid=\"ECGrid\"]"
+        ]
+      },
+      {
+        "id": "1792855109868",
+        "name": "button",
+        "action": "click",
+        "type": "text",
+        "selectors": [
+          "#productLongDescription",
+          "//button[@id=\"productLongDescription\"]",
+          "[data-testid=\"ITOList\"] button#productLongDescription"
+        ]
+      },
+      {
+        "id": "1792855113513",
+        "name": "product_id",
+        "action": "extract",
+        "type": "text",
+        "selectors": [
+          "#productLongDescription-content p.typography--word-break-break-word",
+          "//div[@id=\"productLongDescription-content\"]//p[contains(concat(' ', normalize-space(@class), ' '), ' typography--word-break-break-word ')]",
+          "div.rah-static p.typography--word-break-break-word"
+        ],
+        "shape": "text"
+      },
+      {
+        "id": "1792855114894",
+        "name": "product_specifications",
+        "action": "extract",
+        "type": "text",
+        "selectors": [
+          "//div[normalize-space()=\"Function details\"]/following-sibling::p[normalize-space()][1]",
+          "//*[@id=\"productLongDescription-content\"]/div/div[1]/p"
+        ],
+        "shape": "text"
+      },
+      {
+        "id": "1792855115870",
+        "name": "button",
+        "action": "click",
+        "type": "text",
+        "selectors": [
+          "#productMaterialDescription",
+          "//button[@id=\"productMaterialDescription\"]",
+          "[data-testid=\"ITOList\"] button#productMaterialDescription"
+        ]
+      },
+      {
+        "id": "1792855119538",
+        "name": "care",
+        "action": "extract",
+        "type": "text_array",
+        "selectors": [
+          "//div[normalize-space()=\"Washing instructions\"]/following-sibling::p[normalize-space()][1]",
+          "//*[@id=\"productMaterialDescription-content\"]/div/div[2]/p"
+        ]
+      },
+      {
+        "id": "1792855120540",
+        "name": "button",
+        "action": "click",
+        "type": "text",
+        "selectors": [
+          "#productSustainabilityInfo",
+          "//button[@id=\"productSustainabilityInfo\"]",
+          "[data-testid=\"ITOList\"] button#productSustainabilityInfo"
+        ]
+      },
+      {
+        "id": "1792855124421",
+        "name": "origin",
+        "action": "extract",
+        "type": "text",
+        "selectors": [
+          "//p[normalize-space()=\"Country of origin\"]/following-sibling::p[normalize-space()][1]",
+          "//*[@id=\"productSustainabilityInfo-content\"]/div/div[1]/p[2]"
+        ],
+        "shape": "text"
+      }
+    ],
+    "settings": {
+      "requestDelay": 1000,
+      "viewportWidth": 1280,
+      "viewportHeight": 900,
+      "clickWaitMs": 1000,
+      "loadTimeout": 10000,
+      "waitForLoad": true,
+      "enableRandomization": false,
+      "waitForElements": false,
+      "elementTimeout": 0,
+      "domainMinGapMs": 0,
+      "pauseOnChallenge": true,
+      "listOutput": "nested"
+    }
+  },
+  "example": {
+    "url": "https://www.uniqlo.com/in/en/products/E481040-000/00",
+    "record": {
+      "product_code": "E481040-000",
+      "title": "Oversized Sweatshirt",
+      "description": "- Relaxed, oversized silhouette. Crisp, supple cotton-blend fabric with a premium look. Smooth polyester lining for a comfortable fit. Collar design looks polished whether worn on its own or layered. - Sheer: Not Sheer - Fit: Oversized - Pockets: No Pockets",
+      "product_url": "https://www.uniqlo.com/in/en/products/E481040-000/00",
+      "brand": "UNIQLO",
+      "composition": "Body: 67% Polyester, 33% Cotton/ Rib: 82% Cotton, 18% Polyester",
+      "images": [
+        "https://image.uniqlo.com/UQ/ST3/in/imagesgoods/481040/sub/ingoods_481040_sub3_3x4.jpg",
+        "https://image.uniqlo.com/UQ/ST3/in/imagesgoods/481040/sub/ingoods_481040_sub6_3x4.jpg",
+        "https://image.uniqlo.com/UQ/ST3/in/imagesgoods/481040/sub/ingoods_481040_sub7_3x4.jpg",
+        "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/481040/sub/goods_481040_sub11_3x4.jpg",
+        "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/481040/sub/goods_481040_sub12_3x4.jpg",
+        "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/481040/sub/goods_481040_sub14_3x4.jpg"
+      ],
+      "color": "BLUE",
+      "size": "L",
+      "price": "2490",
+      "highlights": [
+        "Crisp, supple cotton-blend fabric with a premium look. Smooth polyester lining for a comfortable fit.",
+        "Collar design looks polished whether worn on its own or layered."
+      ],
+      "product_id": "Product ID: 486125,482310,481040",
+      "product_specifications": "- Sheer: Not Sheer - Fit: Oversized - Pockets: No Pockets",
+      "care": [
+        "Machine wash cold, gentle cycle, Do not Dry Clean, Do not tumble dry."
+      ],
+      "origin": "Production: China, India, Vietnam"
+    }
+  }
+}

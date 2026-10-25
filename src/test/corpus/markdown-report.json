@@ -1,0 +1,502 @@
+{
+  "amazon-search": {
+    "markdown": {
+      "title": "Amazon.com : laptop",
+      "attempt": "markdown",
+      "chars": 28627,
+      "headings": 21,
+      "tables": [],
+      "listItems": 47,
+      "codeBlocks": 0,
+      "images": 2,
+      "links": 70,
+      "dropped": {
+        "boilerplate": 4,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.8,
+      "chromeLeaks": 0
+    },
+    "fit": {
+      "title": "Amazon.com : laptop",
+      "attempt": "fit",
+      "chars": 24075,
+      "headings": 20,
+      "tables": [],
+      "listItems": 5,
+      "codeBlocks": 0,
+      "images": 2,
+      "links": 23,
+      "dropped": {
+        "boilerplate": 4,
+        "pruned": 127,
+        "injections": 0
+      },
+      "keptShare": 0.62,
+      "chromeLeaks": 0
+    }
+  },
+  "walmart-search": {
+    "markdown": {
+      "title": "cars - Walmart.com",
+      "attempt": "markdown",
+      "chars": 15458,
+      "headings": 10,
+      "tables": [],
+      "listItems": 1,
+      "codeBlocks": 0,
+      "images": 11,
+      "links": 10,
+      "dropped": {
+        "boilerplate": 3,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.86,
+      "chromeLeaks": 0
+    },
+    "fit": {
+      "title": "cars - Walmart.com",
+      "attempt": "fit",
+      "chars": 14980,
+      "headings": 10,
+      "tables": [],
+      "listItems": 0,
+      "codeBlocks": 0,
+      "images": 10,
+      "links": 9,
+      "dropped": {
+        "boilerplate": 3,
+        "pruned": 23,
+        "injections": 0
+      },
+      "keptShare": 0.84,
+      "chromeLeaks": 0
+    }
+  },
+  "walmart-carousel": {
+    "markdown": {
+      "title": "",
+      "attempt": "markdown",
+      "chars": 7662,
+      "headings": 0,
+      "tables": [],
+      "listItems": 3,
+      "codeBlocks": 0,
+      "images": 6,
+      "links": 3,
+      "dropped": {
+        "boilerplate": 0,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 1,
+      "chromeLeaks": 0
+    },
+    "fit": {
+      "title": "",
+      "attempt": "fit",
+      "chars": 7662,
+      "headings": 0,
+      "tables": [],
+      "listItems": 3,
+      "codeBlocks": 0,
+      "images": 6,
+      "links": 3,
+      "dropped": {
+        "boilerplate": 0,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 1,
+      "chromeLeaks": 0
+    }
+  },
+  "bootstrap-grid": {
+    "markdown": {
+      "title": "",
+      "attempt": "markdown",
+      "chars": 396,
+      "headings": 4,
+      "tables": [],
+      "listItems": 0,
+      "codeBlocks": 0,
+      "images": 4,
+      "links": 4,
+      "dropped": {
+        "boilerplate": 2,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.78,
+      "chromeLeaks": 0
+    },
+    "fit": {
+      "title": "",
+      "attempt": "fit",
+      "chars": 396,
+      "headings": 4,
+      "tables": [],
+      "listItems": 0,
+      "codeBlocks": 0,
+      "images": 4,
+      "links": 4,
+      "dropped": {
+        "boilerplate": 2,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.78,
+      "chromeLeaks": 0
+    }
+  },
+  "tailwind-grid": {
+    "markdown": {
+      "title": "",
+      "attempt": "markdown",
+      "chars": 264,
+      "headings": 0,
+      "tables": [],
+      "listItems": 5,
+      "codeBlocks": 0,
+      "images": 0,
+      "links": 5,
+      "dropped": {
+        "boilerplate": 1,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.94,
+      "chromeLeaks": 0
+    },
+    "fit": {
+      "title": "",
+      "attempt": "fit",
+      "chars": 264,
+      "headings": 0,
+      "tables": [],
+      "listItems": 5,
+      "codeBlocks": 0,
+      "images": 0,
+      "links": 5,
+      "dropped": {
+        "boilerplate": 1,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.94,
+      "chromeLeaks": 0
+    }
+  },
+  "emotion-hashed": {
+    "markdown": {
+      "title": "",
+      "attempt": "markdown",
+      "chars": 222,
+      "headings": 4,
+      "tables": [],
+      "listItems": 0,
+      "codeBlocks": 0,
+      "images": 0,
+      "links": 4,
+      "dropped": {
+        "boilerplate": 1,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.8,
+      "chromeLeaks": 0
+    },
+    "fit": {
+      "title": "",
+      "attempt": "fit",
+      "chars": 222,
+      "headings": 4,
+      "tables": [],
+      "listItems": 0,
+      "codeBlocks": 0,
+      "images": 0,
+      "links": 4,
+      "dropped": {
+        "boilerplate": 1,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.8,
+      "chromeLeaks": 0
+    }
+  },
+  "pdp-amazon": {
+    "markdown": {
+      "title": "Amazon.com: Lenovo 15.6\" FHD Essential Laptop, Intel Processor, 8GB DDR5, 128GB ",
+      "attempt": "markdown",
+      "chars": 99710,
+      "headings": 28,
+      "tables": [
+        "2x10",
+        "2x14",
+        "2x8",
+        "2x7",
+        "2x7",
+        "2x15",
+        "2x2",
+        "2x2",
+        "2x2"
+      ],
+      "listItems": 103,
+      "codeBlocks": 0,
+      "images": 31,
+      "links": 201,
+      "dropped": {
+        "boilerplate": 10,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.94,
+      "chromeLeaks": 1
+    },
+    "fit": {
+      "title": "Amazon.com: Lenovo 15.6\" FHD Essential Laptop, Intel Processor, 8GB DDR5, 128GB ",
+      "attempt": "fit",
+      "chars": 79867,
+      "headings": 28,
+      "tables": [
+        "2x10",
+        "2x14",
+        "2x8",
+        "2x7",
+        "2x7",
+        "2x15",
+        "2x2",
+        "2x2",
+        "2x2"
+      ],
+      "listItems": 69,
+      "codeBlocks": 0,
+      "images": 28,
+      "links": 90,
+      "dropped": {
+        "boilerplate": 10,
+        "pruned": 582,
+        "injections": 0
+      },
+      "keptShare": 0.89,
+      "chromeLeaks": 1
+    }
+  },
+  "pdp-walmart": {
+    "markdown": {
+      "title": "4-Burner Propane Gas Grill with Side Table & Wheels - Walmart.com - Walmart.com",
+      "attempt": "markdown",
+      "chars": 3142,
+      "headings": 5,
+      "tables": [],
+      "listItems": 8,
+      "codeBlocks": 0,
+      "images": 3,
+      "links": 5,
+      "dropped": {
+        "boilerplate": 3,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.72,
+      "chromeLeaks": 0
+    },
+    "fit": {
+      "title": "4-Burner Propane Gas Grill with Side Table & Wheels - Walmart.com - Walmart.com",
+      "attempt": "fit",
+      "chars": 2934,
+      "headings": 5,
+      "tables": [],
+      "listItems": 8,
+      "codeBlocks": 0,
+      "images": 3,
+      "links": 3,
+      "dropped": {
+        "boilerplate": 3,
+        "pruned": 51,
+        "injections": 0
+      },
+      "keptShare": 0.71,
+      "chromeLeaks": 0
+    }
+  },
+  "pdp-uniqlo": {
+    "markdown": {
+      "title": "Unisex Oversized Sweatshirt | UNIQLO IN",
+      "attempt": "markdown",
+      "chars": 75475,
+      "headings": 16,
+      "tables": [
+        "2x2",
+        "1x2",
+        "1x2",
+        "1x2",
+        "1x2",
+        "3x5"
+      ],
+      "listItems": 76,
+      "codeBlocks": 0,
+      "images": 455,
+      "links": 99,
+      "dropped": {
+        "boilerplate": 3,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.97,
+      "chromeLeaks": 0
+    },
+    "fit": {
+      "title": "Unisex Oversized Sweatshirt | UNIQLO IN",
+      "attempt": "fit",
+      "chars": 20115,
+      "headings": 15,
+      "tables": [
+        "2x2",
+        "3x5"
+      ],
+      "listItems": 18,
+      "codeBlocks": 0,
+      "images": 72,
+      "links": 34,
+      "dropped": {
+        "boilerplate": 3,
+        "pruned": 169,
+        "injections": 0
+      },
+      "keptShare": 0.57,
+      "chromeLeaks": 0
+    }
+  },
+  "pdp-zara": {
+    "markdown": {
+      "title": "STRAIGHT-LEG JEANS - Mid-blue | ZARA India",
+      "attempt": "markdown",
+      "chars": 13776,
+      "headings": 6,
+      "tables": [],
+      "listItems": 91,
+      "codeBlocks": 0,
+      "images": 9,
+      "links": 81,
+      "dropped": {
+        "boilerplate": 2,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.64,
+      "chromeLeaks": 0
+    },
+    "fit": {
+      "title": "STRAIGHT-LEG JEANS - Mid-blue | ZARA India",
+      "attempt": "fit",
+      "chars": 13776,
+      "headings": 6,
+      "tables": [],
+      "listItems": 91,
+      "codeBlocks": 0,
+      "images": 9,
+      "links": 81,
+      "dropped": {
+        "boilerplate": 2,
+        "pruned": 1,
+        "injections": 0
+      },
+      "keptShare": 0.64,
+      "chromeLeaks": 0
+    }
+  },
+  "article-wikipedia": {
+    "markdown": {
+      "title": "Incandescent light bulb - Wikipedia",
+      "attempt": "markdown",
+      "chars": 163449,
+      "headings": 36,
+      "tables": [
+        "3x7",
+        "2x1",
+        "5x12",
+        "4x4"
+      ],
+      "listItems": 305,
+      "codeBlocks": 0,
+      "images": 34,
+      "links": 884,
+      "dropped": {
+        "boilerplate": 19,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.88,
+      "chromeLeaks": 0
+    },
+    "fit": {
+      "title": "Incandescent light bulb - Wikipedia",
+      "attempt": "fit",
+      "chars": 139776,
+      "headings": 36,
+      "tables": [
+        "3x7",
+        "2x1",
+        "5x12",
+        "4x4"
+      ],
+      "listItems": 158,
+      "codeBlocks": 0,
+      "images": 34,
+      "links": 698,
+      "dropped": {
+        "boilerplate": 19,
+        "pruned": 341,
+        "injections": 0
+      },
+      "keptShare": 0.85,
+      "chromeLeaks": 0
+    }
+  },
+  "docs-mdn": {
+    "markdown": {
+      "title": "Element: querySelectorAll() method - Web APIs | MDN",
+      "attempt": "markdown",
+      "chars": 13158,
+      "headings": 22,
+      "tables": [
+        "1x1"
+      ],
+      "listItems": 15,
+      "codeBlocks": 15,
+      "images": 0,
+      "links": 39,
+      "dropped": {
+        "boilerplate": 6,
+        "pruned": 0,
+        "injections": 0
+      },
+      "keptShare": 0.58,
+      "chromeLeaks": 0
+    },
+    "fit": {
+      "title": "Element: querySelectorAll() method - Web APIs | MDN",
+      "attempt": "fit",
+      "chars": 11671,
+      "headings": 21,
+      "tables": [
+        "1x1"
+      ],
+      "listItems": 10,
+      "codeBlocks": 15,
+      "images": 0,
+      "links": 34,
+      "dropped": {
+        "boilerplate": 6,
+        "pruned": 19,
+        "injections": 0
+      },
+      "keptShare": 0.57,
+      "chromeLeaks": 0
+    }
+  }
+}

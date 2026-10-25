@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Duplicates fixture</title></head>
+<body>
+<h1>Duplicates</h1>
+<!-- One file at two sizes: folded by URL, no request. -->
+<img src="/cdn/photo?id=9&w=300&h=200" alt="Small">
+<img src="/cdn/photo?id=9&w=1200&h=800" alt="Large">
+<!-- One picture under unrelated URLs: folded only by comparing pixels. -->
+<img src="/img/cat-300x200.png?pic=cat" alt="Cat">
+<img src="/img/kitty-600x400.png?pic=cat" alt="Kitty">
+<!-- A different picture. -->
+<img src="/img/dog-600x400.png" alt="Dog">
+</body>
+</html>

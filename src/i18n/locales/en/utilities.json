@@ -1,0 +1,13 @@
+{
+  "title": "Copy & right-click unlock",
+  "subtitle": "Power tools to enhance your browsing",
+  "rightClickUnlocker": {
+    "title": "Right-Click Unlocker",
+    "description": "Re-enable context menu, copy, paste, and text selection on restricted sites",
+    "active": "Active",
+    "rightClick": "Right-click",
+    "copyPaste": "Copy/Paste",
+    "textSelect": "Text Select"
+  },
+  "comingSoon": "More tools coming soon"
+}

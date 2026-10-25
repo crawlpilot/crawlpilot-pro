@@ -1,0 +1,48 @@
+{
+  "title": "Einstellungen",
+  "language": { "title": "Sprache", "description": "Wählen Sie Ihre bevorzugte Anzeigesprache" },
+  "dataStorage": {
+    "title": "Daten & Speicher",
+    "storageUsed": "Verwendeter Speicher",
+    "calculating": "Wird berechnet...",
+    "autoClear": "Alte Daten Automatisch Löschen",
+    "autoClearDescription": "Daten löschen, die älter als der ausgewählte Zeitraum sind.",
+    "clearButton": "Daten Älter als {{days}} Tage Löschen ({{count}} Aufträge)",
+    "daysLabel": "{{count}} Tage"
+  },
+  "integrations": {
+    "title": "Integrationen",
+    "webhookZapier": "Webhook & Zapier",
+    "webhookUrl": "Webhook-URL",
+    "zapierWebhook": "Zapier Webhook",
+    "airtable": "Airtable",
+    "apiKey": "API-Schlüssel",
+    "baseId": "Basis-ID",
+    "tableName": "Tabellenname",
+    "googleSheets": "Google Sheets",
+    "connectSheets": "Google Sheets verbinden",
+    "connectedSheets": "Mit Google Sheets verbunden"
+  },
+  "feedback": {
+    "title": "Feedback Teilen",
+    "description": "Helfen Sie uns, CrawlPilot zu verbessern — sagen Sie uns, was funktioniert und was nicht.",
+    "openForm": "Feedback-Formular Öffnen"
+  },
+  "dangerZone": {
+    "title": "Gefahrenzone",
+    "deleteAll": "Alle Daten Löschen",
+    "deleteAllDescription": "Löscht alles dauerhaft. Dies kann nicht rückgängig gemacht werden.",
+    "confirmDeletion": "Löschung Bestätigen",
+    "deleteJobsConfirm": "{{count}} alte Aufträge löschen?",
+    "typeToConfirm": "Geben Sie DELETE ein, um zu bestätigen:",
+    "deleteEverything": "Alles Löschen"
+  },
+  "support": {
+    "title": "Support & Community",
+    "contactSupport": "Support Kontaktieren",
+    "contactSupportSub": "Senden Sie uns eine E-Mail für Hilfe",
+    "github": "GitHub-Repository",
+    "githubSub": "Geben Sie uns einen Stern auf GitHub",
+    "version": "Version"
+  }
+}

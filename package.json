@@ -1,0 +1,59 @@
+{
+  "name": "crawlpilot",
+  "version": "3.1.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "zip": "npm run build && rm -rf dist/.vite && rm -f chrome-extension.zip && cd dist && zip -r ../chrome-extension.zip . -x '*.DS_Store' -x '*.map' -x '*.md' && cd .. && node scripts/release-check.mjs chrome-extension.zip",
+    "deadcode": "npx --yes knip@5 --no-progress",
+    "e2e": "npm run build && playwright test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RahulBisht/crawlPilot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/RahulBisht/crawlPilot/issues"
+  },
+  "homepage": "https://github.com/RahulBisht/crawlPilot#readme",
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.3.0",
+    "@playwright/test": "^1.62.1",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/chrome": "^0.1.35",
+    "@types/dom-chromium-ai": "^0.0.17",
+    "@types/node": "^25.0.9",
+    "@types/react": "^19.2.9",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.2",
+    "autoprefixer": "^10.4.23",
+    "fake-indexeddb": "^6.0.0",
+    "jsdom": "^27.0.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18",
+    "terser": "^5.46.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "ag-grid-community": "^35.0.0",
+    "ag-grid-react": "^35.0.0",
+    "fflate": "^0.8.3",
+    "i18next": "^26.2.0",
+    "lucide-react": "^0.562.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-i18next": "^17.0.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  }
+}

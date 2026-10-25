@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Picker levels</title>
+<style>
+body{font:14px sans-serif;margin:24px}
+.card{width:420px;padding:16px;border:1px solid #ccc}
+.price-block{display:flex;gap:12px;padding:8px;background:#f6f6f6}
+.price{font-size:22px;font-weight:700}
+.was{text-decoration:line-through;color:#777}
+.specs{list-style:none;padding:0;margin-top:16px}
+.specs li{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee}
+#elsewhere{margin-top:40px;width:420px;padding:20px;background:#eef}
+</style></head>
+<body>
+<div class="card" id="card">
+  <h1 class="title">Desk lamp</h1>
+  <div class="wrap"><div class="price-block" id="block"><span class="price" id="price">$24.99</span><span class="was" id="was">$30.00</span></div></div>
+  <ul class="specs" id="specs">
+    <li id="spec1"><span>Height</span><span>45 cm</span></li>
+    <li id="spec2"><span>Weight</span><span>1.2 kg</span></li>
+    <li id="spec3"><span>Bulb</span><span>LED 8 W</span></li>
+    <li id="spec4"><span>Colour</span><span>Black</span></li>
+  </ul>
+</div>
+<p id="elsewhere">Something else on the page</p>
+</body></html>

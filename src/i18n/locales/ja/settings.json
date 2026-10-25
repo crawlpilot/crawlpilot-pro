@@ -1,0 +1,48 @@
+{
+  "title": "設定",
+  "language": { "title": "言語", "description": "表示言語を選択してください" },
+  "dataStorage": {
+    "title": "データとストレージ",
+    "storageUsed": "使用中のストレージ",
+    "calculating": "計算中...",
+    "autoClear": "古いデータの自動削除",
+    "autoClearDescription": "選択した期間より古いデータを削除します。",
+    "clearButton": "{{days}}日より前のデータを削除（{{count}} 件）",
+    "daysLabel": "{{count}} 日"
+  },
+  "integrations": {
+    "title": "インテグレーション",
+    "webhookZapier": "Webhook & Zapier",
+    "webhookUrl": "Webhook URL",
+    "zapierWebhook": "Zapier Webhook",
+    "airtable": "Airtable",
+    "apiKey": "API キー",
+    "baseId": "ベース ID",
+    "tableName": "テーブル名",
+    "googleSheets": "Google Sheets",
+    "connectSheets": "Google Sheets に接続",
+    "connectedSheets": "Google Sheets に接続済み"
+  },
+  "feedback": {
+    "title": "フィードバックを共有",
+    "description": "CrawlPilot の改善にご協力ください — 良い点・悪い点をお聞かせください。",
+    "openForm": "フィードバックフォームを開く"
+  },
+  "dangerZone": {
+    "title": "危険ゾーン",
+    "deleteAll": "すべてのデータを削除",
+    "deleteAllDescription": "すべてを完全に消去します。この操作は元に戻せません。",
+    "confirmDeletion": "削除の確認",
+    "deleteJobsConfirm": "古いジョブ {{count}} 件を削除しますか？",
+    "typeToConfirm": "確認するには DELETE と入力してください：",
+    "deleteEverything": "すべて削除"
+  },
+  "support": {
+    "title": "サポートとコミュニティ",
+    "contactSupport": "サポートに連絡",
+    "contactSupportSub": "メールでサポートを受ける",
+    "github": "GitHub リポジトリ",
+    "githubSub": "GitHub でスターをつける",
+    "version": "バージョン"
+  }
+}

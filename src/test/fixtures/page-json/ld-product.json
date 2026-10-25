@@ -1,0 +1,4 @@
+[
+  { "@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{ "@type": "ListItem", "position": 1, "name": "Shoes", "item": "https://shop.example.com/shoes" }, { "@type": "ListItem", "position": 2, "name": "Trail", "item": "https://shop.example.com/shoes/trail" }] },
+  { "@context": "https://schema.org", "@type": "Product", "name": "Trail Runner 2", "sku": "TR2-42", "brand": { "@type": "Brand", "name": "Northpeak" }, "image": ["https://img.example.com/tr2-a.jpg", "https://img.example.com/tr2-b.jpg"], "offers": { "@type": "Offer", "price": "89.00", "priceCurrency": "USD", "availability": "https://schema.org/InStock" }, "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.6", "reviewCount": "212" }, "additionalProperty": [{ "@type": "PropertyValue", "name": "Color", "value": "Moss" }, { "@type": "PropertyValue", "name": "Weight", "value": "280 g" }] }
+]

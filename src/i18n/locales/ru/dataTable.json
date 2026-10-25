@@ -1,0 +1,80 @@
+{
+  "toolbar": {
+    "filters": "Фильтры",
+    "filtersActive": "{{count}} активных",
+    "mergeColumns": "Объединить столбцы",
+    "filterTooltip": "Переключить фильтры качества данных для очистки вида",
+    "mergeTooltip": "Объединить два столбца в один с разделителем",
+    "status": "{{rows}} строк · {{cols}} столбцов",
+    "statusTooltip": "Количество строк и столбцов после всех активных фильтров"
+  },
+  "filters": {
+    "title": "Глобальные фильтры",
+    "resetToDefault": "Сбросить",
+    "resetTooltip": "Сбросить все фильтры к значениям по умолчанию",
+    "emptyRows": "Пустые строки",
+    "emptyRowsDesc": "Удалить строки, где все ячейки пусты",
+    "emptyColumns": "Пустые столбцы",
+    "emptyColumnsDesc": "Скрыть столбцы без данных ни в одной строке",
+    "repeatingData": "Повторяющиеся данные",
+    "repeatingDataDesc": "Скрыть столбцы, где каждая строка имеет одинаковое значение",
+    "noDuplicates": "Без дубликатов",
+    "noDuplicatesDesc": "Удалить столбцы с идентичным содержимым",
+    "richFirst": "Сначала богатые",
+    "richFirstDesc": "Сортировать столбцы по заполненности (наиболее заполненные первыми)",
+    "showImages": "Показать изображения",
+    "showImagesDesc": "Переключить предпросмотр изображений в ячейках",
+    "sparseColumns": "Разреженные столбцы",
+    "sparseColumnsDesc": "Скрыть столбцы, заполненные менее чем в 20% строк"
+  },
+  "merge": {
+    "title": "Объединить два столбца",
+    "column1": "Столбец 1",
+    "column2": "Столбец 2",
+    "separator": "Разделитель",
+    "newName": "Новое имя",
+    "selectColumn": "Выберите столбец...",
+    "separatorPlaceholder": "(пробел)",
+    "newNamePlaceholder": "Объединённый столбец",
+    "tip": "Совет: Объедините имя и фамилию или объедините поля адреса в один столбец.",
+    "button": "Объединить"
+  },
+  "header": {
+    "saveName": "Сохранить имя",
+    "cancel": "Отмена",
+    "confirmDelete": "Подтвердить удаление",
+    "rename": "Переименовать столбец",
+    "delete": "Удалить столбец",
+    "deletePrompt": "Удалить?"
+  },
+  "empty": {
+    "waiting": "Ожидание извлечённых данных",
+    "runCrawl": "Запустите обход для получения результатов"
+  },
+  "preview": {
+    "close": "Закрыть предпросмотр"
+  },
+  "page": {
+    "loadingDatasets": "Загрузка наборов данных...",
+    "loadingTable": "Загрузка данных таблицы...",
+    "errorTitle": "Ошибка загрузки данных",
+    "noExtractionsTitle": "Нет извлечений",
+    "noExtractionsDesc": "Вы ещё не извлекли данные. Используйте инструменты извлечения на главной странице.",
+    "selectDataset": "Выберите набор данных",
+    "selectDatasetDesc": "Выберите набор данных из выпадающего меню для просмотра содержимого",
+    "selectPlaceholder": "Выберите запуск извлечения...",
+    "source": "Источник",
+    "export": "Экспорт",
+    "localExport": "Локальный экспорт",
+    "integrations": "Интеграции",
+    "exportCSV": "CSV / Excel",
+    "exportJSON": "JSON",
+    "exportMarkdown": "Markdown (.md)",
+    "exportGoogleSheets": "Google Таблицы",
+    "exportWebhook": "Webhook",
+    "exportAirtable": "Airtable",
+    "exportZapier": "Zapier",
+    "rows": "строк",
+    "columns": "столбцов"
+  }
+}

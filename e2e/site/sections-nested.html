@@ -1,0 +1,20 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Nested sections</title>
+<style>
+body{font:14px sans-serif;margin:24px}
+.grid{display:grid;grid-template-columns:repeat(3,260px);gap:16px}
+.card{border:1px solid #ccc;padding:12px;height:220px}
+.card h3{margin:0 0 8px}
+.swatches{display:flex;gap:6px;list-style:none;padding:0}
+.swatches li{width:44px;height:24px;border:1px solid #999;font-size:11px;text-align:center;line-height:24px}
+</style></head>
+<body>
+<div class="grid" id="grid">
+<script>
+for (let i = 1; i <= 6; i++) {
+  document.write(`<div class="card"><h3>Lamp ${i}</h3><p class="price">$${10 + i}.99</p><ul class="swatches" id="sw${i}">` +
+    ['Red', 'Blue', 'Gray', 'Black'].map(c => `<li>${c}</li>`).join('') + `</ul></div>`);
+}
+</script>
+</div>
+</body></html>

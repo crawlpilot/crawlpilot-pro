@@ -1,0 +1,309 @@
+@import 'ag-grid-community/styles/ag-grid.css';
+@import 'ag-grid-community/styles/ag-theme-alpine.css';
+
+/* Fonts (Bricolage Grotesque, Geist, Geist Mono) are bundled and imported in index.tsx. */
+
+@import "tailwindcss";
+
+/*
+ * Design tokens (docs/plans/design-system-plan.md §4, "Pop"). The look of the side panel is set here
+ * and in the kit (src/sidepanel/ui); screens never set colours, radii, shadows or type sizes.
+ * Light is the default; `data-theme="dark"` on <html> switches to the dark set.
+ *
+ * Warm paper, warm ink, one electric colour (`brand`, lime) that is always a fill with ink on it,
+ * soft pastel tiles for the tools, and status colours with soft fills for chips and notices.
+ * `--cp-ink-rgb` is the text colour as channels, for faint overlays: rgb(var(--cp-ink-rgb) / .06).
+ */
+:root {
+    --cp-bg: #FAF7F2;
+    --cp-surface: #FFFFFF;
+    --cp-surface-rgb: 255 255 255;
+    --cp-surface-2: #F3EEE6;
+    --cp-text: #16130F;
+    --cp-text-2: #5A534A;
+    --cp-text-3: #736B61;
+    --cp-ink-rgb: 22 19 15;
+    --cp-line: rgba(22, 19, 15, 0.10);
+    --cp-line-strong: rgba(22, 19, 15, 0.85);
+
+    --cp-brand: #C8F03C;
+    --cp-brand-rgb: 200 240 60;
+    --cp-on-brand: #16130F;
+    /* Readable brand for text and icons on paper. */
+    --cp-accent: #4A7300;
+    --cp-accent-rgb: 200 240 60;
+
+    --cp-primary: #16130F;
+    --cp-primary-hover: #2E2A24;
+    --cp-on-primary: #FFFFFF;
+    --cp-press: #16130F;
+
+    --cp-success: #0D7F3F;
+    --cp-success-soft: #DDF5E6;
+    --cp-warning: #A36100;
+    --cp-warning-soft: #FFEFCC;
+    --cp-error: #CC3338;
+    --cp-error-soft: #FDE3E2;
+    --cp-info: #2563EB;
+    --cp-info-soft: #E0EAFF;
+
+    --cp-tile-lilac: #E9E1FF;
+    --cp-tile-sky: #D9EDFF;
+    --cp-tile-peach: #FFE3D3;
+    --cp-tile-mint: #D5F4E5;
+    --cp-tile-butter: #FFF0B3;
+
+    --cp-border: var(--cp-line);
+    --cp-ring: rgba(74, 115, 0, 0.55);
+    color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+    --cp-bg: #121110;
+    --cp-surface: #1C1A18;
+    --cp-surface-rgb: 28 26 24;
+    --cp-surface-2: #262320;
+    --cp-text: #F6F2EA;
+    --cp-text-2: #B9B1A5;
+    --cp-text-3: #918A80;
+    --cp-ink-rgb: 246 242 234;
+    --cp-line: rgba(246, 242, 234, 0.10);
+    --cp-line-strong: rgba(246, 242, 234, 0.7);
+
+    --cp-brand: #C8F03C;
+    --cp-brand-rgb: 200 240 60;
+    --cp-on-brand: #16130F;
+    --cp-accent: #C8F03C;
+    --cp-accent-rgb: 200 240 60;
+
+    --cp-primary: #C8F03C;
+    --cp-primary-hover: #D6F76A;
+    --cp-on-primary: #16130F;
+    --cp-press: #000000;
+
+    --cp-success: #3DD68C;
+    --cp-success-soft: rgba(61, 214, 140, 0.14);
+    --cp-warning: #FFB224;
+    --cp-warning-soft: rgba(255, 178, 36, 0.14);
+    --cp-error: #FF6369;
+    --cp-error-soft: rgba(255, 99, 105, 0.14);
+    --cp-info: #70A5FF;
+    --cp-info-soft: rgba(112, 165, 255, 0.14);
+
+    --cp-tile-lilac: #2E2843;
+    --cp-tile-sky: #1E3042;
+    --cp-tile-peach: #3D2A21;
+    --cp-tile-mint: #1D372C;
+    --cp-tile-butter: #39321A;
+
+    --cp-border: var(--cp-line);
+    --cp-ring: rgba(200, 240, 60, 0.6);
+    color-scheme: dark;
+}
+
+@theme {
+    /* Colours: bg-surface, text-ink-2, border-line, bg-brand, bg-tile-mint, text-danger, bg-danger-soft… */
+    --color-bg: var(--cp-bg);
+    --color-surface: var(--cp-surface);
+    --color-surface-2: var(--cp-surface-2);
+    --color-ink: rgb(var(--cp-ink-rgb));
+    --color-ink-2: var(--cp-text-2);
+    --color-ink-3: var(--cp-text-3);
+    --color-line: var(--cp-line);
+    --color-line-strong: var(--cp-line-strong);
+    --color-brand: var(--cp-brand);
+    --color-on-brand: var(--cp-on-brand);
+    --color-accent: var(--cp-accent);
+    --color-primary: var(--cp-primary);
+    --color-primary-hover: var(--cp-primary-hover);
+    --color-on-primary: var(--cp-on-primary);
+    --color-success: var(--cp-success);
+    --color-success-soft: var(--cp-success-soft);
+    --color-warning: var(--cp-warning);
+    --color-warning-soft: var(--cp-warning-soft);
+    --color-danger: var(--cp-error);
+    --color-danger-soft: var(--cp-error-soft);
+    --color-info: var(--cp-info);
+    --color-info-soft: var(--cp-info-soft);
+    --color-tile-lilac: var(--cp-tile-lilac);
+    --color-tile-sky: var(--cp-tile-sky);
+    --color-tile-peach: var(--cp-tile-peach);
+    --color-tile-mint: var(--cp-tile-mint);
+    --color-tile-butter: var(--cp-tile-butter);
+
+    /* Type: font-display for titles and numbers; text-caption … text-display for sizes. */
+    --font-sans: 'Geist Variable', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-display: 'Bricolage Grotesque Variable', 'Geist Variable', system-ui, sans-serif;
+    --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', monospace;
+    --text-caption: 11.5px;
+    --text-caption--line-height: 1.4;
+    --text-small: 12.5px;
+    --text-small--line-height: 1.45;
+    --text-body: 13.5px;
+    --text-body--line-height: 1.5;
+    --text-lead: 15px;
+    --text-lead--line-height: 1.4;
+    --text-heading: 17px;
+    --text-heading--line-height: 1.25;
+    --text-title: 22px;
+    --text-title--line-height: 1.15;
+    --text-display: 30px;
+    --text-display--line-height: 1.05;
+
+    /* Shape: rounded-control (pills), rounded-field, rounded-card, rounded-sheet. */
+    --radius-field: 10px;
+    --radius-card: 16px;
+    --radius-sheet: 22px;
+    --radius-control: 999px;
+
+    /* Depth: a hard offset shadow that pushes in on press, and one soft shadow for floating things. */
+    --shadow-press: 2px 2px 0 0 var(--cp-press);
+    --shadow-press-sm: 1px 1px 0 0 var(--cp-press);
+    --shadow-float: 0 12px 32px -8px rgb(0 0 0 / 0.22), 0 2px 6px rgb(0 0 0 / 0.08);
+
+    --animate-fade-in: fadeIn 0.18s ease-out;
+    --animate-slide-up: slideUp 0.2s ease-out;
+    --animate-pop: pop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+        from { transform: translateY(6px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes cp-indeterminate {
+        from { left: -40%; }
+        to { left: 100%; }
+    }
+
+    @keyframes pop {
+        from { transform: scale(0.96); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+}
+
+@layer base {
+    * {
+        border-color: var(--cp-line);
+    }
+
+    body {
+        background-color: var(--cp-bg);
+        color: var(--cp-text);
+        font-family: var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        font-size: var(--text-body);
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    ::selection {
+        background: rgb(var(--cp-brand-rgb) / 0.6);
+        color: var(--cp-on-brand);
+    }
+
+    :focus-visible {
+        outline: 2px solid var(--cp-ring);
+        outline-offset: 2px;
+    }
+
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background-color: rgb(var(--cp-ink-rgb) / 0.18);
+        border-radius: 4px;
+        border: 2px solid var(--cp-bg);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: rgb(var(--cp-ink-rgb) / 0.3);
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        letter-spacing: -0.015em;
+    }
+
+    code,
+    pre {
+        font-family: var(--font-mono);
+        font-size: 12px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+}
+
+@layer components {
+
+    /* Kit: rendered markdown (AI answers, previews). */
+    .cp-prose { font-size: var(--text-body); line-height: 1.6; }
+    .cp-prose > :first-child { margin-top: 0; }
+    .cp-prose > :last-child { margin-bottom: 0; }
+    .cp-prose p, .cp-prose ul, .cp-prose ol { margin: 0 0 0.75em; }
+    .cp-prose ul, .cp-prose ol { padding-left: 1.3em; }
+    .cp-prose ul { list-style: disc; }
+    .cp-prose ol { list-style: decimal; }
+    .cp-prose li { margin-bottom: 0.25em; }
+    .cp-prose strong { font-weight: 650; }
+    .cp-prose h1, .cp-prose h2, .cp-prose h3 { font-family: var(--font-display); font-weight: 700; margin: 0.9em 0 0.35em; }
+    .cp-prose a { color: inherit; text-decoration: underline; text-decoration-color: var(--cp-brand); text-decoration-thickness: 2px; text-underline-offset: 2px; }
+    .cp-prose code { font-family: var(--font-mono); font-size: 0.88em; background: rgb(var(--cp-ink-rgb) / 0.07); border-radius: 5px; padding: 0.1em 0.35em; }
+    .cp-prose table { border-collapse: collapse; width: 100%; margin-bottom: 0.75em; font-size: var(--text-small); }
+    .cp-prose th, .cp-prose td { border: 1px solid var(--cp-line); padding: 0.4em 0.6em; text-align: left; }
+    .cp-prose th { background: rgb(var(--cp-ink-rgb) / 0.05); font-weight: 600; }
+
+    /* Kit: the range input's thumb (ui/Slider.tsx). */
+    .cp-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: var(--cp-surface);
+        border: 1.5px solid var(--cp-line-strong);
+        box-shadow: var(--shadow-press-sm);
+        cursor: grab;
+    }
+
+    .cp-range:active::-webkit-slider-thumb {
+        cursor: grabbing;
+        transform: scale(1.08);
+    }
+}
+
+/* Windows renders at a higher DPI scale (125–150 %), so the panel looks oversized: shrink it a little. */
+.platform-windows {
+    zoom: 0.92;
+}
+
+.platform-windows body {
+    -webkit-font-smoothing: auto;
+}
+
+.platform-windows ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}

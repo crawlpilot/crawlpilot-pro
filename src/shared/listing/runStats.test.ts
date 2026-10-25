@@ -1,0 +1,66 @@
+import { describe, it, expect } from 'vitest';
+import { ListingRunTracker, rowKey, stopReasonLabel } from './runStats';
+
+describe('ListingRunTracker', () => {
+    it('drops rows repeated across pages and counts them per page', () => {
+        const t = new ListingRunTracker();
+        expect(t.add(1, [{ title: 'A', price: '1' }, { title: 'B', price: '2' }])).toHaveLength(2);
+        const kept = t.add(2, [{ price: '2', title: 'B' }, { title: 'C', price: '3' }]);
+        expect(kept).toEqual([{ title: 'C', price: '3' }]);
+        expect(t.duplicates).toBe(1);
+        expect(t.pageStats).toEqual([
+            { page: 1, rows: 2, duplicates: 0 },
+            { page: 2, rows: 1, duplicates: 1 },
+        ]);
+    });
+
+    it('dedupes by a key column when given', () => {
+        const t = new ListingRunTracker('url');
+        t.add(1, [{ url: '/p/1', price: '10' }]);
+        expect(t.add(2, [{ url: '/p/1', price: '9' }])).toHaveLength(0);
+    });
+
+    it('keeps equal rows a page really lists twice, but not a later page repeating them', () => {
+        const t = new ListingRunTracker();
+        expect(t.add(1, [{ a: 'x' }, { a: 'x' }])).toHaveLength(2);
+        expect(t.add(2, [{ a: 'x' }, { a: 'x' }, { a: 'y' }])).toEqual([{ a: 'y' }]);
+        expect(t.add(3, [{ a: 'x' }, { a: 'x' }, { a: 'x' }])).toEqual([{ a: 'x' }]);
+    });
+
+    it('counts unmapped rows per page', () => {
+        const t = new ListingRunTracker();
+        t.add(1, [{ a: 1 }]);
+        t.addUnmapped(1, 2);
+        expect(t.pageStats).toEqual([{ page: 1, rows: 1, duplicates: 0, unmapped: 2 }]);
+    });
+
+    it('accumulates batches for the same page', () => {
+        const t = new ListingRunTracker();
+        t.add(1, [{ a: 1 }]);
+        t.add(1, [{ a: 2 }]);
+        expect(t.pageStats).toEqual([{ page: 1, rows: 2, duplicates: 0 }]);
+    });
+});
+
+describe('rowKey / stopReasonLabel', () => {
+    it('ignores internal fields and key order', () => {
+        expect(rowKey({ a: 1, b: 2, _id: 9 })).toBe(rowKey({ b: 2, a: 1, _id: 3 }));
+    });
+    it('labels known reasons and humanises unknown ones', () => {
+        expect(stopReasonLabel('max_pages_reached')).toBe('Reached the page limit');
+        expect(stopReasonLabel('some_new_reason')).toBe('some new reason');
+    });
+
+    it('flags a short page (not the last) and rows read while loading', () => {
+        const t = new ListingRunTracker();
+        const rows = (p: number, n: number) => Array.from({ length: n }, (_, i) => ({ t: `${p}-${i}` }));
+        t.add(1, rows(1, 24));
+        t.add(2, rows(2, 6));
+        t.add(3, rows(3, 24));
+        t.add(4, rows(4, 5));
+        t.addLoading(3, 2);
+        const stats = t.pageStats;
+        expect(stats.map(p => !!p.short)).toEqual([false, true, false, false]);
+        expect(stats[2].loading).toBe(2);
+    });
+});

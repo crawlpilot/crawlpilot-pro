@@ -1,0 +1,13 @@
+{
+  "title": "Utilitários do navegador",
+  "subtitle": "Ferramentas para aprimorar sua navegação",
+  "rightClickUnlocker": {
+    "title": "Desbloqueador de clique direito",
+    "description": "Reative o menu de contexto, copiar, colar e seleção de texto em sites restritos",
+    "active": "Ativo",
+    "rightClick": "Clique direito",
+    "copyPaste": "Copiar/Colar",
+    "textSelect": "Seleção de texto"
+  },
+  "comingSoon": "Mais ferramentas em breve"
+}

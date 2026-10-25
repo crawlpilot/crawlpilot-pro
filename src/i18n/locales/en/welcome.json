@@ -1,0 +1,14 @@
+{
+  "title": "Welcome to CrawlPilot",
+  "description": "Get data from any website as a table — no code. Two ways to start:",
+  "listExtractor": {
+    "title": "Get a list from a page",
+    "description": "Point at one product, result or row; CrawlPilot finds the rest, across pages too."
+  },
+  "pageExtractor": {
+    "title": "Same details from many pages",
+    "description": "Give a list of pages; get the same details, or the article text, from each."
+  },
+  "tryFirstScrape": "Try it on this page",
+  "goHome": "Go to Home"
+}

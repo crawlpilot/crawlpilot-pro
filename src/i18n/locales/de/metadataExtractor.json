@@ -1,0 +1,34 @@
+{
+  "title": "Metadaten-Extraktor",
+  "back": "Zurück",
+  "step1": {
+    "subtitle": "URLs hinzufügen, um Metadaten zu extrahieren"
+  },
+  "step2": {
+    "title": "Metadaten-Extraktion",
+    "subtitle": "Konfigurieren und Extraktion starten",
+    "extract": "{{count}} URL(s) extrahieren"
+  },
+  "options": {
+    "title": "Extraktionsoptionen",
+    "includeLinks": "Links in Markdown behalten",
+    "includeImages": "Bilder in Markdown einbeziehen",
+    "outputText": "Auch als reinen Text ausgeben",
+    "concurrency": "Gleichzeitige Tabs",
+    "concurrencyHint": "Max. offene Tabs gleichzeitig (1–5)",
+    "requestDelay": "Verzögerung zwischen Seiten (ms)",
+    "requestDelayHint": "Pause zwischen Anfragen"
+  },
+  "results": {
+    "extracting": "Wird extrahiert…",
+    "complete": "Extraktion Abgeschlossen",
+    "activeTabs": "aktive Tabs",
+    "viewResults": "Ergebnisse Anzeigen",
+    "previewResults": "Live-Vorschau",
+    "stop": "Extraktion Stoppen",
+    "stopping": "Wird gestoppt…",
+    "reset": "Neu Starten",
+    "completeSummary": "Metadaten von {{count}} Seite(n) extrahiert",
+    "stoppedSummary": "Nach {{count}} Seite(n) gestoppt"
+  }
+}

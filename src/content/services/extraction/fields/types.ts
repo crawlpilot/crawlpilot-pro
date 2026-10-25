@@ -1,0 +1,140 @@
+import type { Atom, AtomAttr, Shape } from '../atoms';
+import { slug } from '../../../../shared/utils/text';
+import type { JsonSpec } from '../structuredRows';
+import type { Derive } from './split';
+import type { Column } from '../../../../shared/types/database';
+import type { LinkSpec } from './link';
+
+/**
+ * 3: a reader also stores its meaning and expectations (`fields/health.ts`). A version 2 reader is a
+ * version 3 one with neither: it reads the same and is never healed.
+ */
+export const FIELD_SCHEMA_VERSION = 3;
+
+/** What a field looked like on the rows it was built from: a page far below is broken. */
+export interface FieldExpectations {
+    /** Share of item rows with a value. */
+    fill: number;
+    /** For number and price columns: share of values that parse as one. */
+    parse?: number;
+}
+
+/** How one column is read from a row. Saved on the column, so recipes and later pages reuse it. */
+export interface FieldReader {
+    v: 2 | typeof FIELD_SCHEMA_VERSION;
+    /** What the value is ("Price", "Review Count"), from `fields/meaning.ts`: a broken field is found again by it. */
+    meaning?: string;
+    expect?: FieldExpectations;
+    /** Row-relative selectors, best first; the first that yields a value wins (variant cards). */
+    chain: string[];
+    attr: AtomAttr;
+    /** For nodes that repeat inside a row: which slot of `template` this field is. */
+    slot?: number;
+    template?: Shape[];
+    /**
+     * For a repeated component holding several phrases per card: each kind's words, and which kind
+     * this field is. A match is read when `kindOf` puts it in this kind (see `fields/component`).
+     */
+    kinds?: string[][];
+    kind?: number;
+    /** Every match is a value: images → JSON array, links → JSON array, text → joined. */
+    many?: boolean;
+    /** The first of a list's members (a gallery's main image), where `chain` matches the whole list. */
+    first?: boolean;
+    shape: Shape;
+    /** Which elements are items of the list (the same on every column); others read as empty rows. */
+    rowGate?: RowGate;
+    /** Keep only values of this shape (a field the user split by kind of value). */
+    onlyShape?: Shape;
+    /**
+     * A table column: read inside the row's cell under `header` (found by its text on every page),
+     * or at `index` (1-based) when the table has no header row. `chain` is relative to the cell.
+     */
+    cell?: { header?: string; index: number };
+    /** Read from the page's JSON item behind the row instead of the DOM (structured data first). */
+    json?: JsonSpec;
+    /** One part of the value read: a template slot or the value after a label (`fields/split.ts`). */
+    derive?: Derive;
+    /** Readers tried in order when this one finds nothing (fields the user joined into this one). */
+    alternates?: Omit<FieldReader, 'alternates'>[];
+    /** A list read from every place: this reader and each alternate, their values joined (badges). */
+    all?: boolean;
+    /** The item's link where the card has none: the link around it, or the page URL with its ID (`fields/link.ts`). */
+    link?: LinkSpec;
+}
+
+/**
+ * Which picked elements are really items of the list. A results container also holds headers
+ * ("Results"), widgets ("Related searches"), ad blocks and footers; each item has most of the list's
+ * common structure and little else, so a row is kept when it has at least half of the core
+ * signatures (those in most rows) and they make up a fair share of its own. Saved with the fields,
+ * so every page of a run skips the same kinds of non-item elements.
+ */
+export interface RowGate {
+    core: string[];
+    /** Share of the core a row must have. */
+    cover: number;
+    /** Share of a row's own signatures that must be core. */
+    own: number;
+}
+
+export type ReaderColumn = Column & { reader?: FieldReader };
+
+export interface FieldInference {
+    columns: ReaderColumn[];
+    /** Checks on the result (thenos `rows._problems`), plain sentences for the review step. */
+    problems: string[];
+}
+
+/** A candidate field during inference. */
+export interface Field {
+    key: string;
+    attr: AtomAttr;
+    selector: string;
+    slot?: number;
+    template?: Shape[];
+    many?: boolean;
+    first?: boolean;
+    kinds?: string[][];
+    kind?: number;
+    /** A name the stage that made the field found for it (a component kind's words). */
+    label?: string;
+    /** Row index → value, for checks and naming. */
+    values: Map<number, string>;
+    atoms: Atom[];
+    shape: Shape;
+    order: number;
+    /** Fields joined into this one (the same thing in another card layout), tried in order. */
+    alts?: Field[];
+    /** A part of the element's value (`fields/split.ts`). */
+    derive?: Derive;
+    /** A list read from this field and every alt (`fields/meaning.ts`). */
+    all?: boolean;
+    /** Read with `fields/link.ts`, not the selector. */
+    link?: LinkSpec;
+}
+
+export const TEXTUAL = new Set<AtomAttr>(['text', 'own', 'aria-label', 'title']);
+
+export function mode<T>(items: T[]): T {
+    const counts = new Map<T, number>();
+    items.forEach(i => counts.set(i, (counts.get(i) ?? 0) + 1));
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
+
+export function norm(v: string): string {
+    return v.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+export function fieldId(name: string): string {
+    return slug(name);
+}
+
+export function query(row: Element, selector: string): Element[] {
+    try {
+        if (selector === ':scope') return [row];
+        return Array.from(row.querySelectorAll(selector));
+    } catch {
+        return [];
+    }
+}

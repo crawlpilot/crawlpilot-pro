@@ -1,0 +1,13 @@
+{
+  "title": "ブラウザユーティリティ",
+  "subtitle": "ブラウジングを強化するツール",
+  "rightClickUnlocker": {
+    "title": "右クリック解除",
+    "description": "制限されたサイトでコンテキストメニュー、コピー、貼り付け、テキスト選択を再有効化",
+    "active": "アクティブ",
+    "rightClick": "右クリック",
+    "copyPaste": "コピー/貼り付け",
+    "textSelect": "テキスト選択"
+  },
+  "comingSoon": "その他のツールは近日公開"
+}

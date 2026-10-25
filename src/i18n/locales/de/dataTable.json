@@ -1,0 +1,80 @@
+{
+  "toolbar": {
+    "filters": "Filter",
+    "filtersActive": "{{count}} aktiv",
+    "mergeColumns": "Spalten zusammenführen",
+    "filterTooltip": "Datenqualitätsfilter umschalten, um die Ansicht zu bereinigen",
+    "mergeTooltip": "Zwei Spalten mit einem Trennzeichen zu einer zusammenführen",
+    "status": "{{rows}} Zeilen · {{cols}} Spalten",
+    "statusTooltip": "Zeilen- und Spaltenanzahl nach allen aktiven Filtern"
+  },
+  "filters": {
+    "title": "Globale Filter",
+    "resetToDefault": "Zurücksetzen",
+    "resetTooltip": "Alle Filter auf ihren Standardzustand zurücksetzen",
+    "emptyRows": "Leere Zeilen",
+    "emptyRowsDesc": "Zeilen entfernen, in denen alle Zellen leer sind",
+    "emptyColumns": "Leere Spalten",
+    "emptyColumnsDesc": "Spalten ohne Daten in irgendeiner Zeile ausblenden",
+    "repeatingData": "Wiederholte Daten",
+    "repeatingDataDesc": "Spalten ausblenden, in denen jede Zeile denselben Wert hat",
+    "noDuplicates": "Keine Duplikate",
+    "noDuplicatesDesc": "Spalten mit identischem Inhalt entfernen",
+    "richFirst": "Reichhaltige zuerst",
+    "richFirstDesc": "Spalten nach Datenvollständigkeit sortieren (am meisten ausgefüllte zuerst)",
+    "showImages": "Bilder anzeigen",
+    "showImagesDesc": "Bildvorschau in Zellen umschalten",
+    "sparseColumns": "Spärliche Spalten",
+    "sparseColumnsDesc": "Spalten ausblenden, die in weniger als 20% der Zeilen ausgefüllt sind"
+  },
+  "merge": {
+    "title": "Zwei Spalten zusammenführen",
+    "column1": "Spalte 1",
+    "column2": "Spalte 2",
+    "separator": "Trennzeichen",
+    "newName": "Neuer Name",
+    "selectColumn": "Spalte auswählen...",
+    "separatorPlaceholder": "(Leerzeichen)",
+    "newNamePlaceholder": "Zusammengeführte Spalte",
+    "tip": "Tipp: Vor- und Nachname zusammenführen oder Adressfelder zu einer Spalte kombinieren.",
+    "button": "Zusammenführen"
+  },
+  "header": {
+    "saveName": "Name speichern",
+    "cancel": "Abbrechen",
+    "confirmDelete": "Löschen bestätigen",
+    "rename": "Spalte umbenennen",
+    "delete": "Spalte löschen",
+    "deletePrompt": "Löschen?"
+  },
+  "empty": {
+    "waiting": "Warte auf extrahierte Daten",
+    "runCrawl": "Starte einen Crawl, um Ergebnisse zu erhalten"
+  },
+  "preview": {
+    "close": "Vorschau schließen"
+  },
+  "page": {
+    "loadingDatasets": "Datensätze werden geladen...",
+    "loadingTable": "Tabellendaten werden geladen...",
+    "errorTitle": "Fehler beim Laden",
+    "noExtractionsTitle": "Noch keine Extraktionen",
+    "noExtractionsDesc": "Sie haben noch keine Daten extrahiert. Verwenden Sie die Extraktionswerkzeuge auf der Startseite.",
+    "selectDataset": "Datensatz auswählen",
+    "selectDatasetDesc": "Wählen Sie einen Datensatz aus dem Dropdown-Menü, um dessen Inhalt anzuzeigen",
+    "selectPlaceholder": "Extraktion auswählen...",
+    "source": "Quelle",
+    "export": "Exportieren",
+    "localExport": "Lokaler Export",
+    "integrations": "Integrationen",
+    "exportCSV": "CSV / Excel",
+    "exportJSON": "JSON",
+    "exportMarkdown": "Markdown (.md)",
+    "exportGoogleSheets": "Google Sheets",
+    "exportWebhook": "Webhook",
+    "exportAirtable": "Airtable",
+    "exportZapier": "Zapier",
+    "rows": "Zeilen",
+    "columns": "Spalten"
+  }
+}

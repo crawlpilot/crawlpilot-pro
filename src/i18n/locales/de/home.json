@@ -1,0 +1,35 @@
+{
+  "tagline": "Web-Scraping per Zeigen und Klicken — kein Code erforderlich",
+  "recentRuns": "Letzte Ausführungen",
+  "savedData": "Gespeicherte Daten",
+  "listExtractor": {
+    "title": "Liste Extrahieren",
+    "description": "Wandeln Sie Produktlisten, Stellenbörsen oder Tabellen in Tabellenkalkulationen um",
+    "tooltip": "Klicken Sie auf ein beliebiges wiederkehrendes Element — Produkte, Jobs, Preise, Nachrichten — und exportieren Sie eine saubere Tabelle oder JSON in Sekunden"
+  },
+  "textSummarizer": {
+    "title": "Seitenassistent",
+    "description": "Fassen Sie jede Seite sofort zusammen und stellen Sie KI-Fragen dazu",
+    "tooltip": "Rufen Sie einen Artikel, Bericht oder eine Dokumentation auf — erhalten Sie eine prägnante Zusammenfassung und stellen Sie Folgefragen mit KI"
+  },
+  "pageExtractor": {
+    "title": "Seitenextraktor",
+    "description": "Fügen Sie eine URL-Liste ein und extrahieren Sie dieselben Felder von jeder Seite auf einmal",
+    "tooltip": "Definieren Sie Ihre Felder einmal — CrawlPilot besucht jede URL automatisch. Ideal für Lead-Recherche, Preisaudits und groß angelegte Inhaltserfassung"
+  },
+  "metadataExtractor": {
+    "title": "Metadaten-Extraktor",
+    "description": "Titel, Autor und vollständigen Artikeltext aus einer URL-Liste massenweise sammeln",
+    "tooltip": "Keine Selektoren nötig — URLs angeben und strukturierte Daten erhalten: Titel, Autor, Datum, Keywords und vollständigen Inhalt als Markdown"
+  },
+  "imageDownloader": {
+    "title": "Bild-Downloader",
+    "description": "Alle Bilder einer Seite finden und speichern — ein Klick, jede Seite",
+    "tooltip": "Alle Bilder der Seite in der Vorschau ansehen, benötigte auswählen und Produktfotos, Galerie-Assets oder Design-Referenzen im Stapel herunterladen"
+  },
+  "browserUtilities": {
+    "title": "Browser-Dienstprogramme",
+    "description": "Rechtsklick und Textauswahl auf sperrenden Seiten wieder aktivieren",
+    "tooltip": "Kopieren, Einfügen und Kontextmenüs auf einschränkenden Websites entsperren — ideal zum Kopieren von Zitaten, URLs und Inhalten von geschützten Seiten"
+  }
+}

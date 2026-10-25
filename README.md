@@ -9,3 +9,8 @@ cloud crawler backend, which does the crawling at scale.
 - **Crawler backend:** a separate service, out of scope for this repo. Pro only talks to its API.
 
 The plan is in [docs/plans/pro-plan.md](docs/plans/pro-plan.md).
+
+## Working in this repo
+- Pro code lives in `src/pro/`. Upstream files only get small hook points, so merges from upstream stay clean.
+- Syncing with the public extension: [docs/UPSTREAM.md](docs/UPSTREAM.md).
+- Setup and scripts: [DEVELOPMENT.md](DEVELOPMENT.md).

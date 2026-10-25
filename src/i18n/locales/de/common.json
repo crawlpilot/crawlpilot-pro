@@ -1,0 +1,50 @@
+{
+  "cancel": "Abbrechen",
+  "save": "Speichern",
+  "back": "Zurück",
+  "close": "Schließen",
+  "delete": "Löschen",
+  "confirm": "Bestätigen",
+  "export": "Exportieren",
+  "clear": "Leeren",
+  "search": "Suchen",
+  "stop": "Stopp",
+  "rerun": "Erneut ausführen",
+  "data": "Daten",
+  "copy": "Kopieren",
+  "loading": "Wird geladen...",
+  "yes": "Ja",
+  "no": "Nein",
+  "na": "N/V",
+  "status": {
+    "running": "Läuft",
+    "completed": "Abgeschlossen",
+    "stopped": "Gestoppt",
+    "failed": "Fehlgeschlagen",
+    "paused": "Pausiert",
+    "pending": "Ausstehend",
+    "active": "Aktiv"
+  },
+  "time": {
+    "justNow": "Gerade eben",
+    "minutesAgo": "Vor {{count}}m",
+    "hoursAgo": "Vor {{count}}h",
+    "daysAgo": "Vor {{count}}d",
+    "yesterday": "Gestern",
+    "days": "{{count}} Tage"
+  },
+  "connection": {
+    "notConnected": "Erweiterung nicht mit diesem Tab verbunden",
+    "notConnectedHint": "Navigieren Sie zu einer Webseite und klicken Sie auf Verbinden, um das Scraping zu aktivieren",
+    "connect": "Verbinden",
+    "connecting": "Verbinde..."
+  },
+  "nav": {
+    "home": "Startseite",
+    "homeTooltip": "Alle Werkzeuge und Funktionen",
+    "runs": "Ausführungen",
+    "runsTooltip": "Frühere Extraktionsjobs, die Sie erneut ausführen können",
+    "data": "Daten",
+    "dataTooltip": "Durchsuchen und exportieren Sie Ihre extrahierten Datensätze"
+  }
+}

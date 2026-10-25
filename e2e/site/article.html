@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>How to choose a desk lamp</title>
+<style>
+  body{font:16px/1.5 sans-serif;margin:0}
+  .cookie{position:fixed;bottom:0;left:0;right:0;background:#222;color:#fff;padding:12px}
+  .site-header{position:sticky;top:0;background:#fff}
+  .visually-off{display:none}
+  .wrap{max-width:720px;margin:24px auto}
+</style>
+</head><body>
+  <div class="site-header"><a href="/">Lamps &amp; Co</a> <a href="/site/list-1.html">Shop</a></div>
+  <div class="wrap">
+    <h1>How to choose a desk lamp</h1>
+    <p>A good desk lamp lights the page, not your eyes. Three things matter more than the price: brightness, colour temperature and how far the arm reaches.</p>
+    <p class="visually-off">This paragraph is hidden by the stylesheet and must not appear.</p>
+    <img id="lazy" alt="A lamp on a desk" width="600" height="400" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" data-src="/site/lamp.jpg">
+    <h2>Brightness</h2>
+    <p>Look for at least 450 lumens for reading, and a dimmer if you also work on a screen.</p>
+    <spec-table></spec-table>
+  </div>
+  <div class="cookie">We use cookies to improve your experience. Accept all cookies?</div>
+  <script>
+    // A lazy loader: swaps the real source in, as sites do when the image nears the viewport.
+    const img = document.getElementById('lazy');
+    img.src = img.dataset.src;
+    // A web component with an open shadow root, slots filled from light DOM.
+    customElements.define('spec-table', class extends HTMLElement {
+      connectedCallback() {
+        this.attachShadow({ mode: 'open' }).innerHTML =
+          '<table><tr><th>Lumens</th><th>Colour</th></tr><tr><td>450</td><td>2700K</td></tr></table>';
+      }
+    });
+  </script>
+</body></html>

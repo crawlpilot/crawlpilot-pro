@@ -1,0 +1,50 @@
+{
+  "cancel": "キャンセル",
+  "save": "保存",
+  "back": "戻る",
+  "close": "閉じる",
+  "delete": "削除",
+  "confirm": "確認",
+  "export": "エクスポート",
+  "clear": "クリア",
+  "search": "検索",
+  "stop": "停止",
+  "rerun": "再実行",
+  "data": "データ",
+  "copy": "コピー",
+  "loading": "読み込み中...",
+  "yes": "はい",
+  "no": "いいえ",
+  "na": "N/A",
+  "status": {
+    "running": "実行中",
+    "completed": "完了",
+    "stopped": "停止済み",
+    "failed": "失敗",
+    "paused": "一時停止",
+    "pending": "保留中",
+    "active": "アクティブ"
+  },
+  "time": {
+    "justNow": "たった今",
+    "minutesAgo": "{{count}}分前",
+    "hoursAgo": "{{count}}時間前",
+    "daysAgo": "{{count}}日前",
+    "yesterday": "昨日",
+    "days": "{{count}} 日"
+  },
+  "connection": {
+    "notConnected": "拡張機能がこのタブに接続されていません",
+    "notConnectedHint": "ウェブページに移動してから「接続」をクリックしてスクレイピングを有効にしてください",
+    "connect": "接続",
+    "connecting": "接続中..."
+  },
+  "nav": {
+    "home": "ホーム",
+    "homeTooltip": "すべてのツールと機能",
+    "runs": "実行履歴",
+    "runsTooltip": "再実行できる過去の抽出ジョブ",
+    "data": "データ",
+    "dataTooltip": "抽出したデータセットを参照・エクスポート"
+  }
+}

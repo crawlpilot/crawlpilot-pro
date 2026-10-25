@@ -1,0 +1,35 @@
+{
+  "tagline": "Scraping web en pointer-cliquer — aucun code requis",
+  "recentRuns": "Exécutions Récentes",
+  "savedData": "Données Sauvegardées",
+  "listExtractor": {
+    "title": "Extraire une Liste",
+    "description": "Transformez n'importe quelle liste de produits, offres d'emploi ou tableau en feuille de calcul",
+    "tooltip": "Cliquez sur n'importe quel élément répété — produits, offres, prix, actualités — et exportez un tableur propre ou du JSON en quelques secondes"
+  },
+  "textSummarizer": {
+    "title": "Assistant de page",
+    "description": "Résumez instantanément n'importe quelle page et posez-lui des questions avec l'IA",
+    "tooltip": "Parcourez un article, un rapport ou une documentation — obtenez un résumé concis et posez des questions de suivi avec l'IA"
+  },
+  "pageExtractor": {
+    "title": "Extracteur de Pages",
+    "description": "Collez une liste d'URLs et extrayez les mêmes champs de chaque page en une fois",
+    "tooltip": "Définissez vos champs une seule fois et CrawlPilot visite chaque URL automatiquement — idéal pour la recherche de prospects, les audits de prix et la collecte de contenu à grande échelle"
+  },
+  "metadataExtractor": {
+    "title": "Extracteur de Métadonnées",
+    "description": "Collectez en masse titre, auteur et texte complet depuis n'importe quelle liste d'URLs",
+    "tooltip": "Sans sélecteurs — fournissez des URLs et obtenez des données structurées : titre, auteur, date, mots-clés et le contenu complet en Markdown"
+  },
+  "imageDownloader": {
+    "title": "Téléchargeur d'Images",
+    "description": "Trouvez et enregistrez toutes les images d'une page — un clic, n'importe quel site",
+    "tooltip": "Prévisualisez toutes les images de la page, choisissez celles dont vous avez besoin et téléchargez en lot photos de produits, ressources de galerie ou références de design"
+  },
+  "browserUtilities": {
+    "title": "Utilitaires Navigateur",
+    "description": "Réactivez le clic droit et la sélection de texte sur les sites qui les bloquent",
+    "tooltip": "Débloquez copier, coller et les menus contextuels sur les sites qui les restreignent — idéal pour copier des citations, URLs et contenu de pages protégées"
+  }
+}

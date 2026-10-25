@@ -1,0 +1,109 @@
+{
+  "tagline": "Point-and-click web scraping — no code needed",
+  "recentRuns": "My data",
+  "savedData": "All tables",
+  "listExtractor": {
+    "title": "Get a list from this page",
+    "description": "Products, jobs, results or table rows, as a spreadsheet",
+    "tooltip": "Click any repeating element on a page — products, jobs, prices, news — and export a clean spreadsheet or JSON in seconds"
+  },
+  "aiExtract": {
+    "title": "AI Extract",
+    "description": "Describe the data you want; AI in Chrome fills it from the page",
+    "tooltip": "Give a schema (fields, lists, a JSON Schema or an example) and Chrome's built-in model fills it from the current page. Every value is checked against the page; nothing leaves your browser."
+  },
+  "textSummarizer": {
+    "title": "Page assistant",
+    "description": "What matters on this page, and answers you can check on it",
+    "tooltip": "A brief made for the kind of page (product, article, job, docs…), with every point linked to where the page says it. Ask questions; runs on your device"
+  },
+  "pageExtractor": {
+    "title": "Same details from many pages",
+    "description": "A list of pages; the same details from each, or their article text",
+    "tooltip": "Define your fields once, then CrawlPilot visits each URL automatically — great for lead research, pricing audits and content collection at scale"
+  },
+  "metadataExtractor": {
+    "title": "Article text from many pages",
+    "description": "Title, author, date and full text from a list of pages",
+    "tooltip": "No selectors needed — supply URLs and get back structured data: title, author, publish date, keywords and the full page content in Markdown"
+  },
+  "imageDownloader": {
+    "title": "Download images",
+    "description": "Every image on this page, ready to save",
+    "tooltip": "Preview all images on the current page, pick the ones you need, and batch-download product photos, gallery assets or design references instantly"
+  },
+  "browserUtilities": {
+    "title": "Copy & right-click unlock",
+    "description": "Re-enable right-click & text selection on sites that block them",
+    "tooltip": "Unlock copy, paste and right-click menus on sites that restrict them — ideal for copying quotes, URLs and content from protected pages"
+  },
+  "scraperToolkit": {
+    "title": "Scraper Toolkit",
+    "description": "For developers: how to scrape a page, selectors, its API",
+    "tooltip": "Page Recon, Selector Lab and API Finder: learn how to scrape a page, find selectors that last, and the API behind its data"
+  },
+  "page": {
+    "checking": "Looking at this page…",
+    "list": "{{count}} {{noun}} on this page",
+    "listHint": "Get them all as a table you can download",
+    "listAction": "Get them as a table",
+    "product": "A product page",
+    "productAction": "Get this product's details",
+    "article": "An article",
+    "articleAction": "Brief it",
+    "articleSecondary": "Get its text",
+    "none": "What do you want from this page?",
+    "noneHint": "Point at a list on the page and CrawlPilot finds the rest",
+    "noneAction": "Point at a list",
+    "notWeb": "Open a web page to get its data"
+  },
+  "intents": {
+    "title": "Or choose what you want",
+    "list": {
+      "title": "A list",
+      "hint": "Products, results, rows"
+    },
+    "details": {
+      "title": "This page's details",
+      "hint": "Name, price, any field"
+    },
+    "images": {
+      "title": "Images",
+      "hint": "Every picture, ready to save"
+    },
+    "summary": {
+      "title": "Page assistant",
+      "hint": "A brief and answers you can check"
+    },
+    "pages": {
+      "title": "Many pages",
+      "hint": "The same details from each"
+    },
+    "toolkit": {
+      "title": "Scraper Toolkit",
+      "hint": "How to scrape, selectors, APIs"
+    }
+  },
+  "recent": {
+    "title": "Recent",
+    "rows": "{{count}} rows",
+    "all": "All my data"
+  },
+  "moreTools": "More tools",
+  "ai": {
+    "title": "With Chrome's built-in AI",
+    "needsAi": "Needs Chrome's built-in AI, which this computer doesn't have"
+  },
+  "contacts": {
+    "title": "Contacts from websites",
+    "description": "Emails, phones and social profiles of a list of companies"
+  },
+  "tables": {
+    "title": "Tables on this page",
+    "description": "Every table, to copy, CSV or My data"
+  },
+  "pageMarkdown": {
+    "title": "Page as Markdown",
+    "description": "Clean markdown of this page, for notes or an LLM"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "forList_one": "Details for the {{count}} item of “{{name}}”: the fields you pick here are added to that table.",
+  "forList_other": "Details for the {{count}} items of “{{name}}”: the fields you pick here are added to that table.",
+  "title": "Same details from many pages",
+  "subtitle": "Give a list of pages; get the same details from each",
+  "step1": {
+    "subtitle": "Which pages should CrawlPilot read?",
+    "pagesToScrape": "Pages to Scrape",
+    "urlsLoaded": "{{count}} Loaded",
+    "urlList": "URL List",
+    "clear": "Clear",
+    "chooseDifferentSource": "Choose Different Source",
+    "provideUrls": "Provide a list of page URLs to extract structured data from each one",
+    "uploadCsv": "Upload CSV",
+    "uploadCsvDesc": "Import URLs from a file",
+    "selectDataSource": "A list you saved",
+    "selectDataSourceDesc": "Use links from existing tables",
+    "expectedFormat": "Expected CSV format",
+    "formatDesc": "One URL per line, or comma-separated with a header row.",
+    "nextStep": "Next step"
+  },
+  "step2": {
+    "subtitle": "Which details do you want from each page?",
+    "title": "Define Schema"
+  },
+  "step3": {
+    "subtitle": "Check, then get your data",
+    "title": "Review & Run"
+  },
+  "stepLabels": [
+    "Details",
+    "Pages",
+    "Run"
+  ],
+  "details": {
+    "title": "Which details do you want?",
+    "subtitle": "Chosen on this page; the pages to read come next.",
+    "article": {
+      "title": "Article text & details",
+      "hint": "Title, author, date, full text, links and tables. Nothing to set up."
+    },
+    "fields": {
+      "title": "Pick the fields yourself",
+      "hint": "Point at them on one page; CrawlPilot gets the same from every page."
+    }
+  }
+}

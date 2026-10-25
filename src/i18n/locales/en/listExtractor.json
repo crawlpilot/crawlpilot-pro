@@ -1,0 +1,96 @@
+{
+  "title": "Get a list",
+  "step1": {
+    "subtitle": "Point at one item; CrawlPilot finds the rest",
+    "pickRepeatingItem": "Point at one item in the list",
+    "pickDescription": "Click one product, result or row on the page. CrawlPilot finds all the others like it and picks their details.",
+    "selectOnPage": "Point at one item",
+    "hint": "Tip: click the middle of a card, not a button inside it.",
+    "listeningForClick": "Now click an item on the page…",
+    "clickAnyRepeating": "Click one item on the page: a product card, a result or a row.",
+    "pressEscToCancel": "Esc cancels",
+    "fieldsSelected_one": "{{count}} list picked",
+    "fieldsSelected_other": "{{count}} lists picked",
+    "addAnotherField": "Add another list",
+    "configurePagination": "Change pages & settings"
+  },
+  "step2": {
+    "subtitle": "Does the list go on over more pages?",
+    "howToLoadMore": "Is there more of this list on other pages?",
+    "pickNavigationMethod": "Choose how this site shows more items.",
+    "numberedPagination": {
+      "title": "Pages with a Next button",
+      "description": "Page numbers, or a Next › link at the bottom"
+    },
+    "loadMoreButton": {
+      "title": "A \"Load more\" button",
+      "description": "More items appear on the same page when you click it"
+    },
+    "infiniteScroll": {
+      "title": "Scrolling, or all on one page",
+      "description": "More items appear as you scroll, or there's only this page"
+    },
+    "pointToNext": "Point at the Next button on the page",
+    "pointToLoadMore": "Point at the \"Load more\" button on the page",
+    "clickTheButton": "Now click that button on the page…",
+    "pressEscToCancel": "Esc cancels",
+    "pickNavigationButton": "Point at the button",
+    "nextButton": "Next button",
+    "loadMoreButtonLabel": "\"Load more\" button",
+    "editNavigationSelectors": "Edit Navigation Selectors",
+    "reviewAndRun": "Continue",
+    "back": "Back"
+  },
+  "step3": {
+    "subtitle": "Check, then get your data",
+    "addDetails": "Add details from each item's page",
+    "addDetailsHint": "Pick the fields on one item's page; every item's page is read and its fields are added to this table.",
+    "detailsNoLinks": "This list has no column of links to its items' pages, so there is nothing to open.",
+    "keepPanelOpen": "Keep this panel open while the run goes on: closing it stops the run. You can use other screens and tabs.",
+    "reviewAndRun": "Ready",
+    "checkConfig": "Check the settings, then get your data.",
+    "summary": "Summary",
+    "fieldsSelected": "Details",
+    "fieldsDetail": "{{count}} details · {{items}} items per page",
+    "pageLimit": "Pages",
+    "singlePage": "This page only",
+    "pages": "{{count}} pages",
+    "maxPagesToExtract": "Pages to read at most",
+    "maxPagesHelper": "Stops after this many pages",
+    "extractionFailed": "Couldn't get the data",
+    "unknownError": "Something went wrong.",
+    "startExtraction": "Get the data",
+    "openResultsTable": "See your table",
+    "newExtraction": "Start over",
+    "back": "Back",
+    "doneTitle_one": "Done · {{count}} item",
+    "doneTitle_other": "Done · {{count}} items",
+    "stoppedTitle_one": "Stopped · {{count}} item saved",
+    "stoppedTitle_other": "Stopped · {{count}} items saved",
+    "donePages_one": "from 1 page",
+    "donePages_other": "from {{count}} pages",
+    "doneHint": "Saved in My data. Open it to sort, clean or download it."
+  },
+  "stepLabels": [
+    "Pick",
+    "Pages",
+    "Get data"
+  ],
+  "quick": {
+    "found_one": "{{count}} item found",
+    "found_other": "{{count}} items found",
+    "details_one": "{{count}} detail each · rename or remove them below",
+    "details_other": "{{count}} details each · rename or remove them below",
+    "openPreview": "See the full preview",
+    "onePage": "Only this page: CrawlPilot found no Next button.",
+    "nextBefore": "Then follows “{{label}}” through up to",
+    "nextAfter": "pages.",
+    "loadMoreBefore": "Then clicks “{{label}}” up to",
+    "loadMoreAfter": "times.",
+    "runOne_one": "Get the {{count}} item",
+    "runOne_other": "Get all {{count}} items",
+    "runPages_one": "Get the data",
+    "runPages_other": "Get the data from {{count}} pages",
+    "customize": "Change"
+  }
+}

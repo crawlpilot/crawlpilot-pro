@@ -1,0 +1,50 @@
+{
+  "cancel": "Cancelar",
+  "save": "Salvar",
+  "back": "Voltar",
+  "close": "Fechar",
+  "delete": "Excluir",
+  "confirm": "Confirmar",
+  "export": "Exportar",
+  "clear": "Limpar",
+  "search": "Pesquisar",
+  "stop": "Parar",
+  "rerun": "Executar novamente",
+  "data": "Dados",
+  "copy": "Copiar",
+  "loading": "Carregando...",
+  "yes": "Sim",
+  "no": "Não",
+  "na": "N/D",
+  "status": {
+    "running": "Em execução",
+    "completed": "Concluído",
+    "stopped": "Parado",
+    "failed": "Falhou",
+    "paused": "Pausado",
+    "pending": "Pendente",
+    "active": "Ativo"
+  },
+  "time": {
+    "justNow": "Agora mesmo",
+    "minutesAgo": "{{count}}min atrás",
+    "hoursAgo": "{{count}}h atrás",
+    "daysAgo": "{{count}}d atrás",
+    "yesterday": "Ontem",
+    "days": "{{count}} dias"
+  },
+  "connection": {
+    "notConnected": "Extensão não conectada a esta aba",
+    "notConnectedHint": "Navegue até uma página e clique em Conectar para habilitar a extração",
+    "connect": "Conectar",
+    "connecting": "Conectando..."
+  },
+  "nav": {
+    "home": "Início",
+    "homeTooltip": "Todas as ferramentas e recursos",
+    "runs": "Execuções",
+    "runsTooltip": "Trabalhos de extração anteriores que podem ser reexecutados",
+    "data": "Dados",
+    "dataTooltip": "Navegue e exporte seus conjuntos de dados extraídos"
+  }
+}
