@@ -5,12 +5,12 @@
  * fields on the page stays in the Page Extractor (Re-pick).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Crosshair, FileCheck, FlaskConical, Layers, MousePointerClick, Plus, Save, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, FlaskConical, Layers, MousePointerClick, Plus, Save, Trash2, X } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Chip, Disclosure, IconButton, Notice, Select, Switch, Text, TextArea, TextField } from '../../sidepanel/ui';
 import { pro } from '../db';
 import { saveSpecVersion, setProEdit } from '../edit';
-import { openedRecipe } from '../nav';
+import { openedRecipe, takeRepair, type Repair } from '../nav';
 import { usePageTab } from '../../sidepanel/hooks/usePageTab';
 import { specDigest } from '../recipe/canonical';
 import { passed } from '../db/tests';
@@ -109,6 +109,8 @@ function Ways({ ways, onMove, onRemove, onAdd }: { ways: Field['ways']; onMove: 
 
 export default function EditorPage({ onBack, onNavigate }: Props) {
     const [recipeId] = useState(openedRecipe);
+    const [repair] = useState<Repair | null>(() => recipeId ? takeRepair(recipeId) : null);
+    const repairing = new Set(repair?.fields.map(f => f.name));
     const [recipe, setRecipe] = useState<ProRecipe | null>(null);
     const [base, setBase] = useState<Version | null>(null);
     const [spec, setSpec] = useState<PageRecipeSpec | null>(null);
@@ -154,6 +156,12 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(spec), kind: 'page', results: [result], passed: passed([result]), at: Date.now() });
         setTesting(false);
     };
+    /** A page a failing field failed on: opened in the page's tab, and kept as a sample to test on. */
+    const openFailing = async (url: string) => {
+        if (page.tab?.id) await chrome.tabs.update(page.tab.id, { url });
+        if (!samples.some(x => x.url === url)) await addSample(url);
+    };
+
     const addSample = async (url: string) => {
         if (!recipe) return;
         await pro.samples.add(recipe.id, [url]);
@@ -185,7 +193,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         setSaving(true);
         setError(null);
         try {
-            await saveSpecVersion(recipe, base, spec, output, note);
+            await saveSpecVersion(recipe, base, spec, output, note, repair ? 'repaired' : 'edited');
             onNavigate('pro-history');
         } catch (e) {
             setError(e instanceof Error ? e.message : String(e));
@@ -208,7 +216,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     }
 
     const fieldCard = (field: Field, i: number) => (
-        <div key={field.id} data-testid="pro-field"><Disclosure
+        <div key={field.id} data-testid="pro-field"><Disclosure defaultOpen={repairing.has(field.name)} className={repairing.has(field.name) ? 'border-danger!' : undefined}
             summary={<span className="flex min-w-0 items-center gap-1.5"><span className="truncate font-semibold">{field.name || 'unnamed'}</span><Chip>{field.type}</Chip>{field.required && <Chip tone="warning">required</Chip>}<ResultChip result={results.get(field.id)} /></span>}
             meta={<Text size="caption" tone="faint">{field.ways.length} way{field.ways.length === 1 ? '' : 's'}{field.ops.length ? ` · ${field.ops.length} cleanup` : ''}</Text>}>
             <div className="flex flex-col gap-3 pt-2">
@@ -252,6 +260,19 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         <div className="flex h-full flex-col">
             {header}
             <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-4">
+                {repair && (
+                    <div data-testid="pro-repair"><Notice tone="danger" title={`Repairing: ${repair.fields.map(f => f.name).join(', ')}`}>
+                        <span className="flex flex-col gap-1">
+                            {repair.fields.map(f => (
+                                <span key={f.name}>{f.name}: {Math.round(f.baseline * 100)}% when tested, {Math.round(f.now * 100)}% on the live crawl.</span>
+                            ))}
+                            {repair.fields.flatMap(f => f.failingPages).slice(0, 1).map(url => (
+                                <span key={url}><Button size="sm" variant="secondary" icon={<ExternalLink />} onClick={() => openFailing(url)}>Open a failing page</Button></span>
+                            ))}
+                            <span>Fix the fields (re-pick them on the page if needed), test, then save and submit.</span>
+                        </span>
+                    </Notice></div>
+                )}
                 {test && (test.result.error
                     ? <Notice tone="danger" title="The test could not run on this page">{test.result.error}</Notice>
                     : <div data-testid="pro-test-summary"><Notice tone={passed([test.result]) ? 'success' : 'warning'}

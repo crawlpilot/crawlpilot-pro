@@ -14,6 +14,8 @@ import { writeRecipeFile } from '../recipe/file';
 import { LOCAL_AUTHOR, setProEdit } from '../edit';
 import { openRecipe } from '../nav';
 import { BackendDialog } from './BackendDialog';
+import { recipeHealth } from '../maintain';
+import type { HealthState } from '../recipe/health';
 import type { ProRecipe, RecipeKind } from '../recipe/types';
 
 interface Props {
@@ -36,7 +38,13 @@ export default function RecipesPage({ onNavigate }: Props) {
     const [backend, setBackend] = useState(false);
     const input = useRef<HTMLInputElement>(null);
 
-    const load = useCallback(() => pro.recipes.list().then(setRecipes), []);
+    const [health, setHealth] = useState<Map<string, HealthState>>(new Map());
+    const load = useCallback(async () => {
+        const list = await pro.recipes.list();
+        setRecipes(list);
+        const states = await Promise.all(list.map(async r => [r.id, (await recipeHealth(r))?.state] as const));
+        setHealth(new Map(states.filter((s): s is readonly [string, HealthState] => !!s[1])));
+    }, []);
     useEffect(() => { load(); }, [load]);
 
     const importTexts = async (texts: string[]) => {
@@ -115,6 +123,8 @@ export default function RecipesPage({ onNavigate }: Props) {
                                 {r.labels.live ? <Chip tone="success">live v{r.labels.live}</Chip> : <Chip tone="neutral">draft</Chip>}
                                 {r.labels.latest && <Chip tone="info">latest v{r.labels.latest}</Chip>}
                                 {r.labels.test && <Chip tone="warning">test v{r.labels.test}</Chip>}
+                                {health.get(r.id) === 'repair' && <Chip tone="danger">needs repair</Chip>}
+                                {health.get(r.id) === 'watch' && <Chip tone="warning">watch</Chip>}
                             </div>
                         </div>
                         <IconButton label={`History of ${r.name}`} onClick={() => { openRecipe(r.id); onNavigate('pro-history'); }}><History /></IconButton>

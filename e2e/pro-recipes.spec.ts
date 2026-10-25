@@ -455,3 +455,71 @@ test('submit: a ready version goes to the backend, becomes live, and its crawl i
     await ui.close();
     await page.close();
 });
+
+test('maintain: a crawl that fills a field much less flags the recipe; Repair opens the editor on a failing page', async ({ panel, ext, origin }) => {
+    test.setTimeout(120_000);
+    const mock = await serveMockBackend();
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 900 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    await ui.getByRole('button', { name: 'Backend' }).click();
+    await ui.getByLabel('Address').fill(mock.origin);
+    await ui.getByLabel('Access token').fill('dev-token');
+    await ui.getByRole('button', { name: 'Save' }).click();
+
+    const file = {
+        name: 'Watched product', site: '127.0.0.1', built_on: `${origin}/site/json-product.html`,
+        checked_on: [`${origin}/site/json-shop.html`, `${origin}/site/article.html`],
+        spec: { kind: 'page', settings: { requestDelay: 100 }, elements: [
+            { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] },
+            { id: 'b', name: 'price', action: 'extract', type: 'text', selectors: ['.price'] },
+        ] },
+    };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'w.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await ui.getByRole('button', { name: 'History of Watched product' }).click();
+    await ui.getByRole('button', { name: 'Edit fields' }).click();
+    await ui.getByTestId('pro-samples').getByRole('button', { name: 'Test on 3 pages' }).click();
+    await expect(ui.getByTestId('pro-readiness')).toHaveText('Ready to submit.', { timeout: 60_000 });
+    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await ui.getByRole('button', { name: 'Submit' }).click();
+    await ui.getByRole('dialog').getByRole('button', { name: 'Submit' }).click();
+    await expect(ui.getByTestId('pro-crawl')).toBeVisible();
+
+    // The site changed: the crawl finds price on 10% of pages (it was on 2 of 3 tested pages).
+    const crawl = [...mock.backend.crawls.values()][0];
+    crawl.fill = { price: 0.1 };
+    crawl.failing = { price: [`${origin}/site/product.html`] };
+    const refresh = ui.getByTestId('pro-crawls').getByRole('button', { name: 'Refresh' });
+    for (let i = 0; i < 3; i++) await refresh.click();
+    await expect(ui.getByTestId('pro-crawl')).toContainText('needs repair');
+    await expect(ui.getByTestId('pro-crawl-health')).toContainText('price: 67% when tested, 10% now');
+
+    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await expect(ui.getByTestId('pro-recipe').filter({ hasText: 'Watched product' })).toContainText('needs repair');
+    await ui.getByRole('button', { name: 'History of Watched product' }).click();
+
+    // Repair: the editor names the field, opens a failing page and keeps it as a sample.
+    await ui.getByRole('button', { name: 'Repair' }).click();
+    const repair = ui.getByTestId('pro-repair');
+    await expect(repair).toContainText('Repairing: price');
+    await expect(repair).toContainText('price: 67% when tested, 10% on the live crawl.');
+    await repair.getByRole('button', { name: 'Open a failing page' }).click();
+    await expect(page).toHaveURL(`${origin}/site/product.html`);
+    await expect(ui.getByTestId('pro-samples')).toContainText('Sample pages (4)');
+    if (process.env.UX_SHOTS) await ui.screenshot({ path: `${process.env.UX_SHOTS}/pro-repair.png` });
+
+    const price = ui.getByTestId('pro-field').filter({ has: ui.getByText('price', { exact: true }) });
+    await price.getByLabel('Add a selector').fill('.product-price');
+    await price.getByRole('button', { name: 'Add', exact: true }).click();
+    await ui.getByLabel('What changed').fill('price on the new layout');
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    await expect(ui.getByTestId('pro-version').first()).toContainText('repaired');
+    mock.close();
+    await ui.close();
+    await page.close();
+});

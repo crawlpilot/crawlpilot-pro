@@ -18,7 +18,12 @@ export interface MockResponse {
 }
 
 interface MockRecipe { id: string; name: string; site: string; kind: string; versions: Map<number, { file: unknown; digest: string }>; live?: number }
-interface MockCrawl { id: string; recipeId: string; version: number; schedule: Schedule; pages: number; reads: number; fields: string[] }
+interface MockCrawl {
+    id: string; recipeId: string; version: number; schedule: Schedule; pages: number; reads: number; fields: string[];
+    /** Set by a test: a field's fill once done, and the pages it failed on (a site that changed). */
+    fill?: Record<string, number>;
+    failing?: Record<string, string[]>;
+}
 
 export interface MockBackend {
     handle(req: MockRequest): MockResponse;
@@ -92,7 +97,10 @@ export function createMockBackend(token = 'dev-token'): MockBackend {
             const done = state === 'done' ? crawl.pages : state === 'running' ? Math.floor(crawl.pages / 2) : 0;
             const status: CrawlStatus = {
                 id: crawl.id, status: state, pagesDone: done, pagesFailed: 0,
-                fields: crawl.fields.map(name => ({ name, fill: done ? 1 : 0, fallbackShare: 0, failedChecks: 0 })),
+                fields: crawl.fields.map(name => ({
+                    name, fill: done ? (state === 'done' ? crawl.fill?.[name] ?? 1 : 1) : 0, fallbackShare: 0, failedChecks: 0,
+                    ...(state === 'done' && crawl.failing?.[name] ? { failingPages: crawl.failing[name] } : {}),
+                })),
                 samples: done ? [Object.fromEntries(crawl.fields.map(f => [f, `${f} sample`]))] : [],
             };
             return json(200, status);

@@ -4,7 +4,7 @@
  * reason. Every label move is listed.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { GitCompare, Pencil, RefreshCw, RotateCcw, Send, Tag } from 'lucide-react';
+import { GitCompare, Pencil, RefreshCw, RotateCcw, Send, Tag, Wrench } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Card, Chip, Dialog, Notice, Select, Text, TextField, type ChipTone } from '../../sidepanel/ui';
 import { pro } from '../db';
@@ -15,7 +15,9 @@ import type { CrawlRecord } from '../db/crawls';
 import { backendApi } from '../backend/settings';
 import { refreshCrawls } from '../backend/submit';
 import { LOCAL_AUTHOR } from '../edit';
-import { openedRecipe } from '../nav';
+import { openedRecipe, openRepair } from '../nav';
+import { healthOf } from '../maintain';
+import type { CrawlHealth } from '../recipe/health';
 import type { LabelMove, LabelName, ProRecipe, Version } from '../recipe/types';
 
 interface Props {
@@ -39,11 +41,18 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
     const [ready, setReady] = useState<Map<number, Readiness>>(new Map());
     const [submitting, setSubmitting] = useState<Version | null>(null);
     const [crawls, setCrawls] = useState<CrawlRecord[]>([]);
+    const [health, setHealth] = useState<Map<string, CrawlHealth>>(new Map());
     const [refreshing, setRefreshing] = useState(false);
     const [pair, setPair] = useState<{ from: number; to: number } | null>(null);
     const [labelling, setLabelling] = useState<{ label: Exclude<LabelName, 'latest'>; version: number } | null>(null);
     const [reason, setReason] = useState('');
     const [error, setError] = useState<string | null>(null);
+
+    const showCrawls = async (list: CrawlRecord[]) => {
+        setCrawls(list);
+        const pairs = await Promise.all(list.map(async c => [c.crawlId, await healthOf(c)] as const));
+        setHealth(new Map(pairs.filter((p): p is readonly [string, CrawlHealth] => !!p[1])));
+    };
 
     const load = useCallback(async () => {
         if (!recipeId) return;
@@ -51,7 +60,7 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
         setRecipe(r ?? null);
         setVersions(vs);
         setLog(moves);
-        setCrawls(await pro.crawls.list(recipeId));
+        await showCrawls(await pro.crawls.list(recipeId));
         // Each version is ready by the newest multi-page test of its spec.
         setReady(new Map(await Promise.all(vs.map(async v => [v.version, readiness((await pro.tests.latest(recipeId, v.digest, 'pages'))?.results, v)] as const))));
         // What the newest version changed, until another pair is chosen.
@@ -82,7 +91,7 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
         try {
             const api = await backendApi();
             if (!api) throw new Error('Set the backend address and token first (Backend, on the Recipes screen).');
-            setCrawls(await refreshCrawls(api, recipe.id));
+            await showCrawls(await refreshCrawls(api, recipe.id));
         } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
         setRefreshing(false);
     };
@@ -182,8 +191,21 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
                                 <div className="flex items-center gap-1.5">
                                     <Text size="small" weight="semibold">v{c.version}</Text>
                                     <Chip tone={c.last?.status === 'done' ? 'success' : c.last?.status === 'failed' ? 'danger' : 'info'}>{c.last?.status ?? 'started'}</Chip>
+                                    {health.get(c.crawlId)?.state === 'repair' && <Chip tone="danger">needs repair</Chip>}
+                                    {health.get(c.crawlId)?.state === 'watch' && <Chip tone="warning">watch</Chip>}
                                     <Text size="caption" tone="faint">{c.schedule} · {when(c.startedAt)}</Text>
                                 </div>
+                                {health.get(c.crawlId) && health.get(c.crawlId)!.state !== 'healthy' && (
+                                    <div className="flex flex-col gap-1" data-testid="pro-crawl-health">
+                                        {health.get(c.crawlId)!.fields.map(f => (
+                                            <Text key={f.name} size="caption" tone={f.state === 'repair' ? 'danger' : 'warning'}>
+                                                {f.name}: {Math.round(f.baseline * 100)}% when tested, {Math.round(f.now * 100)}% now
+                                            </Text>
+                                        ))}
+                                        {health.get(c.crawlId)!.state === 'repair' && <div><Button size="sm" variant="primary" icon={<Wrench />}
+                                            onClick={() => { openRepair({ recipeId: recipe.id, fields: health.get(c.crawlId)!.fields.filter(f => f.state === 'repair') }); onNavigate('pro-editor'); }}>Repair</Button></div>}
+                                    </div>
+                                )}
                                 {c.last && <Text size="caption" tone="muted">{c.last.pagesDone} pages done{c.last.pagesFailed ? `, ${c.last.pagesFailed} failed` : ''}{c.last.fields.length ? ` · ${c.last.fields.map(f => `${f.name} ${Math.round(f.fill * 100)}%`).join(', ')}` : ''}</Text>}
                             </div>
                         ))}

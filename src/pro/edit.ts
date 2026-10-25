@@ -57,10 +57,10 @@ export function listEditInput(version: Version): { picks: ListPick[]; mode: Pagi
 }
 
 /** Saves a draft: version N+1 of the edited recipe, or version 1 of a new one (its pages become samples). */
-async function saveDraft(edit: ProEdit, name: string, draft: VersionDraft, note: string): Promise<{ recipe: ProRecipe; version: Version }> {
+async function saveDraft(edit: ProEdit, name: string, draft: VersionDraft, note: string, origin: 'edited' | 'repaired' = 'edited'): Promise<{ recipe: ProRecipe; version: Version }> {
     const by = { note: note.trim(), author: LOCAL_AUTHOR };
     if (edit.recipe && edit.version) {
-        const version = await pro.versions.save(edit.recipe.id, edit.version.version, draft, { ...by, origin: 'edited' });
+        const version = await pro.versions.save(edit.recipe.id, edit.version.version, draft, { ...by, origin });
         return { recipe: (await pro.recipes.get(edit.recipe.id))!, version };
     }
     const urls = urlsOf(draft.pages);
@@ -85,7 +85,7 @@ export function saveListVersion(edit: ProEdit, input: { name: string; picks: Lis
 }
 
 /** Saves an edited spec and output as the next version; settings and pages stay the base version's. */
-export function saveSpecVersion(recipe: ProRecipe, base: Version, spec: VersionDraft['spec'], output: VersionDraft['output'], note: string) {
+export function saveSpecVersion(recipe: ProRecipe, base: Version, spec: VersionDraft['spec'], output: VersionDraft['output'], note: string, origin: 'edited' | 'repaired' = 'edited') {
     const { settings, pages } = base;
-    return saveDraft({ kind: recipe.kind, recipe, version: base }, '', { spec, settings, pages, output }, note);
+    return saveDraft({ kind: recipe.kind, recipe, version: base }, '', { spec, settings, pages, output }, note, origin);
 }

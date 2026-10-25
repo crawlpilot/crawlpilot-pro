@@ -15,6 +15,8 @@ export interface CrawlField {
     /** Share of pages a fallback way (not the first) gave it. */
     fallbackShare?: number;
     failedChecks?: number;
+    /** A few pages the field was empty on (proposed: for the repair flow to open). */
+    failingPages?: string[];
 }
 
 export interface CrawlStatus {

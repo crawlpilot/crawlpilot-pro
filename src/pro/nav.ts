@@ -8,3 +8,23 @@ export function openRecipe(recipeId: string) {
 export function openedRecipe(): string | null {
     return openedRecipeId;
 }
+
+/** A repair the editor opens with: the fields a crawl found failing, and pages they failed on. */
+export interface Repair {
+    recipeId: string;
+    fields: { name: string; baseline: number; now: number; failingPages: string[] }[];
+}
+
+let pendingRepair: Repair | null = null;
+
+export function openRepair(repair: Repair) {
+    openedRecipeId = repair.recipeId;
+    pendingRepair = repair;
+}
+
+/** The repair for this recipe, once. */
+export function takeRepair(recipeId: string): Repair | null {
+    const out = pendingRepair?.recipeId === recipeId ? pendingRepair : null;
+    pendingRepair = null;
+    return out;
+}
