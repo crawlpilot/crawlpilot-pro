@@ -1,6 +1,7 @@
 /** Pro's store: recipes, versions, labels and samples, plus importing a recipe file into them. */
 import { addSamples, createRecipe, getRecipe, labelLog, listRecipes, listSamples, moveLabel, renameRecipe } from './recipes';
 import { getVersion, listVersions, restoreVersion, saveVersion } from './versions';
+import { latestTest, saveTest } from './tests';
 import { readRecipeFile } from '../recipe/file';
 import { specDigest } from '../recipe/canonical';
 import type { ProRecipe, Version } from '../recipe/types';
@@ -38,5 +39,6 @@ export const pro = {
     recipes: { create: createRecipe, get: getRecipe, list: listRecipes, rename: renameRecipe, moveLabel, labelLog },
     versions: { save: saveVersion, get: getVersion, list: listVersions, restore: restoreVersion },
     samples: { add: addSamples, list: listSamples },
+    tests: { save: saveTest, latest: latestTest },
     importRecipeFile,
 };

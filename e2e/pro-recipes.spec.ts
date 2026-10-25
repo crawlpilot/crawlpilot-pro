@@ -204,3 +204,55 @@ test('fields panel: rename, type, required, a selector and cleanup, saved as the
     expect(fields[0].ways.map((w: any) => w.selector)).toEqual(['h1', 'h1.product-title']);
     expect(fields[1]).toMatchObject({ type: 'object', ops: [{ op: 'toObject', sep: ':' }] });
 });
+
+test('test on this page: each field found, typed and checked; the run is kept for its spec', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 900 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+
+    const file = {
+        name: 'Overshirt', site: '127.0.0.1', built_on: page.url(),
+        spec: {
+            kind: 'page', settings: {}, elements: [
+                { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] },
+                { id: 'b', name: 'price', action: 'extract', type: 'text', selectors: ['p.price'] },
+                { id: 'c', name: 'sku', action: 'extract', type: 'text', selectors: ['.sku'] },
+                { id: 'd', name: 'code', action: 'extract', type: 'text', selectors: [], data: { kind: 'ld', label: 'JSON-LD', nth: 0, type: 'ProductGroup', path: [], as: 'text', key: 'productGroupID' } },
+            ],
+        },
+    };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'o.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await ui.getByRole('button', { name: 'Edit Overshirt' }).click();
+
+    const card = (name: string) => ui.getByTestId('pro-field').filter({ has: ui.getByText(name, { exact: true }) });
+    await card('price').getByRole('button').first().click();
+    await card('price').getByLabel('Type').selectOption('money');
+    await card('sku').getByRole('button').first().click();
+    await card('sku').getByLabel('Required').check();
+
+    await ui.getByRole('button', { name: /^Test on this page/ }).click();
+    const summary = ui.getByTestId('pro-test-summary');
+    await expect(summary).toContainText('3 of 4 fields found');
+    await expect(summary).toContainText('1 with a problem');
+    await expect(card('price').getByTestId('pro-field-result')).toContainText('79');
+    await expect(card('sku')).toContainText('required, but empty');
+    await expect(card('code')).toContainText('found');
+
+    // The run is kept under the spec's digest; an edit after it marks it out of date.
+    const [run] = await proStore(ui, 'tests');
+    expect(run).toMatchObject({ kind: 'page', passed: false });
+    expect(run.results[0].fields.find((f: any) => f.name === 'code')).toMatchObject({ status: 'data', value: 'LX-2041' });
+    await card('sku').getByLabel('Required').uncheck();
+    await expect(summary).toContainText('You changed the recipe since this test.');
+    await ui.getByRole('button', { name: /^Test on this page/ }).click();
+    await expect(summary).not.toContainText('with a problem');
+    if (process.env.UX_SHOTS) await ui.screenshot({ path: `${process.env.UX_SHOTS}/pro-test.png` });
+    await ui.close();
+    await page.close();
+});

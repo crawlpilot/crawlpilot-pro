@@ -9,9 +9,13 @@
  * | `labelLog` | auto                 | `recipeId`                      |
  * | `samples`  | `[recipeId,url]`     | `recipeId`                      |
  * | `drafts`   | `recipeId`           |                                 |
+ * | `tests`    | auto                 | `[recipeId,digest]`, `recipeId` |
+ *
+ * v2 adds `tests`: test runs, keyed by the tested spec's digest, so a draft tested in the editor counts
+ * for the version it is saved as.
  */
 export const PRO_DB_NAME = 'crawlpilot-pro';
-export const PRO_DB_VERSION = 1;
+export const PRO_DB_VERSION = 2;
 
 export const STORES = {
     recipes: 'recipes',
@@ -19,6 +23,7 @@ export const STORES = {
     labelLog: 'labelLog',
     samples: 'samples',
     drafts: 'drafts',
+    tests: 'tests',
 } as const;
 
 export function upgrade(db: IDBDatabase, oldVersion: number): void {
@@ -32,5 +37,10 @@ export function upgrade(db: IDBDatabase, oldVersion: number): void {
         db.createObjectStore(STORES.labelLog, { keyPath: 'id', autoIncrement: true }).createIndex('recipeId', 'recipeId');
         db.createObjectStore(STORES.samples, { keyPath: ['recipeId', 'url'] }).createIndex('recipeId', 'recipeId');
         db.createObjectStore(STORES.drafts, { keyPath: 'recipeId' });
+    }
+    if (oldVersion < 2) {
+        const tests = db.createObjectStore(STORES.tests, { keyPath: 'id', autoIncrement: true });
+        tests.createIndex('recipeDigest', ['recipeId', 'digest']);
+        tests.createIndex('recipeId', 'recipeId');
     }
 }

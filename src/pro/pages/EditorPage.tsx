@@ -5,12 +5,16 @@
  * fields on the page stays in the Page Extractor (Re-pick).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Crosshair, MousePointerClick, Save, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crosshair, FlaskConical, MousePointerClick, Save, Trash2 } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Chip, Disclosure, IconButton, Notice, Select, Switch, Text, TextArea, TextField } from '../../sidepanel/ui';
 import { pro } from '../db';
 import { saveSpecVersion, setProEdit } from '../edit';
 import { openedRecipe } from '../nav';
+import { usePageTab } from '../../sidepanel/hooks/usePageTab';
+import { specDigest } from '../recipe/canonical';
+import { passed } from '../db/tests';
+import { summarize, testOnTab, type FieldResult, type PageResult } from '../runner/testPage';
 import { diffVersions, wayLabel } from '../recipe/diff';
 import * as edits from '../recipe/editSpec';
 import { applyProOps, NEW_OP, opSummary, PRO_OP_LABELS, type ProOp } from '../recipe/ops';
@@ -19,6 +23,16 @@ import type { Click, Field, FieldType, PageRecipeSpec, ProRecipe, Version } from
 interface Props {
     onBack: () => void;
     onNavigate: (view: string) => void;
+}
+
+/** A value in one line: text as is, anything else as JSON. */
+const preview = (v: unknown) => v === null || v === undefined ? '—' : typeof v === 'string' ? v : JSON.stringify(v);
+
+/** A field's result on the tested page, as a chip. */
+function ResultChip({ result }: { result?: FieldResult }) {
+    if (!result) return null;
+    if (!result.ok) return <Chip tone="danger">{result.problem}</Chip>;
+    return result.filled ? <Chip tone="success">found</Chip> : <Chip>empty</Chip>;
 }
 
 const TYPES: FieldType[] = ['text', 'number', 'integer', 'money', 'date', 'url', 'boolean', 'enum', 'list', 'object', 'table'];
@@ -92,6 +106,9 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     const [note, setNote] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const page = usePageTab();
+    const [test, setTest] = useState<{ result: PageResult; spec: string } | null>(null);
+    const [testing, setTesting] = useState(false);
 
     useEffect(() => {
         if (!recipeId) return;
@@ -112,6 +129,18 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         setProEdit({ kind: recipe.kind, recipe, version: base });
         onNavigate(recipe.kind === 'page' ? 'page-extractor' : 'list-extractor');
     };
+
+    /** Runs the spec as it is now on the open page, and keeps the run for this spec's digest. */
+    const runTest = async () => {
+        if (!recipe || !base || !spec || !page.tab?.id) return;
+        setTesting(true);
+        const result = await testOnTab(page.tab.id, page.url, spec, base.settings);
+        setTest({ result, spec: JSON.stringify(spec) });
+        await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(spec), kind: 'page', results: [result], passed: passed([result]), at: Date.now() });
+        setTesting(false);
+    };
+    const results = new Map((test?.result.fields ?? []).map(f => [f.fieldId, f]));
+    const stale = !!test && test.spec !== JSON.stringify(spec);
 
     const save = async () => {
         if (!recipe || !base || !spec) return;
@@ -142,9 +171,15 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
 
     const fieldCard = (field: Field, i: number) => (
         <div key={field.id} data-testid="pro-field"><Disclosure
-            summary={<span className="flex min-w-0 items-center gap-1.5"><span className="truncate font-semibold">{field.name || 'unnamed'}</span><Chip>{field.type}</Chip>{field.required && <Chip tone="warning">required</Chip>}</span>}
+            summary={<span className="flex min-w-0 items-center gap-1.5"><span className="truncate font-semibold">{field.name || 'unnamed'}</span><Chip>{field.type}</Chip>{field.required && <Chip tone="warning">required</Chip>}<ResultChip result={results.get(field.id)} /></span>}
             meta={<Text size="caption" tone="faint">{field.ways.length} way{field.ways.length === 1 ? '' : 's'}{field.ops.length ? ` · ${field.ops.length} cleanup` : ''}</Text>}>
             <div className="flex flex-col gap-3 pt-2">
+                {results.get(field.id) && (
+                    <div className="flex flex-col gap-0.5 rounded-xl bg-ink/4 px-2.5 py-2" data-testid="pro-field-result">
+                        <Text size="caption" tone="muted">On the tested page ({results.get(field.id)!.status})</Text>
+                        <Text size="caption" mono className="break-all" lines={3}>{preview(results.get(field.id)!.value)}</Text>
+                    </div>
+                )}
                 <div className="flex items-end gap-2">
                     <TextField size="sm" className="flex-1" label="Name" value={field.name} onChange={e => setSpec(edits.renameField(spec, field.id, e.target.value))} />
                     <Select size="sm" label="Type" value={field.type} options={TYPES.map(t => ({ value: t, label: t }))} onChange={t => setSpec(edits.setFieldType(spec, field.id, t))} />
@@ -179,6 +214,13 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         <div className="flex h-full flex-col">
             {header}
             <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-4">
+                {test && (test.result.error
+                    ? <Notice tone="danger" title="The test could not run on this page">{test.result.error}</Notice>
+                    : <div data-testid="pro-test-summary"><Notice tone={passed([test.result]) ? 'success' : 'warning'}
+                        title={`On ${new URL(test.result.url).host}: ${summarize(test.result).filled} of ${summarize(test.result).total} fields found`}>
+                        {summarize(test.result).total - summarize(test.result).ok ? `${summarize(test.result).total - summarize(test.result).ok} with a problem. ` : ''}
+                        {stale ? 'You changed the recipe since this test.' : ''}
+                    </Notice></div>)}
                 <Text size="caption" tone="faint">Steps run in this order: a click, then the fields it reveals.</Text>
                 {spec.steps.map((s, i) => s.kind === 'field' ? fieldCard(s.field, i) : clickRow(s.click, i))}
             </div>
@@ -187,7 +229,11 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                 {error && <Notice tone="danger">{error}</Notice>}
                 <Text size="caption" tone="muted" data-testid="pro-editor-changes">{changes.length === 0 ? 'No changes yet.' : `${changes.length} change${changes.length === 1 ? '' : 's'}: ${changes.map(c => c.subject).join(', ')}`}</Text>
                 <TextArea label="What changed" rows={2} value={note} onChange={e => setNote(e.target.value)} />
-                <Button variant="primary" icon={<Save />} loading={saving} disabled={changes.length === 0 || blockers.length > 0} onClick={save}>Save version {base.version + 1}</Button>
+                <div className="flex gap-2">
+                    <Button variant="secondary" icon={<FlaskConical />} loading={testing} disabled={!page.web || blockers.length > 0} onClick={runTest}
+                        title={page.host ? `Runs on ${page.host}` : 'Open a web page to test on'}>Test on this page</Button>
+                    <Button variant="primary" className="flex-1" icon={<Save />} loading={saving} disabled={changes.length === 0 || blockers.length > 0} onClick={save}>Save version {base.version + 1}</Button>
+                </div>
             </div>
         </div>
     );
