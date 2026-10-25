@@ -1,6 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react';
-import { on, send, sendToActiveTab, sendToTab } from '../../shared/messages';
-import { pageAddresses } from '../../shared/listing/urlPages';
+import { on, sendToActiveTab, sendToTab } from '../../shared/messages';
 import { db } from '../../shared/db';
 import { storage } from '../../shared/storage';
 import { hasAllUrlsPermission, injectContentScript, requestAllUrlsPermission } from '../../shared/utils/hostPermissions';
@@ -71,12 +70,6 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
     const stopExtraction = useCallback((force: boolean = false) => {
         stopExtractionRef.current = true;
 
-        // Numbered pages run in the background: the runner stops them (and saves what it read).
-        if (activeModeRef.current === 'urls' && !force) {
-            void send('BULK_EXTRACTION_STOP');
-            return;
-        }
-
         // If forced or if previous attempt failed, immediately unlock UI
         if (force) {
             setStatus(prev => ({
@@ -113,7 +106,7 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
         // Each "Next" loads a new page, and Chrome starts CrawlPilot in it only with access to the
         // site (the click's temporary access ends when the page changes): asked now, while the
         // Start click still counts as the user's.
-        if ((pagination.mode === 'pagination' || pagination.mode === 'urls') && !(await hasAllUrlsPermission())) await requestAllUrlsPermission();
+        if (pagination.mode === 'pagination' && !(await hasAllUrlsPermission())) await requestAllUrlsPermission();
 
         const { tableId: previewTableId, customName, maxPages } = options || {};
         if (maxPages !== undefined) {
@@ -210,43 +203,6 @@ export function useExtractionProcess(onComplete?: (tableId: number) => void, onS
             const automationTitle = pageTitle;
 
             // The recipe is the pick (the same pick run again is the same recipe); the job is this run.
-            // Numbered pages by address: the background runner opens and reads them, and saves the job.
-            if (pagination.mode === 'urls' && pagination.pages) {
-                const sel = selectors[0];
-                const urls = pageAddresses(pagination.pages, pagination.maxPages || 1);
-                const done = await new Promise<{ tableId?: number; totalItems: number; success: boolean; error?: string; stoppedByUser?: boolean } | null>(resolve => {
-                    giveUpRef.current = () => { untrack(); resolve(null); };
-                    const untrack = track(
-                        on('BULK_EXTRACTION_PROGRESS', p => {
-                            pagesVisitedRef.current = p.completedUrls;
-                            setStatus(prev => ({ ...prev, progress: { id: sel.id, count: p.rows ?? 0 }, currentPage: p.completedUrls, totalProcessed: p.rows ?? 0 }));
-                        }),
-                        on('BULK_EXTRACTION_COMPLETE', c => { untrack(); resolve(c); }),
-                    );
-                    void send('LIST_PAGES_START', {
-                        urls, container: sel.container, items: sel.items, columns: sel.data?.columns,
-                        spec: listSpec(selectors, pagination), customName: pageTitle, maxConcurrent: 3,
-                    }).then(res => {
-                        if (res?.success) { onStart?.(res.jobId); return; }
-                        untrack();
-                        resolve({ totalItems: 0, success: false, error: res && !res.success ? res.error : 'CrawlPilot\'s background is not reachable.' });
-                    });
-                });
-                giveUpRef.current = null;
-                const stopped = stopExtractionRef.current || !!done?.stoppedByUser;
-                if (done?.tableId !== undefined) setTimeout(() => onComplete?.(done.tableId!), 1000);
-                setStatus(prev => ({
-                    ...prev,
-                    isExtracting: false,
-                    status: done?.success || (stopped && done?.tableId !== undefined) ? (stopped ? 'stopped' : 'completed') : 'failed',
-                    tableId: done?.tableId,
-                    itemsSaved: done?.totalItems ?? 0,
-                    pagesVisited: pagesVisitedRef.current,
-                    ...(done?.error && !done.success ? { error: done.error } : {}),
-                }));
-                return;
-            }
-
             const recipe = await db.jobs.saveRecipe(automationTitle, listSpec(selectors, pagination));
             const jobId = await db.jobs.create({
                 recipeId: recipe.id,

@@ -3,9 +3,19 @@ import { extractPage } from '../services/page/extractPage';
 import { extractMetadata } from '../services/metadata/MetadataExtractionService';
 import { fail, ok, on } from '../../shared/messages';
 import { summarizePage } from '../services/pageSummary';
-import { findNextControl } from '../services/pagination/findNext';
+import { findNextControl, type ListContext } from '../services/pagination/findNext';
 import { BULK_BUDGET, revealForReading, revealSummary } from '../services/reveal';
 import { quiet, sleep } from '../utils/clock';
+import { resolveContainer, resolveItems } from '../../shared/selectors/resolve';
+import type { Chain } from '../../shared/types/database';
+
+/** The picked list on this page (null when its chains no longer find it): the Next control is its own. */
+function pickedList(container: Chain, items: Chain): ListContext | null {
+    if (container.length === 0) return null;
+    const root = resolveContainer(container, items).result;
+    if (!root) return null;
+    return { container: root, items: items.length ? resolveItems(items, root).result : [] };
+}
 
 /** Resolves once nodes have stopped being added or removed for `stableMs` (SPA hydration, API data), or after `timeoutMs`. */
 function waitForDomStability(stableMs = 1500, timeoutMs = 12000): Promise<void> {
@@ -28,7 +38,16 @@ async function scrollToRevealLazyContent(): Promise<void> {
 
 export function registerPageDataHandlers() {
     on('PAGE_SUMMARY', () => ok({ summary: summarizePage() }));
-    on('FIND_NEXT', () => ok({ control: findNextControl() }));
+    on('FIND_NEXT', async (req) => {
+        const list = pickedList(req?.container ?? [], req?.items ?? []);
+        // A pager or "Load more" rendered after the list (hydration, lazy footer): one more look once the page settles.
+        let control = findNextControl(document, list);
+        if (!control) {
+            await quiet(document.body, 500, 2000, { attributes: false });
+            control = findNextControl(document, pickedList(req?.container ?? [], req?.items ?? []));
+        }
+        return ok({ control });
+    });
 
     on('CMD_EXTRACT_PAGE_BACKGROUND', async ({ url, elements, config }) => {
         const record = await extractPage(elements || [], config || {});

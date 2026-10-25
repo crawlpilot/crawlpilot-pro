@@ -8,8 +8,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface Step2NavigationProps {
-    /** The Next link has numbered addresses: the pages can be read by address. */
-    byAddress?: boolean;
     paginationMode: PaginationMode;
     setPaginationMode: (mode: PaginationMode) => void;
     /** The Next / Load more control's chain (empty until picked). */
@@ -25,7 +23,6 @@ interface Step2NavigationProps {
 }
 
 export function Step2Navigation({
-    byAddress,
     paginationMode,
     setPaginationMode,
     next,
@@ -43,7 +40,7 @@ export function Step2Navigation({
     const [isEditing, setIsEditing] = useState(false);
 
     // Helper to check if we are good to go
-    const isReady = paginationMode === 'auto' || paginationMode === 'urls' || next.length > 0;
+    const isReady = paginationMode === 'auto' || next.length > 0;
 
     const handleSaveSelectors = (chain: string[]) => {
         onUpdateNextButton(chain);
@@ -74,7 +71,6 @@ export function Step2Navigation({
             </div>
 
             <Stack gap={2} role="radiogroup" aria-label={t('step2.howToLoadMore')}>
-                {byAddress && StrategyOption({ mode: 'urls', title: t('step2.byAddress.title'), description: t('step2.byAddress.description') })}
                 {StrategyOption({ mode: 'pagination', title: t('step2.numberedPagination.title'), description: t('step2.numberedPagination.description') })}
                 {StrategyOption({ mode: 'loadMore', title: t('step2.loadMoreButton.title'), description: t('step2.loadMoreButton.description') })}
                 {StrategyOption({ mode: 'auto', title: t('step2.infiniteScroll.title'), description: t('step2.infiniteScroll.description') })}

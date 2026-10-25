@@ -2,7 +2,6 @@ import { db } from '../shared/db';
 import { fail, ok, on } from '../shared/messages';
 import { injectContentScriptIntoOpenTabs } from '../shared/utils/hostPermissions';
 import { JobRunner } from './runs/JobRunner';
-import { listPagesJob } from './runs/listPagesJob';
 import { bulkJob } from './runs/bulkJob';
 import { metadataJob } from './runs/metadataJob';
 import { contactsJob } from './runs/contactsJob';
@@ -81,15 +80,6 @@ on('BULK_EXTRACTION_START', async (payload) => {
 });
 
 on('BULK_EXTRACTION_STOP', async () => ok({ running: await bulkRuns.stop() }));
-
-// A list over numbered pages: on the bulk runner (stopped like a bulk run).
-on('LIST_PAGES_START', async (payload) => {
-    try {
-        return ok(await bulkRuns.start(listPagesJob(payload)));
-    } catch (error) {
-        return fail(error);
-    }
-});
 
 on('METADATA_EXTRACTION_START', async (payload) => {
     try {

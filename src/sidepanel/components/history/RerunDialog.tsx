@@ -43,7 +43,7 @@ export function RerunDialog({ job, onClose, onStart }: { job: JobWithRecipe | nu
             </>}>
             <Stack gap={4} className="pt-1">
                 <TextField label={t('runName')} value={rerunName} onChange={e => setRerunName(e.target.value)} placeholder={t('runNamePlaceholder')} />
-                {job?.recipe?.spec.kind === 'list' && (job.recipe.spec.pagination.mode === 'pagination' || job.recipe.spec.pagination.mode === 'urls') && (
+                {job?.recipe?.spec.kind === 'list' && job.recipe.spec.pagination.mode === 'pagination' && (
                     <TextField type="number" min={1} label={t('maxPages')} hint={t('maxPagesHelper')} value={rerunMaxPages}
                         onChange={e => setRerunMaxPages(parseInt(e.target.value) || 1)} />
                 )}

@@ -84,7 +84,7 @@ export function Step3Review({
                     <Divider />
                     <div className="px-4 py-2.5">
                         <Text size="caption" tone="muted">{t('step3.pageLimit')}</Text>
-                        <Text weight="semibold">{(paginationMode === 'pagination' || paginationMode === 'urls') ? t('step3.pages', { count: maxPages }) : t('step3.singlePage')}</Text>
+                        <Text weight="semibold">{paginationMode === 'pagination' ? t('step3.pages', { count: maxPages }) : t('step3.singlePage')}</Text>
                     </div>
                 </Card>
             )}
@@ -110,7 +110,7 @@ export function Step3Review({
                             </div>
                             <Text mono size="small">{currentProfile.navigationDelay}ms</Text>
                         </Row>
-                        {(paginationMode === 'pagination' || paginationMode === 'urls') && (
+                        {paginationMode === 'pagination' && (
                             <>
                                 <Divider />
                                 <TextField type="number" min={1} size="sm" label={t('step3.maxPagesToExtract')} hint={t('step3.maxPagesHelper')} value={maxPages}

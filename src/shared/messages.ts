@@ -165,26 +165,6 @@ export interface AutoScrollRequest {
     maxMs?: number;
 }
 
-/** One page of a numbered-pages run: the list read from its chains with its frozen fields. */
-export interface ListPageRequest {
-    container: Chain;
-    items: Chain;
-    columns?: unknown;
-    /** How long the page has to show its list (the site's page wait). */
-    waitMs?: number;
-}
-
-/** A list over numbered pages by their addresses (`listing/urlPages.ts`), read in background tabs. */
-export interface ListPagesStart {
-    urls: string[];
-    container: Chain;
-    items: Chain;
-    columns?: unknown;
-    /** The list recipe this run is (saved as its recipe). */
-    spec: import('./types/database').ListSpec;
-    customName?: string;
-    maxConcurrent?: number;
-}
 
 /** Next-button pagination over a list, continued on each page the run navigates to. */
 export interface PaginationRequest {
@@ -208,10 +188,6 @@ export interface Messages {
     PING: { reply: Res<{ status: string }> };
     /** A run's page asks the worker to answer after `ms`: the worker's timers aren't throttled in hidden tabs (`content/utils/clock.ts`). */
     RUN_SLEEP: { payload: { ms: number }; reply: Res };
-    /** One page of a numbered-pages run: its list, read where it is (no scrolling to more pages, no clicks). */
-    READ_LIST_PAGE: { payload: ListPageRequest; reply: Res<{ rows: Record<string, string>[]; columns: unknown[]; healed?: string[]; broken?: string[] }> };
-    /** A list over numbered pages, in background tabs (progress and completion as a bulk run's). */
-    LIST_PAGES_START: { payload: ListPagesStart; reply: Res<{ jobId: number; originalCount: number; uniqueCount: number }> };
     /** A list run's page asks for the API hook (public/net-hook.js) in its own page: rows a scroll loads are matched to the responses that brought them. */
     NET_HOOK_START: { reply: Res };
     /** Reads a list from its chains (switching a pick to one of its alternatives). */
@@ -242,7 +218,7 @@ export interface Messages {
     /** What the page is (a list, a product, an article): Home's suggestion. */
     PAGE_SUMMARY: { reply: Res<{ summary: PageSummary }> };
     /** The list's Next or "Load more" control, found without a pick (null: none on this page). */
-    FIND_NEXT: { reply: Res<{ control: NextControl | null }> };
+    FIND_NEXT: { payload: { container: Chain; items: Chain }; reply: Res<{ control: NextControl | null }> };
     LAB_EVAL: { payload: { selector: string; expected?: number; highlight?: boolean }; reply: Res<{ result: LabEval }> };
     LAB_CLEAR: { reply: Res };
     LAB_PICK_START: { reply: Res };

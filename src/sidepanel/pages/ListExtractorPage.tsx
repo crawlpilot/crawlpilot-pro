@@ -5,7 +5,6 @@ import { useSelectorManager } from '../hooks/useSelectorManager';
 import { useSelectionMode } from '../hooks/useSelectionMode';
 import { currentListRun, useExtractionProcess } from '../hooks/useExtractionProcess';
 import type { ListPick, PaginationMode } from '../../shared/types/extraction';
-import type { UrlPages } from '../../shared/listing/urlPages';
 import { db } from '../../shared/db';
 import { WizardLayout } from '../components/wizard/WizardLayout';
 import { QuickRun } from '../components/list-extractor/QuickRun';
@@ -64,8 +63,6 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
     const [previewTableId, setPreviewTableId] = useState<number | null>(null);
     // How more items load, found on the page after the first pick (undefined: still looking; null: none).
     const [pages, setPages] = useState<{ mode: PaginationMode; label: string } | null | undefined>(undefined);
-    /** The numbered pages' address pattern, when the Next link has one: the run reads pages by address. */
-    const [urlPattern, setUrlPattern] = useState<UrlPages | null>(resumed?.pagination?.pages ?? null);
     // Once the user sets pagination in the Pages step, the found control no longer overrides it.
     const userSetPages = useRef(false);
     const choosePaginationMode = (mode: PaginationMode) => { userSetPages.current = true; setPaginationMode(mode); };
@@ -119,14 +116,12 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
                     // The first list: find its Next or "Load more" control, so it can run in one click.
                     if (!adjusting && selectors.length === 0 && tabId) {
                         setPages(undefined);
-                        sendToTab(tabId, 'FIND_NEXT')
+                        sendToTab(tabId, 'FIND_NEXT', { container: pick.container, items: pick.items })
                             .then(res => {
                                 const control = res && 'control' in res ? res.control : null;
-                                const byAddress = control?.mode === 'pagination' && control.pages ? control.pages : null;
-                                setPages(control ? { mode: byAddress ? 'urls' : control.mode, label: control.label } : null);
-                                setUrlPattern(byAddress);
+                                setPages(control ? { mode: control.mode, label: control.label } : null);
                                 if (userSetPages.current) return;
-                                setPaginationMode(control ? (byAddress ? 'urls' : control.mode) : 'auto');
+                                setPaginationMode(control ? control.mode : 'auto');
                                 setNext(control ? control.selectors : []);
                             })
                             .catch(() => setPages(null));
@@ -221,7 +216,6 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
             next,
             speed,
             maxPages,
-            ...(paginationMode === 'urls' && urlPattern ? { pages: urlPattern } : {}),
         }, { tableId: previewTableId || undefined });
 
         // Reset preview ID so subsequent runs create new datasets
@@ -262,7 +256,6 @@ export default function ListExtractorPage({ onBack, onNavigate }: ListExtractorP
             case 2:
                 return (
                     <Step2Navigation
-                        byAddress={!!urlPattern}
                         paginationMode={paginationMode}
                         setPaginationMode={choosePaginationMode}
                         next={next}
