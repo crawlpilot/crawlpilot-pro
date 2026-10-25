@@ -10,7 +10,7 @@ import { test } from './harness';
 
 const DIR = process.env.UX_SHOTS;
 const MODES = (process.env.UX_MODES || 'light').split(',');
-const VIEWS = process.env.UX_VIEWS?.split(',') ?? ['welcome', 'home', 'list-extractor', 'page-extractor', 'metadata-extractor', 'ai-extract', 'text-summarizer',
+const VIEWS = process.env.UX_VIEWS?.split(',') ?? ['home', 'list-extractor', 'page-extractor', 'metadata-extractor', 'ai-extract', 'text-summarizer',
     'image-downloader', 'utilities', 'toolkit', 'history', 'settings', 'kit'];
 const HEIGHT = Number(process.env.UX_HEIGHT) || 860;
 

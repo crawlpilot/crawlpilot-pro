@@ -21,7 +21,7 @@ export default function Header({ onNavigate, activeView, disabled }: HeaderProps
             <button type="button" onClick={() => go('home')} aria-label={t('nav.home')}
                 className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
                 <img src={chrome.runtime.getURL('icons/icon32.png')} alt="" className="size-6" />
-                <span className="font-display text-lead font-extrabold tracking-[-0.03em] text-ink">CrawlPilot</span>
+                <span className="font-display text-lead font-extrabold tracking-[-0.03em] text-ink">CrawlPilot Pro</span>
             </button>
             <Tooltip title={t('nav.myDataTooltip')}>
                 <Button size="sm" variant="ghost" icon={<Database />} onClick={() => go('history')} className={cx(activeView === 'history' && 'text-ink')}>

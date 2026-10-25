@@ -1,5 +1,5 @@
 {
-  "appName": { "message": "Crawl Pilot 网络爬取工具" },
-  "appDesc": { "message": "从任意网站提取数据到 Excel/JSON 的可视化爬取工具。AI 驱动的点击式界面，无需编程。" },
-  "actionTitle": { "message": "Crawl Pilot" }
+  "appName": { "message": "CrawlPilot Pro" },
+  "appDesc": { "message": "Internal: build, test, version and submit crawl recipes." },
+  "actionTitle": { "message": "CrawlPilot Pro" }
 }

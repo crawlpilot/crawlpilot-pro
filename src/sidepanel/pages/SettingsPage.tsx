@@ -6,8 +6,6 @@ import { Monitor, Moon, Palette, Sun } from 'lucide-react';
 import { Button, Card, Dialog, Divider, Progress, Segmented, Select, Slider, Text, TextField } from '../ui';
 import {
     Trash2,
-    Github,
-    Mail,
     HardDrive,
     ShieldCheck,
     Globe,
@@ -15,14 +13,10 @@ import {
     Webhook,
     Link2,
     Database,
-    MessageSquare,
-    ChevronRight,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import i18n, { SUPPORTED_LANGS, LANG_LABELS, type SupportedLang } from '../../i18n';
 
-// TO CONFIGURE: replace REPLACE_ME with the same Google Form URL used in background/index.ts
-const FEEDBACK_FORM_URL = 'https://forms.gle/REPLACE_ME';
 import { db } from '../../shared/db';
 import { useJobHistory } from '../hooks/useDatabase';
 import { DEFAULT_INTEGRATIONS, Integrations, storage } from '../../shared/storage';
@@ -200,13 +194,6 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     </Card>
                 </Section>
 
-                <Section title={t('feedback.title')} icon={<MessageSquare />}>
-                    <Card tone="lilac" className="flex flex-col gap-3">
-                        <Text size="small">{t('feedback.description')}</Text>
-                        <Button variant="primary" icon={<MessageSquare />} onClick={() => chrome.tabs.create({ url: FEEDBACK_FORM_URL })}>{t('feedback.openForm')}</Button>
-                    </Card>
-                </Section>
-
                 <Section title={t('dangerZone.title')} icon={<AlertTriangle />}>
                     <Card className="flex flex-col gap-3 border-danger/40!">
                         <div className="flex items-start gap-3">
@@ -224,9 +211,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
                 <Section title={t('support.title')} icon={<Globe />}>
                     <Card pad="none" className="overflow-hidden">
-                        <LinkRow href="mailto:crawlpilot6365@gmail.com" icon={<Mail />} title={t('support.contactSupport')} hint={t('support.contactSupportSub')} />
-                        <LinkRow href="https://github.com/crawlpilot/" icon={<Github />} title={t('support.github')} hint={t('support.githubSub')} />
-                        <div className="flex items-center gap-3 border-t border-line px-4 py-3">
+                        <div className="flex items-center gap-3 px-4 py-3">
                             <span className="flex text-ink-2"><ShieldCheck size={18} /></span>
                             <div>
                                 <Text size="small" weight="semibold">{t('support.version')}</Text>
@@ -263,19 +248,5 @@ function Section({ title, icon, children }: { title: string, icon: React.ReactNo
             <h2 className="m-0 flex items-center gap-2 px-0.5 text-small font-semibold text-ink-2 [&_svg]:size-4">{icon}{title}</h2>
             {children}
         </section>
-    );
-}
-
-function LinkRow({ href, icon, title, hint }: { href: string; icon: React.ReactNode; title: string; hint: string }) {
-    return (
-        <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noreferrer"
-            className="flex items-center gap-3 border-t border-line px-4 py-3 text-ink no-underline first:border-t-0 hover:bg-ink/4">
-            <span className="flex text-ink-2 [&_svg]:size-[18px]">{icon}</span>
-            <div className="min-w-0 flex-1">
-                <Text size="small" weight="semibold">{title}</Text>
-                <Text size="caption" tone="faint">{hint}</Text>
-            </div>
-            <ChevronRight size={15} className="text-ink-3" />
-        </a>
     );
 }

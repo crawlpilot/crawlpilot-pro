@@ -11,7 +11,6 @@ import enPageExtractor from './locales/en/pageExtractor.json';
 import enImageDownloader from './locales/en/imageDownloader.json';
 import enSummarizer from './locales/en/summarizer.json';
 import enUtilities from './locales/en/utilities.json';
-import enWelcome from './locales/en/welcome.json';
 import enMetadataExtractor from './locales/en/metadataExtractor.json';
 import enDataTable from './locales/en/dataTable.json';
 import enTables from './locales/en/tables.json';
@@ -33,7 +32,7 @@ export const LANG_LABELS: Record<SupportedLang, string> = {
   pt: 'Português',
 };
 
-const namespaces = ['common', 'home', 'settings', 'history', 'listExtractor', 'pageExtractor', 'imageDownloader', 'summarizer', 'utilities', 'welcome', 'metadataExtractor', 'dataTable', 'tables', 'pageMarkdown'] as const;
+const namespaces = ['common', 'home', 'settings', 'history', 'listExtractor', 'pageExtractor', 'imageDownloader', 'summarizer', 'utilities', 'metadataExtractor', 'dataTable', 'tables', 'pageMarkdown'] as const;
 
 /**
  * Other languages load when used (at start, or when picked in Settings), each file its own chunk:
@@ -69,7 +68,7 @@ export async function initI18n(): Promise<void> {
     // English from the bundle; other languages through the backend.
     partialBundledLanguages: true,
     resources: {
-      en: { common: enCommon, home: enHome, settings: enSettings, history: enHistory, listExtractor: enListExtractor, pageExtractor: enPageExtractor, imageDownloader: enImageDownloader, summarizer: enSummarizer, utilities: enUtilities, welcome: enWelcome, metadataExtractor: enMetadataExtractor, dataTable: enDataTable, tables: enTables, pageMarkdown: enPageMarkdown },
+      en: { common: enCommon, home: enHome, settings: enSettings, history: enHistory, listExtractor: enListExtractor, pageExtractor: enPageExtractor, imageDownloader: enImageDownloader, summarizer: enSummarizer, utilities: enUtilities, metadataExtractor: enMetadataExtractor, dataTable: enDataTable, tables: enTables, pageMarkdown: enPageMarkdown },
     },
     react: { useSuspense: false },
   });

@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "3.1.0",
+  "version": "0.1.0",
   "description": "__MSG_appDesc__",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvAOvpUiZCZvgbKE7TU1YyRwfLtq+VUf87LDcB4OoJ8SMm/Cti4b4bRB79qNmKykviazAX+Bfj/blY+xwS1+lOm476VZMDjU7BcNbd1dvaGeGc80M0kArTmOQuuQRnsazDEfxRgb20OhysnQyKhkK7nXb4+7vrMVu+7AfPaIkHgULBlnFlQpMZ//D35jQWs/MGDMG/oAYcEllcoE8jxWK/Ni1JssEJtZ6Ah1VmZkB34fwzFged3tJ+MrggPdKfkpATxUj/ixLKJrrq5oBaP5wmRWB+veHQbQsfLU9/0/pUivfFBawq24uk5BolkfMKSicLvkMjHzspCMrmfRCXjmaDwIDAQAB",
   "default_locale": "en",
   "icons": {
     "16": "public/icons/icon16.png",
@@ -60,12 +61,5 @@
         "<all_urls>"
       ]
     }
-  ],
-  "externally_connectable": {
-    "matches": [
-      "https://crawlpilot.tech/*",
-      "https://*.crawlpilot.tech/*",
-      "https://crawlpilot.github.io/*"
-    ]
-  }
+  ]
 }

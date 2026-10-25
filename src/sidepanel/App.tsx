@@ -4,7 +4,6 @@ import { Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useColorMode } from './theme/colorMode';
 import HomePage from './pages/HomePage';
-import WelcomePage from './pages/WelcomePage';
 
 // Every other view loads when it is opened: the data table's grid alone is ~1 MB the home screen
 // never runs (docs/plans/performance-plan.md P3).
@@ -99,8 +98,6 @@ function App() {
                 return <SettingsPage onBack={goBack} />;
             case 'kit':
                 return <KitPage />;
-            case 'welcome':
-                return <WelcomePage onNavigate={navigate} />;
             default:
                 return <HomePage onNavigate={navigate} isTabConnected={isTabConnected} />;
         }
@@ -125,8 +122,8 @@ function App() {
                         </Button>
                     </div>
                 )}
-                {/* Home and Welcome have the brand header; every other view has its own header with back. */}
-                {(currentView === 'home' || currentView === 'welcome') && <Header onNavigate={navigate} activeView={currentView} disabled={isGlobalExtracting} />}
+                {/* Home has the brand header; every other view has its own header with back. */}
+                {currentView === 'home' && <Header onNavigate={navigate} activeView={currentView} disabled={isGlobalExtracting} />}
                 <div className="relative flex-1 overflow-hidden">
                     <Suspense fallback={null}>{renderView()}</Suspense>
                 </div>

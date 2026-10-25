@@ -1,5 +1,5 @@
 {
-  "appName": { "message": "Crawl Pilot Web Scraper" },
-  "appDesc": { "message": "Визуальный парсер — без кода" },
-  "actionTitle": { "message": "Crawl Pilot" }
+  "appName": { "message": "CrawlPilot Pro" },
+  "appDesc": { "message": "Internal: build, test, version and submit crawl recipes." },
+  "actionTitle": { "message": "CrawlPilot Pro" }
 }

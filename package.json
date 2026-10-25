@@ -1,28 +1,25 @@
 {
-  "name": "crawlpilot",
-  "version": "3.1.0",
-  "description": "",
+  "name": "crawlpilot-pro",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CrawlPilot Pro: internal recipe builder (fork of crawlpilot)",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "zip": "npm run build && rm -rf dist/.vite && rm -f chrome-extension.zip && cd dist && zip -r ../chrome-extension.zip . -x '*.DS_Store' -x '*.map' -x '*.md' && cd .. && node scripts/release-check.mjs chrome-extension.zip",
+    "zip": "npm run build && rm -rf dist/.vite && rm -f crawlpilot-pro.zip && cd dist && zip -r ../crawlpilot-pro.zip . -x '*.DS_Store' -x '*.map' -x '*.md' && cd .. && node scripts/release-check.mjs crawlpilot-pro.zip",
     "deadcode": "npx --yes knip@5 --no-progress",
     "e2e": "npm run build && playwright test"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/RahulBisht/crawlPilot.git"
+    "url": "git+ssh://git@github-work/crawlpilot/crawlpilot-pro.git"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/RahulBisht/crawlPilot/issues"
-  },
-  "homepage": "https://github.com/RahulBisht/crawlPilot#readme",
+  "license": "UNLICENSED",
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.3.0",
     "@playwright/test": "^1.62.1",

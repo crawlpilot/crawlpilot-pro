@@ -1,5 +1,5 @@
 {
-  "appName": { "message": "Crawl Pilot Web Scraper" },
-  "appDesc": { "message": "Visual web scraper to extract data from any website into Excel/JSON. AI-powered, point-and-click interface. No coding required." },
-  "actionTitle": { "message": "Crawl Pilot" }
+  "appName": { "message": "CrawlPilot Pro" },
+  "appDesc": { "message": "Internal: build, test, version and submit crawl recipes." },
+  "actionTitle": { "message": "CrawlPilot Pro" }
 }
