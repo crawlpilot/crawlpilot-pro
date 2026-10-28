@@ -4,7 +4,7 @@
  * recipe's when it matches an include and no exclude. The rules are checked against the recipe's own sample
  * pages: a rule that leaves one of them out would send that page to another recipe.
  */
-import type { MatchRules } from './types';
+import type { MatchRules, Targeting } from './types';
 
 function globToRegExp(glob: string): RegExp {
     const body = glob.trim().split('*').map(part => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*');
@@ -19,4 +19,14 @@ export function matchesRules(url: string, rules: MatchRules): boolean {
 /** The sample pages the rules leave out: empty when they cover them all. */
 export function uncoveredSamples(rules: MatchRules | undefined, samples: string[]): string[] {
     return rules ? samples.filter(url => !matchesRules(url, rules)) : [];
+}
+
+/** What stops a submit on the recipe's side: the workers find a recipe by competitor and page type. */
+export function targetingReasons(targeting: Targeting, samples: string[]): string[] {
+    const out: string[] = [];
+    if (!targeting.competitor) out.push('Set the competitor.');
+    if (!targeting.pageType) out.push('Set the page type.');
+    const left = uncoveredSamples(targeting.matchRules, samples);
+    if (left.length) out.push(`The match rules leave out ${left.length} sample page${left.length === 1 ? '' : 's'}: ${left.join(', ')}.`);
+    return out;
 }

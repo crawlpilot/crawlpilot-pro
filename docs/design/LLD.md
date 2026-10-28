@@ -240,6 +240,8 @@ A version is ready only if all of these hold:
 
 The function returns `{ ready: boolean, reasons: string[] }`. The Submit dialog shows the reasons.
 
+The recipe has its own gate, apart from any version (`targeting.ts`, `targetingReasons`): a competitor and a page type are set, because the crawler workers find a recipe by them, and the match rules, if any, cover every sample page. History shows it in the Crawler targeting card, the Submit dialog shows it and keeps Submit off, and `submitVersion` refuses without it.
+
 ## 8. Backend client
 Proposed contract; the backend team owns it. Base URL is a Pro setting. All calls send `Authorization: Bearer <token>`.
 

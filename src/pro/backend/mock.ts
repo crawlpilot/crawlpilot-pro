@@ -17,7 +17,7 @@ export interface MockResponse {
     body: unknown;
 }
 
-interface MockRecipe { id: string; name: string; site: string; kind: string; versions: Map<number, { file: unknown; digest: string }>; live?: number }
+interface MockRecipe { id: string; name: string; site: string; kind: string; competitor?: string; pageType?: string; matchRules?: unknown; versions: Map<number, { file: unknown; digest: string }>; live?: number }
 interface MockCrawl {
     id: string; recipeId: string; version: number; schedule: Schedule; pages: number; reads: number; fields: string[];
     /** Set by a test: a field's fill once done, and the pages it failed on (a site that changed). */
@@ -59,7 +59,7 @@ export function createMockBackend(token = 'dev-token'): MockBackend {
         if (req.method === 'POST' && parts.length === 1 && parts[0] === 'recipes') {
             if (!body.name || !body.site) return json(422, { error: 'A recipe needs a name and a site.' });
             const id = `rec-${++n}`;
-            recipes.set(id, { id, name: body.name, site: body.site, kind: body.kind, versions: new Map() });
+            recipes.set(id, { id, name: body.name, site: body.site, kind: body.kind, competitor: body.competitor, pageType: body.pageType, matchRules: body.matchRules, versions: new Map() });
             return json(201, { id });
         }
         const recipe = parts[0] === 'recipes' ? recipes.get(parts[1]) : undefined;

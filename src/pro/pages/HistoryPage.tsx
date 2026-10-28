@@ -11,6 +11,8 @@ import { pro } from '../db';
 import { diffVersions, type ChangeKind } from '../recipe/diff';
 import { readiness, type Readiness } from '../recipe/ready';
 import { SubmitDialog } from './SubmitDialog';
+import { TargetingCard } from './TargetingCard';
+import { targetingReasons } from '../recipe/targeting';
 import type { CrawlRecord } from '../db/crawls';
 import { backendApi } from '../backend/settings';
 import { refreshCrawls } from '../backend/submit';
@@ -38,6 +40,7 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
     const [recipe, setRecipe] = useState<ProRecipe | null>(null);
     const [versions, setVersions] = useState<Version[]>([]);
     const [log, setLog] = useState<LabelMove[]>([]);
+    const [samples, setSamples] = useState<string[]>([]);
     const [ready, setReady] = useState<Map<number, Readiness>>(new Map());
     const [submitting, setSubmitting] = useState<Version | null>(null);
     const [crawls, setCrawls] = useState<CrawlRecord[]>([]);
@@ -56,8 +59,9 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
 
     const load = useCallback(async () => {
         if (!recipeId) return;
-        const [r, vs, moves] = await Promise.all([pro.recipes.get(recipeId), pro.versions.list(recipeId), pro.recipes.labelLog(recipeId)]);
+        const [r, vs, moves, ss] = await Promise.all([pro.recipes.get(recipeId), pro.versions.list(recipeId), pro.recipes.labelLog(recipeId), pro.samples.list(recipeId)]);
         setRecipe(r ?? null);
+        setSamples(ss.map(s => s.url));
         setVersions(vs);
         setLog(moves);
         await showCrawls(await pro.crawls.list(recipeId));
@@ -136,6 +140,7 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
             />
             <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
                 {error && <Notice tone="danger" onClose={() => setError(null)}>{error}</Notice>}
+                <TargetingCard recipe={recipe} samples={samples} onSaved={() => void load()} />
 
                 {versions.length > 1 && pair && (
                     <Card className="flex flex-col gap-2" data-testid="pro-diff">
@@ -224,7 +229,7 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
                 )}
             </div>
 
-            <SubmitDialog recipe={recipe} version={submitting} onClose={() => setSubmitting(null)} onSubmitted={() => void load()} />
+            <SubmitDialog recipe={recipe} version={submitting} blockers={targetingReasons(recipe, samples)} onClose={() => setSubmitting(null)} onSubmitted={() => void load()} />
             <Dialog open={!!labelling} onClose={() => setLabelling(null)} size="sm"
                 title={labelling ? `Mark v${labelling.version} as ${labelling.label}` : ''}
                 description={labelling?.label === 'live' ? 'Live is the version the backend runs. Moving it back is a rollback.' : 'Test is the version being tried before it goes live.'}

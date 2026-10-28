@@ -13,6 +13,8 @@ import type { ProRecipe, Version } from '../recipe/types';
 interface Props {
     recipe: ProRecipe;
     version: Version | null;
+    /** What the recipe still needs before any version of it can go (its targeting). */
+    blockers?: string[];
     onClose: () => void;
     onSubmitted: () => void;
 }
@@ -20,7 +22,7 @@ interface Props {
 const pagesText = (v: Version) => v.pages.kind === 'urls' ? `${v.pages.urls.length} page${v.pages.urls.length === 1 ? '' : 's'}`
     : v.pages.kind === 'start' ? `from ${v.pages.url}` : `sitemap ${v.pages.sitemap}`;
 
-export function SubmitDialog({ recipe, version, onClose, onSubmitted }: Props) {
+export function SubmitDialog({ recipe, version, blockers = [], onClose, onSubmitted }: Props) {
     const [schedule, setSchedule] = useState<Schedule>('once');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<{ message: string; details?: string[] } | null>(null);
@@ -48,13 +50,14 @@ export function SubmitDialog({ recipe, version, onClose, onSubmitted }: Props) {
             description="The backend crawls these pages on the schedule, and this version becomes live."
             actions={<>
                 <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
-                <Button variant="primary" loading={busy} onClick={submit}>Submit</Button>
+                <Button variant="primary" loading={busy} onClick={submit} disabled={blockers.length > 0}>Submit</Button>
             </>}>
             {version && (
                 <div className="flex flex-col gap-3">
                     <Text size="small">{recipe.name} · {pagesText(version)}</Text>
                     <Segmented<Schedule> aria-label="Schedule" value={schedule} onChange={setSchedule}
                         options={[{ value: 'once', label: 'Once' }, { value: 'daily', label: 'Daily' }, { value: 'weekly', label: 'Weekly' }]} />
+                    {blockers.length > 0 && <Notice tone="warning">Not yet: {blockers.join(' ')} Edit the crawler targeting first.</Notice>}
                     {error && <Notice tone="danger">{error.message}{error.details?.length ? ` (${error.details.join('; ')})` : ''}</Notice>}
                 </div>
             )}

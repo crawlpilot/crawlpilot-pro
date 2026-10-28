@@ -417,6 +417,26 @@ test('submit: a ready version goes to the backend, becomes live, and its crawl i
     await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
     await expect(ui.getByTestId('pro-version')).toContainText('ready to submit');
 
+    // Ready, but the workers could not find it yet: no competitor or page type.
+    await expect(ui.getByTestId('pro-targeting-missing')).toHaveText('Needed to submit: Set the competitor. Set the page type.');
+    await ui.getByRole('button', { name: 'Submit' }).click();
+    await expect(ui.getByRole('dialog')).toContainText('Not yet: Set the competitor. Set the page type.');
+    await expect(ui.getByRole('dialog').getByRole('button', { name: 'Submit' })).toBeDisabled();
+    await ui.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+
+    // Targeting: rules that leave out a sample are flagged as you type.
+    await ui.getByRole('button', { name: 'Edit targeting' }).click();
+    await ui.getByLabel('Competitor').fill('Acme');
+    await ui.getByLabel('Page type').fill('product');
+    await ui.getByLabel('URLs it is for').fill(`${origin}/site/json-*`);
+    await expect(ui.getByRole('dialog')).toContainText(`These rules leave out 1 sample page: ${origin}/site/article.html`);
+    await ui.getByLabel('URLs it is for').fill(`${origin}/site/*`);
+    await expect(ui.getByRole('dialog')).not.toContainText('leave out');
+    await ui.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+    await expect(ui.getByTestId('pro-targeting')).toContainText('acme');
+    await expect(ui.getByTestId('pro-targeting')).toContainText(`For ${origin}/site/*`);
+    await expect(ui.getByTestId('pro-targeting-missing')).toHaveCount(0);
+
     await ui.getByRole('button', { name: 'Submit' }).click();
     await ui.getByRole('radio', { name: 'Daily' }).click();
     await ui.getByRole('dialog').getByRole('button', { name: 'Submit' }).click();
@@ -441,7 +461,7 @@ test('submit: a ready version goes to the backend, becomes live, and its crawl i
     const crawl = ui.getByTestId('pro-crawl');
     await expect(crawl).toContainText('v1');
     await expect(crawl).toContainText('daily');
-    expect([...mock.backend.recipes.values()][0]).toMatchObject({ name: 'Submitted product', live: 1 });
+    expect([...mock.backend.recipes.values()][0]).toMatchObject({ name: 'Submitted product', competitor: 'acme', pageType: 'product', live: 1 });
 
     const refresh = ui.getByTestId('pro-crawls').getByRole('button', { name: 'Refresh' });
     await refresh.click();
@@ -486,6 +506,10 @@ test('maintain: a crawl that fills a field much less flags the recipe; Repair op
     await ui.getByTestId('pro-samples').getByRole('button', { name: 'Test on 3 pages' }).click();
     await expect(ui.getByTestId('pro-readiness')).toHaveText('Ready to submit.', { timeout: 60_000 });
     await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await ui.getByRole('button', { name: 'Edit targeting' }).click();
+    await ui.getByLabel('Competitor').fill('acme');
+    await ui.getByLabel('Page type').fill('product');
+    await ui.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
     await ui.getByRole('button', { name: 'Submit' }).click();
     await ui.getByRole('dialog').getByRole('button', { name: 'Submit' }).click();
     await expect(ui.getByTestId('pro-crawl')).toBeVisible();
