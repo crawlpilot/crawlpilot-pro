@@ -1,0 +1,8 @@
+.git
+node_modules
+dist
+test-results
+playwright-report
+src/pro/crawler/dist
+*.zip
+.DS_Store

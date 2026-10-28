@@ -54,11 +54,21 @@ export const TEMPLATES: Record<string, { patterns: string[]; mappings: object }>
         },
     },
     'selector-usage': {
+        // Not the daily totals (`selector-usage-daily-*`): their template has a higher priority.
         patterns: ['selector-usage-*', 'test-selector-usage-*'],
         mappings: {
             properties: {
                 jobId: keyword, crawledAt: { type: 'date' }, competitor: keyword, pageType: keyword, pageStatus: keyword, ...recipe.properties,
                 ways: { type: 'nested', properties: { field: keyword, wayId: keyword, tried: { type: 'boolean' }, matched: { type: 'boolean' }, won: { type: 'boolean' } } },
+            },
+        },
+    },
+    'selector-usage-daily': {
+        patterns: ['selector-usage-daily-*'],
+        mappings: {
+            properties: {
+                date: { type: 'date', format: 'yyyy-MM-dd' }, recipeId: keyword, competitor: keyword, pageType: keyword, field: keyword, wayId: keyword,
+                pages: { type: 'long' }, tried: { type: 'long' }, matched: { type: 'long' }, won: { type: 'long' },
             },
         },
     },
@@ -76,7 +86,7 @@ export async function installTemplates(cfg: SearchConfig, doFetch: typeof fetch 
         const res = await doFetch(`${root}/_index_template/${encodeURIComponent(id)}`, {
             method: 'PUT',
             headers: { 'content-type': 'application/json', ...(auth ? { authorization: auth } : {}) },
-            body: JSON.stringify({ index_patterns: t.patterns.map(p => `${prefix}${p}`), priority: 200, template: { mappings: t.mappings } }),
+            body: JSON.stringify({ index_patterns: t.patterns.map(p => `${prefix}${p}`), priority: name === 'selector-usage-daily' ? 210 : 200, template: { mappings: t.mappings } }),
         });
         if (!res.ok) throw new Error(`Template ${id} refused: ${res.status} ${(await res.text().catch(() => '')).slice(0, 300)}`);
         done.push(id);

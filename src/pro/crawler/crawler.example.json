@@ -5,6 +5,8 @@
   "navigationTimeoutMs": 30000,
   "settleMs": 500,
   "pagesPerContext": 50,
+  "maxListPages": 20,
+  "followDetails": true,
   "retry": { "maxAttempts": 4, "baseDelayMs": 2000, "maxDelayMs": 120000, "maxInlineWaitMs": 15000 },
   "proxyPools": {
     "eu-residential": [
@@ -15,6 +17,13 @@
   "sites": {
     "default": { "minDelayMs": 2000, "maxDelayMs": 60000, "concurrency": 2, "cooldownBaseMs": 60000, "cooldownMaxMs": 3600000, "blockAfter": 3, "respectRobots": true, "blockResources": ["media", "font"] },
     "zara.com": { "proxyPool": "eu-residential", "proxyCountry": "DE", "locale": "de-DE", "timezoneId": "Europe/Berlin", "minDelayMs": 4000, "concurrency": 1 }
+  },
+  "queue": {
+    "type": "sqs",
+    "url": "https://sqs.eu-west-1.amazonaws.com/123456789012/crawlpilot-crawl-jobs",
+    "deadLetterUrl": "https://sqs.eu-west-1.amazonaws.com/123456789012/crawlpilot-crawl-dead",
+    "waitSeconds": 10,
+    "visibilitySeconds": 600
   },
   "recipeStore": { "url": "https://recipes.internal.example.com/api", "token": "${RECIPE_STORE_TOKEN}" },
   "search": { "url": "https://search.internal.example.com:9200", "apiKey": "${ELASTIC_API_KEY}", "indexPrefix": "", "batchSize": 500, "flushMs": 2000 }

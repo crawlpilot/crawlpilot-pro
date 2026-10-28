@@ -71,17 +71,56 @@ usage documents. Proxy credentials never reach a document: events carry the prox
 The writer batches (`batchSize`, `flushMs`), retries when Elasticsearch is down, re-sends items rejected with 429, and
 drops the oldest documents past `maxBuffer` with a log line: crawling never waits on telemetry.
 
+## List recipes
+A list recipe's page is read with each list's frozen fields (the List Extractor's own `readWhenReady`), one scrape
+document per row (id `jobId~listId~row`, with `listId`, `row` and `page`).
+- **Infinite scroll** (`auto`): the page is scrolled to the end first, until it stops growing (at most `maxListPages`).
+- **Load more**, and **Next controls that are buttons**: clicked, waited for and read again, up to `maxListPages`, until
+  the control is gone or disabled or nothing new comes. Rows read twice count once.
+- **Next controls that are links**: the next page is a job of its own (`jobId~p2`, `~p3`…, up to `maxListPages`),
+  pinned to the same version, so every page of one list is read with one recipe and has its own retries and telemetry.
+- **Details pages** (`followDetails`): each row's page is a job of its own (`jobId~d<list>.<row>`), pinned to the same
+  version and run with its details recipe; its scrape document carries `parent` (the list page's job, list and row) to
+  join it back. Two rows linking to one page share one job.
+
+Follow-up jobs are queued before the list page's job is acknowledged; their ids are stable, so a page read again
+queues the same jobs, which overwrite the same documents. List fields have no way ids, so lists write no selector
+usage; their details pages do.
+
+## Queue
+`queue.ts` takes jobs from a `JobQueue`: a file of jobs (`--jobs`), or Amazon SQS (`sqs.ts`, the `queue` setting):
+- long polling, at most 10 at a time; a received job is hidden for `visibilitySeconds`, so a job a worker dies on
+  comes back to another worker;
+- done: deleted. Deferred: sent again with its attempts and a `notBefore`; SQS delays a message 15 minutes at most,
+  and a job that arrives early is sent again for the rest. Dead letter: sent to `deadLetterUrl` with the reason;
+- follow-up jobs go ten at a time; a refused one leaves the job that led to them unacknowledged;
+- FIFO queues: grouped by competitor, deduplicated by job and attempt.
+
+SIGTERM (a container stopping) or Ctrl-C: no new jobs are taken, the ones in flight finish, Elasticsearch is flushed.
+
+## Daily rollup
+`--rollup [YYYY-MM-DD]` (yesterday by default; `rollup.ts`) adds up a day's `selector-usage-*` per recipe and way,
+counting only pages that loaded and leaving test crawls out, into `selector-usage-daily-YYYY`, id
+`recipeId:wayId:date`, so a rerun replaces the day. These are the days the store's `/ways/stats` returns and Pro labels
+selectors from. Run it once a day after midnight UTC (`deploy/crawler/README.md`).
+
 ## Running it
 ```
 npm run crawler:build
-node src/pro/crawler/dist/worker.mjs --config crawler.json --jobs jobs.jsonl --dead-letter dead.jsonl
+node src/pro/crawler/dist/worker.mjs --config crawler.json                       # jobs from the configured SQS queue
+node src/pro/crawler/dist/worker.mjs --config crawler.json --jobs jobs.jsonl     # or a file of jobs
+node src/pro/crawler/dist/worker.mjs --config crawler.json --setup-elasticsearch # templates, once per cluster
+node src/pro/crawler/dist/worker.mjs --config crawler.json --rollup              # yesterday's selector usage
 ```
-`crawler.example.json` shows every setting; `${NAME}` in a string is read from the environment (proxy passwords, the
-store token, the Elasticsearch key). `CHROMIUM_PATH` points at another Chromium. Jobs are JSON lines:
+The configuration is `--config <file>` or the JSON in `CRAWLER_CONFIG`. `crawler.example.json` shows every setting;
+`${NAME}` in a string is read from the environment (proxy passwords, the store token, the Elasticsearch key).
+`CHROMIUM_PATH` points at another Chromium. Jobs are JSON:
 `{ "jobId", "url", "competitor", "pageType", "recipeDigest"?, "mode"?, "runId"?, "meta"? }`.
 
+The container image and an ECS on Fargate deployment are in `deploy/crawler/` (`README.md` there).
+
 ## Not built yet
-- An SQS queue adapter (`JobQueue` in `queue.ts`); the command line reads a file of jobs.
-- List recipes: the worker runs page recipes only.
-- A daily rollup of selector usage; the store can aggregate the nested `ways` with a date histogram meanwhile.
-- A container image and its deployment (ECS on Fargate, or Lambda).
+- The SQS adapter is tested against a fake client only, not a real queue or an SQS-compatible server.
+- A slimmer image (Chromium's headless shell only): see `deploy/crawler/README.md`.
+- Infrastructure as code (the deployment is JSON templates and steps).
+- Lists read from the page's JSON rather than its DOM are read as the List Extractor reads them, but untested here.

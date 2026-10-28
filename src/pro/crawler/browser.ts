@@ -4,11 +4,13 @@
  * renders as the site's profile says (locale, timezone, viewport, user agent, extra headers) and may skip
  * images, media and fonts.
  * `visit` reads what came back (status, headers, redirects, size, timings, title, visible text) for
- * classification and telemetry; `extract` runs the in-page script (`inPage.ts`) on the loaded page.
+ * classification and telemetry; `extract` and `readListPages` run the in-page script (`inPage.ts`) on it.
  */
 import { chromium, type Browser, type BrowserContext, type Page, type Response } from 'playwright';
 import type { SiteProfile } from './config';
-import type { InPageRequest, InPageResult } from './inPage';
+import type { InPageRequest, InPageResult, ListPageResult } from './inPage';
+import type { ListTarget } from '../../shared/types/database';
+import type { ListRecipeSpec } from '../recipe/types';
 import type { ProxyConfig } from './proxies';
 
 export interface Visit {
@@ -70,7 +72,7 @@ export class BrowserPool implements PageSource {
         const made = (async (): Promise<ContextEntry> => {
             const browser = await this.start();
             const context = await browser.newContext({
-                ...(proxy ? { proxy: { server: proxy.server, ...(proxy.username ? { username: proxy.username, password: proxy.password ?? '' } : {}) } } : {}),
+                ...(proxy ? { proxy: { server: proxy.server, ...(proxy.bypass ? { bypass: proxy.bypass } : {}), ...(proxy.username ? { username: proxy.username, password: proxy.password ?? '' } : {}) } } : {}),
                 ...(profile.locale ? { locale: profile.locale } : {}),
                 ...(profile.timezoneId ? { timezoneId: profile.timezoneId } : {}),
                 ...(profile.viewport ? { viewport: profile.viewport } : {}),
@@ -154,19 +156,79 @@ export async function visit(page: Page, url: string, o: { timeoutMs: number; set
     };
 }
 
-/** Runs the recipe in the page: the script is put in once per page, then called. */
-export async function extract(page: Page, script: string, request: InPageRequest, timeoutMs: number): Promise<InPageResult> {
+/** Rejects after `ms`, so a page that never settles cannot hold a worker. */
+async function withTimeout<T>(work: Promise<T>, ms: number, what: string): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`Extraction took longer than ${timeoutMs} ms`)), timeoutMs); });
+    const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`${what} took longer than ${ms} ms`)), ms); });
     try {
-        return await Promise.race([
-            (async () => {
-                await page.evaluate(script);
-                return page.evaluate(req => (globalThis as unknown as { crawlpilot: { run: (r: unknown) => Promise<InPageResult> } }).crawlpilot.run(req), request as never);
-            })(),
-            timeout,
-        ]);
+        return await Promise.race([work, timeout]);
     } finally {
         clearTimeout(timer);
     }
+}
+
+/** Calls one of the in-page functions, putting the script in first when the page does not have it (a new page, or one a click navigated). */
+async function callInPage<T>(page: Page, script: string, fn: 'run' | 'readLists' | 'clickNext' | 'scrollToEnd', args: unknown[]): Promise<T> {
+    const loaded = await page.evaluate(() => typeof (globalThis as { crawlpilot?: unknown }).crawlpilot === 'object');
+    if (!loaded) await page.evaluate(script);
+    const call = ({ name, a }: { name: string; a: unknown[] }) =>
+        (globalThis as unknown as { crawlpilot: Record<string, (...x: unknown[]) => unknown> }).crawlpilot[name](...a);
+    return page.evaluate(call, { name: fn, a: args as never[] }) as Promise<T>;
+}
+
+/** Runs a page recipe in the page. */
+export function extract(page: Page, script: string, request: InPageRequest, timeoutMs: number): Promise<InPageResult> {
+    return withTimeout(callInPage<InPageResult>(page, script, 'run', [request]), timeoutMs, 'Extraction');
+}
+
+export interface ListRead {
+    lists: ListPageResult['lists'];
+    /** The next page's link, for a list paged by links: a job of its own. */
+    nextHref?: string;
+    /** Pages read here: clicked through, loaded more, or 1. */
+    pages: number;
+}
+
+/**
+ * Reads a list recipe's rows on the page. Infinite scroll: scrolled to the end first. Load more, and Next
+ * controls that are buttons: clicked, waited for, and read again, up to `maxPages`, until nothing new comes.
+ * Next controls that are links are left to a job of their own (`nextHref`). Rows seen twice count once.
+ */
+export function readListPages(page: Page, script: string, req: { lists: ListTarget[]; pagination: ListRecipeSpec['pagination'] },
+    o: { maxPages: number; settleMs: number; timeoutMs: number }): Promise<ListRead> {
+    return withTimeout((async () => {
+        const settle = Math.max(o.settleMs, 300);
+        const { mode, next } = req.pagination;
+        if (mode === 'auto') await callInPage(page, script, 'scrollToEnd', [o.maxPages, settle]);
+        const merged = req.lists.map(l => ({ id: l.id, rows: [] as Record<string, string>[], seen: new Set<string>() }));
+        const add = (r: ListPageResult) => {
+            let added = 0;
+            r.lists.forEach((l, i) => l.rows.forEach(row => {
+                const key = JSON.stringify(row);
+                if (merged[i].seen.has(key)) return;
+                merged[i].seen.add(key);
+                merged[i].rows.push(row);
+                added++;
+            }));
+            return added;
+        };
+        const read = () => callInPage<ListPageResult>(page, script, 'readLists', [{ lists: req.lists, next, settleMs: settle }]);
+        let r = await read();
+        add(r);
+        let pages = 1;
+        const clicks = mode === 'loadMore' || (mode === 'pagination' && !r.nextHref);
+        while (clicks && next?.length && r.hasNext && pages < o.maxPages) {
+            if (!await callInPage<boolean>(page, script, 'clickNext', [next])) break;
+            await page.waitForLoadState('domcontentloaded').catch(() => {});
+            await page.waitForTimeout(settle);
+            r = await read();
+            pages++;
+            if (add(r) === 0) break;
+        }
+        return {
+            lists: merged.map(({ id, rows }) => ({ id, rows })),
+            ...(mode === 'pagination' && r.nextHref ? { nextHref: r.nextHref } : {}),
+            pages,
+        };
+    })(), o.timeoutMs, 'Reading the list');
 }

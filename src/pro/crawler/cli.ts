@@ -1,24 +1,31 @@
 /**
- * The worker from the command line, on a JSONL file of jobs:
+ * The worker from the command line. The configuration is `--config <file>`, or the JSON in the
+ * `CRAWLER_CONFIG` environment variable (as a container gets it).
  *   npm run crawler:build
- *   node src/pro/crawler/dist/worker.mjs --config crawler.json --jobs jobs.jsonl [--dead-letter dead.jsonl]
- * Runs until every job is done, failed or dead-lettered (deferred jobs wait their turn), then flushes
- * Elasticsearch and prints a summary. Ctrl-C stops taking jobs and finishes the ones in flight.
- *   node src/pro/crawler/dist/worker.mjs --config crawler.json --setup-elasticsearch
+ *   node src/pro/crawler/dist/worker.mjs --config crawler.json
+ * takes jobs from the configured SQS queue until stopped (SIGTERM or Ctrl-C: it stops taking jobs, finishes
+ * the ones in flight and flushes Elasticsearch, as a container is stopped).
+ *   … --config crawler.json --jobs jobs.jsonl [--dead-letter dead.jsonl]
+ * runs a file of jobs instead, until each is done, failed or dead-lettered, and prints a summary.
+ *   … --config crawler.json --setup-elasticsearch
  * puts the index templates (`templates.ts`) and exits.
+ *   … --config crawler.json --rollup [YYYY-MM-DD]
+ * adds up one day's selector usage (`rollup.ts`; yesterday by default) and exits.
  */
 import { appendFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BrowserPool } from './browser';
-import { loadConfig, siteProfile, sitePolicy } from './config';
+import { loadConfig, parseConfig, siteProfile, sitePolicy } from './config';
 import { SiteGovernor } from './governor';
 import { ProxyPool } from './proxies';
-import { MemoryQueue, runWorker } from './queue';
+import { MemoryQueue, runWorker, type JobQueue } from './queue';
+import { SqsQueue } from './sqs';
 import { RobotsCache } from './robots';
 import { createSearchSink } from './search';
 import { createRecipeStore } from './store';
 import { installTemplates } from './templates';
+import { rollupDay, yesterday } from './rollup';
 import type { CrawlJob } from './types';
 import { siteEventWriter, type JobResult } from './worker';
 
@@ -29,14 +36,24 @@ function arg(name: string, fallback?: string): string {
     return v;
 }
 
+const has = (name: string) => process.argv.includes(`--${name}`);
+
 async function main() {
-    const config = await loadConfig(arg('config'));
-    if (process.argv.includes('--setup-elasticsearch')) {
+    const config = has('config') ? await loadConfig(arg('config'))
+        : process.env.CRAWLER_CONFIG ? parseConfig(JSON.parse(process.env.CRAWLER_CONFIG))
+        : (() => { throw new Error('Give --config <file>, or the configuration in CRAWLER_CONFIG.'); })();
+    if (has('setup-elasticsearch')) {
         for (const id of await installTemplates(config.search)) console.log(`template ${id}`);
         return;
     }
-    const jobs = (await readFile(arg('jobs'), 'utf8')).split('\n').filter(l => l.trim()).map(l => JSON.parse(l) as CrawlJob);
-    const deadFile = arg('dead-letter', 'dead-letter.jsonl');
+    if (has('rollup')) {
+        const next = process.argv[process.argv.indexOf('--rollup') + 1];
+        const date = next && !next.startsWith('--') ? next : yesterday();
+        console.log(`${date}: ${await rollupDay(config.search, date)} selector-days written`);
+        return;
+    }
+    const fromFile = has('jobs');
+    if (!fromFile && !config.queue) throw new Error('Give --jobs <file>, or a queue in the configuration.');
     const here = path.dirname(fileURLToPath(import.meta.url));
     const script = await readFile(arg('script', path.join(here, 'inpage.js')), 'utf8');
 
@@ -52,14 +69,25 @@ async function main() {
         return pages.fetchText(url, profile, pool?.pick(host, profile.proxyCountry));
     });
     const store = createRecipeStore({ baseUrl: config.recipeStore.url, token: config.recipeStore.token });
-    const queue = new MemoryQueue(jobs, Date.now, (job, reason) => { void appendFile(deadFile, `${JSON.stringify({ ...job, reason })}\n`); });
+    let jobs: CrawlJob[] = [];
+    let queue: JobQueue;
+    if (fromFile) {
+        jobs = (await readFile(arg('jobs'), 'utf8')).split('\n').filter(l => l.trim()).map(l => JSON.parse(l) as CrawlJob);
+        const deadFile = arg('dead-letter', 'dead-letter.jsonl');
+        queue = new MemoryQueue(jobs, Date.now, (job, reason) => { void appendFile(deadFile, `${JSON.stringify({ ...job, reason })}\n`); });
+    } else {
+        queue = new SqsQueue(config.queue!);
+        console.log(`Taking jobs from ${config.queue!.url}`);
+    }
 
     let stopping = false;
-    process.on('SIGINT', () => { stopping = true; console.log('Stopping: finishing the jobs in flight…'); });
+    const stop = (signal: string) => () => { stopping = true; console.log(`${signal}: finishing the jobs in flight…`); };
+    process.on('SIGINT', stop('SIGINT'));
+    process.on('SIGTERM', stop('SIGTERM'));
     const counts: Record<JobResult['outcome'], number> = { success: 0, failed: 0, dead_letter: 0, deferred: 0 };
     try {
         await runWorker(queue, { config, store, pages, sink, governor, proxies, robots, script }, {
-            untilIdle: true,
+            untilIdle: fromFile,
             stopped: () => stopping,
             onResult: (job, r) => {
                 counts[r.outcome]++;
@@ -70,7 +98,7 @@ async function main() {
         await sink.close();
         await pages.close();
     }
-    console.log(`\n${jobs.length} jobs: ${counts.success} read, ${counts.failed} failed, ${counts.dead_letter} dead-lettered, ${counts.deferred} deferrals.`);
+    console.log(`\n${fromFile ? `${jobs.length} jobs` : 'Stopped'}: ${counts.success} read, ${counts.failed} failed, ${counts.dead_letter} dead-lettered, ${counts.deferred} deferrals.`);
 }
 
 main().catch(e => { console.error(e instanceof Error ? e.message : e); process.exit(1); });

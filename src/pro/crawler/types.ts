@@ -21,6 +21,13 @@ export interface CrawlJob {
     meta?: Record<string, string>;
     /** Attempts already made by earlier deliveries (set by the worker when it puts a job back). */
     attempts?: number;
+    /** Not to be run before this time (epoch ms): set when a job is put back for longer than a queue can delay it. */
+    notBefore?: number;
+    /** A list's page number, from 1: its next page is a job of its own. */
+    page?: number;
+    /** A list row's details page: run with the version's details recipe, and joined to its row by `parent`. */
+    part?: 'details';
+    parent?: { jobId: string; listId: string; row: number };
 }
 
 export type PageStatus = 'ok' | 'blocked' | 'not_found' | 'timeout' | 'error';
@@ -57,6 +64,12 @@ export interface ScrapeDoc extends RecipeRef {
     attributes: Record<string, unknown>;
     fieldStatus: Record<string, 'ok' | 'empty' | 'check_failed'>;
     meta?: Record<string, string>;
+    /** A list row: its list, its place on the page, and the page. */
+    listId?: string;
+    row?: number;
+    page?: number;
+    /** A details page: the list row it belongs to. */
+    parent?: { jobId: string; listId: string; row: number };
 }
 
 export interface SelectorUsageDoc extends RecipeRef {
@@ -105,6 +118,10 @@ export interface RequestEvent {
     recipe?: RecipeRef;
     fieldsFilled?: number;
     fieldsTotal?: number;
+    /** A list page: rows read, pages read here (clicked or loaded more), and jobs it led to. */
+    rows?: number;
+    listPages?: number;
+    followUps?: number;
 }
 
 /** A site's state changing: cooling down, blocked, or back to normal. For people to follow up. */

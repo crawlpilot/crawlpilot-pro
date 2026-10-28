@@ -1,0 +1,37 @@
+{
+  "family": "crawlpilot-crawler",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "2048",
+  "memory": "4096",
+  "runtimePlatform": { "cpuArchitecture": "X86_64", "operatingSystemFamily": "LINUX" },
+  "executionRoleArn": "arn:aws:iam::{{ACCOUNT_ID}}:role/crawlpilot-crawler-execution",
+  "taskRoleArn": "arn:aws:iam::{{ACCOUNT_ID}}:role/crawlpilot-crawler-task",
+  "containerDefinitions": [
+    {
+      "name": "crawler",
+      "image": "{{ACCOUNT_ID}}.dkr.ecr.{{REGION}}.amazonaws.com/crawlpilot-crawler:{{TAG}}",
+      "essential": true,
+      "linuxParameters": { "initProcessEnabled": true, "sharedMemorySize": 1024 },
+      "stopTimeout": 120,
+      "environment": [
+        { "name": "AWS_REGION", "value": "{{REGION}}" }
+      ],
+      "secrets": [
+        { "name": "CRAWLER_CONFIG", "valueFrom": "arn:aws:ssm:{{REGION}}:{{ACCOUNT_ID}}:parameter/crawlpilot/crawler/config" },
+        { "name": "RECIPE_STORE_TOKEN", "valueFrom": "arn:aws:secretsmanager:{{REGION}}:{{ACCOUNT_ID}}:secret:crawlpilot/crawler:RECIPE_STORE_TOKEN::" },
+        { "name": "ELASTIC_API_KEY", "valueFrom": "arn:aws:secretsmanager:{{REGION}}:{{ACCOUNT_ID}}:secret:crawlpilot/crawler:ELASTIC_API_KEY::" },
+        { "name": "PROXY_EU_PASSWORD", "valueFrom": "arn:aws:secretsmanager:{{REGION}}:{{ACCOUNT_ID}}:secret:crawlpilot/crawler:PROXY_EU_PASSWORD::" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/crawlpilot/crawler",
+          "awslogs-region": "{{REGION}}",
+          "awslogs-stream-prefix": "crawler",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}

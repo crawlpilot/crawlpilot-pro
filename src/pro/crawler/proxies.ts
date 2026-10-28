@@ -15,6 +15,8 @@ export interface ProxyConfig {
     password?: string;
     /** Where it exits, for sites that need a market's view (ISO 3166 alpha-2). */
     country?: string;
+    /** Chromium's proxy bypass list; `<-loopback>` sends even local addresses through the proxy (tests). */
+    bypass?: string;
 }
 
 interface Health {

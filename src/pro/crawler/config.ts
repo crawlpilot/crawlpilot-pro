@@ -10,6 +10,7 @@ import { DEFAULT_SITE_POLICY, type SitePolicy } from './governor';
 import type { ProxyConfig } from './proxies';
 import { DEFAULT_RETRY, type RetryPolicy } from './retry';
 import type { SearchConfig } from './search';
+import type { SqsConfig } from './sqs';
 
 export interface SiteProfile extends Partial<SitePolicy> {
     /** A key of `proxyPools`; none means a direct connection. */
@@ -36,11 +37,17 @@ export interface CrawlerConfig {
     settleMs: number;
     /** A browser context serves this many pages before it is replaced. */
     pagesPerContext: number;
+    /** A list is read to this many pages at most: clicked through in one job, or followed as jobs. */
+    maxListPages: number;
+    /** A list row's details page is crawled as a job of its own. */
+    followDetails: boolean;
     retry: RetryPolicy;
     sites: { default: SiteProfile } & Record<string, SiteProfile>;
     proxyPools: Record<string, ProxyConfig[]>;
     recipeStore: { url: string; token: string };
     search: SearchConfig;
+    /** Jobs from SQS; without it, the command line reads a file of jobs (`--jobs`). */
+    queue?: { type: 'sqs' } & SqsConfig;
 }
 
 export const DEFAULTS: Omit<CrawlerConfig, 'recipeStore' | 'search'> = {
@@ -50,6 +57,8 @@ export const DEFAULTS: Omit<CrawlerConfig, 'recipeStore' | 'search'> = {
     navigationTimeoutMs: 30_000,
     settleMs: 500,
     pagesPerContext: 50,
+    maxListPages: 20,
+    followDetails: true,
     retry: DEFAULT_RETRY,
     sites: { default: { respectRobots: true } },
     proxyPools: {},
@@ -80,6 +89,9 @@ export function parseConfig(json: unknown, env: Record<string, string | undefine
     } as CrawlerConfig;
     for (const [host, site] of Object.entries(config.sites)) {
         if (site.proxyPool && !config.proxyPools[site.proxyPool]?.length) throw new Error(`Site ${host} uses proxy pool "${site.proxyPool}", which has no proxies.`);
+    }
+    if (config.queue && (config.queue.type !== 'sqs' || !config.queue.url || !config.queue.deadLetterUrl)) {
+        throw new Error('queue needs type "sqs", url and deadLetterUrl.');
     }
     const ids = Object.values(config.proxyPools).flat().map(p => p.id);
     const dupe = ids.find((id, i) => ids.indexOf(id) !== i);

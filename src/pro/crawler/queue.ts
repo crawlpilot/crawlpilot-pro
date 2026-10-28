@@ -16,6 +16,8 @@ export interface Delivery {
 export interface JobQueue {
     /** Up to `max` jobs ready now; none when none is. */
     receive(max: number): Promise<Delivery[]>;
+    /** New jobs a job led to (a list's next page, its rows' details pages). */
+    enqueue(jobs: CrawlJob[]): Promise<void>;
     /** Nothing waiting and nothing delayed: a finite queue is done. */
     idle(): boolean;
 }
@@ -42,6 +44,8 @@ export class MemoryQueue implements JobQueue {
             deadLetter: async reason => { this.dead.push({ job, reason }); this.onDead?.(job, reason); },
         }));
     }
+
+    async enqueue(jobs: CrawlJob[]) { this.ready.push(...jobs); }
 
     idle() { return this.ready.length === 0 && this.delayed.length === 0; }
 
@@ -71,6 +75,8 @@ export async function runWorker(queue: JobQueue, deps: WorkerDeps, o: RunOptions
             result = { outcome: 'dead_letter', attempts: d.job.attempts ?? 0, reason: `worker error: ${e instanceof Error ? e.message : String(e)}` };
         }
         o.onResult?.(d.job, result);
+        // Follow-ups first: a job is only settled once what it led to is safely queued.
+        if (result.outcome !== 'deferred' && result.followUps?.length) await queue.enqueue(result.followUps);
         if (result.outcome === 'deferred') await d.retryLater(result.delayMs, { ...d.job, attempts: result.attempts });
         else if (result.outcome === 'dead_letter') await d.deadLetter(result.reason ?? 'dead letter');
         else await d.ack();
