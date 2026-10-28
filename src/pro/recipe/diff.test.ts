@@ -4,6 +4,7 @@ import type { ListSpec, PageSpec } from '../../shared/types/database';
 import { outputDigest, specDigest } from './canonical';
 import { diffVersions } from './diff';
 import { fromListSpec, fromPageSpec } from './fromPublic';
+import { assignWayIds } from './wayIds';
 import type { Field, PageRecipeSpec, ProSpec, Version } from './types';
 
 async function version(n: number, spec: ProSpec, settings: Record<string, unknown> = {}, urls = ['https://a.test/1']): Promise<Version> {
@@ -85,5 +86,13 @@ describe('diffVersions, list recipes', () => {
         expect(d.changes).toContainEqual({ kind: 'renamed', subject: 'list 1 field title → name', details: [] });
         expect(d.changes).toContainEqual({ kind: 'changed', subject: 'list 1 field price', details: ['type text → price'] });
         expect(d.changes).toContainEqual({ kind: 'changed', subject: 'pagination', details: ['mode pagination → loadMore', 'next a.next → button.more'] });
+    });
+});
+
+describe('diff and way ids', () => {
+    it('sees no change when only the ways ids differ', async () => {
+        const spec = fromPageSpec(zara.spec as unknown as PageSpec).spec;
+        const withIds = assignWayIds(spec, 1);
+        expect(diffVersions(await version(1, withIds), await version(2, spec)).changes).toEqual([]);
     });
 });

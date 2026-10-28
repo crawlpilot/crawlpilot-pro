@@ -23,20 +23,46 @@ export interface ProRecipe {
     remoteId?: string;
     /** Label → version number. No `live` means a draft. */
     labels: Partial<Record<LabelName, number>>;
+    /** What the crawler workers resolve the recipe by, with `pageType`; from a shared list ("zara"). */
+    competitor?: string;
+    /** "product", "listing"… */
+    pageType?: string;
+    /** Which URLs it is for, when several recipes share a competitor and page type. */
+    matchRules?: MatchRules;
     createdAt: number;
     updatedAt: number;
 }
+
+/** What the crawler workers resolve a recipe by. */
+export type Targeting = Pick<ProRecipe, 'competitor' | 'pageType' | 'matchRules'>;
 
 /** The value a field outputs. */
 export type FieldType =
     | 'text' | 'number' | 'integer' | 'money' | 'date' | 'url' | 'boolean' | 'enum' | 'list' | 'object' | 'table';
 
+/** URL globs (`*` any run of characters): a URL is the recipe's if it matches an include and no exclude. */
+export interface MatchRules {
+    include: string[];
+    exclude?: string[];
+}
+
+/**
+ * Where a way came from, for its usage to add up across versions (`wayIds.ts`): the id stays while the way
+ * is unchanged, and a changed way is a new one. Neither is part of the digest. Set on save.
+ */
+export interface WayIdentity {
+    id?: string;
+    /** The version it first appeared in. */
+    addedIn?: number;
+}
+
 /** One way of finding a field, tried in order; the first that gives a value wins. */
-export type Way =
+export type Way = WayIdentity & (
     /** The page's own data: JSON-LD, embedded JSON or state. Its `ops` clean that value only. */
     | { kind: 'data'; binding: DataBinding }
     /** A CSS selector or an XPath. */
-    | { kind: 'selector'; selector: string };
+    | { kind: 'selector'; selector: string }
+);
 
 export interface Field {
     id: string;
@@ -128,6 +154,20 @@ export interface LabelMove {
     by: string;
     at: number;
     reason: string;
+}
+
+export type ReviewState = 'approved' | 'rejected';
+
+/** A second person's verdict on a version, kept apart from it: versions never change. */
+export interface Review {
+    id?: number;
+    recipeId: string;
+    version: number;
+    state: ReviewState;
+    by: string;
+    at: number;
+    /** Why; required to reject. */
+    note: string;
 }
 
 export interface Sample {

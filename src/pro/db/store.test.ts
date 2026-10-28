@@ -3,7 +3,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import uniqlo from '../../shared/samples/recipes/uniqlo-product.json';
 import zara from '../../shared/samples/recipes/zara-product.json';
-import { pro, SaveRefused } from './index';
+import { pro, ReviewRefused, SaveRefused } from './index';
 import { closeProDatabase } from './idb';
 import { readRecipeFile, writeRecipeFile } from '../recipe/file';
 import type { VersionDraft } from '../recipe/types';
@@ -79,12 +79,47 @@ describe('labels', () => {
         const recipe = await pro.recipes.create({ name: 'ZARA', site: 'zara.com', kind: 'page' });
         const v1 = await pro.versions.save(recipe.id, 0, draftOf(zara), by);
         await pro.versions.save(recipe.id, 1, edited(v1), by);
+        for (const v of [1, 2]) await pro.reviews.review(recipe.id, v, { state: 'approved', by: 'reviewer', note: '' });
         await pro.recipes.moveLabel(recipe.id, 'live', 2, 'tester', 'ship');
         await pro.recipes.moveLabel(recipe.id, 'live', 1, 'tester', 'roll back');
         await expect(pro.recipes.moveLabel(recipe.id, 'live', 9, 'tester', 'x')).rejects.toThrow('No version 9');
 
         expect((await pro.recipes.get(recipe.id))?.labels).toEqual({ latest: 2, live: 1 });
         expect((await pro.recipes.labelLog(recipe.id))[0]).toMatchObject({ label: 'live', from: 2, to: 1, reason: 'roll back' });
+    });
+});
+
+describe('reviews', () => {
+    async function twoVersions() {
+        const recipe = await pro.recipes.create({ name: 'ZARA', site: 'zara.com', kind: 'page' });
+        const v1 = await pro.versions.save(recipe.id, 0, draftOf(zara), by);
+        await pro.versions.save(recipe.id, 1, edited(v1), by);
+        return recipe;
+    }
+
+    it('are refused from the version\'s author, and a rejection needs a reason', async () => {
+        const recipe = await twoVersions();
+        await expect(pro.reviews.review(recipe.id, 1, { state: 'approved', by: 'tester', note: '' })).rejects.toBeInstanceOf(ReviewRefused);
+        await expect(pro.reviews.review(recipe.id, 1, { state: 'rejected', by: 'reviewer', note: ' ' })).rejects.toThrow('Say why');
+        await expect(pro.reviews.review(recipe.id, 9, { state: 'approved', by: 'reviewer', note: '' })).rejects.toThrow('No version 9');
+        expect(await pro.reviews.list(recipe.id)).toEqual([]);
+    });
+
+    it('decide by the newest one, and only an approved version can be live', async () => {
+        const recipe = await twoVersions();
+        await expect(pro.recipes.moveLabel(recipe.id, 'live', 2, 'tester', 'ship')).rejects.toThrow('v2 cannot be live. Not reviewed');
+
+        await pro.reviews.review(recipe.id, 2, { state: 'approved', by: 'reviewer', note: 'looks right' });
+        await pro.reviews.review(recipe.id, 2, { state: 'rejected', by: 'lead', note: 'price reads the old price' });
+        expect((await pro.reviews.states(recipe.id)).get(2)).toMatchObject({ state: 'rejected', by: 'lead' });
+        await expect(pro.recipes.moveLabel(recipe.id, 'live', 2, 'tester', 'ship')).rejects.toThrow('Rejected by lead: price reads the old price');
+
+        await pro.reviews.review(recipe.id, 2, { state: 'approved', by: 'lead', note: 'fixed on the site' });
+        await pro.recipes.moveLabel(recipe.id, 'live', 2, 'tester', 'ship');
+        // A test label needs no review.
+        await pro.recipes.moveLabel(recipe.id, 'test', 1, 'tester', 'try');
+        expect((await pro.recipes.get(recipe.id))?.labels).toEqual({ latest: 2, live: 2, test: 1 });
+        expect(await pro.reviews.list(recipe.id)).toHaveLength(3);
     });
 });
 
@@ -122,5 +157,40 @@ describe('test runs', () => {
         expect((await pro.tests.latest('r', 'd1'))?.at).toBe(21);
         expect((await pro.tests.latest('r', 'd2', 'page'))).toBeUndefined();
         expect((await pro.tests.latest('r', 'd2', 'pages'))?.passed).toBe(true);
+    });
+});
+
+describe('ways and targeting', () => {
+    it('keep their ids across saved versions; an added selector is new in its version', async () => {
+        const recipe = await pro.recipes.create({ name: 'ZARA', site: 'zara.com', kind: 'page' });
+        const v1 = await pro.versions.save(recipe.id, 0, draftOf(zara), by);
+        const v2 = await pro.versions.save(recipe.id, 1, edited(draftOf(zara)), by);
+        const ways = (spec: VersionDraft['spec']) => spec.kind === 'page' ? spec.steps.flatMap(s => s.kind === 'field' ? s.field.ways : s.click.ways) : [];
+        const [before, after] = [ways(v1.spec), ways(v2.spec)];
+        expect(before.every(w => w.id && w.addedIn === 1)).toBe(true);
+        expect(after.filter(w => w.addedIn === 1).map(w => w.id)).toEqual(before.map(w => w.id));
+        expect(after.filter(w => w.addedIn === 2)).toHaveLength(1);
+    });
+
+    it('set the competitor, page type and match rules, tidied, and clear what is left empty', async () => {
+        const recipe = await pro.recipes.create({ name: 'ZARA', site: 'zara.com', kind: 'page', competitor: ' Zara ', pageType: 'Product' });
+        expect(recipe).toMatchObject({ competitor: 'zara', pageType: 'product' });
+        const set = await pro.recipes.setTargeting(recipe.id, { competitor: 'zara', pageType: '', matchRules: { include: [' https://www.zara.com/* ', ''], exclude: [] } });
+        expect(set).toMatchObject({ competitor: 'zara', matchRules: { include: ['https://www.zara.com/*'] } });
+        expect(set).not.toHaveProperty('pageType');
+        expect(set.matchRules).not.toHaveProperty('exclude');
+        expect(await pro.recipes.get(recipe.id)).toEqual(set);
+    });
+
+    it('come back from an exported file into a new recipe', async () => {
+        const recipe = await pro.recipes.create({ name: 'ZARA', site: 'zara.com', kind: 'page', competitor: 'zara', pageType: 'product' });
+        const v1 = await pro.versions.save(recipe.id, 0, draftOf(zara), by);
+        const raw = writeRecipeFile((await pro.recipes.get(recipe.id))!, [v1], []);
+        globalThis.indexedDB = new IDBFactory();
+        await closeProDatabase();
+        const { recipe: imported } = await pro.importRecipeFile(raw, 'tester');
+        expect(imported).toMatchObject({ competitor: 'zara', pageType: 'product' });
+        const [back] = await pro.versions.list(imported.id);
+        expect(JSON.stringify(back.spec)).toBe(JSON.stringify(v1.spec));
     });
 });

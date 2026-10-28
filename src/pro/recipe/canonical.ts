@@ -1,15 +1,17 @@
 /**
- * Canonical form and digests (`docs/design/LLD.md` §4). Key order never matters, ids are identity rather
- * than meaning, and selectors are compared with their whitespace collapsed. The digest covers the spec
+ * Canonical form and digests (`docs/design/LLD.md` §4). Key order never matters, ids (and a way's
+ * `addedIn`) are identity rather than meaning, and selectors are compared with their whitespace collapsed. The digest covers the spec
  * only, so a change of pace or pages keeps it; `outputDigest` covers what consumers see.
  */
 import type { FieldType, ProSpec, Step } from './types';
+
+const IDENTITY = new Set(['id', 'addedIn']);
 
 function canonicalValue(value: unknown, key?: string): unknown {
     if (Array.isArray(value)) return value.map(v => canonicalValue(v));
     if (value && typeof value === 'object') {
         const entries = Object.keys(value as object)
-            .filter(k => k !== 'id' && (value as Record<string, unknown>)[k] !== undefined)
+            .filter(k => !IDENTITY.has(k) && (value as Record<string, unknown>)[k] !== undefined)
             .sort()
             .map(k => [k, canonicalValue((value as Record<string, unknown>)[k], k)]);
         return Object.fromEntries(entries);
@@ -20,7 +22,12 @@ function canonicalValue(value: unknown, key?: string): unknown {
 
 /** The spec as canonical JSON. */
 export function canonicalJson(spec: ProSpec): string {
-    return JSON.stringify(canonicalValue(spec));
+    return canonicalString(spec);
+}
+
+/** Any part of a spec as canonical JSON. */
+export function canonicalString(value: unknown): string {
+    return JSON.stringify(canonicalValue(value));
 }
 
 async function sha256(text: string): Promise<string> {

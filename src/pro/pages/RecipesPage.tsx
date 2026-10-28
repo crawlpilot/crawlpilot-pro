@@ -11,7 +11,8 @@ import uniqlo from '../../shared/samples/recipes/uniqlo-product.json';
 import zara from '../../shared/samples/recipes/zara-product.json';
 import { pro } from '../db';
 import { writeRecipeFile } from '../recipe/file';
-import { LOCAL_AUTHOR, setProEdit } from '../edit';
+import { setProEdit } from '../edit';
+import { currentUser } from '../identity';
 import { openRecipe } from '../nav';
 import { BackendDialog } from './BackendDialog';
 import { recipeHealth } from '../maintain';
@@ -51,7 +52,7 @@ export default function RecipesPage({ onNavigate }: Props) {
         const done: string[] = [];
         try {
             for (const text of texts) {
-                const { recipe, added } = await pro.importRecipeFile(text, LOCAL_AUTHOR);
+                const { recipe, added } = await pro.importRecipeFile(text, await currentUser());
                 done.push(added ? `${recipe.name}: ${added} version${added > 1 ? 's' : ''} added` : `${recipe.name}: already up to date`);
             }
             setMessage({ tone: 'success', text: done.join(' · ') });
@@ -118,7 +119,7 @@ export default function RecipesPage({ onNavigate }: Props) {
                         <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-tile-mint text-ink"><BookOpen size={17} /></span>
                         <div className="min-w-0 flex-1">
                             <Text weight="semibold" truncate title={r.name}>{r.name}</Text>
-                            <Text size="caption" tone="faint" truncate>{r.site} · {r.kind} · updated {new Date(r.updatedAt).toLocaleDateString()}</Text>
+                            <Text size="caption" tone="faint" truncate>{[r.site, r.kind, r.competitor && r.pageType ? `${r.competitor} ${r.pageType}` : null, `updated ${new Date(r.updatedAt).toLocaleDateString()}`].filter(Boolean).join(' · ')}</Text>
                             <div className="mt-1.5 flex flex-wrap gap-1">
                                 {r.labels.live ? <Chip tone="success">live v{r.labels.live}</Chip> : <Chip tone="neutral">draft</Chip>}
                                 {r.labels.latest && <Chip tone="info">latest v{r.labels.latest}</Chip>}

@@ -21,7 +21,9 @@ export function proStore(page: Page, name: string): Promise<any[]> {
     })), [DB, name] as const);
 }
 
-export function proClear(page: Page): Promise<void> {
+/** Empties Pro's database and forgets the name set in the Backend dialog. */
+export async function proClear(page: Page): Promise<void> {
+    await page.evaluate(() => chrome.storage.local.remove('pro.user'));
     return page.evaluate(db => indexedDB.databases().then(list => new Promise<void>((resolve, reject) => {
         if (!list.some(d => d.name === db)) { resolve(); return; }
         const open = indexedDB.open(db);
@@ -36,6 +38,13 @@ export function proClear(page: Page): Promise<void> {
         };
         open.onerror = () => reject(open.error);
     })), DB);
+}
+
+/** Uses Pro as someone else: the name kept on saves and reviews (Backend dialog, on the Recipes screen). */
+export async function proSetName(ui: Page, name: string): Promise<void> {
+    await ui.getByRole('button', { name: 'Backend' }).click();
+    await ui.getByLabel('Your name').fill(name);
+    await ui.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
 }
 
 /** The mock crawler backend (`src/pro/backend/mock.ts`) on a local port, with CORS as a real API would send. */

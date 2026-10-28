@@ -1,12 +1,16 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import zara from '../shared/samples/recipes/zara-product.json';
 import type { ListSpec, PageSpec } from '../shared/types/database';
 import { listRunInput, type RunElement } from '../shared/recipes/spec';
 import { pro } from './db';
 import { closeProDatabase } from './db/idb';
 import { listEditInput, pageEditInput, saveListVersion, savePageVersion, setProEdit, takeProEdit } from './edit';
+
+// The name saves are kept under (`identity.ts`); none is set, so it is the default.
+const stored: Record<string, unknown> = {};
+vi.stubGlobal('chrome', { storage: { local: { get: async (key: string) => ({ [key]: stored[key] }), set: async (items: object) => { Object.assign(stored, items); } } } });
 
 beforeEach(() => { globalThis.indexedDB = new IDBFactory(); });
 afterEach(async () => { await closeProDatabase(); });

@@ -2,7 +2,7 @@
  * The crawler backend's API as Pro uses it (`docs/design/LLD.md` §8). The backend team owns it; this is
  * the proposed contract, and `mock.ts` implements it for tests.
  */
-import type { PageSource } from '../recipe/types';
+import type { MatchRules, PageSource, ReviewState } from '../recipe/types';
 
 export type Schedule = 'once' | 'daily' | 'weekly';
 
@@ -30,9 +30,11 @@ export interface CrawlStatus {
 }
 
 export interface BackendApi {
-    createRecipe(input: { name: string; site: string; kind: string }): Promise<{ id: string }>;
-    /** `file`: a format 2 `.crawlpilot.json` with one version; `digest` makes a repeated upload a no-op. */
+    createRecipe(input: { name: string; site: string; kind: string; competitor?: string; pageType?: string; matchRules?: MatchRules }): Promise<{ id: string }>;
+    /** `file`: a format 3 `.crawlpilot.json` with one version; `digest` makes a repeated upload a no-op. */
     uploadVersion(recipeId: string, file: string, digest: string): Promise<{ version: number; accepted: boolean; errors?: string[] }>;
+    /** Records a review of an uploaded version; the backend makes only approved versions live. */
+    reviewVersion(recipeId: string, version: number, review: { state: ReviewState; by: string; note: string }): Promise<{ state: ReviewState }>;
     startCrawl(recipeId: string, input: { version: number; pages: PageSource; schedule: Schedule }): Promise<{ crawlId: string }>;
     getCrawl(crawlId: string): Promise<CrawlStatus>;
     setLive(recipeId: string, version: number, reason: string): Promise<{ live: number }>;

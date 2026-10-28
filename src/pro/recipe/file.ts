@@ -1,13 +1,15 @@
 /**
  * The recipe file, `.crawlpilot.json` (`docs/design/LLD.md` §6). Format 1 is the public samples' file:
  * one public spec and where it was built and checked. Format 2 is Pro's: a recipe with its versions.
+ * Format 3, the one written, adds what the crawler workers resolve a recipe by (competitor, page type,
+ * match rules) and each way's stable id; a format 2 file's ways get their ids when its versions are saved.
  * Importing never overwrites: format 1 becomes version 1 of a new recipe, and a format 2 file adds the
  * versions whose digest the recipe doesn't have yet.
  */
 import type { ListSpec, PageSpec } from '../../shared/types/database';
 import { fromListSpec, fromPageSpec } from './fromPublic';
 import { resolveContract } from './contract';
-import type { LabelName, PageSource, ProRecipe, RecipeKind, Sample, Version, VersionDraft } from './types';
+import type { LabelName, MatchRules, PageSource, ProRecipe, RecipeKind, Sample, Targeting, Version, VersionDraft } from './types';
 
 export class RecipeFileError extends Error {
     constructor(readonly path: string, message: string) {
@@ -32,6 +34,8 @@ export interface ImportedRecipe {
     name: string;
     site: string;
     kind: RecipeKind;
+    /** Empty for formats 1 and 2. */
+    targeting: Targeting;
     versions: (VersionDraft & { note: string; digest?: string })[];
     samples: string[];
 }
@@ -40,7 +44,7 @@ export function readRecipeFile(raw: string): ImportedRecipe {
     let json: unknown;
     try { json = JSON.parse(raw); } catch { throw new RecipeFileError('$', 'not JSON'); }
     if (!isObject(json)) throw new RecipeFileError('$', 'expected an object');
-    if (json.format === 2) return readFormat2(json);
+    if (json.format === 2 || json.format === 3) return readVersioned(json);
     if (json.format === undefined || json.format === 1) return readFormat1(json);
     throw new RecipeFileError('$.format', `unknown format ${String(json.format)}`);
 }
@@ -58,7 +62,7 @@ function readFormat1(json: Json): ImportedRecipe {
     const samples = [...new Set([...builtOn, ...checkedOn])];
     const pages: PageSource = { kind: 'urls', urls: samples };
     return {
-        name, site, kind, samples,
+        name, site, kind, samples, targeting: {},
         versions: [{
             ...converted, pages,
             output: typeof json.contract === 'string' && resolveContract(json.contract) ? { contract: resolveContract(json.contract) } : {},
@@ -67,7 +71,7 @@ function readFormat1(json: Json): ImportedRecipe {
     };
 }
 
-function readFormat2(json: Json): ImportedRecipe {
+function readVersioned(json: Json): ImportedRecipe {
     const recipe = need(isObject(json.recipe), '$.recipe', 'expected an object', json.recipe as Json);
     const kind = need(recipe.kind === 'page' || recipe.kind === 'list', '$.recipe.kind', 'expected "page" or "list"', recipe.kind as RecipeKind);
     const list = need(Array.isArray(json.versions) && json.versions.length > 0, '$.versions', 'expected at least one version', json.versions as unknown[]);
@@ -90,16 +94,39 @@ function readFormat2(json: Json): ImportedRecipe {
     const samples = Array.isArray(json.samples)
         ? json.samples.flatMap(s => isObject(s) && typeof s.url === 'string' ? [s.url] : [])
         : [];
-    return { name: text(recipe, 'name', '$.recipe'), site: text(recipe, 'site', '$.recipe'), kind, versions, samples };
+    return { name: text(recipe, 'name', '$.recipe'), site: text(recipe, 'site', '$.recipe'), kind, targeting: readTargeting(recipe), versions, samples };
 }
 
-/** A recipe as a format 2 file: all its versions, or only the ones given. */
+function readTargeting(recipe: Json): Targeting {
+    const globs = (v: unknown, path: string) =>
+        need(Array.isArray(v) && v.every(g => typeof g === 'string'), path, 'expected a list of text', v as string[]);
+    let matchRules: MatchRules | undefined;
+    if (recipe.matchRules !== undefined) {
+        const rules = need(isObject(recipe.matchRules), '$.recipe.matchRules', 'expected an object', recipe.matchRules as Json);
+        matchRules = {
+            include: globs(rules.include, '$.recipe.matchRules.include'),
+            ...(rules.exclude !== undefined ? { exclude: globs(rules.exclude, '$.recipe.matchRules.exclude') } : {}),
+        };
+    }
+    return {
+        ...(typeof recipe.competitor === 'string' ? { competitor: recipe.competitor } : {}),
+        ...(typeof recipe.pageType === 'string' ? { pageType: recipe.pageType } : {}),
+        ...(matchRules ? { matchRules } : {}),
+    };
+}
+
+/** A recipe as a format 3 file: all its versions, or only the ones given. */
 export function writeRecipeFile(recipe: ProRecipe, versions: Version[], samples: Sample[]): string {
     const labels: Partial<Record<LabelName, number>> = {};
     for (const [label, v] of Object.entries(recipe.labels) as [LabelName, number][]) if (versions.some(x => x.version === v)) labels[label] = v;
     return JSON.stringify({
-        format: 2,
-        recipe: { name: recipe.name, site: recipe.site, kind: recipe.kind },
+        format: 3,
+        recipe: {
+            name: recipe.name, site: recipe.site, kind: recipe.kind,
+            ...(recipe.competitor ? { competitor: recipe.competitor } : {}),
+            ...(recipe.pageType ? { pageType: recipe.pageType } : {}),
+            ...(recipe.matchRules ? { matchRules: recipe.matchRules } : {}),
+        },
         labels,
         samples: samples.map(s => ({ url: s.url, ...(s.canary ? { canary: true } : {}) })),
         versions: [...versions].sort((a, b) => a.version - b.version).map(({ recipeId: _, ...v }) => ({

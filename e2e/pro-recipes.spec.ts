@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { test, expect } from './harness';
-import { proClear, proStore, serveMockBackend } from './pro';
+import { proClear, proSetName, proStore, serveMockBackend } from './pro';
 
 test('recipes: samples, re-import and export', async ({ panel }) => {
     const ui = panel.page;
@@ -28,7 +28,7 @@ test('recipes: samples, re-import and export', async ({ panel }) => {
     const file = await download;
     expect(file.suggestedFilename()).toBe('zara-product-details.crawlpilot.json');
     const json = JSON.parse(readFileSync(await file.path(), 'utf8'));
-    expect(json).toMatchObject({ format: 2, recipe: { site: 'zara.com', kind: 'page' }, labels: { latest: 1 } });
+    expect(json).toMatchObject({ format: 3, recipe: { site: 'zara.com', kind: 'page' }, labels: { latest: 1 } });
     expect(json.versions).toHaveLength(1);
 });
 
@@ -85,7 +85,21 @@ test('edit: a version opens in the Page Extractor; unchanged is refused, an edit
     await expect(diff).toContainText('field heading');
     await expect(diff).toContainText('The output changes');
 
-    await ui.getByTestId('pro-version').first().getByRole('button', { name: 'Mark live' }).click();
+    // v2 is not reviewed: it cannot be live, and its author cannot approve it. Someone else does.
+    const v2 = ui.getByTestId('pro-version').first();
+    await expect(v2).toContainText('needs review');
+    await expect(v2.getByRole('button', { name: 'Mark live' })).toBeDisabled();
+    await expect(v2.getByRole('button', { name: 'Approve' })).toHaveCount(0);
+    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await proSetName(ui, 'reviewer');
+    await ui.getByRole('button', { name: 'History of Local product' }).click();
+    await v2.getByRole('button', { name: 'Approve' }).click();
+    await ui.getByLabel('Note (optional)').fill('checked the grid');
+    await ui.getByRole('dialog').getByRole('button', { name: 'Approve' }).click();
+    await expect(v2).toContainText('approved by reviewer');
+    await expect(v2.getByTestId('pro-review-note')).toHaveText('reviewer: checked the grid');
+
+    await v2.getByRole('button', { name: 'Mark live' }).click();
     await ui.getByLabel('Why').fill('checked by hand');
     await ui.getByRole('button', { name: 'Move live' }).click();
     await expect(ui.getByTestId('pro-version').first()).toContainText('live');
@@ -417,6 +431,44 @@ test('submit: a ready version goes to the backend, becomes live, and its crawl i
     await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
     await expect(ui.getByTestId('pro-version')).toContainText('ready to submit');
 
+    // Ready, but the workers could not find it yet: no competitor or page type.
+    await expect(ui.getByTestId('pro-targeting-missing')).toHaveText('Needed to submit: Set the competitor. Set the page type.');
+    await ui.getByRole('button', { name: 'Submit' }).click();
+    await expect(ui.getByRole('dialog')).toContainText('Not yet: Set the competitor. Set the page type.');
+    await expect(ui.getByRole('dialog').getByRole('button', { name: 'Submit' })).toBeDisabled();
+    await ui.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+
+    // Targeting: rules that leave out a sample are flagged as you type.
+    await ui.getByRole('button', { name: 'Edit targeting' }).click();
+    await ui.getByLabel('Competitor').fill('Acme');
+    await ui.getByLabel('Page type').fill('product');
+    await ui.getByLabel('URLs it is for').fill(`${origin}/site/json-*`);
+    await expect(ui.getByRole('dialog')).toContainText(`These rules leave out 1 sample page: ${origin}/site/article.html`);
+    await ui.getByLabel('URLs it is for').fill(`${origin}/site/*`);
+    await expect(ui.getByRole('dialog')).not.toContainText('leave out');
+    await ui.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+    await expect(ui.getByTestId('pro-targeting')).toContainText('acme');
+    await expect(ui.getByTestId('pro-targeting')).toContainText(`For ${origin}/site/*`);
+    await expect(ui.getByTestId('pro-targeting-missing')).toHaveCount(0);
+
+    // Not reviewed yet, and its author cannot approve it: someone else rejects it, then approves it.
+    await ui.getByRole('button', { name: 'Submit' }).click();
+    await expect(ui.getByRole('dialog')).toContainText('Not yet: Not reviewed: someone other than its author approves it first.');
+    await ui.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+    await expect(ui.getByTestId('pro-version').getByRole('button', { name: 'Approve' })).toHaveCount(0);
+    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await proSetName(ui, 'reviewer');
+    await ui.getByRole('button', { name: 'History of Submitted product' }).click();
+    await ui.getByRole('button', { name: 'Reject' }).click();
+    await expect(ui.getByRole('dialog').getByRole('button', { name: 'Reject' })).toBeDisabled();
+    await ui.getByLabel('Why').fill('title reads the site name');
+    await ui.getByRole('dialog').getByRole('button', { name: 'Reject' }).click();
+    await expect(ui.getByTestId('pro-version')).toContainText('rejected by reviewer');
+    await expect(ui.getByTestId('pro-review-note')).toHaveText('reviewer: title reads the site name');
+    await ui.getByRole('button', { name: 'Approve' }).click();
+    await ui.getByRole('dialog').getByRole('button', { name: 'Approve' }).click();
+    await expect(ui.getByTestId('pro-version')).toContainText('approved by reviewer');
+
     await ui.getByRole('button', { name: 'Submit' }).click();
     await ui.getByRole('radio', { name: 'Daily' }).click();
     await ui.getByRole('dialog').getByRole('button', { name: 'Submit' }).click();
@@ -441,7 +493,7 @@ test('submit: a ready version goes to the backend, becomes live, and its crawl i
     const crawl = ui.getByTestId('pro-crawl');
     await expect(crawl).toContainText('v1');
     await expect(crawl).toContainText('daily');
-    expect([...mock.backend.recipes.values()][0]).toMatchObject({ name: 'Submitted product', live: 1 });
+    expect([...mock.backend.recipes.values()][0]).toMatchObject({ name: 'Submitted product', competitor: 'acme', pageType: 'product', live: 1 });
 
     const refresh = ui.getByTestId('pro-crawls').getByRole('button', { name: 'Refresh' });
     await refresh.click();
@@ -486,6 +538,15 @@ test('maintain: a crawl that fills a field much less flags the recipe; Repair op
     await ui.getByTestId('pro-samples').getByRole('button', { name: 'Test on 3 pages' }).click();
     await expect(ui.getByTestId('pro-readiness')).toHaveText('Ready to submit.', { timeout: 60_000 });
     await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await ui.getByRole('button', { name: 'Edit targeting' }).click();
+    await ui.getByLabel('Competitor').fill('acme');
+    await ui.getByLabel('Page type').fill('product');
+    await ui.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await proSetName(ui, 'reviewer');
+    await ui.getByRole('button', { name: 'History of Watched product' }).click();
+    await ui.getByRole('button', { name: 'Approve' }).click();
+    await ui.getByRole('dialog').getByRole('button', { name: 'Approve' }).click();
     await ui.getByRole('button', { name: 'Submit' }).click();
     await ui.getByRole('dialog').getByRole('button', { name: 'Submit' }).click();
     await expect(ui.getByTestId('pro-crawl')).toBeVisible();

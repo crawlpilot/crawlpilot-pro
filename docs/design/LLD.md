@@ -12,7 +12,9 @@ src/pro/
     canonical.ts      canonical spec, digest, outputDigest (§4)
     fromPublic.ts     PageSpec/ListSpec + settings → Version parts; the only place that reads public types
     diff.ts           structured diff of two versions (§5)
-    file.ts           .crawlpilot.json format 2 read/write; format 1 import (§6)
+    file.ts           .crawlpilot.json format 3 write; format 1, 2 and 3 read (§6)
+    wayIds.ts         stable way ids, carried across versions (§6)
+    targeting.ts      URL match rules and the samples they leave out (§6)
     ready.ts          the "ready to submit" gate (§7.4)
   db/
     schema.ts         database crawlpilot-pro, stores, indexes (§3)
@@ -141,9 +143,10 @@ The database is separate from upstream's `crawl-pilot`.
 | `tests` | `id` | `[recipeId, version]`, `at` | keep the latest 20 per version |
 | `golden` | `[recipeId, version, url]` | `recipeId` | `html` as a Blob; at most 10 per version |
 | `drafts` | `recipeId` | | autosave of the open editor; one per recipe |
+| `reviews` | auto | `recipeId` | approvals and rejections of versions, kept apart from them; the newest per version wins (schema v4) |
 
 - Version 1 of the schema creates all of these stores. Later changes add migrations in `schema.ts`, in the same style as upstream's `shared/db/schema.ts`.
-- `chrome.storage.session` holds only the auth token, never recipe data.
+- `chrome.storage.session` holds only the auth token, never recipe data. `chrome.storage.local` holds the backend address and `pro.user`, the name kept on saves, reviews and label moves until sign-in (`identity.ts`).
 
 ## 4. Canonical form and digests
 ### 4.1 Canonical JSON
@@ -180,14 +183,18 @@ A version is never updated afterwards. The repository has no update function, an
 
 The output is `{ fields: { added, removed, renamed, changed: {name, parts[]}[] }, steps, pagination, settings, pages, outputChanged }`. The Save version dialog uses the same diff to show "what changed" against the base version.
 
-## 6. Recipe file `.crawlpilot.json` (format 2)
+## 6. Recipe file `.crawlpilot.json` (format 3)
 ```jsonc
 {
-  "format": 2,
-  "recipe": { "name": "ZARA · product details", "site": "zara.com", "kind": "page" },
+  "format": 3,
+  "recipe": {
+    "name": "ZARA · product details", "site": "zara.com", "kind": "page",
+    // What the crawler workers resolve the recipe by; match rules only when several recipes share the pair.
+    "competitor": "zara", "pageType": "product",
+    "matchRules": { "include": ["https://www.zara.com/*-p*.html*"], "exclude": ["*/kids/*"] }
+  },
   "labels": { "live": 3, "latest": 4 },
   "samples": [{ "url": "https://…", "canary": true }],
-  "targeting": { "match": ["zara.com/*/*-p*.html"], "exclude": [] },          // slice 4
   "requirements": { "js": true, "paceMs": 2000, "signIn": false, "locale": "en-IN" },  // slice 4
   "versions": [
     { "version": 3, "digest": "…", "outputDigest": "…", "parentDigest": "…", "origin": "edited",
@@ -196,8 +203,11 @@ The output is `{ fields: { added, removed, renamed, changed: {name, parts[]}[] }
   ]
 }
 ```
+- **Format 3** adds the recipe's competitor, page type and match rules, and an `id` and `addedIn` on every way in the spec: `{ "id": "…", "addedIn": 2, "kind": "selector", "selector": ".price" }`. Neither is part of the digest.
+- **Way ids** (`wayIds.ts`) are given on save. A way keeps its id while it reads the same under the same field or click (fields match by id, then by name); a way without one takes the id of the same way in the base version; anything else, an edited selector included, is a new way first seen in the version saved. The crawler reports usage per way id, so usage adds up across versions.
+- **Match rules** (`targeting.ts`) are URL globs: `*` is any run of characters, the rest literal, matched against the whole URL, case aside. A URL is the recipe's when it matches an include and no exclude.
 - **Export** writes the whole recipe, or a single version (`versions` then has one entry). Golden HTML is left out unless asked for.
-- **Import format 2:** if the recipe exists (same `name` and `site`), versions with an unknown digest are added as new numbers with `origin: 'imported'`. It never overwrites.
+- **Import formats 2 and 3:** if the recipe exists (same `name` and `site`), versions with an unknown digest are added as new numbers with `origin: 'imported'`. It never overwrites.
 - **Import format 1** (the public samples): `spec` (a public `PageSpec`) goes through `fromPublic`; `built_on` and `checked_on` become samples; `contract` becomes `output.contract`. The result is version 1 with `origin: 'imported'`.
 - **Validation:** a hand-written type guard in `file.ts`, with readable errors that give the JSON path. There is no schema library.
 
@@ -231,6 +241,10 @@ A version is ready only if all of these hold:
 
 The function returns `{ ready: boolean, reasons: string[] }`. The Submit dialog shows the reasons.
 
+The recipe has its own gate, apart from any version (`targeting.ts`, `targetingReasons`): a competitor and a page type are set, because the crawler workers find a recipe by them, and the match rules, if any, cover every sample page. History shows it in the Crawler targeting card, the Submit dialog shows it and keeps Submit off, and `submitVersion` refuses without it.
+
+**Review** (`db/reviews.ts`): someone other than a version's author approves or rejects it; a rejection needs a reason. Reviews never change the version; the newest one per version is its state, and a version with none needs review. `live` moves only to an approved version (`moveLabel` refuses, so Mark live, rollback and submit all keep the rule), and `submitVersion` refuses a version that is not approved. On submit the approval goes up after the version (`POST /recipes/{id}/versions/{v}/review`), and the backend makes only approved versions live. Until sign-in, who is acting is the name set in the Backend dialog; the backend checks the rule again against the signed-in user.
+
 ## 8. Backend client
 Proposed contract; the backend team owns it. Base URL is a Pro setting. All calls send `Authorization: Bearer <token>`.
 
@@ -238,9 +252,10 @@ Proposed contract; the backend team owns it. Base URL is a Pro setting. All call
 |---|---|---|
 | `POST /recipes` | `{ name, site, kind }` | `{ id }` |
 | `POST /recipes/{id}/versions` | `.crawlpilot.json` with one version; header `Idempotency-Key: <digest>` | `{ version, accepted: boolean, errors? }` |
+| `POST /recipes/{id}/versions/{v}/review` | `{ state: 'approved' \| 'rejected', by, note }` | `{ state }` |
 | `POST /recipes/{id}/crawls` | `{ version, pages, schedule: 'once' \| 'daily' \| 'weekly' }` | `{ crawlId }` |
 | `GET /crawls/{id}` | none | `{ status, pagesDone, pagesFailed, fields: { name, fill, fallbackShare, failedChecks }[], samples: Record[] }` |
-| `POST /recipes/{id}/labels/live` | `{ version, reason }` | `{ live }` |
+| `POST /recipes/{id}/labels/live` | `{ version, reason }` | `{ live }`; 409 unless the version is approved |
 | `POST /recipes/{id}/pause`, `/resume` | none | `{ status }` |
 
 - **Built so far** (`backend/client.ts`, `mock.ts`, `submit.ts`, `settings.ts`): the calls above, retries and error kinds as described, the submit flow with the readiness gate, crawl refresh. Until the identity provider is chosen, the address and an access token are set in the Backend dialog (address in `chrome.storage.local`, token in `chrome.storage.session`). The e2e tests serve `mock.ts` on a local port (`e2e/pro.ts`).
@@ -275,7 +290,7 @@ Screens are routes in the side panel, built from the upstream UI kit (`src/sidep
   - `saveVersion`: numbering, stale base, no change, immutability;
   - digests, including that settings don't change `digest` and a rename changes `outputDigest`;
   - diff cases;
-  - format 1 import of both samples, and a format 2 round trip;
+  - format 1 import of both samples, a format 3 round trip, and format 2 still read;
   - `ready.ts` reasons;
   - the backend client against the mock (retry, 401, idempotency).
 - **Playwright (`e2e/pro-*.spec.ts`, reusing `e2e/harness.ts` and the local site):**
