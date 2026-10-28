@@ -26,7 +26,7 @@ describe('search sink', () => {
         expect(es.calls[0].headers).toMatchObject({ authorization: 'ApiKey KEY', 'content-type': 'application/x-ndjson' });
         expect(es.calls[0].lines).toEqual([
             { index: { _index: 'p-scrapes-acme', _id: 'job-1' } }, { a: 1 },
-            { create: { _index: 'p-crawl-requests-2026.10.28' } }, { b: 2 },
+            { create: { _index: 'p-crawl-requests-2026.10.28', _id: expect.any(String) } }, { b: 2 },
         ]);
     });
 
@@ -43,7 +43,7 @@ describe('search sink', () => {
         await sink.flush();
         expect(errors).toEqual(['bulk of 1 not sent: status 503']);
         await sink.flush();
-        expect(es.calls[es.calls.length - 1].lines).toEqual([{ create: { _index: 'i' } }, { n: 3 }]);
+        expect(es.calls[es.calls.length - 1].lines).toEqual([{ create: { _index: 'i', _id: expect.any(String) } }, { n: 3 }]);
     });
 
     it('puts items rejected with 429 back, and reports and drops other item errors', async () => {
@@ -56,7 +56,7 @@ describe('search sink', () => {
         await sink.flush();
         expect(errors).toEqual(['s: mapper_parsing_exception bad price']);
         await sink.flush();
-        expect(es.calls[1].lines).toEqual([{ create: { _index: 'i' } }, { n: 2 }]);
+        expect(es.calls[1].lines).toEqual([{ create: { _index: 'i', _id: expect.any(String) } }, { n: 2 }]);
     });
 
     it('drops the oldest documents when the buffer is full, and says so', () => {
@@ -120,6 +120,18 @@ describe('search sink', () => {
         expect(Date.now() - t).toBeLessThan(1000);
         await expect(lost).rejects.toThrow('the worker stopped');
         expect(errors.some(e => /^clos(ing|ed): 1 documents not written$/.test(e))).toBe(true);
+    });
+
+    it('sends an event again with the id it was given, and takes a 409 on it as already written', async () => {
+        const errors: string[] = [];
+        const es = fakeES([new Error('The operation was aborted due to timeout'), ok([{ create: { status: 409, error: { type: 'version_conflict_engine_exception', reason: 'exists' } } }])]);
+        const sink = createSearchSink({ url: 'https://es.test', batchSize: 10 }, { fetch: es.fetch, sleep: async () => {}, onError: m => errors.push(m) });
+        sink.write('i', { n: 1 });
+        await sink.flush();
+        const ids = es.calls.map(c => (c.lines[0] as { create: { _id: string } }).create._id);
+        expect(ids).toHaveLength(2);
+        expect(ids[1]).toBe(ids[0]);
+        expect(errors).toEqual([]);
     });
 
     it('memory sink replaces by id', () => {

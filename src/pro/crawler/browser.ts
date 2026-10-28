@@ -2,6 +2,9 @@
  * Pages for the worker, from one Chromium. When it dies (a crash, an out-of-memory kill) the pool forgets it
  * and its contexts, and the next page starts a new one; a context that closes is forgotten too. A context per site and proxy keeps that visitor's cookies and
  * session between pages; it is replaced after `pagesPerContext` pages, or when its proxy changes. A context
+ * not used for `idleMs` (5 minutes) is closed, and past `maxContexts` the least recently used idle ones are:
+ * a worker that has crawled many sites does not keep a context, and its memory, for each. A context in use
+ * (a page open, robots.txt being fetched) is never closed. A context
  * renders as the site's profile says (locale, timezone, viewport, user agent, extra headers) and may skip
  * images, media and fonts.
  * `visit` reads what came back (status, headers, redirects, size, timings, title, visible text) for
@@ -34,7 +37,7 @@ export interface PageSource {
     close(): Promise<void>;
 }
 
-interface ContextEntry { context: BrowserContext; pages: number; open: number }
+interface ContextEntry { context: BrowserContext; pages: number; open: number; usedAt: number }
 
 /** Request headers kept on request events. */
 const KEEP_REQUEST_HEADERS = ['user-agent', 'accept-language', 'referer'];
@@ -43,8 +46,34 @@ export class BrowserPool implements PageSource {
     /** One launch, shared: pages asked for at once must not each start a browser. */
     private browser: Promise<Browser> | null = null;
     private contexts = new Map<string, Promise<ContextEntry>>();
+    /** The contexts made, by key, for closing the idle ones. */
+    private ready = new Map<string, ContextEntry>();
+    private now: () => number;
 
-    constructor(private opts: { pagesPerContext: number; headless?: boolean; executablePath?: string; launch?: () => Promise<Browser> }) {}
+    constructor(private opts: { pagesPerContext: number; headless?: boolean; executablePath?: string; launch?: () => Promise<Browser>;
+        idleMs?: number; maxContexts?: number; now?: () => number }) {
+        this.now = opts.now ?? Date.now;
+    }
+
+    /** Closes contexts unused for `idleMs`, then the least recently used idle ones past `maxContexts`. */
+    private sweep() {
+        const idleMs = this.opts.idleMs ?? 5 * 60_000;
+        const max = this.opts.maxContexts ?? 50;
+        const idle = [...this.ready.entries()].filter(([, e]) => e.open === 0).sort((a, b) => a[1].usedAt - b[1].usedAt);
+        let over = this.ready.size - max;
+        for (const [key, entry] of idle) {
+            if (this.now() - entry.usedAt <= idleMs && over <= 0) break;
+            over--;
+            this.retire(key, entry);
+        }
+    }
+
+    private retire(key: string, entry: ContextEntry) {
+        if (this.ready.get(key) === entry) this.ready.delete(key);
+        const made = this.contexts.get(key);
+        if (made) void made.then(e => { if (e === entry && this.contexts.get(key) === made) this.contexts.delete(key); });
+        void entry.context.close().catch(() => {});
+    }
 
     private start(): Promise<Browser> {
         if (!this.browser) {
@@ -59,6 +88,7 @@ export class BrowserPool implements PageSource {
                     if (this.browser !== launching) return;
                     this.browser = null;
                     this.contexts.clear();
+                    this.ready.clear();
                 }),
                 () => { if (this.browser === launching) this.browser = null; },
             );
@@ -75,6 +105,7 @@ export class BrowserPool implements PageSource {
             if (entry.pages < this.opts.pagesPerContext || entry.open > 0) return entry;
             if (this.contexts.get(key) === existing) {
                 this.contexts.delete(key);
+                if (this.ready.get(key) === entry) this.ready.delete(key);
                 void entry.context.close().catch(() => {});
             }
             return this.context(host, profile, proxy);
@@ -91,38 +122,62 @@ export class BrowserPool implements PageSource {
             });
             const blocked = new Set(profile.blockResources ?? []);
             if (blocked.size) await context.route('**/*', route => blocked.has(route.request().resourceType()) ? route.abort() : route.continue());
-            return { context, pages: 0, open: 0 };
+            return { context, pages: 0, open: 0, usedAt: this.now() };
         })();
         this.contexts.set(key, made);
-        const forget = () => { if (this.contexts.get(key) === made) this.contexts.delete(key); };
-        made.then(e => e.context.on('close', forget), forget);
+        let entry: ContextEntry | undefined;
+        const forget = () => {
+            if (this.contexts.get(key) === made) this.contexts.delete(key);
+            if (entry && this.ready.get(key) === entry) this.ready.delete(key);
+        };
+        made.then(e => { entry = e; this.ready.set(key, e); e.context.on('close', forget); }, forget);
         return made;
     }
 
     async open(host: string, profile: SiteProfile, proxy?: ProxyConfig) {
+        this.sweep();
         const entry = await this.context(host, profile, proxy);
-        // Counted once the page exists: a failed page must not keep its context from being renewed.
-        const page = await entry.context.newPage();
-        entry.pages++;
+        // Held from here, so a sweep can't close it under the page being made.
         entry.open++;
+        entry.usedAt = this.now();
+        let page: Page;
+        try {
+            page = await entry.context.newPage();
+        } catch (e) {
+            entry.open--;
+            throw e;
+        }
+        // Counted once the page exists: a failed page must not keep its context from being renewed.
+        entry.pages++;
         return {
             page,
             release: async () => {
                 entry.open--;
+                entry.usedAt = this.now();
                 await page.close().catch(() => {});
+                this.sweep();
             },
         };
     }
 
+    /** robots.txt and the like, through the site's context, held open while the request runs. */
     async fetchText(url: string, profile: SiteProfile, proxy?: ProxyConfig) {
         const entry = await this.context(new URL(url).host, profile, proxy);
-        const res = await entry.context.request.get(url, { timeout: 15_000, failOnStatusCode: false });
-        return { status: res.status(), text: res.ok() ? await res.text() : '' };
+        entry.open++;
+        entry.usedAt = this.now();
+        try {
+            const res = await entry.context.request.get(url, { timeout: 15_000, failOnStatusCode: false });
+            return { status: res.status(), text: res.ok() ? await res.text() : '' };
+        } finally {
+            entry.open--;
+            entry.usedAt = this.now();
+        }
     }
 
     async close() {
         for (const made of this.contexts.values()) await made.then(e => e.context.close()).catch(() => {});
         this.contexts.clear();
+        this.ready.clear();
         const browser = this.browser;
         this.browser = null;
         await browser?.then(b => b.close()).catch(() => {});
