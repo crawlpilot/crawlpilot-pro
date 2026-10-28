@@ -29,6 +29,9 @@ describe('backend client', () => {
         expect(await api.reviewVersion(id, 2, { state: 'approved', by: 'reviewer', note: '' })).toEqual({ state: 'approved' });
         expect(await api.setLive(id, 2, 'ship')).toEqual({ live: 2 });
         expect(backend.log[0]).toBe('POST /recipes');
+
+        backend.wayStats.set(id, [{ field: 'title', wayId: 'w1', days: [{ date: '2026-09-01', tried: 4, matched: 4, won: 4 }, { date: '2026-10-01', tried: 2, matched: 1, won: 1 }] }]);
+        expect(await api.getWayStats(id, '2026-09-28')).toEqual([{ field: 'title', wayId: 'w1', days: [{ date: '2026-10-01', tried: 2, matched: 1, won: 1 }] }]);
     });
 
     it('tries again on 5xx and 429, then gives up as unavailable', async () => {

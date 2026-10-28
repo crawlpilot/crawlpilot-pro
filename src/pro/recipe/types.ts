@@ -9,7 +9,7 @@ import type { Shape } from '../../shared/extraction/shape';
 
 export type RecipeKind = 'page' | 'list';
 export type LabelName = 'latest' | 'test' | 'live';
-export type VersionOrigin = 'built' | 'edited' | 'imported' | 'repaired' | 'restored';
+export type VersionOrigin = 'built' | 'edited' | 'imported' | 'repaired' | 'restored' | 'pruned';
 
 export interface ProRecipe {
     id: string;

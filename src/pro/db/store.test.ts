@@ -194,3 +194,14 @@ describe('ways and targeting', () => {
         expect(JSON.stringify(back.spec)).toBe(JSON.stringify(v1.spec));
     });
 });
+
+describe('way stats', () => {
+    it('keep each way\'s days, a day reported again replacing the one kept', async () => {
+        await pro.wayStats.save('r1', [{ field: 'price', wayId: 'a', days: [{ date: '2026-10-01', tried: 10, matched: 9, won: 9 }, { date: '2026-10-02', tried: 5, matched: 5, won: 5 }] }]);
+        await pro.wayStats.save('r1', [{ field: 'price', wayId: 'a', days: [{ date: '2026-10-02', tried: 8, matched: 8, won: 7 }] }]);
+        await pro.wayStats.save('r2', [{ field: 'price', wayId: 'a', days: [{ date: '2026-10-02', tried: 1, matched: 1, won: 1 }] }]);
+        const kept = await pro.wayStats.list('r1');
+        expect(kept.map(d => [d.date, d.tried, d.won])).toEqual([['2026-10-01', 10, 9], ['2026-10-02', 8, 7]]);
+        expect(kept[0]).toMatchObject({ recipeId: 'r1', field: 'price', wayId: 'a' });
+    });
+});

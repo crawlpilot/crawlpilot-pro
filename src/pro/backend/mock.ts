@@ -3,7 +3,7 @@
  * and returns a status and JSON. Unit tests wrap it as `fetch`; the e2e harness serves it on a port.
  * A crawl moves one state on every read (queued → running → done) and reports each field filled.
  */
-import type { CrawlStatus, Schedule } from './types';
+import type { CrawlStatus, Schedule, WayStats } from './types';
 
 export interface MockRequest {
     method: string;
@@ -33,6 +33,8 @@ export interface MockBackend {
     log: string[];
     /** The next N requests answer this status (to try retries and errors). */
     failNext(status: number, times?: number): void;
+    /** What the workers reported per way, by backend recipe id: set by a test. */
+    wayStats: Map<string, WayStats[]>;
 }
 
 const STATES: CrawlStatus['status'][] = ['queued', 'running', 'done'];
@@ -42,6 +44,7 @@ export function createMockBackend(token = 'dev-token'): MockBackend {
     const crawls = new Map<string, MockCrawl>();
     const byKey = new Map<string, { recipeId: string; version: number }>();
     const log: string[] = [];
+    const wayStats = new Map<string, WayStats[]>();
     let failing: { status: number; times: number } | null = null;
     let n = 0;
 
@@ -99,6 +102,10 @@ export function createMockBackend(token = 'dev-token'): MockBackend {
             recipe.live = body.version;
             return json(200, { live: body.version });
         }
+        if (req.method === 'GET' && recipe && parts[2] === 'ways' && parts[3] === 'stats') {
+            const since = new URLSearchParams(req.path.split('?')[1] ?? '').get('since') ?? '';
+            return json(200, (wayStats.get(recipe.id) ?? []).map(w => ({ ...w, days: w.days.filter(d => d.date >= since) })));
+        }
         if (req.method === 'GET' && parts[0] === 'crawls' && parts.length === 2) {
             const crawl = crawls.get(parts[1]);
             if (!crawl) return json(404, { error: `No crawl ${parts[1]}.` });
@@ -117,7 +124,7 @@ export function createMockBackend(token = 'dev-token'): MockBackend {
         return json(404, { error: `No route ${req.method} ${req.path}.` });
     }
 
-    return { handle, recipes, crawls, log, failNext: (status, times = 1) => { failing = { status, times }; } };
+    return { handle, recipes, crawls, log, wayStats, failNext: (status, times = 1) => { failing = { status, times }; } };
 }
 
 /** The mock as `fetch`, for the client in unit tests. */

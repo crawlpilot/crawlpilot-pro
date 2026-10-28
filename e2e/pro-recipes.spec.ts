@@ -584,3 +584,89 @@ test('maintain: a crawl that fills a field much less flags the recipe; Repair op
     await ui.close();
     await page.close();
 });
+
+test('selectors: crawl usage labels each selector; Clean up saves a pruned version that keeps the ids', async ({ panel, ext, origin }) => {
+    test.setTimeout(120_000);
+    const mock = await serveMockBackend();
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 900 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    await ui.getByRole('button', { name: 'Backend' }).click();
+    await ui.getByLabel('Address').fill(mock.origin);
+    await ui.getByLabel('Access token').fill('dev-token');
+    await ui.getByRole('button', { name: 'Save' }).click();
+
+    const file = {
+        name: 'Tracked product', site: '127.0.0.1', built_on: `${origin}/site/json-product.html`,
+        checked_on: [`${origin}/site/json-shop.html`, `${origin}/site/article.html`],
+        spec: { kind: 'page', settings: { requestDelay: 100 }, elements: [
+            { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1', '.product-title', '.old-title'] },
+        ] },
+    };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 't.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await ui.getByRole('button', { name: 'History of Tracked product' }).click();
+
+    // Before a submit there is no usage: every selector is new.
+    const selectors = ui.getByTestId('pro-selectors');
+    await expect(selectors).toContainText('Usage comes from crawls once the recipe is submitted.');
+    await expect(selectors.getByTestId('pro-way')).toHaveCount(3);
+    await expect(selectors.getByText('new')).toHaveCount(3);
+    await expect(selectors.getByRole('button', { name: 'Clean up' })).toBeDisabled();
+
+    // Targeted, tested, approved by someone else and submitted.
+    await ui.getByRole('button', { name: 'Edit targeting' }).click();
+    await ui.getByLabel('Competitor').fill('acme');
+    await ui.getByLabel('Page type').fill('product');
+    await ui.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+    await ui.getByRole('button', { name: 'Edit fields' }).click();
+    await ui.getByTestId('pro-samples').getByRole('button', { name: 'Test on 3 pages' }).click();
+    await expect(ui.getByTestId('pro-readiness')).toHaveText('Ready to submit.', { timeout: 60_000 });
+    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await proSetName(ui, 'reviewer');
+    await ui.getByRole('button', { name: 'History of Tracked product' }).click();
+    await ui.getByRole('button', { name: 'Approve' }).click();
+    await ui.getByRole('dialog').getByRole('button', { name: 'Approve' }).click();
+    await ui.getByRole('button', { name: 'Submit' }).click();
+    await ui.getByRole('dialog').getByRole('button', { name: 'Submit' }).click();
+    await expect(ui.getByTestId('pro-crawl')).toBeVisible();
+
+    // The workers report: h1 always wins, .product-title finds the title but never wins, .old-title finds nothing.
+    const [v1] = await proStore(ui, 'versions');
+    const [h1, product, old] = v1.spec.steps[0].field.ways;
+    const today = new Date().toISOString().slice(0, 10);
+    const day = (wayId: string, matched: number, won: number) => ({ field: 'title', wayId, days: [{ date: today, tried: 120, matched, won }] });
+    mock.backend.wayStats.set([...mock.backend.recipes.keys()][0], [day(h1.id, 120, 120), day(product.id, 110, 0), day(old.id, 0, 0)]);
+    await selectors.getByRole('button', { name: 'Refresh usage' }).click();
+    const ways = selectors.getByTestId('pro-way');
+    await expect(ways.nth(0)).toContainText('h1');
+    await expect(ways.nth(0)).toContainText('won 120 of 120');
+    await expect(ways.nth(0)).toContainText('active');
+    await expect(ways.nth(1)).toContainText('won 0 of 120, found 110');
+    await expect(ways.nth(1)).toContainText('dormant');
+    await expect(ways.nth(2)).toContainText('dead');
+
+    // Clean up: the dead selector goes, as version 2, which keeps the other ids and starts unreviewed.
+    await selectors.getByRole('button', { name: 'Clean up' }).click();
+    await expect(ui.getByTestId('pro-cleanup')).toHaveText('Remove .old-title from title: tried and found nothing.');
+    await expect(ui.getByLabel('Version note')).toHaveValue('Clean up: 1 dead removed');
+    await ui.getByRole('dialog').getByRole('button', { name: 'Save v2' }).click();
+    const v2row = ui.getByTestId('pro-version').first();
+    await expect(v2row).toContainText('v2');
+    await expect(v2row).toContainText('pruned');
+    await expect(v2row).toContainText('needs review');
+    await expect(selectors).toContainText('Selectors in v2');
+    await expect(ways).toHaveCount(2);
+    await expect(selectors.getByRole('button', { name: 'Clean up' })).toBeDisabled();
+    const v2 = (await proStore(ui, 'versions')).find(v => v.version === 2);
+    expect(v2.spec.steps[0].field.ways.map((w: { id: string }) => w.id)).toEqual([h1.id, product.id]);
+    if (process.env.UX_SHOTS) await ui.screenshot({ path: `${process.env.UX_SHOTS}/pro-selectors.png`, fullPage: true });
+    mock.close();
+    await ui.close();
+    await page.close();
+});

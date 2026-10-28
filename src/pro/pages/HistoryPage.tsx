@@ -13,6 +13,7 @@ import { diffVersions, type ChangeKind } from '../recipe/diff';
 import { readiness, type Readiness } from '../recipe/ready';
 import { SubmitDialog } from './SubmitDialog';
 import { TargetingCard } from './TargetingCard';
+import { SelectorsCard } from './SelectorsCard';
 import { targetingReasons } from '../recipe/targeting';
 import type { CrawlRecord } from '../db/crawls';
 import { backendApi } from '../backend/settings';
@@ -159,6 +160,7 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
             <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
                 {error && <Notice tone="danger" onClose={() => setError(null)}>{error}</Notice>}
                 <TargetingCard recipe={recipe} samples={samples} onSaved={() => void load()} />
+                <SelectorsCard recipe={recipe} versions={versions} onSaved={() => void load()} />
 
                 {versions.length > 1 && pair && (
                     <Card className="flex flex-col gap-2" data-testid="pro-diff">

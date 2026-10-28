@@ -12,13 +12,15 @@
  * | `tests`    | auto                 | `[recipeId,digest]`, `recipeId` |
  * | `crawls`   | `crawlId`            | `recipeId`                      |
  * | `reviews`  | auto                 | `recipeId`                      |
+ * | `wayStats` | `[recipeId,wayId,date]` | `recipeId`                   |
  *
  * v2 adds `tests`: test runs, keyed by the tested spec's digest, so a draft tested in the editor counts
  * for the version it is saved as. v3 adds `crawls`: the backend crawls started from Pro, with their
- * last status. v4 adds `reviews`: approvals and rejections of versions, newest wins.
+ * last status. v4 adds `reviews`: approvals and rejections of versions, newest wins. v5 adds
+ * `wayStats`: each way's daily usage on crawls, as the backend reported it.
  */
 export const PRO_DB_NAME = 'crawlpilot-pro';
-export const PRO_DB_VERSION = 4;
+export const PRO_DB_VERSION = 5;
 
 export const STORES = {
     recipes: 'recipes',
@@ -29,6 +31,7 @@ export const STORES = {
     tests: 'tests',
     crawls: 'crawls',
     reviews: 'reviews',
+    wayStats: 'wayStats',
 } as const;
 
 export function upgrade(db: IDBDatabase, oldVersion: number): void {
@@ -53,5 +56,8 @@ export function upgrade(db: IDBDatabase, oldVersion: number): void {
     }
     if (oldVersion < 4) {
         db.createObjectStore(STORES.reviews, { keyPath: 'id', autoIncrement: true }).createIndex('recipeId', 'recipeId');
+    }
+    if (oldVersion < 5) {
+        db.createObjectStore(STORES.wayStats, { keyPath: ['recipeId', 'wayId', 'date'] }).createIndex('recipeId', 'recipeId');
     }
 }
