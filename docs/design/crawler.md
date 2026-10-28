@@ -1,0 +1,126 @@
+# Crawler worker
+
+The worker takes crawl jobs (one URL each), reads the page with the reviewed recipe version, and writes the result,
+selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`. Tracking issues: #7 (workers) and #8
+(one extraction engine).
+
+## How a job runs
+1. **Recipe.** The job's pinned version (`recipeDigest`; approved only, unless `mode: 'test'`), or the `live` version
+   the recipe store resolves for the job's competitor, page type and URL (`store.ts`). Resolves are cached for a minute,
+   versions for good; a version's spec is digested again and refused on a mismatch.
+2. **The site's turn** (`governor.ts`). Requests to one host start at least the site's delay apart, at most its
+   concurrency at once. A site cooling down puts the job back on the queue instead of holding a worker.
+3. **Proxy and robots.txt** (`proxies.ts`, `robots.ts`). A host keeps one proxy from its pool while that proxy works.
+   robots.txt is fetched through the same proxy and respected unless the site's profile says otherwise.
+4. **Visit** (`browser.ts`). Chromium, one context per site and proxy (cookies kept between pages, renewed after
+   `pagesPerContext`), rendering as the site's profile says: locale, timezone, viewport, user agent, extra headers.
+5. **Classify** (`classify.ts`), then, on a good page, **extract** (`inPage.ts`): the extension's own `extractPage`,
+   unchanged, bundled into one script, so a page reads the same here as in Pro's Test on this page. Values are cleaned
+   and checked with Pro's own `readPageResult`.
+6. **Decide** (`retry.ts`): retry here, put back on the queue, or finish (done, failed, dead letter).
+
+## Error classes and what happens
+
+| Class | From | Retry | Site | Proxy |
+| --- | --- | --- | --- | --- |
+| `dns`, `connection`, `timeout`, `proxy` | Chromium net error | Here, backoff, another proxy | — | Set aside after 2 |
+| `proxy_auth` | 407, proxy auth error | Here, another proxy | — | Set aside at once |
+| `tls`, `navigation` | Certificate error, redirect loop | No: failed | — | — |
+| `rate_limited` | 429 | Queue, after `Retry-After` or the cooldown | Cooldown, delay doubles | — |
+| `blocked` | 403; challenge headers or page (Cloudflare, DataDome, PerimeterX, Imperva, Akamai, block wording) | Queue, after the cooldown | Cooldown grows; `blocked` after 3 in a row | Never moves |
+| `captcha` | Captcha wording on a short page or an error page | As `blocked` | As `blocked` | Never moves |
+| `not_found`, `gone` | 404, 410 | No: failed; scrape written with `pageStatus: not_found` | — | — |
+| `client_error` | Other 4xx | No: failed | — | — |
+| `server_error` | 5xx | Here, backoff (`Retry-After` if sent) | Delay ×1.5 | — |
+| `empty_page` | A 2xx page with almost no text | Here, backoff | — | — |
+| `extraction` | The in-page script failed or timed out | Here, backoff | — | — |
+| `robots_disallowed` | robots.txt | No: failed | — | — |
+| `no_recipe` | No live recipe covers the page; pinned version not approved | Dead letter | — | — |
+| `recipe_store` | The store is down | Queue, backoff | — | — |
+
+Out of attempts (`retry.maxAttempts`, counted over every delivery of the job), a retryable job is dead-lettered.
+
+Captcha and challenge wording on a **2xx** page counts only when the page is short, as block pages are: shop pages
+often load a captcha script for a newsletter form, and that is not a block. On 4xx and 5xx pages it always counts.
+
+## Blocks: identified and resolved, not evaded
+A block is resolved by slowing down and waiting, never by changing who is asking. Per host:
+- 429: the delay doubles; the site cools down for `Retry-After`, or the delay, whichever is longer.
+- Block or captcha: the delay doubles; cooldown `cooldownBaseMs × 2^(n−1)` for the n-th block in a row; after
+  `blockAfter` in a row the site is `blocked` for `cooldownMaxMs` and a site event asks a person to look.
+- When a cooldown ends one request probes the site; a success puts it back to `ok`, and each success shortens the
+  delay by 10%, down to `minDelayMs`.
+
+A proxy changes only for failures at the proxy's end. The worker does not spoof browser fingerprints, solve captchas,
+or rotate identities to get past a block: those defeat a site's access controls, and the Pro plan leaves getting past
+bot checks to the backend team's policy.
+
+## Elasticsearch
+Install the templates once per cluster: `node src/pro/crawler/dist/worker.mjs --config crawler.json --setup-elasticsearch`.
+
+| Index | One document per | Id | Notes |
+| --- | --- | --- | --- |
+| `crawl-requests-YYYY.MM.DD` | Attempt | — | Status, kept headers and every header name, request headers (user agent, language), redirects, bytes, timings, proxy id and country, error class and message, block signal, `Retry-After`, next attempt, outcome, recipe |
+| `crawl-sites-YYYY.MM` | Site state change | — | `cooldown`, `blocked`, back to `ok`, with the reason and delay |
+| `scrapes-<competitor>` | Page | `jobId` | The values read (`attributes`, stored, not indexed: types differ by recipe), field status, page status, recipe version |
+| `selector-usage-YYYY.MM` | Page | `jobId` | `ways` nested: field, way id, tried, matched, won. Pro's selector labels add these up per way id |
+
+`test-` is put in front of the scrape and usage indices for `mode: 'test'`. A redelivered job overwrites its scrape and
+usage documents. Proxy credentials never reach a document: events carry the proxy's id and country.
+
+The writer batches (`batchSize`, `flushMs`), retries when Elasticsearch is down, re-sends items rejected with 429, and
+drops the oldest documents past `maxBuffer` with a log line: crawling never waits on telemetry.
+
+## List recipes
+A list recipe's page is read with each list's frozen fields (the List Extractor's own `readWhenReady`), one scrape
+document per row (id `jobId~listId~row`, with `listId`, `row` and `page`).
+- **Infinite scroll** (`auto`): the page is scrolled to the end first, until it stops growing (at most `maxListPages`).
+- **Load more**, and **Next controls that are buttons**: clicked, waited for and read again, up to `maxListPages`, until
+  the control is gone or disabled or nothing new comes. Rows read twice count once.
+- **Next controls that are links**: the next page is a job of its own (`jobId~p2`, `~p3`…, up to `maxListPages`),
+  pinned to the same version, so every page of one list is read with one recipe and has its own retries and telemetry.
+- **Details pages** (`followDetails`): each row's page is a job of its own (`jobId~d<list>.<row>`), pinned to the same
+  version and run with its details recipe; its scrape document carries `parent` (the list page's job, list and row) to
+  join it back. Two rows linking to one page share one job.
+
+Follow-up jobs are queued before the list page's job is acknowledged; their ids are stable, so a page read again
+queues the same jobs, which overwrite the same documents. List fields have no way ids, so lists write no selector
+usage; their details pages do.
+
+## Queue
+`queue.ts` takes jobs from a `JobQueue`: a file of jobs (`--jobs`), or Amazon SQS (`sqs.ts`, the `queue` setting):
+- long polling, at most 10 at a time; a received job is hidden for `visibilitySeconds`, so a job a worker dies on
+  comes back to another worker;
+- done: deleted. Deferred: sent again with its attempts and a `notBefore`; SQS delays a message 15 minutes at most,
+  and a job that arrives early is sent again for the rest. Dead letter: sent to `deadLetterUrl` with the reason;
+- follow-up jobs go ten at a time; a refused one leaves the job that led to them unacknowledged;
+- FIFO queues: grouped by competitor, deduplicated by job and attempt.
+
+SIGTERM (a container stopping) or Ctrl-C: no new jobs are taken, the ones in flight finish, Elasticsearch is flushed.
+
+## Daily rollup
+`--rollup [YYYY-MM-DD]` (yesterday by default; `rollup.ts`) adds up a day's `selector-usage-*` per recipe and way,
+counting only pages that loaded and leaving test crawls out, into `selector-usage-daily-YYYY`, id
+`recipeId:wayId:date`, so a rerun replaces the day. These are the days the store's `/ways/stats` returns and Pro labels
+selectors from. Run it once a day after midnight UTC (`deploy/crawler/README.md`).
+
+## Running it
+```
+npm run crawler:build
+node src/pro/crawler/dist/worker.mjs --config crawler.json                       # jobs from the configured SQS queue
+node src/pro/crawler/dist/worker.mjs --config crawler.json --jobs jobs.jsonl     # or a file of jobs
+node src/pro/crawler/dist/worker.mjs --config crawler.json --setup-elasticsearch # templates, once per cluster
+node src/pro/crawler/dist/worker.mjs --config crawler.json --rollup              # yesterday's selector usage
+```
+The configuration is `--config <file>` or the JSON in `CRAWLER_CONFIG`. `crawler.example.json` shows every setting;
+`${NAME}` in a string is read from the environment (proxy passwords, the store token, the Elasticsearch key).
+`CHROMIUM_PATH` points at another Chromium. Jobs are JSON:
+`{ "jobId", "url", "competitor", "pageType", "recipeDigest"?, "mode"?, "runId"?, "meta"? }`.
+
+The container image and an ECS on Fargate deployment are in `deploy/crawler/` (`README.md` there).
+
+## Not built yet
+- The SQS adapter is tested against a fake client only, not a real queue or an SQS-compatible server.
+- A slimmer image (Chromium's headless shell only): see `deploy/crawler/README.md`.
+- Infrastructure as code (the deployment is JSON templates and steps).
+- Lists read from the page's JSON rather than its DOM are read as the List Extractor reads them, but untested here.

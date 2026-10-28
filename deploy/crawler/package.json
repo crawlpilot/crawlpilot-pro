@@ -1,0 +1,10 @@
+{
+  "name": "crawlpilot-crawler",
+  "private": true,
+  "description": "What the crawler worker loads at runtime. Kept to the versions in the root package-lock.json (checked by src/pro/crawler/deploy.test.ts).",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-sqs": "3.1151.0",
+    "playwright": "1.62.1"
+  }
+}
