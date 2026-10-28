@@ -71,6 +71,26 @@ usage documents. Proxy credentials never reach a document: events carry the prox
 The writer batches (`batchSize`, `flushMs`), retries when Elasticsearch is down, re-sends items rejected with 429, and
 drops the oldest documents past `maxBuffer` with a log line: crawling never waits on telemetry.
 
+## Resilience
+What the worker does when its own dependencies fail, so one fault never takes the whole worker down or empties
+the queue (`resilience.test.ts` covers each):
+- **A job's attempt** has a deadline (navigation, `load`, extraction or list reading, and a margin). Past it the page is
+  closed and the attempt is a `timeout`. The site's slot is given back exactly once, whatever throws.
+- **A busy site** is waited for at most `retry.maxInlineWaitMs`; then the job goes back on the queue, no attempt counted.
+- **The recipe store down**: the job waits 30 s, doubling to 10 minutes (`storeFailures` on the job), and no attempt is
+  counted. **A paused recipe**: its jobs wait 10 minutes and come back, never dropped.
+- **The browser** (`browser`): a crash or out-of-memory kill disconnects it; the pool forgets it and its contexts and the
+  next page starts a new one. A dead browser or context is not the job's fault: the job comes back in 5 s, its attempt
+  not counted. Five browser failures in a row stop the worker with exit code 1, so the task is replaced. A page that
+  crashes its own tab (`page_crashed`) is the page's, and counted.
+- **The queue**: a settle that fails (ack, re-queue, dead letter, follow-ups) is logged and the message left to come back
+  when its visibility ends; a receive that fails is tried again after 1 s, doubling to 30 s. One message that can't be
+  moved doesn't cost the rest of its batch.
+- **Stopping** (SIGTERM): no new attempt starts; jobs not yet at the page go back on the queue at once.
+- **Liveness**: while jobs settle, the worker touches a heartbeat file; jobs in flight with none settled for 15 minutes
+  stop it, and the container health check (`deploy/crawler/ecs-task-definition.json`) replaces the task.
+- A stray rejected promise is logged, not fatal.
+
 ## List recipes
 A list recipe's page is read with each list's frozen fields (the List Extractor's own `readWhenReady`), one scrape
 document per row (id `jobId~listId~row`, with `listId`, `row` and `page`).

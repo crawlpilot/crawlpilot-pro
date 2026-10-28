@@ -23,6 +23,7 @@ import type { RobotsCache } from './robots';
 import type { SearchSink } from './search';
 import type { RecipeStore, ResolvedRecipe } from './store';
 import type { CrawlJob, RequestEvent, ScrapeDoc, SelectorUsageDoc, SiteEvent } from './types';
+import type { Vitals } from './vitals';
 
 export interface WorkerDeps {
     config: CrawlerConfig;
@@ -35,16 +36,34 @@ export interface WorkerDeps {
     robots: RobotsCache | null;
     /** The in-page script (`dist/inpage.js`). */
     script: string;
+    /** Told when the browser fails or works (`vitals.ts`). */
+    vitals?: Vitals;
+    /** The worker is stopping: take no new attempt. */
+    stopped?: () => boolean;
     now?: () => number;
     sleep?: (ms: number) => Promise<void>;
     random?: () => number;
 }
 
 export type JobResult =
-    | { outcome: 'success' | 'failed' | 'dead_letter'; attempts: number; reason?: string; followUps?: CrawlJob[] }
-    | { outcome: 'deferred'; attempts: number; delayMs: number; reason: string };
+    | { outcome: 'success' | 'failed' | 'dead_letter'; attempts: number; reason?: string; followUps?: CrawlJob[]; patch?: Partial<CrawlJob> }
+    | { outcome: 'deferred'; attempts: number; delayMs: number; reason: string; patch?: Partial<CrawlJob> };
 
 const EXTRACT_TIMEOUT_MS = 60_000;
+/** Waited for `load` after the page's DOM is in (`browser.ts`), and room for the rest of an attempt. */
+const LOAD_WAIT_MS = 10_000;
+const ATTEMPT_MARGIN_MS = 15_000;
+/** A dead browser: the job comes back soon, to a browser started again (or another task). */
+const BROWSER_DELAY_MS = 5_000;
+const PAUSED_DELAY_MS = 10 * 60_000;
+
+/** A store outage: 30 s, then doubling, up to 10 minutes, with jitter so jobs don't come back together. */
+export function storeDelay(failures: number, random: () => number): number {
+    const cap = Math.min(600_000, 30_000 * 2 ** (failures - 1));
+    return Math.round(cap / 2 + random() * cap / 2);
+}
+
+const proxyOf = (proxy?: ProxyConfig) => proxy ? { proxyId: proxy.id, ...(proxy.country ? { proxyCountry: proxy.country } : {}) } : {};
 /** A list page clicked through several times takes longer. */
 const LIST_TIMEOUT_MS = 180_000;
 
@@ -84,19 +103,27 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
     });
     const emit = (e: RequestEvent) => d.sink.write(indices.requests(now()), e);
 
-    // 1. The recipe. A store failure is not the site's: no attempt is counted against it.
+    // 1. The recipe. A store outage or a paused recipe is not the job's: it waits, and no attempt is counted.
     let recipe: ResolvedRecipe;
     try {
         recipe = await d.store.recipeFor(job);
     } catch (e) {
         const c = e instanceof CrawlError ? classOf(e.errorClass) : classOf('recipe_store');
         const message = e instanceof Error ? e.message : String(e);
+        if (c.errorClass === 'recipe_store' || c.errorClass === 'paused') {
+            const failures = (job.storeFailures ?? 0) + 1;
+            const delayMs = c.errorClass === 'paused' ? PAUSED_DELAY_MS : storeDelay(failures, d.random ?? Math.random);
+            emit({ ...base(), attempt: before, final: true, outcome: 'deferred', timings: { totalMs: 0 }, errorClass: c.errorClass, errorMessage: message, nextAttemptInMs: delayMs });
+            return { outcome: 'deferred', attempts: before, delayMs, reason: message, ...(c.errorClass === 'recipe_store' ? { patch: { storeFailures: failures } } : {}) };
+        }
         const decision = decide(c, before + 1, config.retry, undefined, d.random);
         const outcome = decision.action === 'done' ? decision.outcome : 'deferred';
         emit({ ...base(), attempt: before + 1, final: true, outcome, timings: { totalMs: 0 }, errorClass: c.errorClass, errorMessage: message });
         if (decision.action === 'done') return { outcome: decision.outcome, attempts: before + 1, reason: message };
         return { outcome: 'deferred', attempts: before + 1, delayMs: decision.action === 'defer' ? decision.delayMs : decision.waitMs, reason: message };
     }
+    // The store answered: a later outage starts its wait from the beginning again.
+    const storeReset = job.storeFailures ? { patch: { storeFailures: 0 } } : {};
     const ref = { recipeId: recipe.recipeId, version: recipe.version, digest: recipe.digest };
     let part: ReturnType<typeof partOf>;
     try {
@@ -108,69 +135,109 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
     }
     const request = 'page' in part ? inPageRequest(part.page, recipe.settings) : undefined;
     const failedProxies = new Set<string>();
+    // How long one attempt may take, open to close: past it the page is closed and the attempt is a timeout.
+    const attemptMs = config.navigationTimeoutMs + LOAD_WAIT_MS + config.settleMs + ('page' in part ? EXTRACT_TIMEOUT_MS : LIST_TIMEOUT_MS) + ATTEMPT_MARGIN_MS;
+    let waitedBusy = 0;
 
     for (let attempt = before + 1; ; attempt++) {
-        // 2. The site's turn.
+        // Stopping (SIGTERM): what has not started goes back on the queue at once, its attempt not counted.
+        if (d.stopped?.()) return { outcome: 'deferred', attempts: attempt - 1, delayMs: 0, reason: 'worker stopping', ...storeReset };
+
+        // 2. The site's turn. A busy site is waited for a little, then the job goes back on the queue.
         const slot = d.governor.reserve(host);
         if ('deferMs' in slot) {
-            if (slot.reason === 'busy' && slot.deferMs <= config.retry.maxInlineWaitMs) { await sleep(slot.deferMs); attempt--; continue; }
-            return { outcome: 'deferred', attempts: attempt - 1, delayMs: slot.deferMs, reason: `site ${slot.reason}` };
-        }
-        if (slot.waitMs > 0) await sleep(slot.waitMs);
-        const started = now();
-
-        // 3. A proxy, and robots.txt.
-        let proxy: ProxyConfig | undefined;
-        if (pool) {
-            proxy = pool.pick(host, profile.proxyCountry, failedProxies);
-            if (!proxy) {
-                d.governor.done(host, classOf('proxy'));
-                emit({ ...base(), attempt, final: true, outcome: 'deferred', timings: { totalMs: 0 }, errorClass: 'proxy', errorMessage: `No healthy proxy in pool ${profile.proxyPool}` });
-                return { outcome: 'deferred', attempts: attempt, delayMs: 60_000, reason: 'no healthy proxy' };
+            if (slot.reason === 'busy' && waitedBusy + slot.deferMs <= config.retry.maxInlineWaitMs) {
+                waitedBusy += slot.deferMs;
+                await sleep(slot.deferMs);
+                attempt--;
+                continue;
             }
+            return { outcome: 'deferred', attempts: attempt - 1, delayMs: slot.deferMs, reason: `site ${slot.reason}`, ...storeReset };
         }
-        const proxyFields = proxy ? { proxyId: proxy.id, ...(proxy.country ? { proxyCountry: proxy.country } : {}) } : {};
-        if (d.robots && profile.respectRobots !== false && !await d.robots.allowed(job.url).catch(() => true)) {
-            const c = classOf('robots_disallowed');
-            d.governor.done(host, c);
-            emit({ ...base(), ...proxyFields, attempt, final: true, outcome: 'failed', timings: { totalMs: now() - started }, errorClass: c.errorClass, errorMessage: 'robots.txt disallows this URL' });
-            return { outcome: 'failed', attempts: attempt, reason: 'robots.txt' };
-        }
-
-        // 4. Visit, classify, extract.
+        // From here the site's slot is held: it is given back exactly once, whatever happens.
+        let released = false;
+        const done = (cls: Classification) => { if (!released) { released = true; d.governor.done(host, cls); } };
         let c: Classification = classOf('unknown');
         let v: Visit = { redirects: [], navigationMs: 0 };
         let read: RunRead | undefined;
         let listRead: ListRead | undefined;
         let extractMs: number | undefined;
         let errorMessage: string | undefined;
+        let proxy: ProxyConfig | undefined;
+        let started = now();
         try {
-            const { page, release } = await d.pages.open(host, profile, proxy);
-            try {
-                v = await visit(page, job.url, { timeoutMs: config.navigationTimeoutMs, settleMs: config.settleMs, now });
-                c = classify({ error: v.error, status: v.status, headers: v.headers, title: v.title, text: v.text }, now());
-                errorMessage = v.error;
-                if (c.errorClass === 'none') {
-                    const t = now();
-                    try {
-                        if ('page' in part) read = readRun(part.page, v.finalUrl ?? job.url, await extract(page, d.script, request!, EXTRACT_TIMEOUT_MS));
-                        else listRead = await readListPages(page, d.script, part.list, { maxPages: config.maxListPages, settleMs: config.settleMs, timeoutMs: LIST_TIMEOUT_MS });
-                    } catch (e) {
-                        c = classOf('extraction');
-                        errorMessage = e instanceof Error ? e.message : String(e);
-                    }
-                    extractMs = now() - t;
+            if (slot.waitMs > 0) await sleep(slot.waitMs);
+            started = now();
+
+            // 3. A proxy, and robots.txt. Running out of proxies is no attempt at the page.
+            if (pool) {
+                proxy = pool.pick(host, profile.proxyCountry, failedProxies);
+                if (!proxy) {
+                    done(classOf('proxy'));
+                    emit({ ...base(), attempt, final: true, outcome: 'deferred', timings: { totalMs: 0 }, errorClass: 'proxy', errorMessage: `No healthy proxy in pool ${profile.proxyPool}` });
+                    return { outcome: 'deferred', attempts: attempt - 1, delayMs: 60_000, reason: 'no healthy proxy', ...storeReset };
                 }
-            } finally {
-                await release();
+            }
+            if (d.robots && profile.respectRobots !== false && !await d.robots.allowed(job.url).catch(() => true)) {
+                const r = classOf('robots_disallowed');
+                done(r);
+                emit({ ...base(), ...proxyOf(proxy), attempt, final: true, outcome: 'failed', timings: { totalMs: now() - started }, errorClass: r.errorClass, errorMessage: 'robots.txt disallows this URL' });
+                return { outcome: 'failed', attempts: attempt, reason: 'robots.txt', ...storeReset };
+            }
+
+            // 4. Visit, classify, extract, within the attempt's deadline.
+            let timedOut = false;
+            try {
+                const { page, release } = await d.pages.open(host, profile, proxy);
+                const deadline = setTimeout(() => { timedOut = true; void page.close().catch(() => {}); }, attemptMs);
+                try {
+                    v = await visit(page, job.url, { timeoutMs: config.navigationTimeoutMs, settleMs: config.settleMs, now });
+                    c = classify({ error: v.error, status: v.status, headers: v.headers, title: v.title, text: v.text }, now());
+                    errorMessage = v.error;
+                    if (c.errorClass === 'none') {
+                        const t = now();
+                        try {
+                            if ('page' in part) read = readRun(part.page, v.finalUrl ?? job.url, await extract(page, d.script, request!, EXTRACT_TIMEOUT_MS));
+                            else listRead = await readListPages(page, d.script, part.list, { maxPages: config.maxListPages, settleMs: config.settleMs, timeoutMs: LIST_TIMEOUT_MS });
+                        } catch (e) {
+                            c = classify({ error: e instanceof Error ? e.message : String(e) });
+                            if (c.errorClass === 'unknown') c = classOf('extraction');
+                            errorMessage = e instanceof Error ? e.message : String(e);
+                        }
+                        extractMs = now() - t;
+                    }
+                } finally {
+                    clearTimeout(deadline);
+                    await release();
+                }
+            } catch (e) {
+                // The browser failed: it crashed, could not start, or a page or context could not be made.
+                errorMessage = e instanceof Error ? e.message : String(e);
+                c = classify({ error: errorMessage });
+                if (c.errorClass === 'unknown') c = classOf('browser');
+            }
+            // A page the deadline closed is a timeout, whatever its pending calls failed with.
+            if (timedOut) {
+                c = classOf('timeout');
+                errorMessage = `The attempt took longer than ${attemptMs} ms; the page was closed`;
             }
         } catch (e) {
-            // The browser itself failed (it crashed, or a context could not be made).
-            errorMessage = e instanceof Error ? e.message : String(e);
+            done(classOf('unknown'));
+            throw e;
         }
 
+        // The browser, not the page: no attempt is counted, and the worker is told, so a browser that keeps
+        // failing gets the task replaced.
+        if (c.errorClass === 'browser') {
+            done(c);
+            d.vitals?.browserFailed();
+            emit({ ...base(), ...proxyOf(proxy), attempt, final: true, outcome: 'deferred', timings: { totalMs: now() - started }, errorClass: 'browser', errorMessage: errorMessage?.slice(0, 500), nextAttemptInMs: BROWSER_DELAY_MS, recipe: ref });
+            return { outcome: 'deferred', attempts: attempt - 1, delayMs: BROWSER_DELAY_MS, reason: `browser: ${errorMessage?.slice(0, 200) ?? ''}`, ...storeReset };
+        }
+        d.vitals?.browserWorked();
+
         // 5. What it means for the site and the proxy.
-        d.governor.done(host, c);
+        done(c);
         if (proxy) pool?.report(proxy.id, c.errorClass);
         if (proxy && ProxyPool.isProxyFault(c.errorClass)) failedProxies.add(proxy.id);
         const site = d.governor.stateOf(host);
@@ -187,7 +254,7 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
         const outcome: RequestEvent['outcome'] = decision.action === 'done' ? decision.outcome : decision.action === 'defer' ? 'deferred' : 'retry';
         const kept = v.headers ? keepHeaders(v.headers) : undefined;
         emit({
-            ...base(), ...proxyFields, attempt, final, outcome,
+            ...base(), ...proxyOf(proxy), attempt, final, outcome,
             ...(v.finalUrl ? { finalUrl: v.finalUrl } : {}),
             ...(v.status !== undefined ? { status: v.status } : {}),
             ...(kept ? kept : {}),
@@ -226,12 +293,13 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
                 } satisfies SelectorUsageDoc, job.jobId);
             }
             return {
-                outcome: decision.outcome, attempts: attempt,
+                outcome: decision.outcome, attempts: attempt, ...storeReset,
                 ...(decision.outcome !== 'success' ? { reason: errorMessage ? `${c.errorClass}: ${errorMessage.slice(0, 200)}` : c.errorClass } : {}),
                 ...(next.length ? { followUps: next } : {}),
             };
         }
-        if (decision.action === 'defer') return { outcome: 'deferred', attempts: attempt, delayMs: decision.delayMs, reason: c.errorClass };
+        if (decision.action === 'defer') return { outcome: 'deferred', attempts: attempt, delayMs: decision.delayMs, reason: c.errorClass, ...storeReset };
+        if (d.stopped?.()) return { outcome: 'deferred', attempts: attempt, delayMs: 0, reason: 'worker stopping', ...storeReset };
         await sleep(decision.waitMs);
     }
 }
