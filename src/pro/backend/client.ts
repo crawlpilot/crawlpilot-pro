@@ -52,6 +52,7 @@ export function createClient({ baseUrl, token, fetch: doFetch = (...a) => fetch(
     return {
         createRecipe: input => call('POST', '/recipes', input),
         uploadVersion: (recipeId, file, digest) => call('POST', `/recipes/${encodeURIComponent(recipeId)}/versions`, file, { 'idempotency-key': digest }),
+        reviewVersion: (recipeId, version, review) => call('POST', `/recipes/${encodeURIComponent(recipeId)}/versions/${version}/review`, review),
         startCrawl: (recipeId, input) => call('POST', `/recipes/${encodeURIComponent(recipeId)}/crawls`, input),
         getCrawl: crawlId => call<CrawlStatus>('GET', `/crawls/${encodeURIComponent(crawlId)}`),
         setLive: (recipeId, version, reason) => call('POST', `/recipes/${encodeURIComponent(recipeId)}/labels/live`, { version, reason }),

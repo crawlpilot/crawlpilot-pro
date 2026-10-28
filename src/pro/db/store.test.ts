@@ -3,7 +3,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import uniqlo from '../../shared/samples/recipes/uniqlo-product.json';
 import zara from '../../shared/samples/recipes/zara-product.json';
-import { pro, SaveRefused } from './index';
+import { pro, ReviewRefused, SaveRefused } from './index';
 import { closeProDatabase } from './idb';
 import { readRecipeFile, writeRecipeFile } from '../recipe/file';
 import type { VersionDraft } from '../recipe/types';
@@ -79,12 +79,47 @@ describe('labels', () => {
         const recipe = await pro.recipes.create({ name: 'ZARA', site: 'zara.com', kind: 'page' });
         const v1 = await pro.versions.save(recipe.id, 0, draftOf(zara), by);
         await pro.versions.save(recipe.id, 1, edited(v1), by);
+        for (const v of [1, 2]) await pro.reviews.review(recipe.id, v, { state: 'approved', by: 'reviewer', note: '' });
         await pro.recipes.moveLabel(recipe.id, 'live', 2, 'tester', 'ship');
         await pro.recipes.moveLabel(recipe.id, 'live', 1, 'tester', 'roll back');
         await expect(pro.recipes.moveLabel(recipe.id, 'live', 9, 'tester', 'x')).rejects.toThrow('No version 9');
 
         expect((await pro.recipes.get(recipe.id))?.labels).toEqual({ latest: 2, live: 1 });
         expect((await pro.recipes.labelLog(recipe.id))[0]).toMatchObject({ label: 'live', from: 2, to: 1, reason: 'roll back' });
+    });
+});
+
+describe('reviews', () => {
+    async function twoVersions() {
+        const recipe = await pro.recipes.create({ name: 'ZARA', site: 'zara.com', kind: 'page' });
+        const v1 = await pro.versions.save(recipe.id, 0, draftOf(zara), by);
+        await pro.versions.save(recipe.id, 1, edited(v1), by);
+        return recipe;
+    }
+
+    it('are refused from the version\'s author, and a rejection needs a reason', async () => {
+        const recipe = await twoVersions();
+        await expect(pro.reviews.review(recipe.id, 1, { state: 'approved', by: 'tester', note: '' })).rejects.toBeInstanceOf(ReviewRefused);
+        await expect(pro.reviews.review(recipe.id, 1, { state: 'rejected', by: 'reviewer', note: ' ' })).rejects.toThrow('Say why');
+        await expect(pro.reviews.review(recipe.id, 9, { state: 'approved', by: 'reviewer', note: '' })).rejects.toThrow('No version 9');
+        expect(await pro.reviews.list(recipe.id)).toEqual([]);
+    });
+
+    it('decide by the newest one, and only an approved version can be live', async () => {
+        const recipe = await twoVersions();
+        await expect(pro.recipes.moveLabel(recipe.id, 'live', 2, 'tester', 'ship')).rejects.toThrow('v2 cannot be live. Not reviewed');
+
+        await pro.reviews.review(recipe.id, 2, { state: 'approved', by: 'reviewer', note: 'looks right' });
+        await pro.reviews.review(recipe.id, 2, { state: 'rejected', by: 'lead', note: 'price reads the old price' });
+        expect((await pro.reviews.states(recipe.id)).get(2)).toMatchObject({ state: 'rejected', by: 'lead' });
+        await expect(pro.recipes.moveLabel(recipe.id, 'live', 2, 'tester', 'ship')).rejects.toThrow('Rejected by lead: price reads the old price');
+
+        await pro.reviews.review(recipe.id, 2, { state: 'approved', by: 'lead', note: 'fixed on the site' });
+        await pro.recipes.moveLabel(recipe.id, 'live', 2, 'tester', 'ship');
+        // A test label needs no review.
+        await pro.recipes.moveLabel(recipe.id, 'test', 1, 'tester', 'try');
+        expect((await pro.recipes.get(recipe.id))?.labels).toEqual({ latest: 2, live: 2, test: 1 });
+        expect(await pro.reviews.list(recipe.id)).toHaveLength(3);
     });
 });
 

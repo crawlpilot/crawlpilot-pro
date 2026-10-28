@@ -1,13 +1,14 @@
 /**
  * One recipe's history (`docs/design/LLD.md` §10): its labels, every version with its note, what changed
  * between any two versions, restoring an old version as the newest, and moving `live` and `test` with a
- * reason. Every label move is listed.
+ * reason. Every label move is listed. Someone other than a version's author approves or rejects it, and only an
+ * approved version can be marked live or submitted.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { GitCompare, Pencil, RefreshCw, RotateCcw, Send, Tag, Wrench } from 'lucide-react';
+import { Check, GitCompare, Pencil, RefreshCw, RotateCcw, Send, Tag, Wrench, X } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Card, Chip, Dialog, Notice, Select, Text, TextField, type ChipTone } from '../../sidepanel/ui';
-import { pro } from '../db';
+import { pro, reviewReason } from '../db';
 import { diffVersions, type ChangeKind } from '../recipe/diff';
 import { readiness, type Readiness } from '../recipe/ready';
 import { SubmitDialog } from './SubmitDialog';
@@ -16,11 +17,11 @@ import { targetingReasons } from '../recipe/targeting';
 import type { CrawlRecord } from '../db/crawls';
 import { backendApi } from '../backend/settings';
 import { refreshCrawls } from '../backend/submit';
-import { LOCAL_AUTHOR } from '../edit';
+import { currentUser } from '../identity';
 import { openedRecipe, openRepair } from '../nav';
 import { healthOf } from '../maintain';
 import type { CrawlHealth } from '../recipe/health';
-import type { LabelMove, LabelName, ProRecipe, Version } from '../recipe/types';
+import type { LabelMove, LabelName, ProRecipe, Review, ReviewState, Version } from '../recipe/types';
 
 interface Props {
     onBack: () => void;
@@ -41,6 +42,10 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
     const [versions, setVersions] = useState<Version[]>([]);
     const [log, setLog] = useState<LabelMove[]>([]);
     const [samples, setSamples] = useState<string[]>([]);
+    const [reviews, setReviews] = useState<Map<number, Review>>(new Map());
+    const [user, setUser] = useState('');
+    const [reviewing, setReviewing] = useState<{ state: ReviewState; version: number } | null>(null);
+    const [note, setNote] = useState('');
     const [ready, setReady] = useState<Map<number, Readiness>>(new Map());
     const [submitting, setSubmitting] = useState<Version | null>(null);
     const [crawls, setCrawls] = useState<CrawlRecord[]>([]);
@@ -62,6 +67,8 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
         const [r, vs, moves, ss] = await Promise.all([pro.recipes.get(recipeId), pro.versions.list(recipeId), pro.recipes.labelLog(recipeId), pro.samples.list(recipeId)]);
         setRecipe(r ?? null);
         setSamples(ss.map(s => s.url));
+        setReviews(await pro.reviews.states(recipeId));
+        setUser(await currentUser());
         setVersions(vs);
         setLog(moves);
         await showCrawls(await pro.crawls.list(recipeId));
@@ -103,9 +110,20 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
     const restore = async (version: number) => {
         setError(null);
         try {
-            const v = await pro.versions.restore(recipe.id, version, LOCAL_AUTHOR);
+            const v = await pro.versions.restore(recipe.id, version, await currentUser());
             setPair({ from: v.parentVersion!, to: v.version });
         } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+        await load();
+    };
+
+    const review = async () => {
+        if (!reviewing) return;
+        setError(null);
+        try {
+            await pro.reviews.review(recipe.id, reviewing.version, { state: reviewing.state, by: user, note });
+        } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+        setReviewing(null);
+        setNote('');
         await load();
     };
 
@@ -124,7 +142,7 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
                 return;
             }
         }
-        await pro.recipes.moveLabel(recipe.id, labelling.label, labelling.version, LOCAL_AUTHOR, reason.trim());
+        await pro.recipes.moveLabel(recipe.id, labelling.label, labelling.version, await currentUser(), reason.trim());
         setLabelling(null);
         setReason('');
         await load();
@@ -169,15 +187,21 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
                             <Chip tone="outline">{v.origin}</Chip>
                             {v.submittedAt && <Chip tone="brand">submitted</Chip>}
                             <LabelChips recipe={recipe} version={v.version} />
+                            {reviews.get(v.version)
+                                ? <Chip tone={reviews.get(v.version)!.state === 'approved' ? 'success' : 'danger'}>{reviews.get(v.version)!.state} by {reviews.get(v.version)!.by}</Chip>
+                                : <Chip tone="warning">needs review</Chip>}
                         </div>
                         {v.note && <Text size="small">{v.note}</Text>}
+                        {reviews.get(v.version)?.note && <Text size="caption" tone="muted" data-testid="pro-review-note">{reviews.get(v.version)!.by}: {reviews.get(v.version)!.note}</Text>}
                         {ready.get(v.version) && (ready.get(v.version)!.ready
                             ? <div><Chip tone="success">ready to submit</Chip></div>
                             : <Text size="caption" tone="warning" data-testid="pro-not-ready">Not ready: {ready.get(v.version)!.reasons.join(' ')}</Text>)}
                         <Text size="caption" tone="faint">{when(v.createdAt)} · {v.author}{v.parentVersion ? ` · from v${v.parentVersion}` : ''}</Text>
                         <div className="flex flex-wrap gap-1">
                             {versions[i + 1] && <Button size="sm" variant="ghost" icon={<GitCompare />} onClick={() => setPair({ from: v.parentVersion ?? versions[i + 1].version, to: v.version })}>Changes</Button>}
-                            <Button size="sm" variant="ghost" icon={<Tag />} onClick={() => setLabelling({ label: 'live', version: v.version })} disabled={recipe.labels.live === v.version}>Mark live</Button>
+                            {v.author !== user && reviews.get(v.version)?.state !== 'approved' && <Button size="sm" variant="ghost" icon={<Check />} onClick={() => setReviewing({ state: 'approved', version: v.version })}>Approve</Button>}
+                            {v.author !== user && reviews.get(v.version)?.state !== 'rejected' && <Button size="sm" variant="ghost" icon={<X />} onClick={() => setReviewing({ state: 'rejected', version: v.version })}>Reject</Button>}
+                            <Button size="sm" variant="ghost" icon={<Tag />} onClick={() => setLabelling({ label: 'live', version: v.version })} disabled={recipe.labels.live === v.version || !!reviewReason(reviews.get(v.version))}>Mark live</Button>
                             <Button size="sm" variant="ghost" icon={<Tag />} onClick={() => setLabelling({ label: 'test', version: v.version })} disabled={recipe.labels.test === v.version}>Mark test</Button>
                             {i > 0 && <Button size="sm" variant="ghost" icon={<RotateCcw />} onClick={() => restore(v.version)}>Restore</Button>}
                             {ready.get(v.version)?.ready && <Button size="sm" variant="primary" icon={<Send />} onClick={() => setSubmitting(v)}>{v.submittedAt ? 'Crawl again' : 'Submit'}</Button>}
@@ -229,7 +253,16 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
                 )}
             </div>
 
-            <SubmitDialog recipe={recipe} version={submitting} blockers={targetingReasons(recipe, samples)} onClose={() => setSubmitting(null)} onSubmitted={() => void load()} />
+            <SubmitDialog recipe={recipe} version={submitting} blockers={[...targetingReasons(recipe, samples), ...[submitting && reviewReason(reviews.get(submitting.version))].filter((r): r is string => !!r)]} onClose={() => setSubmitting(null)} onSubmitted={() => void load()} />
+            <Dialog open={!!reviewing} onClose={() => setReviewing(null)} size="sm"
+                title={reviewing ? `${reviewing.state === 'approved' ? 'Approve' : 'Reject'} v${reviewing.version}` : ''}
+                description={reviewing?.state === 'approved' ? 'An approved version can be marked live and submitted.' : 'A rejected version cannot go live until someone approves it again.'}
+                actions={<>
+                    <Button variant="ghost" onClick={() => setReviewing(null)}>Cancel</Button>
+                    <Button variant="primary" onClick={review} disabled={reviewing?.state === 'rejected' && !note.trim()}>{reviewing?.state === 'approved' ? 'Approve' : 'Reject'}</Button>
+                </>}>
+                <TextField label={reviewing?.state === 'rejected' ? 'Why' : 'Note (optional)'} value={note} onChange={e => setNote(e.target.value)} placeholder={reviewing?.state === 'rejected' ? 'Price reads the old price' : 'Checked the test grid'} autoFocus />
+            </Dialog>
             <Dialog open={!!labelling} onClose={() => setLabelling(null)} size="sm"
                 title={labelling ? `Mark v${labelling.version} as ${labelling.label}` : ''}
                 description={labelling?.label === 'live' ? 'Live is the version the backend runs. Moving it back is a rollback.' : 'Test is the version being tried before it goes live.'}

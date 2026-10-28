@@ -143,9 +143,10 @@ The database is separate from upstream's `crawl-pilot`.
 | `tests` | `id` | `[recipeId, version]`, `at` | keep the latest 20 per version |
 | `golden` | `[recipeId, version, url]` | `recipeId` | `html` as a Blob; at most 10 per version |
 | `drafts` | `recipeId` | | autosave of the open editor; one per recipe |
+| `reviews` | auto | `recipeId` | approvals and rejections of versions, kept apart from them; the newest per version wins (schema v4) |
 
 - Version 1 of the schema creates all of these stores. Later changes add migrations in `schema.ts`, in the same style as upstream's `shared/db/schema.ts`.
-- `chrome.storage.session` holds only the auth token, never recipe data.
+- `chrome.storage.session` holds only the auth token, never recipe data. `chrome.storage.local` holds the backend address and `pro.user`, the name kept on saves, reviews and label moves until sign-in (`identity.ts`).
 
 ## 4. Canonical form and digests
 ### 4.1 Canonical JSON
@@ -242,6 +243,8 @@ The function returns `{ ready: boolean, reasons: string[] }`. The Submit dialog 
 
 The recipe has its own gate, apart from any version (`targeting.ts`, `targetingReasons`): a competitor and a page type are set, because the crawler workers find a recipe by them, and the match rules, if any, cover every sample page. History shows it in the Crawler targeting card, the Submit dialog shows it and keeps Submit off, and `submitVersion` refuses without it.
 
+**Review** (`db/reviews.ts`): someone other than a version's author approves or rejects it; a rejection needs a reason. Reviews never change the version; the newest one per version is its state, and a version with none needs review. `live` moves only to an approved version (`moveLabel` refuses, so Mark live, rollback and submit all keep the rule), and `submitVersion` refuses a version that is not approved. On submit the approval goes up after the version (`POST /recipes/{id}/versions/{v}/review`), and the backend makes only approved versions live. Until sign-in, who is acting is the name set in the Backend dialog; the backend checks the rule again against the signed-in user.
+
 ## 8. Backend client
 Proposed contract; the backend team owns it. Base URL is a Pro setting. All calls send `Authorization: Bearer <token>`.
 
@@ -249,9 +252,10 @@ Proposed contract; the backend team owns it. Base URL is a Pro setting. All call
 |---|---|---|
 | `POST /recipes` | `{ name, site, kind }` | `{ id }` |
 | `POST /recipes/{id}/versions` | `.crawlpilot.json` with one version; header `Idempotency-Key: <digest>` | `{ version, accepted: boolean, errors? }` |
+| `POST /recipes/{id}/versions/{v}/review` | `{ state: 'approved' \| 'rejected', by, note }` | `{ state }` |
 | `POST /recipes/{id}/crawls` | `{ version, pages, schedule: 'once' \| 'daily' \| 'weekly' }` | `{ crawlId }` |
 | `GET /crawls/{id}` | none | `{ status, pagesDone, pagesFailed, fields: { name, fill, fallbackShare, failedChecks }[], samples: Record[] }` |
-| `POST /recipes/{id}/labels/live` | `{ version, reason }` | `{ live }` |
+| `POST /recipes/{id}/labels/live` | `{ version, reason }` | `{ live }`; 409 unless the version is approved |
 | `POST /recipes/{id}/pause`, `/resume` | none | `{ status }` |
 
 - **Built so far** (`backend/client.ts`, `mock.ts`, `submit.ts`, `settings.ts`): the calls above, retries and error kinds as described, the submit flow with the readiness gate, crawl refresh. Until the identity provider is chosen, the address and an access token are set in the Backend dialog (address in `chrome.storage.local`, token in `chrome.storage.session`). The e2e tests serve `mock.ts` on a local port (`e2e/pro.ts`).

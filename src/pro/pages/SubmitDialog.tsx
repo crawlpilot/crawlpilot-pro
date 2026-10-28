@@ -7,7 +7,7 @@ import { Button, Dialog, Notice, Segmented, Text } from '../../sidepanel/ui';
 import { backendApi } from '../backend/settings';
 import { submitVersion } from '../backend/submit';
 import { BackendError, type Schedule } from '../backend/types';
-import { LOCAL_AUTHOR } from '../edit';
+import { currentUser } from '../identity';
 import type { ProRecipe, Version } from '../recipe/types';
 
 interface Props {
@@ -34,7 +34,7 @@ export function SubmitDialog({ recipe, version, blockers = [], onClose, onSubmit
         try {
             const api = await backendApi();
             if (!api) throw new BackendError('auth', 'Set the backend address and token first (Backend, on the Recipes screen).');
-            await submitVersion(api, recipe, version, schedule, LOCAL_AUTHOR);
+            await submitVersion(api, recipe, version, schedule, await currentUser());
             onSubmitted();
             onClose();
         } catch (e) {

@@ -9,9 +9,7 @@ import type { ListPick, PaginationMode } from '../shared/types/extraction';
 import { pro } from './db';
 import { fromListSpec, fromPageSpec, toListSpec, toPageSpec } from './recipe/fromPublic';
 import type { PageSource, ProRecipe, RecipeKind, RunSettings, Version, VersionDraft } from './recipe/types';
-
-/** Who saved what, until sign-in arrives (slice 4). */
-export const LOCAL_AUTHOR = 'local';
+import { currentUser } from './identity';
 
 /** A recipe being built (no version yet) or edited (from `version`). */
 export interface ProEdit {
@@ -58,7 +56,7 @@ export function listEditInput(version: Version): { picks: ListPick[]; mode: Pagi
 
 /** Saves a draft: version N+1 of the edited recipe, or version 1 of a new one (its pages become samples). */
 async function saveDraft(edit: ProEdit, name: string, draft: VersionDraft, note: string, origin: 'edited' | 'repaired' = 'edited'): Promise<{ recipe: ProRecipe; version: Version }> {
-    const by = { note: note.trim(), author: LOCAL_AUTHOR };
+    const by = { note: note.trim(), author: await currentUser() };
     if (edit.recipe && edit.version) {
         const version = await pro.versions.save(edit.recipe.id, edit.version.version, draft, { ...by, origin });
         return { recipe: (await pro.recipes.get(edit.recipe.id))!, version };

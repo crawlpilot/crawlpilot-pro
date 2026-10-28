@@ -3,11 +3,13 @@ import { addSamples, createRecipe, getRecipe, labelLog, listRecipes, listSamples
 import { listCrawls, saveCrawl } from './crawls';
 import { getVersion, listVersions, markSubmitted, restoreVersion, saveVersion } from './versions';
 import { latestTest, saveTest } from './tests';
+import { listReviews, reviewStates, reviewVersion } from './reviews';
 import { readRecipeFile } from '../recipe/file';
 import { specDigest } from '../recipe/canonical';
 import type { ProRecipe, Version } from '../recipe/types';
 
 export { SaveRefused } from './versions';
+export { ReviewRefused, reviewReason } from './reviews';
 
 const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -42,5 +44,6 @@ export const pro = {
     samples: { add: addSamples, list: listSamples, remove: removeSample },
     tests: { save: saveTest, latest: latestTest },
     crawls: { save: saveCrawl, list: listCrawls },
+    reviews: { review: reviewVersion, list: listReviews, states: reviewStates },
     importRecipeFile,
 };

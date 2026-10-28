@@ -11,7 +11,8 @@ import uniqlo from '../../shared/samples/recipes/uniqlo-product.json';
 import zara from '../../shared/samples/recipes/zara-product.json';
 import { pro } from '../db';
 import { writeRecipeFile } from '../recipe/file';
-import { LOCAL_AUTHOR, setProEdit } from '../edit';
+import { setProEdit } from '../edit';
+import { currentUser } from '../identity';
 import { openRecipe } from '../nav';
 import { BackendDialog } from './BackendDialog';
 import { recipeHealth } from '../maintain';
@@ -51,7 +52,7 @@ export default function RecipesPage({ onNavigate }: Props) {
         const done: string[] = [];
         try {
             for (const text of texts) {
-                const { recipe, added } = await pro.importRecipeFile(text, LOCAL_AUTHOR);
+                const { recipe, added } = await pro.importRecipeFile(text, await currentUser());
                 done.push(added ? `${recipe.name}: ${added} version${added > 1 ? 's' : ''} added` : `${recipe.name}: already up to date`);
             }
             setMessage({ tone: 'success', text: done.join(' · ') });

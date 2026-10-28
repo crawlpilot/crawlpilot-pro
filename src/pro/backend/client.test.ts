@@ -14,7 +14,7 @@ function setup(token = 'dev-token') {
 }
 
 describe('backend client', () => {
-    it('creates a recipe, uploads a version once, crawls it and reads the crawl', async () => {
+    it('creates a recipe, uploads a version once, crawls it, reads the crawl, and makes it live once approved', async () => {
         const { api, backend } = setup();
         const { id } = await api.createRecipe({ name: 'R', site: 's', kind: 'page' });
         expect(await api.uploadVersion(id, file(2), 'digest-2')).toEqual({ version: 2, accepted: true });
@@ -25,6 +25,8 @@ describe('backend client', () => {
         expect((await api.getCrawl(crawlId)).status).toBe('queued');
         expect((await api.getCrawl(crawlId)).status).toBe('running');
         expect(await api.getCrawl(crawlId)).toMatchObject({ status: 'done', pagesDone: 2, fields: [{ name: 'title', fill: 1 }] });
+        await expect(api.setLive(id, 2, 'ship')).rejects.toMatchObject({ kind: 'conflict', message: 'Version 2 is not approved.' });
+        expect(await api.reviewVersion(id, 2, { state: 'approved', by: 'reviewer', note: '' })).toEqual({ state: 'approved' });
         expect(await api.setLive(id, 2, 'ship')).toEqual({ live: 2 });
         expect(backend.log[0]).toBe('POST /recipes');
     });

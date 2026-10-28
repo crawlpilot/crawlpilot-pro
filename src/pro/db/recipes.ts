@@ -2,7 +2,8 @@
 import { done, req } from '../../shared/db/idb';
 import { proTransaction } from './idb';
 import { STORES } from './schema';
-import type { LabelMove, LabelName, MatchRules, ProRecipe, RecipeKind, Sample, Targeting } from '../recipe/types';
+import type { LabelMove, LabelName, MatchRules, ProRecipe, RecipeKind, Review, Sample, Targeting } from '../recipe/types';
+import { reviewReason } from './reviews';
 
 export async function createRecipe(input: { name: string; site: string; kind: RecipeKind } & Targeting): Promise<ProRecipe> {
     const now = Date.now();
@@ -73,13 +74,19 @@ export async function renameRecipe(id: string, name: string): Promise<void> {
     await done(tx);
 }
 
-/** Points a label at a version, logged with who and why. `latest` moves only on save. */
+/** Points a label at a version, logged with who and why. `latest` moves only on save; `live` only to an approved version. */
 export async function moveLabel(recipeId: string, label: Exclude<LabelName, 'latest'>, to: number, by: string, reason: string): Promise<void> {
-    const tx = await proTransaction([STORES.recipes, STORES.versions, STORES.labelLog], 'readwrite');
+    const tx = await proTransaction([STORES.recipes, STORES.versions, STORES.labelLog, STORES.reviews], 'readwrite');
     const recipes = tx.objectStore(STORES.recipes);
     const recipe = await req<ProRecipe | undefined>(recipes.get(recipeId));
     if (!recipe) throw new Error(`No recipe ${recipeId}`);
     if (!await req(tx.objectStore(STORES.versions).getKey([recipeId, to]))) throw new Error(`No version ${to}`);
+    if (label === 'live') {
+        const reviews = await req<Review[]>(tx.objectStore(STORES.reviews).index('recipeId').getAll(recipeId));
+        const newest = reviews.filter(r => r.version === to).sort((a, b) => b.at - a.at || (b.id ?? 0) - (a.id ?? 0))[0];
+        const reason = reviewReason(newest);
+        if (reason) { tx.abort(); throw new Error(`v${to} cannot be live. ${reason}`); }
+    }
     const move: LabelMove = { recipeId, label, from: recipe.labels[label], to, by, at: Date.now(), reason };
     recipes.put({ ...recipe, labels: { ...recipe.labels, [label]: to }, updatedAt: move.at });
     tx.objectStore(STORES.labelLog).add(move);

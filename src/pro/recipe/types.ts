@@ -156,6 +156,20 @@ export interface LabelMove {
     reason: string;
 }
 
+export type ReviewState = 'approved' | 'rejected';
+
+/** A second person's verdict on a version, kept apart from it: versions never change. */
+export interface Review {
+    id?: number;
+    recipeId: string;
+    version: number;
+    state: ReviewState;
+    by: string;
+    at: number;
+    /** Why; required to reject. */
+    note: string;
+}
+
 export interface Sample {
     recipeId: string;
     url: string;
