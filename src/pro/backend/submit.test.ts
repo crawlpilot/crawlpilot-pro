@@ -8,6 +8,7 @@ import type { Targeting, VersionDraft } from '../recipe/types';
 import { createClient } from './client';
 import { createMockBackend, mockFetch } from './mock';
 import { refreshCrawls, submitVersion } from './submit';
+import { recordReview } from './review';
 
 beforeEach(() => { globalThis.indexedDB = new IDBFactory(); });
 afterEach(async () => { await closeProDatabase(); });
@@ -103,5 +104,37 @@ describe('submit', () => {
         const [crawl] = await refreshCrawls(api, recipe.id);
         expect(crawl.last).toMatchObject({ status: 'running', pagesDone: 1 });
         expect(crawl.checkedAt).toBeGreaterThan(0);
+    });
+});
+
+describe('reviews and the backend', () => {
+    it('stay here before a submit; after it, go to the backend first, so a rejection stops it going live there', async () => {
+        const { api, backend, recipe, version } = await setup();
+        await recordReview(api, recipe, version, { state: 'approved', by: 'reviewer', note: 'ok' });
+        expect(backend.log).toEqual([]);
+
+        await testPages(recipe.id, version.digest);
+        await submitVersion(api, recipe, version, 'once', 'me');
+        const [submitted, stored] = [(await pro.versions.get(recipe.id, 1))!, (await pro.recipes.get(recipe.id))!];
+        await recordReview(api, stored, submitted, { state: 'rejected', by: 'lead', note: 'price is wrong' });
+        expect(backend.recipes.get('rec-1')!.versions.get(1)!.review).toEqual({ state: 'rejected', by: 'lead', note: 'price is wrong' });
+        expect((await pro.reviews.states(recipe.id)).get(1)).toMatchObject({ state: 'rejected', by: 'lead' });
+        await expect(api.setLive('rec-1', 1, 'again')).rejects.toMatchObject({ kind: 'conflict' });
+    });
+
+    it('send nothing when the review is not allowed, or the backend refuses it', async () => {
+        const { api, backend, recipe, version } = await approved();
+        await testPages(recipe.id, version.digest);
+        await submitVersion(api, recipe, version, 'once', 'me');
+        const [submitted, stored] = [(await pro.versions.get(recipe.id, 1))!, (await pro.recipes.get(recipe.id))!];
+        const before = backend.log.length;
+        await expect(recordReview(api, stored, submitted, { state: 'approved', by: 'me', note: '' })).rejects.toThrow('someone else reviews it');
+        await expect(recordReview(api, stored, submitted, { state: 'rejected', by: 'lead', note: '' })).rejects.toThrow('Say why');
+        expect(backend.log.length).toBe(before);
+
+        backend.failNext(409);
+        await expect(recordReview(api, stored, submitted, { state: 'rejected', by: 'lead', note: 'no' })).rejects.toMatchObject({ kind: 'conflict' });
+        expect((await pro.reviews.states(recipe.id)).get(1)).toMatchObject({ state: 'approved' });
+        await expect(recordReview(null, stored, submitted, { state: 'rejected', by: 'lead', note: 'no' })).rejects.toMatchObject({ kind: 'auth' });
     });
 });

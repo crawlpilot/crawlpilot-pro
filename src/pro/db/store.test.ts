@@ -205,3 +205,14 @@ describe('way stats', () => {
         expect(kept[0]).toMatchObject({ recipeId: 'r1', field: 'price', wayId: 'a' });
     });
 });
+
+describe('cleanup dismissals', () => {
+    it('need a reason, and are kept once per way and change', async () => {
+        await expect(pro.dismissals.dismiss({ recipeId: 'r1', wayId: 'w', action: 'removed', by: 'lead', reason: ' ' })).rejects.toThrow('Say why');
+        await pro.dismissals.dismiss({ recipeId: 'r1', wayId: 'w', action: 'removed', by: 'lead', reason: 'only on sale pages' });
+        await pro.dismissals.dismiss({ recipeId: 'r1', wayId: 'w', action: 'removed', by: 'lead', reason: 'sale pages, twice a year' });
+        await pro.dismissals.dismiss({ recipeId: 'r1', wayId: 'w', action: 'moved last', by: 'lead', reason: 'keep the order' });
+        const kept = await pro.dismissals.list('r1');
+        expect(kept.map(d => [d.action, d.reason])).toEqual([['moved last', 'keep the order'], ['removed', 'sale pages, twice a year']]);
+    });
+});

@@ -10,14 +10,26 @@ import type { Review, ReviewState, Version } from '../recipe/types';
 
 export class ReviewRefused extends Error {}
 
-export async function reviewVersion(recipeId: string, version: number, input: { state: ReviewState; by: string; note: string }): Promise<Review> {
-    const note = input.note.trim();
-    if (input.state === 'rejected' && !note) throw new ReviewRefused('Say why it is rejected.');
+export interface ReviewInput {
+    state: ReviewState;
+    by: string;
+    note: string;
+}
+
+/** Why this review may not be made, or null: checked before a review is sent anywhere. */
+export function reviewProblem(version: Pick<Version, 'version' | 'author'> | undefined, input: ReviewInput): string | null {
+    if (!version) return 'No such version';
+    if (input.state === 'rejected' && !input.note.trim()) return 'Say why it is rejected.';
+    if (version.author === input.by) return `${input.by} saved v${version.version}; someone else reviews it.`;
+    return null;
+}
+
+export async function reviewVersion(recipeId: string, version: number, input: ReviewInput): Promise<Review> {
     const tx = await proTransaction([STORES.versions, STORES.reviews], 'readwrite');
     const v = await req<Version | undefined>(tx.objectStore(STORES.versions).get([recipeId, version]));
-    if (!v) { tx.abort(); throw new ReviewRefused(`No version ${version}`); }
-    if (v.author === input.by) { tx.abort(); throw new ReviewRefused(`${input.by} saved v${version}; someone else reviews it.`); }
-    const review: Review = { recipeId, version, state: input.state, by: input.by, note, at: Date.now() };
+    const problem = reviewProblem(v, input);
+    if (problem) { tx.abort(); throw new ReviewRefused(v ? problem : `No version ${version}`); }
+    const review: Review = { recipeId, version, state: input.state, by: input.by, note: input.note.trim(), at: Date.now() };
     const id = await req(tx.objectStore(STORES.reviews).add(review)) as number;
     await done(tx);
     return { ...review, id };

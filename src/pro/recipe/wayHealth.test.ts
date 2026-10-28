@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PageRecipeSpec, Way } from './types';
 import { wayHealth, type WayState } from './wayHealth';
-import { proposeCleanup } from './cleanup';
+import { cleanupKey, proposeCleanup } from './cleanup';
 
 const NOW = Date.parse('2026-10-28T12:00:00Z');
 const OLD = Date.parse('2026-08-01T00:00:00Z');
@@ -69,5 +69,21 @@ describe('cleanup', () => {
         expect(ids(proposeCleanup(spec, states([['d', 'dormant'], ['a', 'dormant'], ['b', 'active']])).spec as PageRecipeSpec)).toEqual([['d', 'b', 'a']]);
         const same = proposeCleanup(spec, states([['a', 'active'], ['b', 'dormant']]));
         expect(same).toEqual({ spec, changes: [] });
+    });
+
+    it('leaves out a change someone chose to keep, and only that one', () => {
+        const spec: PageRecipeSpec = { kind: 'page', steps: [field('price', [sel('a', '.p'), sel('b', '.q'), sel('c', '.r'), sel('e', '.s')])] };
+        const all = states([['a', 'active'], ['b', 'dormant'], ['c', 'dead'], ['e', 'dead']]);
+        const kept = new Set([cleanupKey('c', 'removed'), cleanupKey('b', 'moved last')]);
+        const { spec: next, changes } = proposeCleanup(spec, all, kept);
+        expect(changes.map(c => [c.way.id, c.action])).toEqual([['e', 'removed']]);
+        expect(ids(next as PageRecipeSpec)).toEqual([['a', 'b', 'c']]);
+    });
+
+    it('never tries a dead way that stays before one that finds something', () => {
+        const spec: PageRecipeSpec = { kind: 'page', steps: [field('title', [sel('a', 'h1'), sel('d', '.gone'), sel('b', '.alt')])] };
+        const { spec: next, changes } = proposeCleanup(spec, states([['a', 'active'], ['d', 'dead'], ['b', 'dormant']]), new Set([cleanupKey('d', 'removed')]));
+        expect(ids(next as PageRecipeSpec)).toEqual([['a', 'b', 'd']]);
+        expect(changes.map(c => [c.way.id, c.action, c.state])).toEqual([['d', 'moved last', 'dead']]);
     });
 });

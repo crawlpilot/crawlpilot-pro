@@ -502,6 +502,13 @@ test('submit: a ready version goes to the backend, becomes live, and its crawl i
     await refresh.click();
     await expect(crawl).toContainText('done');
     await expect(crawl).toContainText('3 pages done · title 100%');
+
+    // A rejection after the submit goes to the backend first: it will not make v1 live again.
+    await v1.getByRole('button', { name: 'Reject' }).click();
+    await ui.getByLabel('Why').fill('title reads the site name after all');
+    await ui.getByRole('dialog').getByRole('button', { name: 'Reject' }).click();
+    await expect(v1).toContainText('rejected by reviewer');
+    expect([...mock.backend.recipes.values()][0].versions.get(1)!.review).toEqual({ state: 'rejected', by: 'reviewer', note: 'title reads the site name after all' });
     if (process.env.UX_SHOTS) await ui.screenshot({ path: `${process.env.UX_SHOTS}/pro-submit.png` });
     mock.close();
     await ui.close();
@@ -605,7 +612,7 @@ test('selectors: crawl usage labels each selector; Clean up saves a pruned versi
         name: 'Tracked product', site: '127.0.0.1', built_on: `${origin}/site/json-product.html`,
         checked_on: [`${origin}/site/json-shop.html`, `${origin}/site/article.html`],
         spec: { kind: 'page', settings: { requestDelay: 100 }, elements: [
-            { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1', '.product-title', '.old-title'] },
+            { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1', '.product-title', '.old-title', '.sale-title'] },
         ] },
     };
     await ui.getByTestId('recipe-import').setInputFiles({ name: 't.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
@@ -614,8 +621,8 @@ test('selectors: crawl usage labels each selector; Clean up saves a pruned versi
     // Before a submit there is no usage: every selector is new.
     const selectors = ui.getByTestId('pro-selectors');
     await expect(selectors).toContainText('Usage comes from crawls once the recipe is submitted.');
-    await expect(selectors.getByTestId('pro-way')).toHaveCount(3);
-    await expect(selectors.getByText('new')).toHaveCount(3);
+    await expect(selectors.getByTestId('pro-way')).toHaveCount(4);
+    await expect(selectors.getByText('new')).toHaveCount(4);
     await expect(selectors.getByRole('button', { name: 'Clean up' })).toBeDisabled();
 
     // Targeted, tested, approved by someone else and submitted.
@@ -636,12 +643,13 @@ test('selectors: crawl usage labels each selector; Clean up saves a pruned versi
     await ui.getByRole('dialog').getByRole('button', { name: 'Submit' }).click();
     await expect(ui.getByTestId('pro-crawl')).toBeVisible();
 
-    // The workers report: h1 always wins, .product-title finds the title but never wins, .old-title finds nothing.
+    // The workers report: h1 always wins, .product-title finds the title but never wins, .old-title and
+    // .sale-title find nothing.
     const [v1] = await proStore(ui, 'versions');
-    const [h1, product, old] = v1.spec.steps[0].field.ways;
+    const [h1, product, old, sale] = v1.spec.steps[0].field.ways;
     const today = new Date().toISOString().slice(0, 10);
     const day = (wayId: string, matched: number, won: number) => ({ field: 'title', wayId, days: [{ date: today, tried: 120, matched, won }] });
-    mock.backend.wayStats.set([...mock.backend.recipes.keys()][0], [day(h1.id, 120, 120), day(product.id, 110, 0), day(old.id, 0, 0)]);
+    mock.backend.wayStats.set([...mock.backend.recipes.keys()][0], [day(h1.id, 120, 120), day(product.id, 110, 0), day(old.id, 0, 0), day(sale.id, 0, 0)]);
     await selectors.getByRole('button', { name: 'Refresh usage' }).click();
     const ways = selectors.getByTestId('pro-way');
     await expect(ways.nth(0)).toContainText('h1');
@@ -650,10 +658,18 @@ test('selectors: crawl usage labels each selector; Clean up saves a pruned versi
     await expect(ways.nth(1)).toContainText('won 0 of 120, found 110');
     await expect(ways.nth(1)).toContainText('dormant');
     await expect(ways.nth(2)).toContainText('dead');
+    await expect(ways.nth(3)).toContainText('dead');
 
-    // Clean up: the dead selector goes, as version 2, which keeps the other ids and starts unreviewed.
+    // Clean up proposes removing both; .sale-title is kept, with why, and never proposed again.
     await selectors.getByRole('button', { name: 'Clean up' }).click();
-    await expect(ui.getByTestId('pro-cleanup')).toHaveText('Remove .old-title from title: tried and found nothing.');
+    const proposal = ui.getByTestId('pro-cleanup');
+    await expect(proposal.getByRole('listitem')).toHaveCount(2);
+    await expect(ui.getByLabel('Version note')).toHaveValue('Clean up: 2 dead removed');
+    await proposal.getByRole('listitem').filter({ hasText: '.sale-title' }).getByRole('button', { name: 'Keep' }).click();
+    await ui.getByLabel('Why keep .sale-title').fill('only on sale pages, twice a year');
+    await ui.getByRole('button', { name: 'Keep it' }).click();
+    // .sale-title stays where it is: after .product-title, which finds the title.
+    await expect(proposal.getByRole('listitem')).toHaveText(['Remove .old-title from title: tried and found nothing.Keep']);
     await expect(ui.getByLabel('Version note')).toHaveValue('Clean up: 1 dead removed');
     await ui.getByRole('dialog').getByRole('button', { name: 'Save v2' }).click();
     const v2row = ui.getByTestId('pro-version').first();
@@ -661,10 +677,11 @@ test('selectors: crawl usage labels each selector; Clean up saves a pruned versi
     await expect(v2row).toContainText('pruned');
     await expect(v2row).toContainText('needs review');
     await expect(selectors).toContainText('Selectors in v2');
-    await expect(ways).toHaveCount(2);
+    await expect(ways).toHaveCount(3);
+    await expect(selectors.getByTestId('pro-way-kept')).toHaveText('Kept .sale-title in: only on sale pages, twice a year (reviewer)');
     await expect(selectors.getByRole('button', { name: 'Clean up' })).toBeDisabled();
     const v2 = (await proStore(ui, 'versions')).find(v => v.version === 2);
-    expect(v2.spec.steps[0].field.ways.map((w: { id: string }) => w.id)).toEqual([h1.id, product.id]);
+    expect(v2.spec.steps[0].field.ways.map((w: { id: string }) => w.id)).toEqual([h1.id, product.id, sale.id]);
     if (process.env.UX_SHOTS) await ui.screenshot({ path: `${process.env.UX_SHOTS}/pro-selectors.png`, fullPage: true });
     mock.close();
     await ui.close();
