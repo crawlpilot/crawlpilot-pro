@@ -66,6 +66,62 @@ describe('search sink', () => {
         expect(errors).toEqual(['buffer full: 1 oldest documents dropped']);
     });
 
+    it('confirms a document once Elasticsearch has it, and says when it was dropped', async () => {
+        const es = fakeES([
+            ok([{ index: { status: 200 } }, { index: { status: 400, error: { type: 'mapper_parsing_exception', reason: 'bad price' } } }, { index: { status: 429 } }]),
+            new Response('unauthorized', { status: 401 }),
+        ]);
+        const sink = createSearchSink({ url: 'https://es.test', batchSize: 10 }, { fetch: es.fetch, onError: () => {} });
+        const a = sink.writeConfirmed('s', { n: 1 }, 'a');
+        const b = sink.writeConfirmed('s', { n: 2 }, 'b');
+        const c = sink.writeConfirmed('s', { n: 3 }, 'c');
+        c.catch(() => {});
+        await sink.flush();
+        await expect(a).resolves.toBeUndefined();
+        await expect(b).rejects.toThrow('mapper_parsing_exception bad price');
+        // Put back after 429; the next bulk is refused outright.
+        await sink.flush();
+        await expect(c).rejects.toThrow('status 401');
+    });
+
+    it('rejects a document dropped from a full buffer', async () => {
+        const sink = createSearchSink({ url: 'https://es.test', batchSize: 100, maxBuffer: 1 }, { fetch: fakeES([]).fetch, onError: () => {} });
+        const first = sink.writeConfirmed('s', { n: 1 }, 'a');
+        sink.write('i', { n: 2 });
+        await expect(first).rejects.toThrow('buffer was full');
+    });
+
+    it('keeps flushing after one flush throws', async () => {
+        let fail = true;
+        const es = fakeES([ok([{ index: { status: 400, error: { type: 'x', reason: 'y' } } }])]);
+        const sink = createSearchSink({ url: 'https://es.test', batchSize: 10 }, { fetch: es.fetch, onError: m => { if (fail) { fail = false; throw new Error(m); } } });
+        sink.write('s', { n: 1 }, 'a');
+        await expect(sink.flush()).rejects.toThrow('x y');
+        sink.write('i', { n: 2 });
+        await sink.flush();
+        expect(es.calls).toHaveLength(2);
+    });
+
+    it('closes within its deadline, sending what was put back, and says what it leaves', async () => {
+        const errors: string[] = [];
+        const es = fakeES([new Response('', { status: 503 }), new Response('', { status: 503 }), new Response('', { status: 503 }), ok()]);
+        const sink = createSearchSink({ url: 'https://es.test', batchSize: 10 }, { fetch: es.fetch, sleep: async () => {}, onError: m => errors.push(m) });
+        const kept = sink.writeConfirmed('s', { n: 1 }, 'a');
+        await sink.close(5_000);
+        await expect(kept).resolves.toBeUndefined();
+        expect(es.calls).toHaveLength(4);
+
+        const down = fakeES(Array.from({ length: 10_000 }, () => new Error('ECONNREFUSED')));
+        const sink2 = createSearchSink({ url: 'https://es.test', batchSize: 10 }, { fetch: down.fetch, sleep: ms => new Promise(r => setTimeout(r, Math.min(ms, 5))), onError: m => errors.push(m) });
+        const lost = sink2.writeConfirmed('s', { n: 1 }, 'a');
+        lost.catch(() => {});
+        const t = Date.now();
+        await sink2.close(100);
+        expect(Date.now() - t).toBeLessThan(1000);
+        await expect(lost).rejects.toThrow('the worker stopped');
+        expect(errors.some(e => /^clos(ing|ed): 1 documents not written$/.test(e))).toBe(true);
+    });
+
     it('memory sink replaces by id', () => {
         const sink = memorySink();
         sink.write('i', { v: 1 }, 'a');

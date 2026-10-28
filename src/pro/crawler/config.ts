@@ -93,6 +93,9 @@ export function parseConfig(json: unknown, env: Record<string, string | undefine
     if (config.queue && (config.queue.type !== 'sqs' || !config.queue.url || !config.queue.deadLetterUrl)) {
         throw new Error('queue needs type "sqs", url and deadLetterUrl.');
     }
+    if (config.queue && [config.queue.url, config.queue.deadLetterUrl].some(u => u.endsWith('.fifo'))) {
+        throw new Error('queue: FIFO queues are not supported, use standard queues.');
+    }
     const ids = Object.values(config.proxyPools).flat().map(p => p.id);
     const dupe = ids.find((id, i) => ids.indexOf(id) !== i);
     if (dupe) throw new Error(`Proxy id "${dupe}" is used twice.`);

@@ -25,6 +25,10 @@ export interface CrawlJob {
     storeFailures?: number;
     /** Not to be run before this time (epoch ms): set when a job is put back for longer than a queue can delay it. */
     notBefore?: number;
+    /** Times Elasticsearch did not confirm the job's documents in a row: past a few, the job is dead-lettered. */
+    writeFailures?: number;
+    /** When a worker first took the job (epoch ms), set when it is first put back: past `retry.maxJobAgeMs` it is given up on. */
+    firstSeenAt?: number;
     /** A list's page number, from 1: its next page is a job of its own. */
     page?: number;
     /** A list row's details page: run with the version's details recipe, and joined to its row by `parent`. */
@@ -47,6 +51,8 @@ export type ErrorClass =
     | 'not_found' | 'gone' | 'client_error' | 'server_error'
     | 'empty_page' | 'robots_disallowed'
     | 'extraction' | 'no_recipe' | 'recipe_store' | 'paused'
+    /** The job was put back for longer than `retry.maxJobAgeMs` (a site that stays blocked): dead-lettered. */
+    | 'expired'
     | 'unknown';
 
 /** The recipe version a page was read with: every value traces back to the reviewed version. */

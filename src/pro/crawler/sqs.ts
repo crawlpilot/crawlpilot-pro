@@ -10,9 +10,14 @@
  * - A message that is not a job is dead-lettered as it is.
  * - Follow-up jobs (a list's next page, its details pages) are sent ten at a time; if any is refused the
  *   job that led to them is not acknowledged, so it comes back and sends them again (their ids are stable).
- * FIFO queues (`.fifo`) group messages by competitor and deduplicate by job and attempt.
+ * - While a job runs its message is kept hidden: its visibility is renewed every half `visibilitySeconds`, so a
+ *   long job (a list clicked through, retries on a slow site) is never handed to a second worker. A worker
+ *   that dies stops renewing it, and the job comes back.
+ * Standard queues only. A FIFO queue holds back a competitor's other jobs while one is in flight or waiting
+ * out a cooldown, and deduplicates a job put back within five minutes as a copy: the site governor paces
+ * instead, and job ids make a page read twice harmless.
  */
-import { DeleteMessageCommand, ReceiveMessageCommand, SendMessageBatchCommand, SendMessageCommand, SQSClient, type Message } from '@aws-sdk/client-sqs';
+import { ChangeMessageVisibilityCommand, DeleteMessageCommand, ReceiveMessageCommand, SendMessageBatchCommand, SendMessageCommand, SQSClient, type Message } from '@aws-sdk/client-sqs';
 import type { Delivery, JobQueue } from './queue';
 import type { CrawlJob } from './types';
 
@@ -30,10 +35,12 @@ export interface SqsConfig {
 
 /** What the queue needs from the SDK client: `send` (tests pass a fake). */
 export interface SqsSender {
-    send(command: ReceiveMessageCommand | SendMessageCommand | SendMessageBatchCommand | DeleteMessageCommand): Promise<unknown>;
+    send(command: ReceiveMessageCommand | SendMessageCommand | SendMessageBatchCommand | DeleteMessageCommand | ChangeMessageVisibilityCommand): Promise<unknown>;
 }
 
 const MAX_DELAY_S = 900;
+
+const isFifo = (url: string) => url.endsWith('.fifo');
 
 function isJob(v: unknown): v is CrawlJob {
     const j = v as CrawlJob;
@@ -45,22 +52,27 @@ export class SqsQueue implements JobQueue {
 
     constructor(private cfg: SqsConfig, client?: SqsSender, private now: () => number = Date.now,
         private onError: (message: string) => void = m => console.error(`[sqs] ${m}`)) {
+        if (isFifo(cfg.url) || isFifo(cfg.deadLetterUrl)) throw new Error('FIFO queues are not supported: use standard queues (docs/design/crawler.md, Queue).');
         this.client = client ?? new SQSClient({ ...(cfg.region ? { region: cfg.region } : {}), ...(cfg.endpoint ? { endpoint: cfg.endpoint } : {}) });
     }
 
-    private fifo(url: string, job: CrawlJob) {
-        return url.endsWith('.fifo') ? { MessageGroupId: job.competitor, MessageDeduplicationId: `${job.jobId}-${job.attempts ?? 0}` } : {};
-    }
-
     private async sendTo(url: string, job: CrawlJob, delayMs = 0, extra: object = {}) {
-        const fifo = url.endsWith('.fifo');
         await this.client.send(new SendMessageCommand({
             QueueUrl: url,
             MessageBody: JSON.stringify({ ...job, ...extra }),
-            // FIFO queues take no per-message delay; the job's notBefore holds it back instead.
-            ...(!fifo && delayMs > 0 ? { DelaySeconds: Math.min(MAX_DELAY_S, Math.ceil(delayMs / 1000)) } : {}),
-            ...this.fifo(url, job),
+            ...(delayMs > 0 ? { DelaySeconds: Math.min(MAX_DELAY_S, Math.ceil(delayMs / 1000)) } : {}),
         }));
+    }
+
+    /** Renews the message's visibility while its job runs; the returned function stops it. */
+    private keepHidden(m: Message): () => void {
+        const seconds = this.cfg.visibilitySeconds ?? 600;
+        const timer = setInterval(() => {
+            this.client.send(new ChangeMessageVisibilityCommand({ QueueUrl: this.cfg.url, ReceiptHandle: m.ReceiptHandle!, VisibilityTimeout: seconds }))
+                .catch(e => this.onError(`message ${m.MessageId ?? '?'} visibility not renewed: ${e instanceof Error ? e.message : String(e)}`));
+        }, seconds * 500);
+        (timer as { unref?: () => void }).unref?.();
+        return () => clearInterval(timer);
     }
 
     private async remove(m: Message) {
@@ -82,7 +94,7 @@ export class SqsQueue implements JobQueue {
             // without costing the rest of the batch.
             try {
                 if (!isJob(job)) {
-                    await this.client.send(new SendMessageCommand({ QueueUrl: this.cfg.deadLetterUrl, MessageBody: JSON.stringify({ body: m.Body, reason: 'not a crawl job' }), ...(this.cfg.deadLetterUrl.endsWith('.fifo') ? { MessageGroupId: 'invalid', MessageDeduplicationId: m.MessageId ?? String(this.now()) } : {}) }));
+                    await this.client.send(new SendMessageCommand({ QueueUrl: this.cfg.deadLetterUrl, MessageBody: JSON.stringify({ body: m.Body, reason: 'not a crawl job' }) }));
                     await this.remove(m);
                     continue;
                 }
@@ -97,14 +109,19 @@ export class SqsQueue implements JobQueue {
                 continue;
             }
             const current = job;
+            // Settled or given up on, the message is no longer renewed: one not deleted comes back.
+            const release = this.keepHidden(m);
             out.push({
                 job: current,
-                ack: () => this.remove(m),
+                release,
+                ack: async () => { release(); await this.remove(m); },
                 retryLater: async (delayMs, next) => {
+                    release();
                     await this.sendTo(this.cfg.url, next, delayMs, { notBefore: this.now() + delayMs });
                     await this.remove(m);
                 },
                 deadLetter: async reason => {
+                    release();
                     await this.sendTo(this.cfg.deadLetterUrl, current, 0, { reason, deadAt: new Date(this.now()).toISOString() });
                     await this.remove(m);
                 },
@@ -114,12 +131,11 @@ export class SqsQueue implements JobQueue {
     }
 
     async enqueue(jobs: CrawlJob[]): Promise<void> {
-        const fifo = this.cfg.url.endsWith('.fifo');
         for (let i = 0; i < jobs.length; i += 10) {
             const batch = jobs.slice(i, i + 10);
             const reply = await this.client.send(new SendMessageBatchCommand({
                 QueueUrl: this.cfg.url,
-                Entries: batch.map((job, n) => ({ Id: String(n), MessageBody: JSON.stringify(job), ...(fifo ? this.fifo(this.cfg.url, job) : {}) })),
+                Entries: batch.map((job, n) => ({ Id: String(n), MessageBody: JSON.stringify(job) })),
             })) as { Failed?: { Id: string; Message?: string }[] };
             if (reply.Failed?.length) throw new Error(`${reply.Failed.length} follow-up jobs not queued: ${reply.Failed[0].Message ?? 'refused'}`);
         }

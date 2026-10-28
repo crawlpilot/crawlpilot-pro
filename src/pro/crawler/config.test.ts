@@ -36,6 +36,11 @@ describe('crawler config', () => {
         expect(() => parseConfig({ ...base, sites: { default: {} }, proxyPools: { a: [{ id: 'p', server: 's' }], b: [{ id: 'p', server: 's' }] } }, env)).toThrow('"p" is used twice');
     });
 
+    it('refuses FIFO queues', () => {
+        const queue = { type: 'sqs', url: 'https://sqs.test/1/jobs.fifo', deadLetterUrl: 'https://sqs.test/1/dead' };
+        expect(() => parseConfig({ ...base, queue }, env)).toThrow('FIFO queues are not supported');
+    });
+
     it('reads the example configuration', () => {
         const c = parseConfig(example, { PROXY_EU_PASSWORD: 'p', RECIPE_STORE_TOKEN: 't', ELASTIC_API_KEY: 'k' });
         expect(siteProfile(c, 'www.zara.com')).toMatchObject({ proxyPool: 'eu-residential', proxyCountry: 'DE', locale: 'de-DE', concurrency: 1 });

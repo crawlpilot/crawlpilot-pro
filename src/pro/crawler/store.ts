@@ -7,6 +7,7 @@
  *   `.crawlpilot.json`. Cached for good: a version never changes. Its spec is digested again here; a
  *   mismatch is refused.
  * A job may pin a version by digest; in production that version must be approved.
+ * Each request has a timeout (`timeoutMs`): a store that hangs is a store that is down.
  */
 import { specDigest } from '../recipe/canonical';
 import { readRecipeFile } from '../recipe/file';
@@ -28,6 +29,9 @@ export interface StoreOptions {
     token: string;
     resolveTtlMs?: number;
     maxVersions?: number;
+    /** Resolves kept, one per page URL: the oldest beyond it are dropped. */
+    maxResolved?: number;
+    timeoutMs?: number;
     fetch?: typeof fetch;
     now?: () => number;
 }
@@ -39,19 +43,21 @@ export function createRecipeStore(o: StoreOptions): RecipeStore {
     const now = o.now ?? Date.now;
     const ttl = o.resolveTtlMs ?? 60_000;
     const maxVersions = o.maxVersions ?? 500;
+    const maxResolved = o.maxResolved ?? 10_000;
+    const timeoutMs = o.timeoutMs ?? 15_000;
     const root = o.baseUrl.replace(/\/+$/, '');
     const resolved = new Map<string, { at: number; ref: RecipeRef | 'paused' | 'none' }>();
     const versions = new Map<string, Promise<ResolvedRecipe & { approved: boolean }>>();
 
     async function get<T>(path: string): Promise<{ status: number; body: T | null }> {
-        let res: Response;
         try {
-            res = await doFetch(`${root}${path}`, { headers: { authorization: `Bearer ${o.token}` } });
+            const res = await doFetch(`${root}${path}`, { headers: { authorization: `Bearer ${o.token}` }, signal: AbortSignal.timeout(timeoutMs) });
+            if (res.status >= 500 || res.status === 429) throw new CrawlError('recipe_store', `The recipe store answered ${res.status}.`);
+            return { status: res.status, body: res.ok ? await res.json() as T : null };
         } catch (e) {
+            if (e instanceof CrawlError) throw e;
             throw new CrawlError('recipe_store', `The recipe store could not be reached (${e instanceof Error ? e.message : String(e)}).`);
         }
-        if (res.status >= 500 || res.status === 429) throw new CrawlError('recipe_store', `The recipe store answered ${res.status}.`);
-        return { status: res.status, body: res.ok ? await res.json() as T : null };
     }
 
     function version(digest: string) {
@@ -89,7 +95,9 @@ export function createRecipeStore(o: StoreOptions): RecipeStore {
                 const ref = body?.paused ? 'paused' : body ? { recipeId: body.recipeId, version: body.version, digest: body.digest } : 'none';
                 if (!body && status !== 404) throw new CrawlError('recipe_store', `The recipe store answered ${status}.`);
                 hit = { at: now(), ref };
+                resolved.delete(key);
                 resolved.set(key, hit);
+                if (resolved.size > maxResolved) resolved.delete(resolved.keys().next().value!);
             }
             if (hit.ref === 'none') throw new CrawlError('no_recipe', `No live recipe for ${job.competitor} ${job.pageType} covers ${job.url}.`);
             if (hit.ref === 'paused') throw new CrawlError('paused', `The recipe for ${job.competitor} ${job.pageType} is paused.`);

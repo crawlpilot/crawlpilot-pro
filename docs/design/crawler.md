@@ -36,7 +36,8 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
 | `extraction` | The in-page script failed or timed out | Here, backoff | — | — |
 | `robots_disallowed` | robots.txt | No: failed | — | — |
 | `no_recipe` | No live recipe covers the page; pinned version not approved | Dead letter | — | — |
-| `recipe_store` | The store is down | Queue, backoff | — | — |
+| `recipe_store` | The store is down or does not answer in time | Queue, backoff | — | — |
+| `expired` | Put back for longer than `retry.maxJobAgeMs` (24 h) since it was first taken | Dead letter | — | — |
 
 Out of attempts (`retry.maxAttempts`, counted over every delivery of the job), a retryable job is dead-lettered.
 
@@ -69,7 +70,9 @@ Install the templates once per cluster: `node src/pro/crawler/dist/worker.mjs --
 usage documents. Proxy credentials never reach a document: events carry the proxy's id and country.
 
 The writer batches (`batchSize`, `flushMs`), retries when Elasticsearch is down, re-sends items rejected with 429, and
-drops the oldest documents past `maxBuffer` with a log line: crawling never waits on telemetry.
+drops the oldest documents past `maxBuffer` with a log line. Request and site events are best effort: crawling never
+waits on telemetry. Scrape and usage documents are confirmed: a job is acknowledged only once Elasticsearch has them
+(below, Resilience). Each bulk request times out after `timeoutMs` (30 s).
 
 ## Resilience
 What the worker does when its own dependencies fail, so one fault never takes the whole worker down or empties
@@ -77,7 +80,7 @@ the queue (`resilience.test.ts` covers each):
 - **A job's attempt** has a deadline (navigation, `load`, extraction or list reading, and a margin). Past it the page is
   closed and the attempt is a `timeout`. The site's slot is given back exactly once, whatever throws.
 - **A busy site** is waited for at most `retry.maxInlineWaitMs`; then the job goes back on the queue, no attempt counted.
-- **The recipe store down**: the job waits 30 s, doubling to 10 minutes (`storeFailures` on the job), and no attempt is
+- **The recipe store down** (or not answering within 15 s): the job waits 30 s, doubling to 10 minutes (`storeFailures` on the job), and no attempt is
   counted. **A paused recipe**: its jobs wait 10 minutes and come back, never dropped.
 - **The browser** (`browser`): a crash or out-of-memory kill disconnects it; the pool forgets it and its contexts and the
   next page starts a new one. A dead browser or context is not the job's fault: the job comes back in 5 s, its attempt
@@ -86,7 +89,20 @@ the queue (`resilience.test.ts` covers each):
 - **The queue**: a settle that fails (ack, re-queue, dead letter, follow-ups) is logged and the message left to come back
   when its visibility ends; a receive that fails is tried again after 1 s, doubling to 30 s. One message that can't be
   moved doesn't cost the rest of its batch.
-- **Stopping** (SIGTERM): no new attempt starts; jobs not yet at the page go back on the queue at once.
+- **A job's results**: the job is acknowledged only once Elasticsearch confirms its scrape and usage documents. A
+  document refused (a mapping conflict, a 401), dropped from a full buffer, or not confirmed within 2 minutes puts the
+  job back for a minute, its attempt not counted, to be read again; its documents are keyed, so nothing is doubled.
+  Five times in a row (`writeFailures` on the job) and it is dead-lettered: a refusal that lasts is not an outage.
+  Waiting holds the job's slot, so a worker stops crawling while Elasticsearch is away instead of reading pages it
+  can't keep.
+- **A long job** (a list clicked through, retries on a slow site) keeps its SQS message hidden: its visibility is
+  renewed every half `visibilitySeconds` until it is settled, so it is never handed to a second worker.
+- **A job put back again and again** (a site that stays blocked, a store that stays down): stamped `firstSeenAt` the
+  first time, and dead-lettered (`expired`) once older than `retry.maxJobAgeMs`, for a person to look at.
+- **Stopping** (SIGTERM): no new attempt starts, and jobs not yet at the page go back on the queue at once. Attempts in
+  progress get 60 s, then are abandoned and their jobs put back, uncounted; a second signal abandons them at once.
+  Then Elasticsearch is flushed for at most 30 s (what is left is reported) and the browser closed within 10 s: all
+  inside ECS's 120 s `stopTimeout`.
 - **Liveness**: while jobs settle, the worker touches a heartbeat file; jobs in flight with none settled for 15 minutes
   stop it, and the container health check (`deploy/crawler/ecs-task-definition.json`) replaces the task.
 - A stray rejected promise is logged, not fatal.
@@ -114,9 +130,13 @@ usage; their details pages do.
 - done: deleted. Deferred: sent again with its attempts and a `notBefore`; SQS delays a message 15 minutes at most,
   and a job that arrives early is sent again for the rest. Dead letter: sent to `deadLetterUrl` with the reason;
 - follow-up jobs go ten at a time; a refused one leaves the job that led to them unacknowledged;
-- FIFO queues: grouped by competitor, deduplicated by job and attempt.
+- a running job's message stays hidden: its visibility is renewed while the job runs.
 
-SIGTERM (a container stopping) or Ctrl-C: no new jobs are taken, the ones in flight finish, Elasticsearch is flushed.
+Standard queues only; a FIFO queue is refused. FIFO holds a competitor's other jobs back while one is in flight
+or waiting out a cooldown, and drops a job put back within five minutes as a duplicate. The site governor paces
+instead, and job ids make a page read twice harmless.
+
+SIGTERM (a container stopping) or Ctrl-C: see Resilience, Stopping.
 
 ## Daily rollup
 `--rollup [YYYY-MM-DD]` (yesterday by default; `rollup.ts`) adds up a day's `selector-usage-*` per recipe and way,
