@@ -29,6 +29,25 @@ export interface CrawlStatus {
     samples: Record<string, unknown>[];
 }
 
+/** One way's counts on one day's crawls, over pages that loaded. */
+export interface WayDay {
+    /** `YYYY-MM-DD`, UTC. */
+    date: string;
+    /** Pages the way was tried on. */
+    tried: number;
+    /** Pages it found something on, even when an earlier way already gave the value. */
+    matched: number;
+    /** Pages its value was the one used. */
+    won: number;
+}
+
+/** A way's usage by day, by its stable id (`recipe/wayIds.ts`), from every version that had it. */
+export interface WayStats {
+    field: string;
+    wayId: string;
+    days: WayDay[];
+}
+
 export interface BackendApi {
     createRecipe(input: { name: string; site: string; kind: string; competitor?: string; pageType?: string; matchRules?: MatchRules }): Promise<{ id: string }>;
     /** `file`: a format 3 `.crawlpilot.json` with one version; `digest` makes a repeated upload a no-op. */
@@ -38,6 +57,8 @@ export interface BackendApi {
     startCrawl(recipeId: string, input: { version: number; pages: PageSource; schedule: Schedule }): Promise<{ crawlId: string }>;
     getCrawl(crawlId: string): Promise<CrawlStatus>;
     setLive(recipeId: string, version: number, reason: string): Promise<{ live: number }>;
+    /** Each way's daily usage from `since` (`YYYY-MM-DD`) on. */
+    getWayStats(recipeId: string, since: string): Promise<WayStats[]>;
 }
 
 export type BackendErrorKind = 'auth' | 'invalid' | 'conflict' | 'unavailable';

@@ -144,6 +144,7 @@ The database is separate from upstream's `crawl-pilot`.
 | `golden` | `[recipeId, version, url]` | `recipeId` | `html` as a Blob; at most 10 per version |
 | `drafts` | `recipeId` | | autosave of the open editor; one per recipe |
 | `reviews` | auto | `recipeId` | approvals and rejections of versions, kept apart from them; the newest per version wins (schema v4) |
+| `wayStats` | `[recipeId, wayId, date]` | `recipeId` | each way's daily tried, matched and won counts from crawls, as the backend reported them (schema v5) |
 
 - Version 1 of the schema creates all of these stores. Later changes add migrations in `schema.ts`, in the same style as upstream's `shared/db/schema.ts`.
 - `chrome.storage.session` holds only the auth token, never recipe data. `chrome.storage.local` holds the backend address and `pro.user`, the name kept on saves, reviews and label moves until sign-in (`identity.ts`).
@@ -245,6 +246,13 @@ The recipe has its own gate, apart from any version (`targeting.ts`, `targetingR
 
 **Review** (`db/reviews.ts`): someone other than a version's author approves or rejects it; a rejection needs a reason. Reviews never change the version; the newest one per version is its state, and a version with none needs review. `live` moves only to an approved version (`moveLabel` refuses, so Mark live, rollback and submit all keep the rule), and `submitVersion` refuses a version that is not approved. On submit the approval goes up after the version (`POST /recipes/{id}/versions/{v}/review`), and the backend makes only approved versions live. Until sign-in, who is acting is the name set in the Backend dialog; the backend checks the rule again against the signed-in user.
 
+### 7.5 Selector usage and cleanup (`wayHealth.ts`, `cleanup.ts`)
+The backend reports, per way id and day, the pages a way was tried on, found something on, and won (its value was used); only pages that loaded count. **Refresh usage** on History (`backend/usage.ts`) fetches the last 90 days into `wayStats`.
+
+Each way of the newest version is judged on the last 30 days once it was tried on at least 20 pages (`MIN_PAGES`): **active** (won at least once), **dormant** (found something, never won), **dead** (found nothing). Below 20 pages it is **new** if its `addedIn` version was saved in the window, else **no data**. Judging by evidence rather than age means a selector that breaks on a big crawl is dead the same day, and one that is barely reached is never removed for lack of data.
+
+**Clean up** proposes the next version: dead ways removed, dormant selectors moved after the ones that win. It never leaves a field or click without a way, never takes a required field below 2 ways, or below 2 kinds when it had them, and never moves page data from the front. The proposal is saved as a `pruned` version (way ids kept, §6) and goes through test, review and submit like any other; nothing is applied by itself.
+
 ## 8. Backend client
 Proposed contract; the backend team owns it. Base URL is a Pro setting. All calls send `Authorization: Bearer <token>`.
 
@@ -256,6 +264,7 @@ Proposed contract; the backend team owns it. Base URL is a Pro setting. All call
 | `POST /recipes/{id}/crawls` | `{ version, pages, schedule: 'once' \| 'daily' \| 'weekly' }` | `{ crawlId }` |
 | `GET /crawls/{id}` | none | `{ status, pagesDone, pagesFailed, fields: { name, fill, fallbackShare, failedChecks }[], samples: Record[] }` |
 | `POST /recipes/{id}/labels/live` | `{ version, reason }` | `{ live }`; 409 unless the version is approved |
+| `GET /recipes/{id}/ways/stats?since=` | none | `{ field, wayId, days: { date, tried, matched, won }[] }[]` |
 | `POST /recipes/{id}/pause`, `/resume` | none | `{ status }` |
 
 - **Built so far** (`backend/client.ts`, `mock.ts`, `submit.ts`, `settings.ts`): the calls above, retries and error kinds as described, the submit flow with the readiness gate, crawl refresh. Until the identity provider is chosen, the address and an access token are set in the Backend dialog (address in `chrome.storage.local`, token in `chrome.storage.session`). The e2e tests serve `mock.ts` on a local port (`e2e/pro.ts`).

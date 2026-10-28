@@ -3,7 +3,7 @@
  * 429 and 5xx are tried again (3 tries, 0.5 s then 1 s apart); other errors are not. Every failure is a
  * `BackendError` whose kind the UI can say plainly.
  */
-import { BackendError, type BackendApi, type BackendErrorKind, type CrawlStatus } from './types';
+import { BackendError, type BackendApi, type BackendErrorKind, type CrawlStatus, type WayStats } from './types';
 
 export interface ClientOptions {
     baseUrl: string;
@@ -55,6 +55,7 @@ export function createClient({ baseUrl, token, fetch: doFetch = (...a) => fetch(
         reviewVersion: (recipeId, version, review) => call('POST', `/recipes/${encodeURIComponent(recipeId)}/versions/${version}/review`, review),
         startCrawl: (recipeId, input) => call('POST', `/recipes/${encodeURIComponent(recipeId)}/crawls`, input),
         getCrawl: crawlId => call<CrawlStatus>('GET', `/crawls/${encodeURIComponent(crawlId)}`),
+        getWayStats: (recipeId, since) => call<WayStats[]>('GET', `/recipes/${encodeURIComponent(recipeId)}/ways/stats?since=${encodeURIComponent(since)}`),
         setLive: (recipeId, version, reason) => call('POST', `/recipes/${encodeURIComponent(recipeId)}/labels/live`, { version, reason }),
     };
 }

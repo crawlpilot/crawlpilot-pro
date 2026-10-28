@@ -4,6 +4,7 @@ import { listCrawls, saveCrawl } from './crawls';
 import { getVersion, listVersions, markSubmitted, restoreVersion, saveVersion } from './versions';
 import { latestTest, saveTest } from './tests';
 import { listReviews, reviewStates, reviewVersion } from './reviews';
+import { listWayStats, saveWayStats } from './wayStats';
 import { readRecipeFile } from '../recipe/file';
 import { specDigest } from '../recipe/canonical';
 import type { ProRecipe, Version } from '../recipe/types';
@@ -45,5 +46,6 @@ export const pro = {
     tests: { save: saveTest, latest: latestTest },
     crawls: { save: saveCrawl, list: listCrawls },
     reviews: { review: reviewVersion, list: listReviews, states: reviewStates },
+    wayStats: { save: saveWayStats, list: listWayStats },
     importRecipeFile,
 };
