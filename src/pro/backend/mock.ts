@@ -70,7 +70,7 @@ export function createMockBackend(token = 'dev-token'): MockBackend {
             const seen = byKey.get(key);
             if (seen && seen.recipeId === recipe.id) return json(200, { version: seen.version, accepted: true });
             const version = body.versions?.[0];
-            if (body.format !== 2 || !version?.spec) return json(422, { error: 'Not a recipe file with a version.', errors: ['$.versions[0].spec is missing'] });
+            if ((body.format !== 2 && body.format !== 3) || !version?.spec) return json(422, { error: 'Not a recipe file with a version.', errors: ['$.versions[0].spec is missing'] });
             recipe.versions.set(version.version, { file: body, digest: key });
             byKey.set(key, { recipeId: recipe.id, version: version.version });
             return json(201, { version: version.version, accepted: true });

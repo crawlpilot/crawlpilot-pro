@@ -12,7 +12,9 @@ src/pro/
     canonical.ts      canonical spec, digest, outputDigest (§4)
     fromPublic.ts     PageSpec/ListSpec + settings → Version parts; the only place that reads public types
     diff.ts           structured diff of two versions (§5)
-    file.ts           .crawlpilot.json format 2 read/write; format 1 import (§6)
+    file.ts           .crawlpilot.json format 3 write; format 1, 2 and 3 read (§6)
+    wayIds.ts         stable way ids, carried across versions (§6)
+    targeting.ts      URL match rules and the samples they leave out (§6)
     ready.ts          the "ready to submit" gate (§7.4)
   db/
     schema.ts         database crawlpilot-pro, stores, indexes (§3)
@@ -180,14 +182,18 @@ A version is never updated afterwards. The repository has no update function, an
 
 The output is `{ fields: { added, removed, renamed, changed: {name, parts[]}[] }, steps, pagination, settings, pages, outputChanged }`. The Save version dialog uses the same diff to show "what changed" against the base version.
 
-## 6. Recipe file `.crawlpilot.json` (format 2)
+## 6. Recipe file `.crawlpilot.json` (format 3)
 ```jsonc
 {
-  "format": 2,
-  "recipe": { "name": "ZARA · product details", "site": "zara.com", "kind": "page" },
+  "format": 3,
+  "recipe": {
+    "name": "ZARA · product details", "site": "zara.com", "kind": "page",
+    // What the crawler workers resolve the recipe by; match rules only when several recipes share the pair.
+    "competitor": "zara", "pageType": "product",
+    "matchRules": { "include": ["https://www.zara.com/*-p*.html*"], "exclude": ["*/kids/*"] }
+  },
   "labels": { "live": 3, "latest": 4 },
   "samples": [{ "url": "https://…", "canary": true }],
-  "targeting": { "match": ["zara.com/*/*-p*.html"], "exclude": [] },          // slice 4
   "requirements": { "js": true, "paceMs": 2000, "signIn": false, "locale": "en-IN" },  // slice 4
   "versions": [
     { "version": 3, "digest": "…", "outputDigest": "…", "parentDigest": "…", "origin": "edited",
@@ -196,8 +202,11 @@ The output is `{ fields: { added, removed, renamed, changed: {name, parts[]}[] }
   ]
 }
 ```
+- **Format 3** adds the recipe's competitor, page type and match rules, and an `id` and `addedIn` on every way in the spec: `{ "id": "…", "addedIn": 2, "kind": "selector", "selector": ".price" }`. Neither is part of the digest.
+- **Way ids** (`wayIds.ts`) are given on save. A way keeps its id while it reads the same under the same field or click (fields match by id, then by name); a way without one takes the id of the same way in the base version; anything else, an edited selector included, is a new way first seen in the version saved. The crawler reports usage per way id, so usage adds up across versions.
+- **Match rules** (`targeting.ts`) are URL globs: `*` is any run of characters, the rest literal, matched against the whole URL, case aside. A URL is the recipe's when it matches an include and no exclude.
 - **Export** writes the whole recipe, or a single version (`versions` then has one entry). Golden HTML is left out unless asked for.
-- **Import format 2:** if the recipe exists (same `name` and `site`), versions with an unknown digest are added as new numbers with `origin: 'imported'`. It never overwrites.
+- **Import formats 2 and 3:** if the recipe exists (same `name` and `site`), versions with an unknown digest are added as new numbers with `origin: 'imported'`. It never overwrites.
 - **Import format 1** (the public samples): `spec` (a public `PageSpec`) goes through `fromPublic`; `built_on` and `checked_on` become samples; `contract` becomes `output.contract`. The result is version 1 with `origin: 'imported'`.
 - **Validation:** a hand-written type guard in `file.ts`, with readable errors that give the JSON path. There is no schema library.
 
@@ -275,7 +284,7 @@ Screens are routes in the side panel, built from the upstream UI kit (`src/sidep
   - `saveVersion`: numbering, stale base, no change, immutability;
   - digests, including that settings don't change `digest` and a rename changes `outputDigest`;
   - diff cases;
-  - format 1 import of both samples, and a format 2 round trip;
+  - format 1 import of both samples, a format 3 round trip, and format 2 still read;
   - `ready.ts` reasons;
   - the backend client against the mock (retry, 401, idempotency).
 - **Playwright (`e2e/pro-*.spec.ts`, reusing `e2e/harness.ts` and the local site):**

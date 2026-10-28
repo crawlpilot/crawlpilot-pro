@@ -1,5 +1,5 @@
 /** Pro's store: recipes, versions, labels and samples, plus importing a recipe file into them. */
-import { addSamples, createRecipe, getRecipe, labelLog, listRecipes, listSamples, moveLabel, removeSample, renameRecipe, setRemoteId } from './recipes';
+import { addSamples, createRecipe, getRecipe, labelLog, listRecipes, listSamples, moveLabel, removeSample, renameRecipe, setRemoteId, setTargeting } from './recipes';
 import { listCrawls, saveCrawl } from './crawls';
 import { getVersion, listVersions, markSubmitted, restoreVersion, saveVersion } from './versions';
 import { latestTest, saveTest } from './tests';
@@ -19,7 +19,7 @@ const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringif
 async function importRecipeFile(raw: string, author: string): Promise<{ recipe: ProRecipe; added: number }> {
     const file = readRecipeFile(raw);
     const existing = (await listRecipes()).find(r => r.name === file.name && r.site === file.site && r.kind === file.kind);
-    const recipe = existing ?? await createRecipe({ name: file.name, site: file.site, kind: file.kind });
+    const recipe = existing ?? await createRecipe({ name: file.name, site: file.site, kind: file.kind, ...file.targeting });
     const have: Version[] = await listVersions(recipe.id);
     let latest = existing?.latestVersion ?? 0;
     let added = 0;
@@ -37,7 +37,7 @@ async function importRecipeFile(raw: string, author: string): Promise<{ recipe: 
 }
 
 export const pro = {
-    recipes: { create: createRecipe, get: getRecipe, list: listRecipes, rename: renameRecipe, moveLabel, labelLog, setRemoteId },
+    recipes: { create: createRecipe, get: getRecipe, list: listRecipes, rename: renameRecipe, moveLabel, labelLog, setRemoteId, setTargeting },
     versions: { save: saveVersion, get: getVersion, list: listVersions, restore: restoreVersion, markSubmitted },
     samples: { add: addSamples, list: listSamples, remove: removeSample },
     tests: { save: saveTest, latest: latestTest },

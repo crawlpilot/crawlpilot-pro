@@ -124,3 +124,38 @@ describe('test runs', () => {
         expect((await pro.tests.latest('r', 'd2', 'pages'))?.passed).toBe(true);
     });
 });
+
+describe('ways and targeting', () => {
+    it('keep their ids across saved versions; an added selector is new in its version', async () => {
+        const recipe = await pro.recipes.create({ name: 'ZARA', site: 'zara.com', kind: 'page' });
+        const v1 = await pro.versions.save(recipe.id, 0, draftOf(zara), by);
+        const v2 = await pro.versions.save(recipe.id, 1, edited(draftOf(zara)), by);
+        const ways = (spec: VersionDraft['spec']) => spec.kind === 'page' ? spec.steps.flatMap(s => s.kind === 'field' ? s.field.ways : s.click.ways) : [];
+        const [before, after] = [ways(v1.spec), ways(v2.spec)];
+        expect(before.every(w => w.id && w.addedIn === 1)).toBe(true);
+        expect(after.filter(w => w.addedIn === 1).map(w => w.id)).toEqual(before.map(w => w.id));
+        expect(after.filter(w => w.addedIn === 2)).toHaveLength(1);
+    });
+
+    it('set the competitor, page type and match rules, tidied, and clear what is left empty', async () => {
+        const recipe = await pro.recipes.create({ name: 'ZARA', site: 'zara.com', kind: 'page', competitor: ' Zara ', pageType: 'Product' });
+        expect(recipe).toMatchObject({ competitor: 'zara', pageType: 'product' });
+        const set = await pro.recipes.setTargeting(recipe.id, { competitor: 'zara', pageType: '', matchRules: { include: [' https://www.zara.com/* ', ''], exclude: [] } });
+        expect(set).toMatchObject({ competitor: 'zara', matchRules: { include: ['https://www.zara.com/*'] } });
+        expect(set).not.toHaveProperty('pageType');
+        expect(set.matchRules).not.toHaveProperty('exclude');
+        expect(await pro.recipes.get(recipe.id)).toEqual(set);
+    });
+
+    it('come back from an exported file into a new recipe', async () => {
+        const recipe = await pro.recipes.create({ name: 'ZARA', site: 'zara.com', kind: 'page', competitor: 'zara', pageType: 'product' });
+        const v1 = await pro.versions.save(recipe.id, 0, draftOf(zara), by);
+        const raw = writeRecipeFile((await pro.recipes.get(recipe.id))!, [v1], []);
+        globalThis.indexedDB = new IDBFactory();
+        await closeProDatabase();
+        const { recipe: imported } = await pro.importRecipeFile(raw, 'tester');
+        expect(imported).toMatchObject({ competitor: 'zara', pageType: 'product' });
+        const [back] = await pro.versions.list(imported.id);
+        expect(JSON.stringify(back.spec)).toBe(JSON.stringify(v1.spec));
+    });
+});

@@ -2,11 +2,11 @@
 import { done, req } from '../../shared/db/idb';
 import { proTransaction } from './idb';
 import { STORES } from './schema';
-import type { LabelMove, LabelName, ProRecipe, RecipeKind, Sample } from '../recipe/types';
+import type { LabelMove, LabelName, MatchRules, ProRecipe, RecipeKind, Sample, Targeting } from '../recipe/types';
 
-export async function createRecipe(input: { name: string; site: string; kind: RecipeKind }): Promise<ProRecipe> {
+export async function createRecipe(input: { name: string; site: string; kind: RecipeKind } & Targeting): Promise<ProRecipe> {
     const now = Date.now();
-    const recipe: ProRecipe = { id: crypto.randomUUID(), ...input, latestVersion: 0, labels: {}, createdAt: now, updatedAt: now };
+    const recipe: ProRecipe = { id: crypto.randomUUID(), ...cleanTargeting(input), name: input.name, site: input.site, kind: input.kind, latestVersion: 0, labels: {}, createdAt: now, updatedAt: now };
     const tx = await proTransaction(STORES.recipes, 'readwrite');
     tx.objectStore(STORES.recipes).add(recipe);
     await done(tx);
@@ -33,6 +33,35 @@ export async function setRemoteId(id: string, remoteId: string): Promise<void> {
     if (!recipe) throw new Error(`No recipe ${id}`);
     store.put({ ...recipe, remoteId });
     await done(tx);
+}
+
+function cleanRules(rules?: MatchRules): MatchRules | undefined {
+    const tidy = (globs?: string[]) => [...new Set((globs ?? []).map(g => g.trim()).filter(Boolean))];
+    const include = tidy(rules?.include), exclude = tidy(rules?.exclude);
+    return include.length ? { include, ...(exclude.length ? { exclude } : {}) } : undefined;
+}
+
+/** Trimmed, with empty parts left out rather than stored blank. */
+function cleanTargeting({ competitor, pageType, matchRules }: Targeting): Targeting {
+    const rules = cleanRules(matchRules);
+    return {
+        ...(competitor?.trim() ? { competitor: competitor.trim().toLowerCase() } : {}),
+        ...(pageType?.trim() ? { pageType: pageType.trim().toLowerCase() } : {}),
+        ...(rules ? { matchRules: rules } : {}),
+    };
+}
+
+/** Sets the competitor, page type and match rules; a part left empty is cleared. */
+export async function setTargeting(id: string, targeting: Targeting): Promise<ProRecipe> {
+    const tx = await proTransaction(STORES.recipes, 'readwrite');
+    const store = tx.objectStore(STORES.recipes);
+    const recipe = await req<ProRecipe | undefined>(store.get(id));
+    if (!recipe) throw new Error(`No recipe ${id}`);
+    const { competitor: _, pageType: __, matchRules: ___, ...rest } = recipe;
+    const updated: ProRecipe = { ...rest, ...cleanTargeting(targeting), updatedAt: Date.now() };
+    store.put(updated);
+    await done(tx);
+    return updated;
 }
 
 export async function renameRecipe(id: string, name: string): Promise<void> {

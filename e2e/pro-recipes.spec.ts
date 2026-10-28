@@ -28,7 +28,7 @@ test('recipes: samples, re-import and export', async ({ panel }) => {
     const file = await download;
     expect(file.suggestedFilename()).toBe('zara-product-details.crawlpilot.json');
     const json = JSON.parse(readFileSync(await file.path(), 'utf8'));
-    expect(json).toMatchObject({ format: 2, recipe: { site: 'zara.com', kind: 'page' }, labels: { latest: 1 } });
+    expect(json).toMatchObject({ format: 3, recipe: { site: 'zara.com', kind: 'page' }, labels: { latest: 1 } });
     expect(json.versions).toHaveLength(1);
 });
 

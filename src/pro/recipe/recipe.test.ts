@@ -69,20 +69,21 @@ describe('recipe file', () => {
         expect(file.versions[0].settings).toEqual(uniqlo.spec.settings);
     });
 
-    it('writes format 2 and reads it back', async () => {
+    it('writes format 3 and reads it back, with the competitor, page type and match rules', async () => {
         const v1 = readRecipeFile(JSON.stringify(zara)).versions[0];
-        const recipe: ProRecipe = { id: 'r1', name: zara.name, site: zara.site, kind: 'page', latestVersion: 1, labels: { latest: 1, live: 1 }, createdAt: 1, updatedAt: 1 };
+        const targeting = { competitor: 'zara', pageType: 'product', matchRules: { include: ['https://www.zara.com/*-p*.html*'], exclude: ['*/kids/*'] } };
+        const recipe: ProRecipe = { id: 'r1', name: zara.name, site: zara.site, kind: 'page', latestVersion: 1, labels: { latest: 1, live: 1 }, ...targeting, createdAt: 1, updatedAt: 1 };
         const version: Version = {
             recipeId: 'r1', version: 1, spec: v1.spec, settings: v1.settings, pages: v1.pages, output: v1.output,
             digest: await specDigest(v1.spec), outputDigest: await outputDigest(v1.spec), origin: 'imported', note: 'first', author: 'me', createdAt: 0,
         };
         const raw = writeRecipeFile(recipe, [version], [{ recipeId: 'r1', url: zara.built_on, canary: true, addedAt: 0 }]);
         const json = JSON.parse(raw);
-        expect(json).toMatchObject({ format: 2, labels: { latest: 1, live: 1 }, samples: [{ url: zara.built_on, canary: true }] });
+        expect(json).toMatchObject({ format: 3, recipe: targeting, labels: { latest: 1, live: 1 }, samples: [{ url: zara.built_on, canary: true }] });
         expect(json.versions[0]).not.toHaveProperty('recipeId');
 
         const back = readRecipeFile(raw);
-        expect(back).toMatchObject({ name: zara.name, site: zara.site, kind: 'page', samples: [zara.built_on] });
+        expect(back).toMatchObject({ name: zara.name, site: zara.site, kind: 'page', targeting, samples: [zara.built_on] });
         expect(back.versions[0]).toMatchObject({ spec: v1.spec, settings: v1.settings, pages: v1.pages, note: 'first', digest: version.digest });
     });
 
@@ -91,6 +92,14 @@ describe('recipe file', () => {
         expect(() => readRecipeFile(JSON.stringify({ ...zara, site: '' }))).toThrow('$.site: expected text');
         expect(() => readRecipeFile(JSON.stringify({ ...zara, spec: { kind: 'metadata' } }))).toThrow('$.spec.kind');
         expect(() => readRecipeFile(JSON.stringify({ format: 2, recipe: { name: 'a', site: 'b', kind: 'page' }, versions: [] }))).toThrow('$.versions');
-        expect(() => readRecipeFile(JSON.stringify({ format: 3 }))).toThrow('unknown format 3');
+        expect(() => readRecipeFile(JSON.stringify({ format: 4 }))).toThrow('unknown format 4');
+        const v3 = (matchRules: unknown) => JSON.stringify({ format: 3, recipe: { name: 'a', site: 'b', kind: 'page', matchRules }, versions: [{ version: 1, spec: { kind: 'page', steps: [] }, pages: { kind: 'urls', urls: [] } }] });
+        expect(() => readRecipeFile(v3({ include: 'x' }))).toThrow('$.recipe.matchRules.include: expected a list of text');
+        expect(() => readRecipeFile(v3({ include: [], exclude: [1] }))).toThrow('$.recipe.matchRules.exclude');
+    });
+
+    it('still reads format 2, with no targeting', () => {
+        const raw = JSON.stringify({ format: 2, recipe: { name: 'a', site: 'b', kind: 'page' }, versions: [{ version: 1, spec: { kind: 'page', steps: [] }, pages: { kind: 'urls', urls: [] } }] });
+        expect(readRecipeFile(raw)).toMatchObject({ name: 'a', targeting: {} });
     });
 });

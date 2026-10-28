@@ -1,11 +1,13 @@
 /**
  * Versions are written once and never changed (`docs/design/LLD.md` §4.3): there is no update here. A save
- * names the version it was edited from; if another save got there first it is refused, never merged.
+ * names the version it was edited from; if another save got there first it is refused, never merged. A save
+ * also gives each way its stable id (`recipe/wayIds.ts`), carried over from the base version where unchanged.
  */
 import { done, req } from '../../shared/db/idb';
 import { proTransaction } from './idb';
 import { STORES } from './schema';
 import { outputDigest, specDigest } from '../recipe/canonical';
+import { assignWayIds } from '../recipe/wayIds';
 import type { LabelMove, ProRecipe, Version, VersionDraft, VersionOrigin } from '../recipe/types';
 
 export type SaveRefusal = 'stale' | 'unchanged' | 'missing';
@@ -43,7 +45,8 @@ export async function saveVersion(recipeId: string, baseVersion: number, draft: 
     }
     const now = Date.now();
     // Only the draft's own parts: a draft made from a loaded version still carries its number and digests.
-    const { spec, settings, pages, output } = draft;
+    const { settings, pages, output } = draft;
+    const spec = assignWayIds(draft.spec, baseVersion + 1, base?.spec);
     const version: Version = {
         recipeId, version: baseVersion + 1, spec, settings, pages, output, digest, outputDigest: outDigest,
         ...(base ? { parentVersion: base.version, parentDigest: base.digest } : {}),

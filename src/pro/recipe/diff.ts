@@ -3,6 +3,7 @@
  * added, removed, renamed or changed (type, ways in order, cleanup), clicks, lists, pagination, settings
  * and pages, and whether the output consumers see changed.
  */
+import { canonicalString } from './canonical';
 import type { Field, ListRecipeSpec, PageRecipeSpec, PageSource, Version, Way } from './types';
 import type { Column, ListTarget } from '../../shared/types/database';
 
@@ -25,6 +26,8 @@ export interface VersionDiff {
 }
 
 const json = (v: unknown) => JSON.stringify(v ?? null);
+/** Ways compared by what they read: a way's id and `addedIn` are identity, not a change. */
+const waysJson = (v: unknown) => canonicalString(v ?? null);
 
 export function wayLabel(w: Way): string {
     if (w.kind === 'selector') return w.selector;
@@ -45,7 +48,7 @@ function waysDetails(a: Way[], b: Way[]): string[] {
     // Page data cleanup or shape lives inside the binding: same label, different binding.
     a.forEach((w, i) => {
         const other = b.find(x => wayLabel(x) === as[i]);
-        if (other && json(other) !== json(w)) out.push(`way changed: ${as[i]}`);
+        if (other && waysJson(other) !== waysJson(w)) out.push(`way changed: ${as[i]}`);
     });
     return out;
 }
@@ -86,7 +89,7 @@ function pageChanges(a: PageRecipeSpec, b: PageRecipeSpec, prefix = ''): Change[
     const fieldsA = a.steps.flatMap(s => s.kind === 'field' ? [s.field] : []);
     const fieldsB = b.steps.flatMap(s => s.kind === 'field' ? [s.field] : []);
     // A field keeps its id across versions; one picked again keeps its ways.
-    const m = matchByName(fieldsA, fieldsB, f => f.id, f => json(f.ways));
+    const m = matchByName(fieldsA, fieldsB, f => f.id, f => waysJson(f.ways));
     const changes: Change[] = [
         ...m.added.map(f => ({ kind: 'added' as const, subject: `${prefix}field ${f.name}`, details: [] })),
         ...m.removed.map(f => ({ kind: 'removed' as const, subject: `${prefix}field ${f.name}`, details: [] })),
@@ -96,13 +99,13 @@ function pageChanges(a: PageRecipeSpec, b: PageRecipeSpec, prefix = ''): Change[
         const details = fieldDetails(x, y);
         if (details.length) changes.push({ kind: 'changed', subject: `${prefix}field ${y.name}`, details });
     }
-    const clicksA = a.steps.flatMap(s => s.kind === 'click' ? [json(s.click.ways)] : []);
-    const clicksB = b.steps.flatMap(s => s.kind === 'click' ? [json(s.click.ways)] : []);
+    const clicksA = a.steps.flatMap(s => s.kind === 'click' ? [waysJson(s.click.ways)] : []);
+    const clicksB = b.steps.flatMap(s => s.kind === 'click' ? [waysJson(s.click.ways)] : []);
     clicksB.forEach((c, i) => { if (!clicksA.includes(c)) changes.push({ kind: 'added', subject: `${prefix}click ${i + 1}`, details: [] }); });
     clicksA.forEach((c, i) => { if (!clicksB.includes(c)) changes.push({ kind: 'removed', subject: `${prefix}click ${i + 1}`, details: [] }); });
 
     // The run order: the same steps (by name, clicks by ways) in another order.
-    const order = (s: PageRecipeSpec) => s.steps.map(st => st.kind === 'field' ? `f:${st.field.name}` : `c:${json(st.click.ways)}`);
+    const order = (s: PageRecipeSpec) => s.steps.map(st => st.kind === 'field' ? `f:${st.field.name}` : `c:${waysJson(st.click.ways)}`);
     const oa = order(a), ob = order(b);
     const common = (x: string[], y: string[]) => x.filter(k => y.includes(k));
     if (json(common(oa, ob)) !== json(common(ob, oa))) changes.push({ kind: 'moved', subject: `${prefix}steps`, details: ['the run order changed'] });

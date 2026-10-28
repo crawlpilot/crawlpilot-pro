@@ -18,7 +18,8 @@ export async function submitVersion(api: BackendApi, recipe: ProRecipe, version:
 
     let remoteId = recipe.remoteId;
     if (!remoteId) {
-        remoteId = (await api.createRecipe({ name: recipe.name, site: recipe.site, kind: recipe.kind })).id;
+        const { name, site, kind, competitor, pageType, matchRules } = recipe;
+        remoteId = (await api.createRecipe({ name, site, kind, competitor, pageType, matchRules })).id;
         await pro.recipes.setRemoteId(recipe.id, remoteId);
     }
     const file = writeRecipeFile({ ...recipe, labels: {} }, [version], await pro.samples.list(recipe.id));

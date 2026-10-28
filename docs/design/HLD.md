@@ -23,7 +23,7 @@ The crawler backend runs every real crawl at scale. Pro extracts data only to te
 **Goals**
 1. A recipe change is never lost or silently overwritten. Every saved version is immutable and numbered.
 2. Nothing reaches the backend untested. Submit requires a passing test on sample pages and a passing contract check.
-3. The backend and Pro agree on one file: `.crawlpilot.json` (format 2).
+3. The backend and Pro agree on one file: `.crawlpilot.json` (format 3).
 4. Repairs are fast: from a failing field reported by the backend to a new live version in a few minutes.
 5. Pro stays a thin layer on the public extension. Extractors, pickers and selectors come from upstream.
 
@@ -83,7 +83,7 @@ flowchart TB
 | Public extractor screens | Picking fields, lists, clicks, pagination on a live page | Upstream, plus one hook: "Save version" replaces "Run" |
 | Pro screens | Recipes library, editor, history and diff, tests, submit, crawls, health, repair | `src/pro/pages` |
 | Pro store | Recipes, immutable versions, labels and their log, tests, samples, golden records | `src/pro/db` (own database) |
-| Recipe core | Canonical spec, digests, diff, format 2 file, format 1 import | `src/pro/recipe` |
+| Recipe core | Canonical spec, digests, diff, way ids, format 3 file, format 1 and 2 import | `src/pro/recipe` |
 | Test runner | Test on this page; test on N sample pages in background tabs, no table output | `src/pro/runner`, uses `TabPool` |
 | Backend client | Typed calls, auth token, retries, error mapping | `src/pro/backend` |
 
@@ -139,11 +139,12 @@ sequenceDiagram
 The only thing exchanged with the backend. Versioned with `format`.
 
 - **Format 1** (today's samples in the public repo): one `spec` plus metadata. Pro imports it as version 1.
-- **Format 2** (Pro): a recipe with its versions, labels, samples, targeting, requirements, checks, golden records.
+- **Format 2** (Pro, read only now): a recipe with its versions, labels, samples, requirements, checks, golden records.
+- **Format 3** (Pro, written): format 2 plus the recipe's competitor, page type and match rules, and a stable id on every way, so the crawler can report usage per way.
   Each version carries `spec` (what to extract, no settings, no URLs), `settings`, `pages`, `output`, `digest`, `outputDigest`.
-- The public extension never reads or writes format 2.
+- The public extension never reads or writes formats 2 or 3.
 
-Details and the JSON shape are in [LLD.md §6](LLD.md#6-recipe-file-crawlpilotjson-format-2).
+Details and the JSON shape are in [LLD.md §6](LLD.md#6-recipe-file-crawlpilotjson-format-3).
 
 ## 7. Key design decisions
 | # | Decision | Why | Alternative not taken |
