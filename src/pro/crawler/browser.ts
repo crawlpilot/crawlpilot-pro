@@ -1,0 +1,172 @@
+/**
+ * Pages for the worker, from one Chromium. A context per site and proxy keeps that visitor's cookies and
+ * session between pages; it is replaced after `pagesPerContext` pages, or when its proxy changes. A context
+ * renders as the site's profile says (locale, timezone, viewport, user agent, extra headers) and may skip
+ * images, media and fonts.
+ * `visit` reads what came back (status, headers, redirects, size, timings, title, visible text) for
+ * classification and telemetry; `extract` runs the in-page script (`inPage.ts`) on the loaded page.
+ */
+import { chromium, type Browser, type BrowserContext, type Page, type Response } from 'playwright';
+import type { SiteProfile } from './config';
+import type { InPageRequest, InPageResult } from './inPage';
+import type { ProxyConfig } from './proxies';
+
+export interface Visit {
+    error?: string;
+    status?: number;
+    headers?: Record<string, string>;
+    requestHeaders?: Record<string, string>;
+    redirects: string[];
+    finalUrl?: string;
+    bytes?: number;
+    title?: string;
+    text?: string;
+    navigationMs: number;
+}
+
+/** What the worker needs from a browser: a page for a host through a proxy, and robots.txt through it. */
+export interface PageSource {
+    open(host: string, profile: SiteProfile, proxy?: ProxyConfig): Promise<{ page: Page; release: () => Promise<void> }>;
+    fetchText(url: string, profile: SiteProfile, proxy?: ProxyConfig): Promise<{ status: number; text: string }>;
+    close(): Promise<void>;
+}
+
+interface ContextEntry { context: BrowserContext; pages: number; open: number }
+
+/** Request headers kept on request events. */
+const KEEP_REQUEST_HEADERS = ['user-agent', 'accept-language', 'referer'];
+
+export class BrowserPool implements PageSource {
+    /** One launch, shared: pages asked for at once must not each start a browser. */
+    private browser: Promise<Browser> | null = null;
+    private contexts = new Map<string, Promise<ContextEntry>>();
+
+    constructor(private opts: { pagesPerContext: number; headless?: boolean; executablePath?: string }) {}
+
+    private start(): Promise<Browser> {
+        if (!this.browser) {
+            this.browser = chromium.launch({
+                headless: this.opts.headless ?? true,
+                ...(this.opts.executablePath ? { executablePath: this.opts.executablePath } : {}),
+            });
+            this.browser.catch(() => { this.browser = null; });
+        }
+        return this.browser;
+    }
+
+    /** The site's context through this proxy; made once even when asked for at once, renewed when used up. */
+    private async context(host: string, profile: SiteProfile, proxy?: ProxyConfig): Promise<ContextEntry> {
+        const key = `${host}|${proxy?.id ?? 'direct'}`;
+        const existing = this.contexts.get(key);
+        if (existing) {
+            const entry = await existing;
+            if (entry.pages < this.opts.pagesPerContext || entry.open > 0) return entry;
+            if (this.contexts.get(key) === existing) {
+                this.contexts.delete(key);
+                void entry.context.close().catch(() => {});
+            }
+            return this.context(host, profile, proxy);
+        }
+        const made = (async (): Promise<ContextEntry> => {
+            const browser = await this.start();
+            const context = await browser.newContext({
+                ...(proxy ? { proxy: { server: proxy.server, ...(proxy.username ? { username: proxy.username, password: proxy.password ?? '' } : {}) } } : {}),
+                ...(profile.locale ? { locale: profile.locale } : {}),
+                ...(profile.timezoneId ? { timezoneId: profile.timezoneId } : {}),
+                ...(profile.viewport ? { viewport: profile.viewport } : {}),
+                ...(profile.userAgent ? { userAgent: profile.userAgent } : {}),
+                ...(profile.extraHeaders ? { extraHTTPHeaders: profile.extraHeaders } : {}),
+            });
+            const blocked = new Set(profile.blockResources ?? []);
+            if (blocked.size) await context.route('**/*', route => blocked.has(route.request().resourceType()) ? route.abort() : route.continue());
+            return { context, pages: 0, open: 0 };
+        })();
+        this.contexts.set(key, made);
+        made.catch(() => { if (this.contexts.get(key) === made) this.contexts.delete(key); });
+        return made;
+    }
+
+    async open(host: string, profile: SiteProfile, proxy?: ProxyConfig) {
+        const entry = await this.context(host, profile, proxy);
+        entry.pages++;
+        entry.open++;
+        const page = await entry.context.newPage();
+        return {
+            page,
+            release: async () => {
+                entry.open--;
+                await page.close().catch(() => {});
+            },
+        };
+    }
+
+    async fetchText(url: string, profile: SiteProfile, proxy?: ProxyConfig) {
+        const entry = await this.context(new URL(url).host, profile, proxy);
+        const res = await entry.context.request.get(url, { timeout: 15_000, failOnStatusCode: false });
+        return { status: res.status(), text: res.ok() ? await res.text() : '' };
+    }
+
+    async close() {
+        for (const made of this.contexts.values()) await made.then(e => e.context.close()).catch(() => {});
+        this.contexts.clear();
+        const browser = this.browser;
+        this.browser = null;
+        await browser?.then(b => b.close()).catch(() => {});
+    }
+}
+
+function redirectChain(response: Response): string[] {
+    const chain: string[] = [];
+    for (let r = response.request().redirectedFrom(); r; r = r.redirectedFrom()) chain.unshift(r.url());
+    return chain;
+}
+
+export async function visit(page: Page, url: string, o: { timeoutMs: number; settleMs: number; now?: () => number }): Promise<Visit> {
+    const now = o.now ?? Date.now;
+    const started = now();
+    let response: Response | null;
+    try {
+        response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: o.timeoutMs });
+    } catch (e) {
+        return { error: e instanceof Error ? e.message : String(e), redirects: [], navigationMs: now() - started };
+    }
+    await page.waitForLoadState('load', { timeout: Math.min(10_000, o.timeoutMs) }).catch(() => {});
+    if (o.settleMs > 0) await page.waitForTimeout(o.settleMs);
+    const navigationMs = now() - started;
+    if (!response) return { error: 'No response', redirects: [], navigationMs };
+    const [headers, requestHeaders, sizes, title, text] = await Promise.all([
+        response.allHeaders(),
+        response.request().allHeaders(),
+        response.request().sizes().catch(() => null),
+        page.title().catch(() => ''),
+        page.evaluate(() => (document.body?.innerText ?? '').slice(0, 5000)).catch(() => ''),
+    ]);
+    return {
+        status: response.status(),
+        headers,
+        requestHeaders: Object.fromEntries(KEEP_REQUEST_HEADERS.flatMap(h => requestHeaders[h] ? [[h, requestHeaders[h]]] : [])),
+        redirects: redirectChain(response),
+        finalUrl: page.url(),
+        ...(sizes ? { bytes: sizes.responseBodySize } : {}),
+        title,
+        text,
+        navigationMs,
+    };
+}
+
+/** Runs the recipe in the page: the script is put in once per page, then called. */
+export async function extract(page: Page, script: string, request: InPageRequest, timeoutMs: number): Promise<InPageResult> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`Extraction took longer than ${timeoutMs} ms`)), timeoutMs); });
+    try {
+        return await Promise.race([
+            (async () => {
+                await page.evaluate(script);
+                return page.evaluate(req => (globalThis as unknown as { crawlpilot: { run: (r: unknown) => Promise<InPageResult> } }).crawlpilot.run(req), request as never);
+            })(),
+            timeout,
+        ]);
+    } finally {
+        clearTimeout(timer);
+    }
+}

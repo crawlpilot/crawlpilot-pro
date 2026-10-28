@@ -11,7 +11,8 @@
     "test": "vitest run",
     "zip": "npm run build && rm -rf dist/.vite && rm -f crawlpilot-pro.zip && cd dist && zip -r ../crawlpilot-pro.zip . -x '*.DS_Store' -x '*.map' -x '*.md' && cd .. && node scripts/release-check.mjs crawlpilot-pro.zip",
     "deadcode": "npx --yes knip@5 --no-progress",
-    "e2e": "npm run build && playwright test"
+    "e2e": "npm run build && playwright test",
+    "crawler:build": "vite build --config vite.crawler.config.ts && vite build --config vite.crawler.config.ts --mode worker"
   },
   "repository": {
     "type": "git",

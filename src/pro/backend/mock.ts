@@ -4,6 +4,8 @@
  * A crawl moves one state on every read (queued → running → done) and reports each field filled.
  */
 import type { CrawlStatus, Schedule, WayStats } from './types';
+import { matchesRules } from '../recipe/targeting';
+import type { MatchRules } from '../recipe/types';
 
 export interface MockRequest {
     method: string;
@@ -17,7 +19,7 @@ export interface MockResponse {
     body: unknown;
 }
 
-interface MockRecipe { id: string; name: string; site: string; kind: string; competitor?: string; pageType?: string; matchRules?: unknown; versions: Map<number, { file: unknown; digest: string; review?: { state: string; by: string; note: string } }>; live?: number }
+interface MockRecipe { id: string; name: string; site: string; kind: string; competitor?: string; pageType?: string; matchRules?: MatchRules; paused?: boolean; versions: Map<number, { file: unknown; digest: string; review?: { state: string; by: string; note: string } }>; live?: number }
 interface MockCrawl {
     id: string; recipeId: string; version: number; schedule: Schedule; pages: number; reads: number; fields: string[];
     /** Set by a test: a field's fill once done, and the pages it failed on (a site that changed). */
@@ -59,10 +61,27 @@ export function createMockBackend(token = 'dev-token'): MockBackend {
         const body = parse(req.body);
         if (body === null) return json(400, { error: 'The body is not JSON.' });
 
+        // What crawler workers call: the live, approved version for a page, and a version by its digest.
+        if (req.method === 'GET' && parts[0] === 'resolve') {
+            const q = new URLSearchParams(req.path.split('?')[1] ?? '');
+            const url = q.get('url') ?? '';
+            const live = (r: MockRecipe) => r.live !== undefined && r.versions.get(r.live)?.review?.state === 'approved';
+            const pair = [...recipes.values()].filter(r => r.competitor === q.get('competitor') && r.pageType === q.get('pageType') && live(r));
+            const found = pair.find(r => r.matchRules && matchesRules(url, r.matchRules)) ?? pair.find(r => !r.matchRules);
+            if (!found) return json(404, { error: 'no_recipe' });
+            if (found.paused) return json(200, { paused: true, recipeId: found.id });
+            return json(200, { recipeId: found.id, version: found.live, digest: found.versions.get(found.live!)!.digest });
+        }
+        if (req.method === 'GET' && parts[0] === 'versions' && parts.length === 2) {
+            for (const r of recipes.values()) for (const [version, v] of r.versions) {
+                if (v.digest === parts[1]) return json(200, { recipeId: r.id, version, approved: v.review?.state === 'approved', file: v.file });
+            }
+            return json(404, { error: `No version ${parts[1]}.` });
+        }
         if (req.method === 'POST' && parts.length === 1 && parts[0] === 'recipes') {
             if (!body.name || !body.site) return json(422, { error: 'A recipe needs a name and a site.' });
             const id = `rec-${++n}`;
-            recipes.set(id, { id, name: body.name, site: body.site, kind: body.kind, competitor: body.competitor, pageType: body.pageType, matchRules: body.matchRules, versions: new Map() });
+            recipes.set(id, { id, name: body.name, site: body.site, kind: body.kind, competitor: body.competitor, pageType: body.pageType, ...(body.matchRules ? { matchRules: body.matchRules } : {}), versions: new Map() });
             return json(201, { id });
         }
         const recipe = parts[0] === 'recipes' ? recipes.get(parts[1]) : undefined;

@@ -1,0 +1,21 @@
+{
+  "workerId": "crawler-eu-1",
+  "concurrency": 8,
+  "robotsAgent": "CrawlPilotBot",
+  "navigationTimeoutMs": 30000,
+  "settleMs": 500,
+  "pagesPerContext": 50,
+  "retry": { "maxAttempts": 4, "baseDelayMs": 2000, "maxDelayMs": 120000, "maxInlineWaitMs": 15000 },
+  "proxyPools": {
+    "eu-residential": [
+      { "id": "eu-de-1", "server": "http://de1.proxy.example.com:8000", "username": "crawler", "password": "${PROXY_EU_PASSWORD}", "country": "DE" },
+      { "id": "eu-fr-1", "server": "http://fr1.proxy.example.com:8000", "username": "crawler", "password": "${PROXY_EU_PASSWORD}", "country": "FR" }
+    ]
+  },
+  "sites": {
+    "default": { "minDelayMs": 2000, "maxDelayMs": 60000, "concurrency": 2, "cooldownBaseMs": 60000, "cooldownMaxMs": 3600000, "blockAfter": 3, "respectRobots": true, "blockResources": ["media", "font"] },
+    "zara.com": { "proxyPool": "eu-residential", "proxyCountry": "DE", "locale": "de-DE", "timezoneId": "Europe/Berlin", "minDelayMs": 4000, "concurrency": 1 }
+  },
+  "recipeStore": { "url": "https://recipes.internal.example.com/api", "token": "${RECIPE_STORE_TOKEN}" },
+  "search": { "url": "https://search.internal.example.com:9200", "apiKey": "${ELASTIC_API_KEY}", "indexPrefix": "", "batchSize": 500, "flushMs": 2000 }
+}
