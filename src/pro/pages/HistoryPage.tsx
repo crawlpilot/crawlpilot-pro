@@ -18,6 +18,7 @@ import { targetingReasons } from '../recipe/targeting';
 import type { CrawlRecord } from '../db/crawls';
 import { backendApi } from '../backend/settings';
 import { refreshCrawls } from '../backend/submit';
+import { recordReview } from '../backend/review';
 import { currentUser } from '../identity';
 import { openedRecipe, openRepair } from '../nav';
 import { healthOf } from '../maintain';
@@ -121,7 +122,9 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
         if (!reviewing) return;
         setError(null);
         try {
-            await pro.reviews.review(recipe.id, reviewing.version, { state: reviewing.state, by: user, note });
+            const version = versions.find(v => v.version === reviewing.version)!;
+            const api = recipe.remoteId && version.submittedAt ? await backendApi() : null;
+            await recordReview(api, recipe, version, { state: reviewing.state, by: user, note });
         } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
         setReviewing(null);
         setNote('');

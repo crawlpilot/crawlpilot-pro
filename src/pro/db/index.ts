@@ -5,12 +5,13 @@ import { getVersion, listVersions, markSubmitted, restoreVersion, saveVersion } 
 import { latestTest, saveTest } from './tests';
 import { listReviews, reviewStates, reviewVersion } from './reviews';
 import { listWayStats, saveWayStats } from './wayStats';
+import { dismissCleanup, listDismissals } from './dismissals';
 import { readRecipeFile } from '../recipe/file';
 import { specDigest } from '../recipe/canonical';
 import type { ProRecipe, Version } from '../recipe/types';
 
 export { SaveRefused } from './versions';
-export { ReviewRefused, reviewReason } from './reviews';
+export { ReviewRefused, reviewProblem, reviewReason, type ReviewInput } from './reviews';
 
 const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -47,5 +48,6 @@ export const pro = {
     crawls: { save: saveCrawl, list: listCrawls },
     reviews: { review: reviewVersion, list: listReviews, states: reviewStates },
     wayStats: { save: saveWayStats, list: listWayStats },
+    dismissals: { dismiss: dismissCleanup, list: listDismissals },
     importRecipeFile,
 };
