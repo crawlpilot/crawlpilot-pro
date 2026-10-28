@@ -18,9 +18,11 @@ export interface RetryPolicy {
     maxDelayMs: number;
     /** Longer waits put the job back on the queue instead. */
     maxInlineWaitMs: number;
+    /** A job put back again and again (a site that stays blocked, a store that stays down) is dead-lettered this long after it was first taken. */
+    maxJobAgeMs: number;
 }
 
-export const DEFAULT_RETRY: RetryPolicy = { maxAttempts: 4, baseDelayMs: 2000, maxDelayMs: 120_000, maxInlineWaitMs: 15_000 };
+export const DEFAULT_RETRY: RetryPolicy = { maxAttempts: 4, baseDelayMs: 2000, maxDelayMs: 120_000, maxInlineWaitMs: 15_000, maxJobAgeMs: 24 * 3_600_000 };
 
 export type Decision =
     | { action: 'done'; outcome: Extract<RequestEvent['outcome'], 'success' | 'failed' | 'dead_letter'> }

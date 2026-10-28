@@ -7,7 +7,7 @@
   "pagesPerContext": 50,
   "maxListPages": 20,
   "followDetails": true,
-  "retry": { "maxAttempts": 4, "baseDelayMs": 2000, "maxDelayMs": 120000, "maxInlineWaitMs": 15000 },
+  "retry": { "maxAttempts": 4, "baseDelayMs": 2000, "maxDelayMs": 120000, "maxInlineWaitMs": 15000, "maxJobAgeMs": 86400000 },
   "proxyPools": {
     "eu-residential": [
       { "id": "eu-de-1", "server": "http://de1.proxy.example.com:8000", "username": "crawler", "password": "${PROXY_EU_PASSWORD}", "country": "DE" },

@@ -4,7 +4,7 @@
     {
       "Sid": "TakeJobs",
       "Effect": "Allow",
-      "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:SendMessage", "sqs:GetQueueAttributes"],
+      "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:SendMessage", "sqs:ChangeMessageVisibility", "sqs:GetQueueAttributes"],
       "Resource": "arn:aws:sqs:{{REGION}}:{{ACCOUNT_ID}}:crawlpilot-crawl-jobs"
     },
     {

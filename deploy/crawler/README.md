@@ -49,8 +49,9 @@ aws ecs run-task --cluster crawlpilot --launch-type FARGATE --task-definition cr
 An ECS service of the task definition, in private subnets with a NAT gateway (or the proxies) for egress. Scale on
 queue depth with Application Auto Scaling: target tracking on `ApproximateNumberOfMessagesVisible` per task (for example
 200), between 1 and the number of tasks your proxies and sites can take. Stopping a task (a deploy, a scale-in) sends
-SIGTERM: the worker takes no new jobs, finishes the ones in flight within `stopTimeout`, and flushes Elasticsearch;
-jobs it had not started come back to the queue when their visibility ends.
+SIGTERM: the worker takes no new jobs, gives attempts in progress 60 s and then puts their jobs back, and flushes
+Elasticsearch for at most 30 s, all within the 120 s `stopTimeout`. The queues must be standard queues (FIFO is
+refused), and the task role needs `sqs:ChangeMessageVisibility`: a running job's message is kept hidden while it runs.
 
 A wedged task (jobs in flight, none settled for 15 minutes) stops writing its heartbeat file; the task
 definition's health check then fails it and ECS starts another. A task whose browser fails five times in a row

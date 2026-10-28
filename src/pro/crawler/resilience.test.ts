@@ -126,6 +126,79 @@ describe('stopping', () => {
     it('puts a job that has not started back on the queue at once', async () => {
         expect(await processJob(job, deps({ stopped: () => true }))).toMatchObject({ outcome: 'deferred', attempts: 0, delayMs: 0, reason: 'worker stopping' });
     });
+
+    it('abandons an attempt in progress when told to stop now, and puts its job back uncounted', async () => {
+        const { page, closed } = hangingPage();
+        const abort = new AbortController();
+        const d = deps({ signal: abort.signal, pages: { open: async () => ({ page, release: async () => {} }), fetchText: async () => ({ status: 404, text: '' }), close: async () => {} } });
+        const result = processJob({ ...job, attempts: 1 }, d);
+        await new Promise(r => setTimeout(r, 20));
+        abort.abort();
+        expect(await result).toMatchObject({ outcome: 'deferred', attempts: 1, delayMs: 0, reason: 'worker stopping' });
+        expect(closed.value).toBe(true);
+        expect(d.governor.stateOf('shop.test').inFlight).toBe(0);
+    });
+});
+
+describe('a job put back for too long', () => {
+    it('is dead-lettered past retry.maxJobAgeMs, and stamped when it is first put back', async () => {
+        const t = 1_000_000_000;
+        const d = deps({ now: () => t });
+        const old = { ...job, attempts: 2, firstSeenAt: t - config.retry.maxJobAgeMs - 1 };
+        expect(await processJob(old, d)).toMatchObject({ outcome: 'dead_letter', attempts: 2, reason: expect.stringContaining('expired') });
+        expect(events(d)[0]).toMatchObject({ errorClass: 'expired', outcome: 'dead_letter' });
+
+        const q = new MemoryQueue([job], () => t);
+        let runs = 0;
+        await runWorker(q, deps({ now: () => t }), { untilIdle: true, process: async j => {
+            runs++;
+            if (runs === 2) expect(j.firstSeenAt).toBe(t);
+            return runs === 1 ? { outcome: 'deferred', attempts: 1, delayMs: 0, reason: 'site blocked' } : { outcome: 'success', attempts: 2 };
+        } });
+        expect(runs).toBe(2);
+    });
+});
+
+describe('documents Elasticsearch does not confirm', () => {
+    it('keep the job: it is put back to be read again, not acknowledged', async () => {
+        const errors: string[] = [];
+        let t = 0;
+        const q = new MemoryQueue([job], () => t);
+        const released: string[] = [];
+        const receive = q.receive.bind(q);
+        q.receive = async max => (await receive(max)).map((d: Delivery) => ({ ...d, release: () => released.push(d.job.jobId) }));
+        let runs = 0;
+        const lost = Promise.reject(new Error('s: mapper_parsing_exception bad price'));
+        lost.catch(() => {});
+        await runWorker(q, deps({ now: () => t, sleep: async ms => { t += ms; } }), { untilIdle: true, onError: m => errors.push(m), process: async () =>
+            ++runs === 1 ? { outcome: 'success', attempts: 1, writes: [Promise.resolve(), lost] } : { outcome: 'success', attempts: 1, writes: [Promise.resolve()] } });
+        expect(runs).toBe(2);
+        expect(errors).toEqual(['job j1: documents not written (s: mapper_parsing_exception bad price); put back to be read again']);
+        expect(q.done[0].job.writeFailures).toBe(1);
+        expect(q.done).toHaveLength(1);
+        expect(released).toEqual(['j1', 'j1']);
+    });
+
+    it('send the job to a person once refused five times in a row', async () => {
+        const q = new MemoryQueue([{ ...job, writeFailures: 4 }]);
+        const refused = Promise.reject(new Error('s: mapper_parsing_exception bad price'));
+        refused.catch(() => {});
+        await runWorker(q, deps(), { untilIdle: true, onError: () => {}, process: async () => ({ outcome: 'success', attempts: 1, writes: [refused] }) });
+        expect(q.dead).toEqual([{ job: { ...job, writeFailures: 4 }, reason: 'documents not written 5 times: s: mapper_parsing_exception bad price' }]);
+    });
+
+    it('a page found gone writes its scrape document confirmed', async () => {
+        const { page } = hangingPage();
+        const gone = { ...page, title: async () => 'Not found', goto: async () => ({ ...(await page.goto('')), status: () => 404 }) } as unknown as Page;
+        const d = deps({ pages: { open: async () => ({ page: gone, release: async () => {} }), fetchText: async () => ({ status: 404, text: '' }), close: async () => {} } });
+        const confirmed: string[] = [];
+        const write = d.sink.writeConfirmed;
+        d.sink.writeConfirmed = (index, doc, id) => { confirmed.push(`${index}/${id}`); return write(index, doc, id); };
+        const r = await processJob(job, d);
+        expect(r).toMatchObject({ outcome: 'failed' });
+        expect(confirmed).toEqual(['scrapes-acme/j1']);
+        expect((r as { writes?: unknown[] }).writes).toHaveLength(1);
+    });
 });
 
 describe('the run loop', () => {

@@ -19,3 +19,19 @@ describe('crawler image', () => {
         expect(dockerfile).toMatch(/\nUSER pwuser\n/);
     });
 });
+
+describe('crawler task', () => {
+    it('may make every SQS call the worker makes on its jobs queue', () => {
+        const policy = JSON.parse(read('deploy/crawler/iam-task-policy.json')) as { Statement: { Sid: string; Action: string[] }[] };
+        const jobs = policy.Statement.find(s => s.Sid === 'TakeJobs')!.Action;
+        const calls = [...read('src/pro/crawler/sqs.ts').matchAll(/new (\w+)Command\(/g)].map(m => `sqs:${m[1]}`);
+        for (const call of new Set(calls)) expect(jobs, call).toContain(call === 'sqs:SendMessageBatch' ? 'sqs:SendMessage' : call);
+    });
+
+    it('stops within its stopTimeout: the worker\'s grace and flush fit in it', () => {
+        const task = JSON.parse(read('deploy/crawler/ecs-task-definition.json')) as { containerDefinitions: { stopTimeout: number }[] };
+        const cli = read('src/pro/crawler/cli.ts');
+        const ms = (name: string) => Number(cli.match(new RegExp(`const ${name} = ([\\d_]+);`))![1].replace(/_/g, ''));
+        expect(ms('STOP_GRACE_MS') + ms('FLUSH_DEADLINE_MS') + ms('CLOSE_BROWSER_MS')).toBeLessThan(task.containerDefinitions[0].stopTimeout * 1000);
+    });
+});

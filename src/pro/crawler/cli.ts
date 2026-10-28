@@ -3,8 +3,10 @@
  * `CRAWLER_CONFIG` environment variable (as a container gets it).
  *   npm run crawler:build
  *   node src/pro/crawler/dist/worker.mjs --config crawler.json
- * takes jobs from the configured SQS queue until stopped (SIGTERM or Ctrl-C: it stops taking jobs, finishes
- * the ones in flight and flushes Elasticsearch, as a container is stopped).
+ * takes jobs from the configured SQS queue until stopped. SIGTERM or Ctrl-C (a container stopping): no new jobs
+ * or attempts; attempts in progress get `STOP_GRACE_MS`, then are abandoned and their jobs put back; then
+ * Elasticsearch is flushed for at most `FLUSH_DEADLINE_MS`. All of it fits in ECS's 120 s `stopTimeout`.
+ * A second signal abandons the attempts at once.
  *   … --config crawler.json --jobs jobs.jsonl [--dead-letter dead.jsonl]
  * runs a file of jobs instead, until each is done, failed or dead-lettered, and prints a summary.
  *   … --config crawler.json --setup-elasticsearch
@@ -34,6 +36,9 @@ import { siteEventWriter, type JobResult } from './worker';
 import { Vitals } from './vitals';
 
 const HEARTBEAT_EVERY_MS = 10_000;
+const STOP_GRACE_MS = 60_000;
+const FLUSH_DEADLINE_MS = 30_000;
+const CLOSE_BROWSER_MS = 10_000;
 
 function arg(name: string, fallback?: string): string {
     const i = process.argv.indexOf(`--${name}`);
@@ -89,7 +94,13 @@ async function main() {
     }
 
     let stopping = false;
-    const stop = (signal: string) => () => { stopping = true; console.log(`${signal}: finishing the jobs in flight…`); };
+    const abort = new AbortController();
+    const stop = (signal: string) => () => {
+        if (stopping) { console.log(`${signal} again: abandoning the attempts in progress.`); abort.abort(); return; }
+        stopping = true;
+        console.log(`${signal}: finishing the jobs in flight, for ${STOP_GRACE_MS / 1000} s at most…`);
+        setTimeout(() => abort.abort(), STOP_GRACE_MS).unref();
+    };
     const vitals = new Vitals();
     const heartbeat = process.env.CRAWLER_HEARTBEAT ?? '/tmp/crawler-heartbeat';
     let lastBeat = 0;
@@ -97,7 +108,7 @@ async function main() {
     process.on('SIGTERM', stop('SIGTERM'));
     const counts: Record<JobResult['outcome'], number> = { success: 0, failed: 0, dead_letter: 0, deferred: 0 };
     try {
-        await runWorker(queue, { config, store, pages, sink, governor, proxies, robots, script, vitals, stopped: () => stopping || vitals.unhealthy }, {
+        await runWorker(queue, { config, store, pages, sink, governor, proxies, robots, script, vitals, stopped: () => stopping || vitals.unhealthy, signal: abort.signal }, {
             untilIdle: fromFile,
             stopped: () => stopping || vitals.unhealthy,
             onTick: inFlight => {
@@ -111,8 +122,8 @@ async function main() {
             },
         });
     } finally {
-        await sink.close();
-        await pages.close();
+        await sink.close(FLUSH_DEADLINE_MS);
+        await Promise.race([pages.close(), new Promise(r => setTimeout(r, CLOSE_BROWSER_MS).unref())]);
     }
     if (vitals.unhealthy) {
         console.error('The browser failed five times in a row: stopping, so the task is replaced.');

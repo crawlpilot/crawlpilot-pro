@@ -71,4 +71,12 @@ describe('recipe store client', () => {
         backend.failNext(503);
         await expect(store.recipeFor(job('https://acme.test/other'))).rejects.toMatchObject({ errorClass: 'recipe_store' });
     });
+
+    it('gives up on a store that hangs, as a store that is down', async () => {
+        const hanging = ((_: string, init: RequestInit) => new Promise<Response>((_, reject) => {
+            init.signal!.addEventListener('abort', () => reject(init.signal!.reason));
+        })) as unknown as typeof fetch;
+        const store = createRecipeStore({ baseUrl: BASE, token: 't', fetch: hanging, timeoutMs: 20 });
+        await expect(store.recipeFor(job('https://acme.test/p/1'))).rejects.toMatchObject({ errorClass: 'recipe_store', message: expect.stringContaining('could not be reached') });
+    });
 });

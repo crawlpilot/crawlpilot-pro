@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { SqsQueue, type SqsSender } from './sqs';
 
 const URL = 'https://sqs.eu-west-1.amazonaws.com/123/crawl-jobs';
@@ -58,13 +58,28 @@ describe('SQS queue', () => {
         expect(sqs.sent[4].input.ReceiptHandle).toBe('r1');
     });
 
-    it('groups FIFO messages by competitor and deduplicates by job and attempt, with no message delay', async () => {
-        const fifo = `${URL}.fifo`;
-        const sqs = fakeSqs([{ Body: JSON.stringify(job), ReceiptHandle: 'r1' }]);
-        const q = new SqsQueue({ url: fifo, deadLetterUrl: DLQ }, sqs.client, () => 0);
-        const [d] = await q.receive(1);
-        await d.retryLater(5000, { ...job, attempts: 1 });
-        expect(sqs.sent[1].input).toEqual({ QueueUrl: fifo, MessageBody: JSON.stringify({ ...job, attempts: 1, notBefore: 5000 }), MessageGroupId: 'acme', MessageDeduplicationId: 'j1-1' });
+    it('refuses FIFO queues', () => {
+        expect(() => new SqsQueue({ url: `${URL}.fifo`, deadLetterUrl: DLQ }, fakeSqs([]).client)).toThrow('FIFO queues are not supported');
+        expect(() => new SqsQueue({ url: URL, deadLetterUrl: `${DLQ}.fifo` }, fakeSqs([]).client)).toThrow('FIFO queues are not supported');
+    });
+
+    it('keeps a running job hidden, every half visibility, until it is settled or released', async () => {
+        vi.useFakeTimers();
+        try {
+            const sqs = fakeSqs([{ Body: JSON.stringify(job), ReceiptHandle: 'r1' }, { Body: JSON.stringify({ ...job, jobId: 'j2' }), ReceiptHandle: 'r2' }]);
+            const q = new SqsQueue({ url: URL, deadLetterUrl: DLQ, visibilitySeconds: 60 }, sqs.client);
+            const [a, b] = await q.receive(2);
+            const renewals = () => sqs.sent.filter(x => x.command === 'ChangeMessageVisibilityCommand').map(x => x.input.ReceiptHandle);
+            await vi.advanceTimersByTimeAsync(30_000);
+            expect(renewals()).toEqual(['r1', 'r2']);
+            expect(sqs.sent.find(x => x.command === 'ChangeMessageVisibilityCommand')!.input).toEqual({ QueueUrl: URL, ReceiptHandle: 'r1', VisibilityTimeout: 60 });
+            await a.ack();
+            b.release!();
+            await vi.advanceTimersByTimeAsync(120_000);
+            expect(renewals()).toEqual(['r1', 'r2']);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('sends follow-up jobs ten at a time, and fails when one is refused', async () => {
