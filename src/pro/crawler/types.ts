@@ -21,6 +21,8 @@ export interface CrawlJob {
     meta?: Record<string, string>;
     /** Attempts already made by earlier deliveries (set by the worker when it puts a job back). */
     attempts?: number;
+    /** Times the recipe store failed this job in a row: its wait grows, its attempts don't. */
+    storeFailures?: number;
     /** Not to be run before this time (epoch ms): set when a job is put back for longer than a queue can delay it. */
     notBefore?: number;
     /** A list's page number, from 1: its next page is a job of its own. */
@@ -36,6 +38,10 @@ export type PageStatus = 'ok' | 'blocked' | 'not_found' | 'timeout' | 'error';
 export type ErrorClass =
     | 'none'
     | 'dns' | 'connection' | 'tls' | 'timeout' | 'navigation'
+    /** The worker's browser or its context died: not the page's fault, not counted against the job. */
+    | 'browser'
+    /** The page crashed its tab (out of memory, a renderer crash): the page's, counted. */
+    | 'page_crashed'
     | 'proxy' | 'proxy_auth'
     | 'rate_limited' | 'blocked' | 'captcha'
     | 'not_found' | 'gone' | 'client_error' | 'server_error'

@@ -1,5 +1,6 @@
 /**
- * Pages for the worker, from one Chromium. A context per site and proxy keeps that visitor's cookies and
+ * Pages for the worker, from one Chromium. When it dies (a crash, an out-of-memory kill) the pool forgets it
+ * and its contexts, and the next page starts a new one; a context that closes is forgotten too. A context per site and proxy keeps that visitor's cookies and
  * session between pages; it is replaced after `pagesPerContext` pages, or when its proxy changes. A context
  * renders as the site's profile says (locale, timezone, viewport, user agent, extra headers) and may skip
  * images, media and fonts.
@@ -43,15 +44,24 @@ export class BrowserPool implements PageSource {
     private browser: Promise<Browser> | null = null;
     private contexts = new Map<string, Promise<ContextEntry>>();
 
-    constructor(private opts: { pagesPerContext: number; headless?: boolean; executablePath?: string }) {}
+    constructor(private opts: { pagesPerContext: number; headless?: boolean; executablePath?: string; launch?: () => Promise<Browser> }) {}
 
     private start(): Promise<Browser> {
         if (!this.browser) {
-            this.browser = chromium.launch({
+            const launching = this.opts.launch?.() ?? chromium.launch({
                 headless: this.opts.headless ?? true,
                 ...(this.opts.executablePath ? { executablePath: this.opts.executablePath } : {}),
             });
-            this.browser.catch(() => { this.browser = null; });
+            this.browser = launching;
+            launching.then(
+                b => b.on('disconnected', () => {
+                    // Its contexts died with it: the next page starts a new browser.
+                    if (this.browser !== launching) return;
+                    this.browser = null;
+                    this.contexts.clear();
+                }),
+                () => { if (this.browser === launching) this.browser = null; },
+            );
         }
         return this.browser;
     }
@@ -84,15 +94,17 @@ export class BrowserPool implements PageSource {
             return { context, pages: 0, open: 0 };
         })();
         this.contexts.set(key, made);
-        made.catch(() => { if (this.contexts.get(key) === made) this.contexts.delete(key); });
+        const forget = () => { if (this.contexts.get(key) === made) this.contexts.delete(key); };
+        made.then(e => e.context.on('close', forget), forget);
         return made;
     }
 
     async open(host: string, profile: SiteProfile, proxy?: ProxyConfig) {
         const entry = await this.context(host, profile, proxy);
+        // Counted once the page exists: a failed page must not keep its context from being renewed.
+        const page = await entry.context.newPage();
         entry.pages++;
         entry.open++;
-        const page = await entry.context.newPage();
         return {
             page,
             release: async () => {

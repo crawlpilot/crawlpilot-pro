@@ -43,6 +43,8 @@ export const MIN_TEXT = 80;
 const SHORT_PAGE = 2000;
 
 const NET_ERRORS: [RegExp, ErrorClass][] = [
+    [/Page crashed|Target crashed/i, 'page_crashed'],
+    [/Target page, context or browser has been closed|Browser has been closed|browser has disconnected|Browser closed|Failed to launch|browserType\.launch/i, 'browser'],
     [/ERR_NAME_NOT_RESOLVED|ERR_NAME_RESOLUTION_FAILED|ENOTFOUND/i, 'dns'],
     [/ERR_PROXY_CONNECTION_FAILED|ERR_TUNNEL_CONNECTION_FAILED|ERR_PROXY_CERTIFICATE_INVALID|ERR_NO_SUPPORTED_PROXIES|ERR_SOCKS_CONNECTION_FAILED/i, 'proxy'],
     [/ERR_PROXY_AUTH|ERR_PROXY_AUTHENTICATION|407/i, 'proxy_auth'],
@@ -77,6 +79,8 @@ const RULES: Record<ErrorClass, { retryable: boolean; pageStatus: PageStatus }> 
     tls: { retryable: false, pageStatus: 'error' },
     timeout: { retryable: true, pageStatus: 'timeout' },
     navigation: { retryable: false, pageStatus: 'error' },
+    browser: { retryable: true, pageStatus: 'error' },
+    page_crashed: { retryable: true, pageStatus: 'error' },
     proxy: { retryable: true, pageStatus: 'error' },
     proxy_auth: { retryable: true, pageStatus: 'error' },
     rate_limited: { retryable: true, pageStatus: 'blocked' },

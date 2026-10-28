@@ -52,6 +52,10 @@ queue depth with Application Auto Scaling: target tracking on `ApproximateNumber
 SIGTERM: the worker takes no new jobs, finishes the ones in flight within `stopTimeout`, and flushes Elasticsearch;
 jobs it had not started come back to the queue when their visibility ends.
 
+A wedged task (jobs in flight, none settled for 15 minutes) stops writing its heartbeat file; the task
+definition's health check then fails it and ECS starts another. A task whose browser fails five times in a row
+exits on its own.
+
 ## 6. Daily rollup
 An EventBridge Scheduler schedule at 00:30 UTC, target ECS `RunTask` of the same task definition with the command
 `["--rollup"]` (yesterday's selector usage into `selector-usage-daily-YYYY`). Rerunning a day replaces its totals.

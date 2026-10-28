@@ -43,7 +43,8 @@ function isJob(v: unknown): v is CrawlJob {
 export class SqsQueue implements JobQueue {
     private client: SqsSender;
 
-    constructor(private cfg: SqsConfig, client?: SqsSender, private now: () => number = Date.now) {
+    constructor(private cfg: SqsConfig, client?: SqsSender, private now: () => number = Date.now,
+        private onError: (message: string) => void = m => console.error(`[sqs] ${m}`)) {
         this.client = client ?? new SQSClient({ ...(cfg.region ? { region: cfg.region } : {}), ...(cfg.endpoint ? { endpoint: cfg.endpoint } : {}) });
     }
 
@@ -77,15 +78,22 @@ export class SqsQueue implements JobQueue {
         for (const m of reply.Messages ?? []) {
             let job: unknown;
             try { job = JSON.parse(m.Body ?? ''); } catch { job = undefined; }
-            if (!isJob(job)) {
-                await this.client.send(new SendMessageCommand({ QueueUrl: this.cfg.deadLetterUrl, MessageBody: JSON.stringify({ body: m.Body, reason: 'not a crawl job' }), ...(this.cfg.deadLetterUrl.endsWith('.fifo') ? { MessageGroupId: 'invalid', MessageDeduplicationId: m.MessageId ?? String(this.now()) } : {}) }));
-                await this.remove(m);
-                continue;
-            }
-            const early = (job.notBefore ?? 0) - this.now();
-            if (early > 1000) {
-                await this.sendTo(this.cfg.url, job, early);
-                await this.remove(m);
+            // Each message on its own: one that can't be moved now stays hidden and comes back later,
+            // without costing the rest of the batch.
+            try {
+                if (!isJob(job)) {
+                    await this.client.send(new SendMessageCommand({ QueueUrl: this.cfg.deadLetterUrl, MessageBody: JSON.stringify({ body: m.Body, reason: 'not a crawl job' }), ...(this.cfg.deadLetterUrl.endsWith('.fifo') ? { MessageGroupId: 'invalid', MessageDeduplicationId: m.MessageId ?? String(this.now()) } : {}) }));
+                    await this.remove(m);
+                    continue;
+                }
+                const early = (job.notBefore ?? 0) - this.now();
+                if (early > 1000) {
+                    await this.sendTo(this.cfg.url, job, early);
+                    await this.remove(m);
+                    continue;
+                }
+            } catch (e) {
+                this.onError(`message ${m.MessageId ?? '?'} left for later: ${e instanceof Error ? e.message : String(e)}`);
                 continue;
             }
             const current = job;

@@ -11,8 +11,11 @@
  * puts the index templates (`templates.ts`) and exits.
  *   … --config crawler.json --rollup [YYYY-MM-DD]
  * adds up one day's selector usage (`rollup.ts`; yesterday by default) and exits.
+ * While jobs move, the worker touches a heartbeat file (`CRAWLER_HEARTBEAT`, default /tmp/crawler-heartbeat)
+ * for a container health check. A browser that fails five times in a row stops the worker with exit code 1,
+ * so the task is replaced.
  */
-import { appendFile, readFile } from 'node:fs/promises';
+import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BrowserPool } from './browser';
@@ -28,6 +31,9 @@ import { installTemplates } from './templates';
 import { rollupDay, yesterday } from './rollup';
 import type { CrawlJob } from './types';
 import { siteEventWriter, type JobResult } from './worker';
+import { Vitals } from './vitals';
+
+const HEARTBEAT_EVERY_MS = 10_000;
 
 function arg(name: string, fallback?: string): string {
     const i = process.argv.indexOf(`--${name}`);
@@ -39,6 +45,8 @@ function arg(name: string, fallback?: string): string {
 const has = (name: string) => process.argv.includes(`--${name}`);
 
 async function main() {
+    // A stray rejection is a bug to log, not a reason to drop every job in flight.
+    process.on('unhandledRejection', e => console.error('[unhandled]', e instanceof Error ? e.stack ?? e.message : e));
     const config = has('config') ? await loadConfig(arg('config'))
         : process.env.CRAWLER_CONFIG ? parseConfig(JSON.parse(process.env.CRAWLER_CONFIG))
         : (() => { throw new Error('Give --config <file>, or the configuration in CRAWLER_CONFIG.'); })();
@@ -82,13 +90,21 @@ async function main() {
 
     let stopping = false;
     const stop = (signal: string) => () => { stopping = true; console.log(`${signal}: finishing the jobs in flight…`); };
+    const vitals = new Vitals();
+    const heartbeat = process.env.CRAWLER_HEARTBEAT ?? '/tmp/crawler-heartbeat';
+    let lastBeat = 0;
     process.on('SIGINT', stop('SIGINT'));
     process.on('SIGTERM', stop('SIGTERM'));
     const counts: Record<JobResult['outcome'], number> = { success: 0, failed: 0, dead_letter: 0, deferred: 0 };
     try {
-        await runWorker(queue, { config, store, pages, sink, governor, proxies, robots, script }, {
+        await runWorker(queue, { config, store, pages, sink, governor, proxies, robots, script, vitals, stopped: () => stopping || vitals.unhealthy }, {
             untilIdle: fromFile,
-            stopped: () => stopping,
+            stopped: () => stopping || vitals.unhealthy,
+            onTick: inFlight => {
+                if (!vitals.alive(inFlight) || Date.now() - lastBeat < HEARTBEAT_EVERY_MS) return;
+                lastBeat = Date.now();
+                void writeFile(heartbeat, String(lastBeat)).catch(() => {});
+            },
             onResult: (job, r) => {
                 counts[r.outcome]++;
                 console.log(`${r.outcome.padEnd(11)} ${job.url}${r.reason ? `  (${r.reason})` : ''}`);
@@ -97,6 +113,10 @@ async function main() {
     } finally {
         await sink.close();
         await pages.close();
+    }
+    if (vitals.unhealthy) {
+        console.error('The browser failed five times in a row: stopping, so the task is replaced.');
+        process.exitCode = 1;
     }
     console.log(`\n${fromFile ? `${jobs.length} jobs` : 'Stopped'}: ${counts.success} read, ${counts.failed} failed, ${counts.dead_letter} dead-lettered, ${counts.deferred} deferrals.`);
 }
