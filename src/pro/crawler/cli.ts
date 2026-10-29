@@ -20,6 +20,7 @@
 import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PageBaselines } from './baseline';
 import { BrowserPool } from './browser';
 import { loadConfig, parseConfig, siteProfile, sitePolicy } from './config';
 import { SiteGovernor } from './governor';
@@ -108,7 +109,7 @@ async function main() {
     process.on('SIGTERM', stop('SIGTERM'));
     const counts: Record<JobResult['outcome'], number> = { success: 0, failed: 0, dead_letter: 0, deferred: 0 };
     try {
-        await runWorker(queue, { config, store, pages, sink, governor, proxies, robots, script, vitals, stopped: () => stopping || vitals.unhealthy, signal: abort.signal }, {
+        await runWorker(queue, { config, store, pages, sink, governor, proxies, robots, script, vitals, baselines: new PageBaselines(), stopped: () => stopping || vitals.unhealthy, signal: abort.signal }, {
             untilIdle: fromFile,
             stopped: () => stopping || vitals.unhealthy,
             onTick: inFlight => {

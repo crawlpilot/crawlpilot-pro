@@ -1,7 +1,9 @@
 /**
  * How fast each site is crawled, and what a block does to that: a circuit breaker per host.
  * - Requests start at least `delayMs` apart, at most `concurrency` at once.
- * - 429: the gap doubles and the site cools down for `Retry-After`, or the gap, whichever is longer.
+ * - 429 (or a vendor's rate-limit page): the gap doubles and the site cools down for `Retry-After`, or the
+ *   gap, whichever is longer.
+ * - A waiting room (Queue-it): the site cools down for `cooldownBaseMs` (or `Retry-After`); the gap stays.
  * - A block or captcha: the gap doubles and the site cools down, longer for each block in a row; after
  *   `blockAfter` in a row it is `blocked`, for `cooldownMaxMs`, and an event asks a person to look.
  * - 5xx: the gap grows by half; the site may be struggling.
@@ -88,7 +90,11 @@ export class SiteGovernor {
             case 'rate_limited':
                 s.delayMs = Math.min(p.maxDelayMs, s.delayMs * 2);
                 s.cooldownUntil = now + Math.max(c.retryAfterMs ?? 0, s.delayMs);
-                if (s.state === 'ok') this.move(host, s, 'cooldown', 'rate limited (429)');
+                if (s.state === 'ok') this.move(host, s, 'cooldown', `rate limited${c.blockSignal ? `: ${c.blockSignal}` : ''}`, c);
+                return;
+            case 'waiting_room':
+                s.cooldownUntil = now + Math.max(c.retryAfterMs ?? 0, p.cooldownBaseMs);
+                if (s.state === 'ok') this.move(host, s, 'cooldown', `waiting room${c.blockSignal ? `: ${c.blockSignal}` : ''}`, c);
                 return;
             case 'blocked':
             case 'captcha': {
@@ -97,7 +103,7 @@ export class SiteGovernor {
                 const blocked = s.consecutiveBlocks >= p.blockAfter;
                 const wait = blocked ? p.cooldownMaxMs : Math.min(p.cooldownMaxMs, p.cooldownBaseMs * 2 ** (s.consecutiveBlocks - 1));
                 s.cooldownUntil = now + wait;
-                this.move(host, s, blocked ? 'blocked' : 'cooldown', `${c.errorClass}${c.blockSignal ? `: ${c.blockSignal}` : ''}`);
+                this.move(host, s, blocked ? 'blocked' : 'cooldown', `${c.errorClass}${c.blockSignal ? `: ${c.blockSignal}` : ''}`, c);
                 return;
             }
             case 'server_error':
@@ -112,10 +118,11 @@ export class SiteGovernor {
         return { ...this.site(host) };
     }
 
-    private move(host: string, s: SiteState, state: SiteState['state'], reason: string) {
+    private move(host: string, s: SiteState, state: SiteState['state'], reason: string, c?: Classification) {
         s.state = state;
         this.onEvent({
-            host, state, reason, consecutiveBlocks: s.consecutiveBlocks, delayMs: s.delayMs,
+            host, state, reason,
+            ...(c?.block ? { vendor: c.block.vendor, blockKind: c.block.kind, blockConfidence: c.block.confidence } : {}), consecutiveBlocks: s.consecutiveBlocks, delayMs: s.delayMs,
             ...(state !== 'ok' ? { cooldownUntil: new Date(s.cooldownUntil).toISOString() } : {}),
         });
     }

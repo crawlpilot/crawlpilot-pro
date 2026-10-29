@@ -193,16 +193,78 @@ test('crawler worker: reads pages with the live recipe, retries, backs off on bl
     expect(of('j-robots')[0]).toMatchObject({ errorClass: 'robots_disallowed', outcome: 'failed' });
     expect(of('j-norecipe')[0]).toMatchObject({ errorClass: 'no_recipe', outcome: 'dead_letter' });
     const blocked = of('j-blocked');
-    expect(blocked[0]).toMatchObject({ status: 403, errorClass: 'blocked', blockSignal: 'status 403 + cf-mitigated: challenge + block page', outcome: 'deferred', headers: { 'cf-mitigated': 'challenge' } });
+    expect(blocked[0]).toMatchObject({
+        status: 403, errorClass: 'blocked', blockSignal: 'status 403 + cf-mitigated: challenge + block wording', outcome: 'deferred', headers: { 'cf-mitigated': 'challenge' },
+        blockVendor: 'Cloudflare', blockKind: 'challenge', blockConfidence: 'high', protection: ['Cloudflare'],
+        blockEvidence: { title: 'Access denied', textSample: 'You have been blocked.' },
+    });
     expect(blocked[blocked.length - 1]).toMatchObject({ final: true, outcome: 'dead_letter' });
     expect(of('j-captcha').some(e => e.errorClass === 'captcha')).toBe(true);
 
-    // Site events: the blocking site cooled down, then was marked blocked.
+    // Site events: the blocking site cooled down, then was marked blocked, with the vendor.
     const sites = docs.filter(d => d.index.startsWith('crawl-sites-')).map(d => d.doc).filter(e => e.host === new URL(wall.origin).host);
     expect(sites.map(e => e.state)).toContain('cooldown');
+    expect(sites.find(e => e.state === 'cooldown' && e.vendor === 'Cloudflare')).toBeTruthy();
     expect(sites.map(e => e.state)).toContain('blocked');
 
     for (const s of [shop, wall, es]) s.close();
+    mock.close();
+});
+
+test('crawler worker: identifies the bot protection a site uses, a vendor\'s captcha, and a soft block no vendor marks', async () => {
+    test.setTimeout(120_000);
+    // A shop behind a bot manager: its cookie and sensor script on every page. Its pages are long; once, it
+    // answers /p/9 with a short 200 stub that has none of the recipe's fields.
+    const LONG = (title: string) => PRODUCT(title).replace('</p>', `${'Made in Portugal from European flax, washed for softness, with mother-of-pearl buttons. '.repeat(20)}</p>`)
+        .replace('</head>', '<script src="https://client.perimeterx.net/PXtest/main.min.js" async></script></head>');
+    let stubbed = false;
+    const shop = await serve((req, res) => {
+        if (req.url === '/robots.txt') return html(res, 404, '');
+        const cookie = { 'set-cookie': '_pxhd=SECRETVALUE; path=/' };
+        if (req.url === '/p/9' && !stubbed) {
+            stubbed = true;
+            return html(res, 200, '<title>Shop</title><p>Our shop is taking a short break. Thank you for your patience, we will be right back with you soon.</p>', cookie);
+        }
+        return html(res, 200, LONG(`Shirt ${req.url}`), cookie);
+    });
+    // A site behind AWS WAF that answers with its captcha.
+    const waf = await serve((req, res) => req.url === '/robots.txt' ? html(res, 404, '') : html(res, 405, '<title></title><div id="captcha-container"></div>', { 'x-amzn-waf-action': 'captcha' }));
+    const es = await fakeElasticsearch();
+    const mock = await serveMockBackend();
+    await publishRecipe(mock.backend);
+    const dir = mkdtempSync(path.join(tmpdir(), 'crawler-detect-'));
+    writeFileSync(path.join(dir, 'crawler.json'), JSON.stringify({
+        workerId: 'e2e-worker', concurrency: 1, navigationTimeoutMs: 10_000, settleMs: 0,
+        retry: { maxAttempts: 2, baseDelayMs: 100, maxDelayMs: 500, maxInlineWaitMs: 5000 },
+        sites: { default: { minDelayMs: 20, cooldownBaseMs: 300, cooldownMaxMs: 600, blockResources: ['script'] } },
+        recipeStore: { url: mock.origin, token: '${STORE_TOKEN}' },
+        search: { url: es.origin, flushMs: 200 },
+    }));
+    const job = (jobId: string, url: string) => JSON.stringify({ jobId, url, competitor: 'acme', pageType: 'product' });
+    writeFileSync(path.join(dir, 'jobs.jsonl'), [
+        ...[1, 2, 3, 4, 5].map(n => job(`j-${n}`, `${shop.origin}/p/${n}`)),
+        job('j-9', `${shop.origin}/p/9`),
+        job('j-waf', `${waf.origin}/p/1`),
+    ].join('\n'));
+
+    const out = await runCli(dir);
+    expect(out).toContain('7 jobs: 6 read, 0 failed, 1 dead-lettered');
+    const events = es.docs.filter(d => d.index.startsWith('crawl-requests-')).map(d => d.doc);
+    const of = (id: string) => events.filter(e => e.jobId === id).sort((a, b) => a.attempt - b.attempt);
+
+    // Every page of the shop names its protection, and is read as a page.
+    expect(of('j-1')[0]).toMatchObject({ errorClass: 'none', protection: ['HUMAN'], fieldsFilled: 2 });
+    expect(of('j-1')[0].textLength).toBeGreaterThan(1500);
+    // The stub: no vendor mark, but no data and far shorter than the shop's pages. Waited out, then read.
+    expect(of('j-9').map(e => [e.errorClass, e.outcome])).toEqual([['blocked', 'deferred'], ['none', 'success']]);
+    expect(of('j-9')[0]).toMatchObject({ blockKind: 'soft_block', blockVendor: 'HUMAN', blockConfidence: 'medium', fieldsFilled: 0, blockEvidence: { cookieNames: ['_pxhd'] } });
+    expect(of('j-9')[0].blockSignal).toMatch(/^soft block: no data, page \d+% of its usual length/);
+    // The WAF's captcha: identified by the header it sends only when it challenges.
+    expect(of('j-waf')[0]).toMatchObject({ status: 405, errorClass: 'captcha', blockVendor: 'AWS WAF', blockKind: 'captcha', blockConfidence: 'high' });
+    // Cookie values are never written.
+    expect(JSON.stringify(es.docs)).not.toContain('SECRETVALUE');
+
+    for (const s of [shop, waf, es]) s.close();
     mock.close();
 });
 
