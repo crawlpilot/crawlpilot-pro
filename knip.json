@@ -6,6 +6,9 @@
     "src/content/readable-extract.ts",
     "src/sidepanel/index.tsx",
     "public/net-hook.js",
+    "src/pro/crawler/cli.ts",
+    "src/pro/crawler/inPage.ts",
+    "src/pro/backend/mockServerCli.ts",
     "e2e/*.spec.ts"
   ],
   "project": [
