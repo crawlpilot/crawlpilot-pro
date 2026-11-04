@@ -268,6 +268,104 @@ test('crawler worker: identifies the bot protection a site uses, a vendor\'s cap
     mock.close();
 });
 
+test('crawler worker: sets the location and store a retailer page needs, chooses fulfilment, and reads it per ZIP code', async () => {
+    test.setTimeout(180_000);
+    // The retailer page (e2e/site/retailer.html): consent banner, "Deliver to" ZIP dialog, store list, promo,
+    // fulfilment tiles. Its state is in cookies, as real ones keep it.
+    const RETAILER = readFileSync(path.join(ROOT, 'e2e/site/retailer.html'), 'utf8');
+    const shop = await serve((req, res) => req.url === '/robots.txt' ? html(res, 404, '') : html(res, 200, RETAILER));
+    const es = await fakeElasticsearch();
+    const mock = await serveMockBackend();
+    const sel = (selector: string) => ({ kind: 'selector', selector });
+    const act = (id: string, name: string, selector: string | string[], extra = {}) => ({ id, name, ways: (Array.isArray(selector) ? selector : [selector]).map(sel), ...extra });
+    const field = (id: string, name: string, selector: string) => ({ kind: 'field', field: { id, name, type: 'text', read: 'text', ops: [], ways: [sel(selector)] } });
+    const spec = {
+        kind: 'page',
+        setup: {
+            // Closed whenever they show, on every page: the consent banner, and the promo that pops up after load.
+            dismiss: [act('d-consent', 'Cookie banner', '#consent-reject'), act('d-promo', 'Promo', '#promo-close')],
+            steps: [
+                act('s-open', 'Open location', '#deliver-to'),
+                act('s-zip', 'Type ZIP', '#zip-input', { do: 'type', value: '{zip}' }),
+                act('s-apply', 'Apply ZIP', '#zip-apply'),
+                act('s-store', 'Open stores', '#store-link'),
+                act('s-pick', 'Choose store', ['.store-list li button'], { do: 'choose', value: '{store}' }),
+            ],
+            check: { ways: [sel('#loc-label')], contains: '{zip}' },
+        },
+        steps: [
+            field('f-title', 'title', 'h1.product-title'),
+            field('f-price', 'price', '#price'),
+            // Optional: skipped when there is no "Show more" (there isn't).
+            { kind: 'click', click: act('p-more', 'Show more', '#show-more', { optional: true }) },
+            { kind: 'click', click: act('p-pickup', 'Pickup', '.fulfil-tile', { do: 'choose', value: 'Pickup' }) },
+            field('f-pickup', 'pickup', '#fulfil-detail'),
+            { kind: 'click', click: act('p-delivery', 'Delivery', '.fulfil-tile', { do: 'choose', value: 'Delivery' }) },
+            field('f-delivery', 'delivery', '#fulfil-detail'),
+        ],
+    };
+    await publishRecipe(mock.backend, { spec, competitor: 'retail', pageType: 'product' });
+
+    const dir = mkdtempSync(path.join(tmpdir(), 'crawler-steps-'));
+    writeFileSync(path.join(dir, 'crawler.json'), JSON.stringify({
+        workerId: 'e2e-worker', concurrency: 1, navigationTimeoutMs: 15_000, settleMs: 0,
+        retry: { maxAttempts: 2, baseDelayMs: 100, maxDelayMs: 500, maxInlineWaitMs: 5000 },
+        sites: { default: { minDelayMs: 20 } },
+        recipeStore: { url: mock.origin, token: '${STORE_TOKEN}' },
+        search: { url: es.origin, flushMs: 200 },
+    }));
+    const job = (jobId: string, p: string, context?: Record<string, string>) =>
+        JSON.stringify({ jobId, url: `${shop.origin}${p}`, competitor: 'retail', pageType: 'product', ...(context ? { context } : {}) });
+    writeFileSync(path.join(dir, 'jobs.jsonl'), [
+        job('lamp', '/p/lamp', { zip: '10001', store: 'Chelsea' }),
+        job('lamp', '/p/lamp', { zip: '94105', store: 'SoMa' }),
+        job('lamp-2', '/p/lamp-2', { zip: '10001', store: 'Chelsea' }),
+        job('no-zip', '/p/lamp'),
+        job('bad-zip', '/p/lamp', { zip: '00000', store: 'Chelsea' }),
+        job('moved-zip', '/p/lamp', { zip: '60601', store: 'Loop' }),
+    ].join('\n'));
+
+    const out = await runCli(dir);
+    expect(out).toContain('6 jobs: 3 read, 0 failed, 3 dead-lettered');
+    const scrape = (id: string) => es.docs.find(d => d.index === 'scrapes-retail' && d.id === id)?.doc;
+
+    // Each ZIP code's values, in a document of its own, with the location it is for.
+    expect(scrape('lamp~store=Chelsea,zip=10001')).toMatchObject({
+        context: { zip: '10001', store: 'Chelsea' },
+        attributes: { title: 'Brass desk lamp', price: '$12.99', pickup: 'Pickup today at Chelsea: In stock', delivery: 'Delivery tomorrow to 10001' },
+    });
+    expect(scrape('lamp~store=SoMa,zip=94105')).toMatchObject({
+        context: { zip: '94105', store: 'SoMa' },
+        attributes: { price: '$14.49', pickup: 'Pickup today at SoMa: Only 3 left', delivery: 'Delivery tomorrow to 94105' },
+    });
+
+    // The setup ran once per session: the second 10001 page found the location already set.
+    const events = es.docs.filter(d => d.index.startsWith('crawl-requests-')).map(d => d.doc);
+    const of = (id: string, zip?: string) => events.filter(e => e.jobId === id && (!zip || e.context?.zip === zip));
+    expect(of('lamp', '10001')[0]).toMatchObject({ errorClass: 'none', setup: { ran: true }, context: { zip: '10001' } });
+    expect(of('lamp-2')[0]).toMatchObject({ errorClass: 'none', setup: { ran: false } });
+
+    // A job without the ZIP its recipe needs is a person's to fix. A ZIP the site refuses fails the setup at the
+    // step that can't go on; one it serves as another area fails the check: never read for the wrong location.
+    expect(of('no-zip')[0]).toMatchObject({ errorClass: 'missing_context', outcome: 'dead_letter' });
+    expect(of('bad-zip')[0]).toMatchObject({ errorClass: 'setup_failed', setup: { ran: true, failedStep: 'Open stores' } });
+    expect(of('moved-zip')[0]).toMatchObject({ errorClass: 'setup_failed', setup: { ran: true, failedStep: 'check' } });
+    expect(of('moved-zip')[0].errorMessage).toContain('should show "60601", but it shows "60602"');
+    expect(es.docs.some(d => d.index === 'scrapes-retail' && d.doc.context?.zip === '60601')).toBe(false);
+    const dead = readFileSync(path.join(dir, 'dead.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l));
+    expect(dead.map(d => d.jobId).sort()).toEqual(['bad-zip', 'moved-zip', 'no-zip']);
+
+    // The setup's and steps' selectors are counted like fields'.
+    const usage = es.docs.find(d => d.index.startsWith('selector-usage-') && d.id === 'lamp~store=Chelsea,zip=10001')!.doc;
+    expect(usage.ways).toEqual(expect.arrayContaining([
+        expect.objectContaining({ field: 'setup: Type ZIP', tried: true, matched: true, won: true }),
+        expect.objectContaining({ field: 'click: Delivery', tried: true, matched: true, won: true }),
+    ]));
+
+    for (const s of [shop, es]) s.close();
+    mock.close();
+});
+
 test('crawler worker: goes through the site\'s proxy with its credentials, and fails over from a dead one', async () => {
     test.setTimeout(120_000);
     const shop = await serve((req, res) => req.url === '/robots.txt' ? html(res, 404, '') : html(res, 200, PRODUCT('Linen shirt')));

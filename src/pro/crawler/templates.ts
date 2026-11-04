@@ -28,6 +28,7 @@ export const TEMPLATES: Record<string, { patterns: string[]; mappings: object }>
                 bytes: { type: 'long' },
                 errorClass: keyword, errorMessage: text, blockSignal: keyword, retryAfterMs: { type: 'long' }, nextAttemptInMs: { type: 'long' },
                 blockVendor: keyword, blockKind: keyword, blockConfidence: keyword, protection: keyword, textLength: { type: 'integer' },
+                context: { type: 'object' }, setup: { properties: { ran: { type: 'boolean' }, ms: { type: 'long' }, failedStep: keyword } },
                 blockEvidence: { properties: { title: text, textSample: { type: 'text' }, resourceHosts: keyword, cookieNames: keyword } },
                 recipe, fieldsFilled: { type: 'short' }, fieldsTotal: { type: 'short' },
             },
@@ -52,7 +53,7 @@ export const TEMPLATES: Record<string, { patterns: string[]; mappings: object }>
                 crawledAt: { type: 'date' }, pageStatus: keyword, ...recipe.properties,
                 // Values differ by recipe (a price is text in one, money in another): kept, not indexed.
                 attributes: { type: 'object', enabled: false },
-                fieldStatus: { type: 'object' }, meta: { type: 'object' },
+                fieldStatus: { type: 'object' }, meta: { type: 'object' }, context: { type: 'object' },
             },
         },
     },
@@ -60,8 +61,10 @@ export const TEMPLATES: Record<string, { patterns: string[]; mappings: object }>
         // Not the daily totals (`selector-usage-daily-*`): their template has a higher priority.
         patterns: ['selector-usage-*', 'test-selector-usage-*'],
         mappings: {
+            dynamic_templates: stringsAsKeywords,
             properties: {
                 jobId: keyword, crawledAt: { type: 'date' }, competitor: keyword, pageType: keyword, pageStatus: keyword, ...recipe.properties,
+                context: { type: 'object' },
                 ways: { type: 'nested', properties: { field: keyword, wayId: keyword, tried: { type: 'boolean' }, matched: { type: 'boolean' }, won: { type: 'boolean' } } },
             },
         },

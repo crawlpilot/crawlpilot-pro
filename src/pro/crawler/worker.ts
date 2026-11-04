@@ -13,6 +13,11 @@
  * acknowledges the job only once Elasticsearch has them. Index names: `crawl-requests-YYYY.MM.DD`, `crawl-sites-YYYY.MM`,
  * `scrapes-<competitor>` and `selector-usage-YYYY.MM` (with `test-` in front in test mode).
  */
+import { createHash } from 'node:crypto';
+import { hasProActions, missingVariables } from '../recipe/actions';
+import { canonicalString } from '../recipe/canonical';
+import { DEFAULT_STEP_OPTIONS, dismissNow, extractWithActions, installDismissals, prepareSession, StepFailed, type StepOptions } from './steps';
+import type { WayUse } from './inPage';
 import { classify, classOf, CrawlError, keepHeaders, type Classification } from './classify';
 import { siteProfile, type CrawlerConfig } from './config';
 import { extract, readListPages, visit, type ListRead, type PageSource, type Visit } from './browser';
@@ -70,6 +75,15 @@ export function storeDelay(failures: number, random: () => number): number {
     const cap = Math.min(600_000, 30_000 * 2 ** (failures - 1));
     return Math.round(cap / 2 + random() * cap / 2);
 }
+
+/** A context in a document id: `~store=2280,zip=10001`, keys sorted; nothing without one. */
+export function contextSuffix(context?: Record<string, string>): string {
+    const keys = Object.keys(context ?? {}).sort();
+    return keys.length ? `~${keys.map(k => `${k}=${context![k]}`).join(',')}` : '';
+}
+
+/** Room in an attempt's deadline for a session setup and action steps. */
+const STEPS_MS = 90_000;
 
 const proxyOf = (proxy?: ProxyConfig) => proxy ? { proxyId: proxy.id, ...(proxy.country ? { proxyCountry: proxy.country } : {}) } : {};
 /** A list page clicked through several times takes longer. */
@@ -179,10 +193,23 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
         emit({ ...base(), attempt: before + 1, final: true, outcome: 'dead_letter', timings: { totalMs: 0 }, errorClass: 'no_recipe', errorMessage: message, recipe: ref });
         return { outcome: 'dead_letter', attempts: before + 1, reason: message };
     }
-    const request = 'page' in part ? inPageRequest(part.page, recipe.settings) : undefined;
+    // The values the recipe's steps need ({zip}…) come with the job; a job without them is a person's to fix.
+    const missing = missingVariables(recipe.spec, job.context);
+    if (missing.length) {
+        const message = `The job's context lacks ${missing.map(m => `"${m}"`).join(', ')}, which the recipe's steps need`;
+        emit({ ...base(), attempt: before + 1, final: true, outcome: 'dead_letter', timings: { totalMs: 0 }, errorClass: 'missing_context', errorMessage: message, recipe: ref });
+        return { outcome: 'dead_letter', attempts: before + 1, reason: `missing_context: ${message}` };
+    }
+    const setup = recipe.spec.setup?.steps.length || recipe.spec.setup?.check ? recipe.spec.setup : undefined;
+    const withActions = 'page' in part && hasProActions(part.page);
+    // A session set up for one context is never used for another: its cookies hold the location.
+    const sessionKey = setup ? createHash('sha1').update(canonicalString({ setup, context: job.context ?? {} })).digest('hex').slice(0, 16) : undefined;
+    const request = 'page' in part && !withActions ? inPageRequest(part.page, recipe.settings) : undefined;
+    const stepOptions: StepOptions = { ...DEFAULT_STEP_OPTIONS, settleMs: Math.max(DEFAULT_STEP_OPTIONS.settleMs, config.settleMs), ...(d.sleep ? { sleep: d.sleep } : {}) };
     const failedProxies = new Set<string>();
     // How long one attempt may take, open to close: past it the page is closed and the attempt is a timeout.
-    const attemptMs = config.navigationTimeoutMs + LOAD_WAIT_MS + config.settleMs + ('page' in part ? EXTRACT_TIMEOUT_MS : LIST_TIMEOUT_MS) + ATTEMPT_MARGIN_MS;
+    const attemptMs = config.navigationTimeoutMs + LOAD_WAIT_MS + config.settleMs + ('page' in part ? EXTRACT_TIMEOUT_MS : LIST_TIMEOUT_MS) + ATTEMPT_MARGIN_MS
+        + (setup || withActions ? STEPS_MS : 0);
     let waitedBusy = 0;
 
     for (let attempt = before + 1; ; attempt++) {
@@ -212,6 +239,8 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
         let proxy: ProxyConfig | undefined;
         let started = now();
         let aborted = false;
+        let setupRun: RequestEvent['setup'];
+        let setupWays: WayUse[] = [];
         try {
             if (slot.waitMs > 0) await sleep(slot.waitMs);
             started = now();
@@ -235,7 +264,7 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
             // 4. Visit, classify, extract, within the attempt's deadline, unless the worker must stop first.
             let timedOut = false;
             try {
-                const { page, release } = await d.pages.open(host, profile, proxy);
+                const { page, release, session } = await d.pages.open(host, profile, proxy, sessionKey);
                 const deadline = setTimeout(() => { timedOut = true; void page.close().catch(() => {}); }, attemptMs);
                 const abandon = () => { aborted = true; void page.close().catch(() => {}); };
                 if (d.signal?.aborted) abandon(); else d.signal?.addEventListener('abort', abandon, { once: true });
@@ -249,12 +278,33 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
                     if (c.errorClass === 'none') {
                         const t = now();
                         try {
-                            if ('page' in part) read = readRun(part.page, v.finalUrl ?? job.url, await extract(page, d.script, request!, EXTRACT_TIMEOUT_MS));
-                            else listRead = await readListPages(page, d.script, part.list, { maxPages: config.maxListPages, settleMs: config.settleMs, timeoutMs: LIST_TIMEOUT_MS });
+                            // The session first (a location, a store), then the page's own steps with its fields.
+                            if (setup?.dismiss?.length) await installDismissals(page, setup.dismiss);
+                            if (setup) {
+                                const s0 = now();
+                                try {
+                                    const run = await prepareSession(page, d.script, setup, job.context, session ?? { prepared: false }, stepOptions);
+                                    setupRun = { ran: run.ran, ms: run.ms };
+                                    setupWays = run.ways;
+                                } catch (e) {
+                                    if (e instanceof StepFailed) setupRun = { ran: true, ms: now() - s0, failedStep: e.step };
+                                    throw e;
+                                }
+                            }
+                            if ('page' in part) {
+                                if (!withActions) await dismissNow(page, d.script, setup?.dismiss);
+                                const result = withActions
+                                    ? await extractWithActions(page, d.script, part.page, recipe.settings, job.context, EXTRACT_TIMEOUT_MS, stepOptions, setup?.dismiss)
+                                    : await extract(page, d.script, request!, EXTRACT_TIMEOUT_MS);
+                                read = readRun(part.page, v.finalUrl ?? job.url, { ...result, ways: [...setupWays, ...result.ways] }, recipe.spec.setup);
+                            } else listRead = await readListPages(page, d.script, part.list, { maxPages: config.maxListPages, settleMs: config.settleMs, timeoutMs: LIST_TIMEOUT_MS });
                         } catch (e) {
-                            c = classify({ error: e instanceof Error ? e.message : String(e) });
-                            if (c.errorClass === 'unknown') c = classOf('extraction');
                             errorMessage = e instanceof Error ? e.message : String(e);
+                            if (e instanceof StepFailed) c = classOf('setup_failed');
+                            else {
+                                c = classify({ error: errorMessage });
+                                if (c.errorClass === 'unknown') c = classOf('extraction');
+                            }
                         }
                         extractMs = now() - t;
                         if (c.errorClass === 'none') c = softBlock(c, `${host}|${job.pageType}|${job.part ?? 'page'}`, v.textLength, read, listRead, d.baselines);
@@ -329,6 +379,8 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
             ...(c.block ? { blockVendor: c.block.vendor, blockKind: c.block.kind, blockConfidence: c.block.confidence, blockEvidence: evidenceOf(v) } : {}),
             ...(c.protection?.length ? { protection: c.protection } : {}),
             ...(v.textLength !== undefined ? { textLength: v.textLength } : {}),
+            ...(job.context ? { context: job.context } : {}),
+            ...(setupRun ? { setup: setupRun } : {}),
             ...(c.retryAfterMs !== undefined ? { retryAfterMs: c.retryAfterMs } : {}),
             ...(decision.action === 'retry' ? { nextAttemptInMs: decision.waitMs } : decision.action === 'defer' ? { nextAttemptInMs: decision.delayMs } : {}),
             recipe: ref,
@@ -340,24 +392,28 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
             const t = now();
             const crawledAt = new Date(t).toISOString();
             const writes: Promise<void>[] = [];
+            // One URL read for two locations is two documents.
+            const docId = `${job.jobId}${contextSuffix(job.context)}`;
             // Awaited by the queue; a rejection before then is not an unhandled one.
             const confirm = (w: Promise<void>) => { w.catch(() => {}); writes.push(w); };
             const scrape = (extra: Partial<ScrapeDoc>): ScrapeDoc => ({
                 jobId: job.jobId, ...(job.runId ? { runId: job.runId } : {}), url: job.url, finalUrl: v.finalUrl ?? job.url,
                 competitor: job.competitor, pageType: job.pageType, mode, crawledAt, pageStatus: c.pageStatus, ...ref,
-                attributes: {}, fieldStatus: {}, ...(job.meta ? { meta: job.meta } : {}), ...(job.parent ? { parent: job.parent } : {}), ...extra,
+                attributes: {}, fieldStatus: {}, ...(job.meta ? { meta: job.meta } : {}), ...(job.context ? { context: job.context } : {}),
+                ...(job.parent ? { parent: job.parent } : {}), ...extra,
             });
             if (listRead && 'list' in part) {
                 for (const r of readListRows(part.list, listRead.lists).rows) {
-                    confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape({ attributes: r.attributes, fieldStatus: r.fieldStatus, listId: r.listId, row: r.index, page: job.page ?? 1 }), `${job.jobId}~${r.listId}~${r.index}`));
+                    confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape({ attributes: r.attributes, fieldStatus: r.fieldStatus, listId: r.listId, row: r.index, page: job.page ?? 1 }), `${docId}~${r.listId}~${r.index}`));
                 }
             } else if (read || c.pageStatus === 'not_found') {
-                confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape(read ? { attributes: read.attributes, fieldStatus: read.fieldStatus } : {}), job.jobId));
+                confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape(read ? { attributes: read.attributes, fieldStatus: read.fieldStatus } : {}), docId));
             }
             if (read) {
                 confirm(d.sink.writeConfirmed(indices.usage(job, t), {
-                    jobId: job.jobId, crawledAt, competitor: job.competitor, pageType: job.pageType, pageStatus: c.pageStatus, ...ref, ways: read.ways,
-                } satisfies SelectorUsageDoc, job.jobId));
+                    jobId: job.jobId, crawledAt, competitor: job.competitor, pageType: job.pageType, pageStatus: c.pageStatus, ...ref,
+                    ...(job.context ? { context: job.context } : {}), ways: read.ways,
+                } satisfies SelectorUsageDoc, docId));
             }
             return {
                 outcome: decision.outcome, attempts: attempt, ...storeReset,

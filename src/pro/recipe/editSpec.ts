@@ -2,7 +2,7 @@
  * Edits to a page recipe's spec, each returning a new spec (the editor keeps the old one for undo-free
  * compare). Page data stays the first way: the extractor reads it before any selector.
  */
-import type { Field, FieldType, PageRecipeSpec, Step } from './types';
+import type { Click, Field, FieldType, PageRecipeSpec, Step } from './types';
 import type { ProOp } from './ops';
 
 const mapField = (spec: PageRecipeSpec, id: string, f: (field: Field) => Field): PageRecipeSpec => ({
@@ -50,6 +50,21 @@ export function problems(spec: PageRecipeSpec): string[] {
     const dupes = [...new Set(names.filter((n, i) => n && names.indexOf(n) !== i))];
     if (dupes.length) out.push(`Two fields are named ${dupes.map(d => `"${d}"`).join(', ')}.`);
     for (const f of fields) if (f.ways.length === 0) out.push(`"${f.name || 'A field'}" has no way to find it.`);
-    for (const s of spec.steps) if (s.kind === 'click' && s.click.ways.length === 0) out.push(`Click "${s.click.name}" has nothing to click.`);
+    for (const s of spec.steps) if (s.kind === 'click') out.push(...actionProblems(s.click));
+    for (const c of spec.setup?.steps ?? []) out.push(...actionProblems(c, 'Setup step'));
+    for (const c of spec.setup?.dismiss ?? []) if (c.ways.length === 0) out.push(`Dismiss "${c.name}" has nothing to click.`);
+    if (spec.setup?.check && !spec.setup.check.contains.trim()) out.push('The setup check needs the text it must contain.');
+    if (spec.setup?.check && spec.setup.check.ways.length === 0) out.push('The setup check has no element to read.');
+    return out;
+}
+
+/** What an action step lacks: a target (scrolling to the end needs none), or the value its kind needs. */
+export function actionProblems(c: Click, label = 'Step'): string[] {
+    const name = `${label} "${c.name}"`;
+    const what = c.do ?? 'click';
+    const out: string[] = [];
+    if (c.ways.length === 0 && what !== 'scroll' && what !== 'press') out.push(what === 'click' ? `Click "${c.name}" has nothing to click.` : `${name} has no element to act on.`);
+    if ((what === 'type' || what === 'select' || what === 'press') && !c.value?.trim()) out.push(`${name} needs a value to ${what}.`);
+    if (what === 'choose' && !c.value?.trim() && c.index === undefined) out.push(`${name} needs the text to choose, or which item.`);
     return out;
 }

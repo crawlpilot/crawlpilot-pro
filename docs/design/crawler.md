@@ -18,7 +18,8 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
    idle ones are; one in use (a page open, robots.txt being fetched) never is.
 5. **Classify** (`classify.ts`), then, on a good page, **extract** (`inPage.ts`): the extension's own `extractPage`,
    unchanged, bundled into one script, so a page reads the same here as in Pro's Test on this page. Values are cleaned
-   and checked with Pro's own `readPageResult`.
+   and checked with Pro's own `readPageResult`. A recipe with a session setup or action steps puts the page in the
+   state its data needs first (below, Session setup and action steps).
 6. **Decide** (`retry.ts`): retry here, put back on the queue, or finish (done, failed, dead letter).
 
 ## Error classes and what happens
@@ -40,9 +41,45 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
 | `robots_disallowed` | robots.txt | No: failed | — | — |
 | `no_recipe` | No live recipe covers the page; pinned version not approved | Dead letter | — | — |
 | `recipe_store` | The store is down or does not answer in time | Queue, backoff | — | — |
+| `setup_failed` | A session setup or action step failed: its element never showed, or the setup check was not met | Here, backoff; dead letter when out of attempts | — | — |
+| `missing_context` | The job lacks a value the recipe's steps need (`context.zip`) | Dead letter | — | — |
 | `expired` | Put back for longer than `retry.maxJobAgeMs` (24 h) since it was first taken | Dead letter | — | — |
 
 Out of attempts (`retry.maxAttempts`, counted over every delivery of the job), a retryable job is dead-lettered.
+
+## Session setup and action steps
+Retailer pages often show price, stock and fulfilment only after the visitor has chosen something: a delivery ZIP code
+(Amazon's "Deliver to"), a store (Walmart, Home Depot, UK grocers), Pickup or Delivery. Recipes say how, and the
+worker does it with real browser input (`steps.ts`; design in `docs/plans/pro-data-collection-plan.md`, C1).
+- **Action steps:** a recipe's click steps can do more than click:
+  - `type` text (with variables, `{zip}`);
+  - `choose` the item of a list whose text contains a value (a store, the *Delivery* tile);
+  - `select` a dropdown option;
+  - `press` a key;
+  - `wait` for something to appear or go;
+  - `scroll`.
+
+  Any step can be `optional` (skipped when its element doesn't show). The worker finds each step's element in the page
+  with the extension's resolver (visible elements only), then acts on it with Playwright. Plain clicks still run in
+  the extractor; the other actions run between the fields around them.
+- **Session setup** (`spec.setup`): steps that set the browser session up, for example open "Deliver to", type
+  `{zip}`, Apply, open the store list and choose `{store}`. They are followed by a **check**: an element whose text
+  must contain, for example, `{zip}`.
+  - The setup runs once per browser session. The session's context is keyed by the setup and the job's context, so a
+    session set to 10001 never serves 94105.
+  - The check runs on every page. A session the site has dropped is set up once more.
+  - A check still not met fails the attempt (`setup_failed`, naming the step). The page is never read for the wrong
+    location.
+- **Dismissals** (`spec.setup.dismiss`): close controls clicked whenever they show, on every page (consent banners,
+  promo pop-ups). They are registered as Playwright locator handlers, so one that covers a step's element is closed
+  and the step goes on; any that show are also closed before each read.
+- **Context:** a job carries the values of the recipe's variables, `"context": { "zip": "10001", "store": "Chelsea" }`.
+  - A job without one the recipe needs is dead-lettered (`missing_context`).
+  - Scrape and usage documents carry `context`, and their ids end with it (`lamp~store=Chelsea,zip=10001`), so one URL
+    read for two locations is two documents.
+  - Follow-up jobs inherit it.
+- **Telemetry:** request events carry `context` and `setup` (`ran`, `ms`, `failedStep`). The setup's, dismissals' and
+  steps' selectors are counted in selector usage like fields'.
 
 ## Block identification
 `detect.ts` reads each response for bot protection: the status, response headers, cookie **names** (values are never
@@ -190,7 +227,7 @@ node src/pro/crawler/dist/worker.mjs --config crawler.json --rollup             
 The configuration is `--config <file>` or the JSON in `CRAWLER_CONFIG`. `crawler.example.json` shows every setting;
 `${NAME}` in a string is read from the environment (proxy passwords, the store token, the Elasticsearch key).
 `CHROMIUM_PATH` points at another Chromium. Jobs are JSON:
-`{ "jobId", "url", "competitor", "pageType", "recipeDigest"?, "mode"?, "runId"?, "meta"? }`.
+`{ "jobId", "url", "competitor", "pageType", "recipeDigest"?, "mode"?, "runId"?, "meta"?, "context"? }`.
 
 The container image and an ECS on Fargate deployment are in `deploy/crawler/` (`README.md` there).
 To run the worker on your laptop against a local Elasticsearch and the mock backend, see

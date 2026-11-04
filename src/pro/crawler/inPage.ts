@@ -7,6 +7,7 @@
  *   `resolveOne` picks); a healed or empty field has no winner.
  * For a list recipe: each list's rows read with its frozen fields (`readWhenReady`, as the List Extractor
  * reads them), and its Next control found: its link, when it is one, or clicked, when it is a button.
+ * Action steps' targets are found here too (`../steps/inPageSteps.ts`); the worker acts on them.
  * Nothing here talks to the extension: it is plain DOM code.
  */
 import { extractPage } from '../../content/services/page/extractPage';
@@ -16,6 +17,7 @@ import { readWhenReady, type ReaderColumn } from '../../content/services/extract
 import { resolveContainer, resolveItems, resolveOne } from '../../shared/selectors/resolve';
 import type { StepResult } from '../../shared/listing/stepStats';
 import type { Chain, DataBinding, ListTarget } from '../../shared/types/database';
+import { isShown, markTarget } from '../steps/inPageSteps';
 
 /** One field's or click's ways, by id, in the order the extractor tries them. */
 export interface WayProbe {
@@ -129,4 +131,4 @@ export async function scrollToEnd(max: number, settleMs: number): Promise<number
     return max;
 }
 
-(globalThis as unknown as { crawlpilot: object }).crawlpilot = { run, readLists, clickNext, scrollToEnd };
+(globalThis as unknown as { crawlpilot: object }).crawlpilot = { run, readLists, clickNext, scrollToEnd, markTarget, isShown };

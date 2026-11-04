@@ -4,7 +4,8 @@
  * and pages, and whether the output consumers see changed.
  */
 import { canonicalString } from './canonical';
-import type { Field, ListRecipeSpec, PageRecipeSpec, PageSource, Version, Way } from './types';
+import type { Click, Field, ListRecipeSpec, PageRecipeSpec, PageSource, SessionSetup, Version, Way } from './types';
+import { describeAction } from './actions';
 import type { Column, ListTarget } from '../../shared/types/database';
 
 export type ChangeKind = 'added' | 'removed' | 'renamed' | 'changed' | 'moved';
@@ -28,6 +29,22 @@ export interface VersionDiff {
 const json = (v: unknown) => JSON.stringify(v ?? null);
 /** Ways compared by what they read: a way's id and `addedIn` are identity, not a change. */
 const waysJson = (v: unknown) => canonicalString(v ?? null);
+/** A click or action step by what it does and to what, not by its id or name. */
+const clickJson = ({ id: _id, name: _name, ...rest }: Click) => canonicalString(rest);
+
+/** The session setup: its steps in order, by what they do, and its check. */
+function setupChanges(a: SessionSetup | undefined, b: SessionSetup | undefined): Change[] {
+    if (!a && !b) return [];
+    if (!a) return [{ kind: 'added', subject: 'session setup', details: b!.steps.map(c => `${c.name}: ${describeAction(c)}`) }];
+    if (!b) return [{ kind: 'removed', subject: 'session setup', details: [] }];
+    const details = [
+        ...(json(a.steps.map(clickJson)) !== json(b.steps.map(clickJson)) ? [`steps: ${b.steps.map(c => `${c.name} (${describeAction(c)})`).join(', ') || 'none'}`] : []),
+        ...(json((a.dismiss ?? []).map(clickJson)) !== json((b.dismiss ?? []).map(clickJson)) ? [`dismiss: ${(b.dismiss ?? []).map(c => c.name).join(', ') || 'none'}`] : []),
+        ...(a.check?.contains !== b.check?.contains ? [`check: contains ${a.check?.contains ?? '–'} → ${b.check?.contains ?? '–'}`] : []),
+        ...(waysJson(a.check?.ways) !== waysJson(b.check?.ways) ? ['check: its element changed'] : []),
+    ];
+    return details.length ? [{ kind: 'changed', subject: 'session setup', details }] : [];
+}
 
 export function wayLabel(w: Way): string {
     if (w.kind === 'selector') return w.selector;
@@ -99,13 +116,13 @@ function pageChanges(a: PageRecipeSpec, b: PageRecipeSpec, prefix = ''): Change[
         const details = fieldDetails(x, y);
         if (details.length) changes.push({ kind: 'changed', subject: `${prefix}field ${y.name}`, details });
     }
-    const clicksA = a.steps.flatMap(s => s.kind === 'click' ? [waysJson(s.click.ways)] : []);
-    const clicksB = b.steps.flatMap(s => s.kind === 'click' ? [waysJson(s.click.ways)] : []);
+    const clicksA = a.steps.flatMap(s => s.kind === 'click' ? [clickJson(s.click)] : []);
+    const clicksB = b.steps.flatMap(s => s.kind === 'click' ? [clickJson(s.click)] : []);
     clicksB.forEach((c, i) => { if (!clicksA.includes(c)) changes.push({ kind: 'added', subject: `${prefix}click ${i + 1}`, details: [] }); });
     clicksA.forEach((c, i) => { if (!clicksB.includes(c)) changes.push({ kind: 'removed', subject: `${prefix}click ${i + 1}`, details: [] }); });
 
     // The run order: the same steps (by name, clicks by ways) in another order.
-    const order = (s: PageRecipeSpec) => s.steps.map(st => st.kind === 'field' ? `f:${st.field.name}` : `c:${waysJson(st.click.ways)}`);
+    const order = (s: PageRecipeSpec) => s.steps.map(st => st.kind === 'field' ? `f:${st.field.name}` : `c:${clickJson(st.click)}`);
     const oa = order(a), ob = order(b);
     const common = (x: string[], y: string[]) => x.filter(k => y.includes(k));
     if (json(common(oa, ob)) !== json(common(ob, oa))) changes.push({ kind: 'moved', subject: `${prefix}steps`, details: ['the run order changed'] });
@@ -177,6 +194,7 @@ export function diffVersions(a: Version, b: Version): VersionDiff {
     const spec: Change[] = a.spec.kind !== b.spec.kind ? [{ kind: 'changed', subject: 'kind', details: [`${a.spec.kind} → ${b.spec.kind}`] }]
         : a.spec.kind === 'page' ? pageChanges(a.spec, b.spec as PageRecipeSpec)
         : listChanges(a.spec, b.spec as ListRecipeSpec);
+    spec.unshift(...setupChanges(a.spec.setup, b.spec.setup));
     return {
         from: a.version,
         to: b.version,

@@ -198,13 +198,25 @@ inside the page would not survive the reload.
   the builder's clicks and typing and writes the steps, is a follow-up.
 
 ### Hook points in the public engine (option 2)
-Two small, generic seams. Everything specific to Pro sits in `src/pro/steps/`.
-1. **A command registry in the content script**, so Pro can add `CMD_RUN_STEP` (find a target, act on it, report the
-   result) without editing the message switch.
-2. **A step-kind registry in `extractPage`**, so page steps other than `click` (`type`, `choose`, `select`, `press`,
-   `wait`, `scroll`) run in order with the fields through a handler Pro registers.
+Building the worker side showed that fewer seams are needed than first planned:
+- **Page steps need no `extractPage` registry.** A page recipe is cut into runs of fields and plain clicks, which the
+  extractor reads as before, and Pro's actions run between them (`src/pro/recipe/actions.ts`, `segments`).
+- **Finding a target needs no content-script registry.** Pro's in-page step code (`src/pro/steps/inPageSteps.ts`)
+  uses the public selector resolver as a library. The worker bundles it into its in-page script.
+- **The one seam left is for Pro's side (step 2):** the extension has to carry `src/pro/steps` as a script that Pro
+  injects with `chrome.scripting.executeScript`. That is one more build input in `vite.config.ts`, a public build
+  file, and the only public file this work changes.
 
-Selector resolution, readers and the picker are used as they are.
+### Status
+- **Step 1, done:**
+  - the model: action steps, session setup with a check, dismissals, variables;
+  - way ids, health, clean-up, diff and save checks for all of them;
+  - the worker: Playwright actions and sessions per context, `setup_failed` and `missing_context`, documents per
+    context;
+  - the e2e retailer page with its crawler test.
+- **Step 2, next:** the editor (Before reading, Add step, dismissals, test values of variables, Try steps), and Test on
+  this page and sample pages running the steps.
+- **Step 3, later:** one row per fulfilment method (with C2), a step recorder, and trusted input through the debugger.
 
 ### Done when
 The e2e site gets a retailer page that behaves like the real ones:

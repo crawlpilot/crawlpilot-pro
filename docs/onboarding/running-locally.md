@@ -69,6 +69,8 @@ A job is one JSON line: `{ "jobId", "url", "competitor", "pageType" }`. Optional
 - `recipeDigest`: pin a version instead of using the live one.
 - `mode: "test"`: write to the `test-` indices instead.
 - `runId` and `meta`: passed through to the documents.
+- `context`: the values of the recipe's variables, such as `{ "zip": "10001", "store": "Chelsea" }`, for recipes
+  that set a location first. See [crawler.md](../design/crawler.md#session-setup-and-action-steps).
 
 ## 5. Look at the results
 ```bash

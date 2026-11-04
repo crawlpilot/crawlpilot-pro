@@ -94,6 +94,8 @@ const RULES: Record<ErrorClass, { retryable: boolean; pageStatus: PageStatus }> 
     recipe_store: { retryable: true, pageStatus: 'error' },
     paused: { retryable: false, pageStatus: 'error' },
     expired: { retryable: false, pageStatus: 'error' },
+    setup_failed: { retryable: true, pageStatus: 'error' },
+    missing_context: { retryable: false, pageStatus: 'error' },
     unknown: { retryable: true, pageStatus: 'error' },
 };
 
