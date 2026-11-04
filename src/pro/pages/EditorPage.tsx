@@ -5,7 +5,7 @@
  * fields on the page stays in the Page Extractor (Re-pick).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, FlaskConical, Layers, MousePointerClick, Plus, Save, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, FlaskConical, Layers, Plus, Save, Trash2, X } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Chip, Disclosure, IconButton, Notice, Select, Switch, Text, TextArea, TextField } from '../../sidepanel/ui';
 import { pro } from '../db';
@@ -18,11 +18,13 @@ import { summarize, testOnTab, type FieldResult, type PageResult } from '../runn
 import { testOnPages, type PagesProgress } from '../runner/testPages';
 import { TestGrid } from './TestGrid';
 import { ContractPanel } from './ContractPanel';
+import { BeforeReading, newStep, PageAction, usePicker } from './StepsCard';
+import { Ways } from './Ways';
 import { readiness } from '../recipe/ready';
-import { diffVersions, wayLabel } from '../recipe/diff';
+import { diffVersions } from '../recipe/diff';
 import * as edits from '../recipe/editSpec';
 import { applyProOps, NEW_OP, opSummary, PRO_OP_LABELS, type ProOp } from '../recipe/ops';
-import type { Click, Field, FieldType, OutputSpec, PageRecipeSpec, ProRecipe, Sample, Version } from '../recipe/types';
+import type { Field, FieldType, OutputSpec, PageRecipeSpec, ProRecipe, Sample, Version } from '../recipe/types';
 
 interface Props {
     onBack: () => void;
@@ -82,31 +84,6 @@ function Cleanup({ field, onChange }: { field: Field; onChange: (ops: ProOp[]) =
     );
 }
 
-function Ways({ ways, onMove, onRemove, onAdd }: { ways: Field['ways']; onMove: (i: number, d: number) => void; onRemove: (i: number) => void; onAdd: (s: string) => void }) {
-    const [adding, setAdding] = useState('');
-    const firstSelector = ways.findIndex(w => w.kind === 'selector');
-    return (
-        <div className="flex flex-col gap-1.5">
-            <Text size="caption" weight="semibold" tone="muted">Ways to find it, first that works wins</Text>
-            {ways.map((w, i) => (
-                <div key={`${i}-${wayLabel(w)}`} className="flex items-center gap-1.5">
-                    <Chip tone={w.kind === 'data' ? 'info' : 'neutral'}>{w.kind === 'data' ? 'Page data' : 'Selector'}</Chip>
-                    <Text size="caption" mono className="min-w-0 flex-1 break-all">{wayLabel(w)}</Text>
-                    {w.kind === 'selector' && <>
-                        <IconButton size="sm" label="Try it earlier" onClick={() => onMove(i, -1)} disabled={i <= firstSelector}><ArrowUp /></IconButton>
-                        <IconButton size="sm" label="Try it later" onClick={() => onMove(i, 1)} disabled={i === ways.length - 1}><ArrowDown /></IconButton>
-                    </>}
-                    <IconButton size="sm" label={`Remove way ${i + 1}`} onClick={() => onRemove(i)}><Trash2 /></IconButton>
-                </div>
-            ))}
-            <form className="flex items-end gap-1.5" onSubmit={e => { e.preventDefault(); onAdd(adding); setAdding(''); }}>
-                <TextField size="sm" className="flex-1" aria-label="Add a selector" placeholder="Add a selector (CSS or XPath)" value={adding} onChange={e => setAdding(e.target.value)} />
-                <Button size="sm" variant="ghost" type="submit" disabled={!adding.trim()}>Add</Button>
-            </form>
-        </div>
-    );
-}
-
 export default function EditorPage({ onBack, onNavigate }: Props) {
     const [recipeId] = useState(openedRecipe);
     const [repair] = useState<Repair | null>(() => recipeId ? takeRepair(recipeId) : null);
@@ -120,6 +97,9 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     const [error, setError] = useState<string | null>(null);
     const page = usePageTab();
     const [test, setTest] = useState<{ result: PageResult; spec: string } | null>(null);
+    /** Test values of the recipe's variables ({zip}), kept per recipe on this browser. */
+    const [context, setContext] = useState<Record<string, string>>({});
+    const picker = usePicker();
     const [testing, setTesting] = useState(false);
     const [samples, setSamples] = useState<Sample[]>([]);
     const [pagesTest, setPagesTest] = useState<{ results: PageResult[]; spec: string } | null>(null);
@@ -135,8 +115,17 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
             if (v?.spec.kind === 'page') setSpec(v.spec);
             if (v) setOutput(v.output);
             if (r) setSamples(await pro.samples.list(r.id));
+            if (r) {
+                const key = `pro.testContext.${r.id}`;
+                const saved = (await chrome.storage.local.get(key))[key];
+                if (saved && typeof saved === 'object') setContext(saved as Record<string, string>);
+            }
         })();
     }, [recipeId]);
+    const changeContext = (next: Record<string, string>) => {
+        setContext(next);
+        if (recipe) void chrome.storage.local.set({ [`pro.testContext.${recipe.id}`]: next });
+    };
 
     const changes = useMemo(() => base && spec ? diffVersions(base, { ...base, spec, output, version: base.version + 1 }).changes : [], [base, spec, output]);
     const blockers = spec ? edits.problems(spec) : [];
@@ -151,7 +140,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     const runTest = async () => {
         if (!recipe || !base || !spec || !page.tab?.id) return;
         setTesting(true);
-        const result = await testOnTab(page.tab.id, page.url, spec, base.settings);
+        const result = await testOnTab(page.tab.id, page.url, spec, base.settings, context);
         setTest({ result, spec: JSON.stringify(spec) });
         await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(spec), kind: 'page', results: [result], passed: passed([result]), at: Date.now() });
         setTesting(false);
@@ -177,7 +166,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     const runPagesTest = async () => {
         if (!recipe || !base || !spec) return;
         const tested = spec;
-        const results = await testOnPages(samples.slice(0, TEST_PAGES).map(x => x.url), tested, base.settings, setProgress);
+        const results = await testOnPages(samples.slice(0, TEST_PAGES).map(x => x.url), tested, base.settings, setProgress, undefined, context);
         setProgress(null);
         setPagesTest({ results, spec: JSON.stringify(tested) });
         await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(tested), kind: 'pages', results, passed: passed(results), at: Date.now() });
@@ -246,16 +235,6 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         </Disclosure></div>
     );
 
-    const clickRow = (click: Click, i: number) => (
-        <div key={click.id} className="flex items-center gap-2 rounded-card border border-dashed border-line px-3 py-2">
-            <MousePointerClick size={16} className="shrink-0 text-ink-2" />
-            <Text size="small" className="min-w-0 flex-1 truncate">Click {click.ways[0] ? wayLabel(click.ways[0]) : click.name}</Text>
-            <IconButton size="sm" label="Move up" onClick={() => setSpec(edits.moveStep(spec, i, -1))} disabled={i === 0}><ArrowUp /></IconButton>
-            <IconButton size="sm" label="Move down" onClick={() => setSpec(edits.moveStep(spec, i, 1))} disabled={i === spec.steps.length - 1}><ArrowDown /></IconButton>
-            <IconButton size="sm" label="Remove click" onClick={() => setSpec(edits.removeStep(spec, i))}><Trash2 /></IconButton>
-        </div>
-    );
-
     return (
         <div className="flex h-full flex-col">
             {header}
@@ -277,6 +256,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     ? <Notice tone="danger" title="The test could not run on this page">{test.result.error}</Notice>
                     : <div data-testid="pro-test-summary"><Notice tone={passed([test.result]) ? 'success' : 'warning'}
                         title={`On ${new URL(test.result.url).host}: ${summarize(test.result).filled} of ${summarize(test.result).total} fields found`}>
+                        {test.result.setup ? (test.result.setup.ran ? `Session set up first (${test.result.setup.steps.length} steps). ` : 'Session already set up. ') : ''}
                         {summarize(test.result).total - summarize(test.result).ok ? `${summarize(test.result).total - summarize(test.result).ok} with a problem. ` : ''}
                         {stale ? 'You changed the recipe since this test.' : ''}
                     </Notice></div>)}
@@ -315,8 +295,10 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                             results={pagesTest && !pagesStale ? pagesTest.results : undefined} />
                     </div>
                 </Disclosure>
-                <Text size="caption" tone="faint">Steps run in this order: a click, then the fields it reveals.</Text>
-                {spec.steps.map((s, i) => s.kind === 'field' ? fieldCard(s.field, i) : clickRow(s.click, i))}
+                <BeforeReading spec={spec} onChange={setSpec} context={context} onContext={changeContext} picker={picker} />
+                <Text size="caption" tone="faint">Steps run in this order: a step (a click, a choice, typing), then the fields it reveals.</Text>
+                {spec.steps.map((s, i) => s.kind === 'field' ? fieldCard(s.field, i) : <PageAction key={s.click.id} spec={spec} click={s.click} index={i} onChange={setSpec} picker={picker} />)}
+                <div><Button size="sm" variant="ghost" icon={<Plus />} onClick={() => setSpec(edits.addAction(spec, newStep(`Step ${spec.steps.filter(x => x.kind === 'click').length + 1}`)))}>Add a step</Button></div>
             </div>
             <div className="flex flex-col gap-2 border-t border-line bg-bg p-4">
                 {blockers.length > 0 && <Notice tone="warning">{blockers.join(' ')}</Notice>}

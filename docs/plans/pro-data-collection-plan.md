@@ -203,9 +203,9 @@ Building the worker side showed that fewer seams are needed than first planned:
   extractor reads as before, and Pro's actions run between them (`src/pro/recipe/actions.ts`, `segments`).
 - **Finding a target needs no content-script registry.** Pro's in-page step code (`src/pro/steps/inPageSteps.ts`)
   uses the public selector resolver as a library. The worker bundles it into its in-page script.
-- **The one seam left is for Pro's side (step 2):** the extension has to carry `src/pro/steps` as a script that Pro
-  injects with `chrome.scripting.executeScript`. That is one more build input in `vite.config.ts`, a public build
-  file, and the only public file this work changes.
+- **Pro's side needed no seam either.** Pro's step script ships through crxjs's `?script` import, as the public
+  summarizer's does, and Pro starts the public picker through its existing messages (`START_PICKER`,
+  `ELEMENT_SELECTED`). This work changes no public file.
 
 ### Status
 - **Step 1, done:**
@@ -214,8 +214,12 @@ Building the worker side showed that fewer seams are needed than first planned:
   - the worker: Playwright actions and sessions per context, `setup_failed` and `missing_context`, documents per
     context;
   - the e2e retailer page with its crawler test.
-- **Step 2, next:** the editor (Before reading, Add step, dismissals, test values of variables, Try steps), and Test on
-  this page and sample pages running the steps.
+- **Step 2, done:**
+  - one step runner for the worker and Pro (`src/pro/steps/runner.ts`), driven by Playwright in the worker and by an
+    injected script in the user's tab;
+  - the editor: *Before reading* (setup steps, check, dismissals, test values, Try setup) and *Add a step* among
+    the fields, each element picked on the page or typed;
+  - Test on this page and Test on sample pages run the setup (only when its check isn't met) and the steps.
 - **Step 3, later:** one row per fulfilment method (with C2), a step recorder, and trusted input through the debugger.
 
 ### Done when
