@@ -84,7 +84,8 @@ worker does it with real browser input (`steps.ts`; design in `docs/plans/pro-da
 ## Block identification
 `detect.ts` reads each response for bot protection: the status, response headers, cookie **names** (values are never
 read or kept), the page's script and frame URLs, where it was redirected, the title and the visible text. It knows the
-marks of Cloudflare, Akamai, DataDome, HUMAN (PerimeterX), Imperva, Kasada, AWS WAF, F5, Radware, Sucuri and Queue-it,
+marks of Cloudflare, Akamai, DataDome, HUMAN (PerimeterX, as Walmart uses it), Imperva, Kasada, AWS WAF, F5, Radware,
+Sucuri, Queue-it and Amazon's own captcha and automated-access pages,
 the captcha widgets (reCAPTCHA, hCaptcha, Turnstile, GeeTest, Arkose), and generic block and captcha wording.
 - **Presence vs block.** A site's vendor shows on every page: Cloudflare's `__cf_bm` cookie, Akamai's `_abck`,
   DataDome's tag. Those marks name the site's protection (`protection` on every request event) and never make a block.
@@ -221,6 +222,7 @@ selectors from. Run it once a day after midnight UTC (`deploy/crawler/README.md`
 npm run crawler:build
 node src/pro/crawler/dist/worker.mjs --config crawler.json                       # jobs from the configured SQS queue
 node src/pro/crawler/dist/worker.mjs --config crawler.json --jobs jobs.jsonl     # or a file of jobs
+node src/pro/crawler/dist/worker.mjs --config crawler.json --jobs jobs.jsonl --print   # print, don't write (no search needed)
 node src/pro/crawler/dist/worker.mjs --config crawler.json --setup-elasticsearch # templates, once per cluster
 node src/pro/crawler/dist/worker.mjs --config crawler.json --rollup              # yesterday's selector usage
 ```

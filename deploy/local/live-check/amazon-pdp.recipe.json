@@ -1,0 +1,48 @@
+{
+  "name": "Amazon product page (live check)",
+  "site": "amazon.com",
+  "competitor": "amazon",
+  "pageType": "product",
+  "spec": {
+    "kind": "page",
+    "setup": {
+      "dismiss": [
+        { "id": "d-location-toaster", "name": "Location prompt", "ways": [
+          { "kind": "selector", "selector": ".glow-toaster-button-dismiss input" },
+          { "kind": "selector", "selector": "input[data-action-type='DISMISS']" } ] },
+        { "id": "d-cookies", "name": "Cookie banner", "ways": [ { "kind": "selector", "selector": "#sp-cc-rejectall-link" } ] }
+      ],
+      "steps": [
+        { "id": "s-open", "name": "Open Deliver to", "ways": [
+          { "kind": "selector", "selector": "#nav-global-location-popover-link" },
+          { "kind": "selector", "selector": "#glow-ingress-block" } ] },
+        { "id": "s-zip", "name": "Type ZIP", "do": "type", "value": "{zip}", "ways": [ { "kind": "selector", "selector": "#GLUXZipUpdateInput" } ] },
+        { "id": "s-apply", "name": "Apply", "ways": [
+          { "kind": "selector", "selector": "#GLUXZipUpdate input" },
+          { "kind": "selector", "selector": "#GLUXZipUpdate" } ] },
+        { "id": "s-done", "name": "Continue", "optional": true, "ways": [
+          { "kind": "selector", "selector": "#GLUXConfirmClose" },
+          { "kind": "selector", "selector": "button[name='glowDoneButton']" },
+          { "kind": "selector", "selector": ".a-popover-footer input.a-button-input" } ] }
+      ],
+      "check": { "contains": "{zip}", "ways": [
+        { "kind": "selector", "selector": "#glow-ingress-line2" },
+        { "kind": "selector", "selector": "#nav-global-location-popover-link" } ] }
+    },
+    "steps": [
+      { "kind": "field", "field": { "id": "f-title", "name": "title", "type": "text", "read": "text", "ops": [], "ways": [
+        { "kind": "selector", "selector": "#productTitle" } ] } },
+      { "kind": "field", "field": { "id": "f-price", "name": "price", "type": "money", "read": "text", "ops": [], "ways": [
+        { "kind": "selector", "selector": "#corePrice_feature_div .a-price .a-offscreen" },
+        { "kind": "selector", "selector": "#corePriceDisplay_desktop_feature_div .a-price .a-offscreen" },
+        { "kind": "selector", "selector": "#apex_desktop .a-price .a-offscreen" } ] } },
+      { "kind": "field", "field": { "id": "f-availability", "name": "availability", "type": "text", "read": "text", "ops": [], "ways": [
+        { "kind": "selector", "selector": "#availability" } ] } },
+      { "kind": "field", "field": { "id": "f-delivery", "name": "delivery", "type": "text", "read": "text", "ops": [], "ways": [
+        { "kind": "selector", "selector": "#mir-layout-DELIVERY_BLOCK-slot-PRIMARY_DELIVERY_MESSAGE_LARGE" },
+        { "kind": "selector", "selector": "#deliveryBlockMessage" } ] } },
+      { "kind": "field", "field": { "id": "f-location", "name": "deliver_to", "type": "text", "read": "text", "ops": [], "ways": [
+        { "kind": "selector", "selector": "#glow-ingress-line2" } ] } }
+    ]
+  }
+}

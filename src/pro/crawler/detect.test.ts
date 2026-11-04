@@ -37,6 +37,14 @@ const BLOCKS: [string, Observation, { errorClass: string; vendor: string; kind: 
         { errorClass: 'captcha', vendor: 'Radware', kind: 'captcha', confidence: 'high' }],
     ['Sucuri block', { status: 403, headers: { 'x-sucuri-id': '1', 'x-sucuri-block': 'BL001' }, title: 'Sucuri WebSite Firewall - Access Denied' },
         { errorClass: 'blocked', vendor: 'Sucuri', kind: 'block', confidence: 'high' }],
+    ['Amazon captcha page', { status: 200, title: 'Amazon.com', text: 'Enter the characters you see below. Sorry, we just need to make sure you\'re not a robot. For best results, please make sure your browser is accepting cookies.', resources: ['https://images-na.ssl-images-amazon.com/captcha/abcd/Captcha_xyz.jpg'] },
+        { errorClass: 'captcha', vendor: 'Amazon', kind: 'captcha', confidence: 'high' }],
+    ['Amazon automated-access block', { status: 503, title: 'Sorry! Something went wrong!', text: 'Sorry! Something went wrong on our end. To discuss automated access to Amazon data please contact api-services-support@amazon.com.' },
+        { errorClass: 'blocked', vendor: 'Amazon', kind: 'block', confidence: 'high' }],
+    ['Walmart "Robot or human?"', { status: 200, title: 'Robot or human?', text: 'Activate and hold the button to confirm that you’re human. Thank You!', cookies: ['_pxhd', '_pxvid'] },
+        { errorClass: 'captcha', vendor: 'HUMAN', kind: 'captcha', confidence: 'high' }],
+    ['Walmart /blocked redirect', { status: 200, navigation: ['https://www.walmart.com/ip/123', 'https://www.walmart.com/blocked?url=L2lwLzEyMw==&uuid=ab12&vid=cd34&g=b'], title: 'Robot or human?', text: 'Activate and hold the button to confirm that you’re human.' },
+        { errorClass: 'captcha', vendor: 'HUMAN', kind: 'captcha', confidence: 'high' }],
     ['Queue-it waiting room', { status: 200, navigation: ['https://shop.test/p/1', 'https://shop.queue-it.net/?c=shop&e=sale'], text: longText },
         { errorClass: 'waiting_room', vendor: 'Queue-it', kind: 'queue', confidence: 'high' }],
 ];
@@ -48,6 +56,8 @@ const ORDINARY: [string, Observation, string[]][] = [
     ['DataDome site', { status: 200, headers: { 'x-datadome': 'protected' }, cookies: ['datadome'], resources: ['https://js.datadome.co/tags.js'], text: longText }, ['DataDome']],
     ['HUMAN site', { status: 200, cookies: ['_px3', '_pxvid'], resources: ['https://client.perimeterx.net/PXabc/main.min.js'], text: longText }, ['HUMAN']],
     ['newsletter with reCAPTCHA and an access-denied help text', { status: 200, title: 'Linen shirt', text: `${longText} Access denied? Read our help. Protected by reCAPTCHA.`, resources: ['https://www.google.com/recaptcha/api.js'] }, []],
+    ['Amazon product page for a robot vacuum', { status: 200, title: 'Amazon.com: Robot Vacuum Cleaner', text: `${longText} Robot vacuum with self-empty base. Customers ask: is it a robot or human operated? It is a robot.` }, []],
+    ['Walmart page linking its blocked-items help', { status: 200, text: longText, navigation: ['https://www.walmart.com/ip/123'], resources: ['https://www.walmart.com/help/blocked?topic=returns'] }, []],
     ['Queue-it client script on an ordinary page', { status: 200, text: longText, resources: ['https://static.queue-it.net/script/queueclient.min.js'] }, []],
 ];
 

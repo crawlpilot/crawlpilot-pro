@@ -140,6 +140,11 @@ The exact clicks for each of these steps are in `e2e/pro-recipes.spec.ts`.
 - **SQS** instead of a file of jobs: add a `queue` block (standard queues only), and the worker takes jobs until it
   is stopped. There is no local SQS in this setup yet (issue #20).
 
+## Trying a recipe on live pages
+`deploy/local/live-check/` runs the worker on a few live pages and prints what it read (`--print`, no Elasticsearch),
+paced slowly, stopping at the first block. Its README has the steps and how to read the output; the example is an
+Amazon product page read for two ZIP codes.
+
 ## Stopping and cleaning up
 ```bash
 # Ctrl-C the backend and the site

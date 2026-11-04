@@ -158,7 +158,9 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
 
     // Put back for too long (a site that stays blocked): for a person, not the queue, to decide.
     if (job.firstSeenAt !== undefined && now() - job.firstSeenAt > config.retry.maxJobAgeMs) {
-        const message = `Put back for ${Math.round((now() - job.firstSeenAt) / 3_600_000)} h, past retry.maxJobAgeMs, after ${before} attempts`;
+        const age = now() - job.firstSeenAt;
+        const took = age >= 3_600_000 ? `${Math.round(age / 3_600_000)} h` : age >= 60_000 ? `${Math.round(age / 60_000)} min` : `${Math.round(age / 1000)} s`;
+        const message = `Put back for ${took}, past retry.maxJobAgeMs, after ${before} attempts`;
         emit({ ...base(), attempt: before, final: true, outcome: 'dead_letter', timings: { totalMs: 0 }, errorClass: 'expired', errorMessage: message });
         return { outcome: 'dead_letter', attempts: before, reason: `expired: ${message}` };
     }

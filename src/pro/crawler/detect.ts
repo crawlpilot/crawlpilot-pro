@@ -96,7 +96,10 @@ export const SIGNATURES: Signature[] = [
     { vendor: 'HUMAN', kind: 'presence', confidence: 'high', signal: 'PerimeterX cookie', cookie: /^_px(?:2|3|hd|vid|cvid|de)?$/ },
     { vendor: 'HUMAN', kind: 'presence', confidence: 'high', signal: 'PerimeterX sensor', resource: /client\.perimeterx\.net|client\.px-cloud\.net|px-cdn\.net/ },
     { vendor: 'HUMAN', kind: 'captcha', confidence: 'high', signal: 'PerimeterX captcha', resource: /captcha\.px-cdn\.net|captcha\.px-cloud\.net/ },
-    { vendor: 'HUMAN', kind: 'captcha', confidence: 'high', signal: 'Press & Hold', suspect: true, text: /press (?:&|and) hold|px-captcha/i },
+    { vendor: 'HUMAN', kind: 'captcha', confidence: 'high', signal: 'Press & Hold', suspect: true, text: /press (?:&|and) hold|activate and hold the button|px-captcha/i },
+    { vendor: 'HUMAN', kind: 'captcha', confidence: 'medium', signal: 'Robot or human? page', suspect: true, text: /robot or human\?/i },
+    // Walmart sends a blocked visitor to its own /blocked page, with PerimeterX's ids in the query.
+    { vendor: 'HUMAN', kind: 'captcha', confidence: 'high', signal: 'redirected to /blocked', navigation: /\/blocked\?(?=.*\burl=)(?=.*\b(?:uuid|vid)=)/ },
     { vendor: 'HUMAN', kind: 'block', confidence: 'medium', signal: 'PerimeterX block page', suspect: true, text: /access to this page has been denied|px-block/i },
 
     // Imperva (Incapsula)
@@ -143,9 +146,14 @@ export const SIGNATURES: Signature[] = [
     { vendor: 'GeeTest', kind: 'captcha', confidence: 'medium', signal: 'GeeTest', suspect: true, resource: /geetest\.com/ },
     { vendor: 'Arkose', kind: 'captcha', confidence: 'medium', signal: 'Arkose challenge', suspect: true, resource: /arkoselabs\.com|funcaptcha/ },
 
+    // Amazon's own bot defence: its captcha page, and the page it serves automated traffic it turns away.
+    { vendor: 'Amazon', kind: 'captcha', confidence: 'high', signal: 'Amazon captcha page', suspect: true, text: /enter the characters you see below|type the characters you see in this image|make sure you(?:'|’)?re not a robot/i },
+    { vendor: 'Amazon', kind: 'captcha', confidence: 'high', signal: 'Amazon captcha image', suspect: true, resource: /images-(?:na|eu|fe)\.ssl-images-amazon\.com\/captcha\// },
+    { vendor: 'Amazon', kind: 'block', confidence: 'high', signal: 'Amazon automated-access notice', suspect: true, text: /automated access to amazon data|api-services-support@amazon\.com/i },
+
     // Generic wording.
     { vendor: 'unknown', kind: 'captcha', confidence: 'medium', signal: 'captcha wording', suspect: true, text: /\bcaptcha\b/i },
-    { vendor: 'unknown', kind: 'block', confidence: 'low', signal: 'block wording', suspect: true, text: /access denied|request blocked|you have been blocked|unusual traffic|are you a (?:robot|human)|bot detection|automated (?:access|queries)|verify (?:that )?you are (?:a )?human/i },
+    { vendor: 'unknown', kind: 'block', confidence: 'low', signal: 'block wording', suspect: true, text: /access denied|request blocked|you have been blocked|unusual traffic|are you a (?:robot|human)|(?:you(?:'|’)?re|you are) not a robot|bot detection|automated (?:access|queries)|verify (?:that )?you are (?:a )?human/i },
 ];
 
 const RANK: Record<Confidence, number> = { low: 0, medium: 1, high: 2 };
