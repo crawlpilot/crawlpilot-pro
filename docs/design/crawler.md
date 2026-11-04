@@ -193,6 +193,8 @@ The configuration is `--config <file>` or the JSON in `CRAWLER_CONFIG`. `crawler
 `{ "jobId", "url", "competitor", "pageType", "recipeDigest"?, "mode"?, "runId"?, "meta"? }`.
 
 The container image and an ECS on Fargate deployment are in `deploy/crawler/` (`README.md` there).
+To run the worker on your laptop against a local Elasticsearch and the mock backend, see
+[docs/onboarding/running-locally.md](../onboarding/running-locally.md).
 
 ## Not built yet
 - The SQS adapter is tested against a fake client only, not a real queue or an SQS-compatible server.

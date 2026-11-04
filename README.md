@@ -10,6 +10,10 @@ cloud crawler backend, which does the crawling at scale.
 
 The plan is in [docs/plans/pro-plan.md](docs/plans/pro-plan.md).
 
+## New here?
+Start with [docs/onboarding](docs/onboarding/README.md): setting up, running the whole system locally (Pro, a mock
+backend, the crawler worker, Elasticsearch and Kibana), and a reference for scripts, configuration and conventions.
+
 ## Working in this repo
 - Pro code lives in `src/pro/`. Upstream files only get small hook points, so merges from upstream stay clean.
 - Syncing with the public extension: [docs/UPSTREAM.md](docs/UPSTREAM.md).
