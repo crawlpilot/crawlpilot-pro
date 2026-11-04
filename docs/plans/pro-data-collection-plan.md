@@ -25,23 +25,23 @@ replayed with paging, `src/shared/network/apiRecipe.ts`), and **network capture*
 Each gap lists what fails today, a typical English site where it bites, the proposal, and its size (S: days, M: a
 week or two, L: several weeks).
 
-### C1. Preparing the page before reading (M)
-- **Fails today:** nothing runs before the fields.
-  - A cookie consent banner (UK, Ireland) can cover the content, or swallow a click step.
-  - Many US and UK grocers and big-box retailers show price and stock only for a chosen store or ZIP/postcode. Without
-    one they show a range, "select a store", or nothing.
-- **Proposal:** *preparation steps*, set once per site and stored with the recipe's targeting, run before every
-  recipe of the site:
-  - **dismiss:** click a control if present, such as a consent banner's own "Reject all" or "Accept" button, chosen
-    per site;
-  - **set location:** pick a store or type a postcode through the site's own picker;
-  - **wait:** for a selector.
-
-  This fills in the "Steps before reading" that `src/shared/sites/siteSettings.ts` already plans. The worker runs
-  the steps once per browser context and keeps the context's cookies (it does already), so they don't repeat on
-  every page.
-- **Done when** a recipe on a consent-walled e2e page and on a store-priced page reads the same in Test on this page
-  and in the worker.
+### C1. Interactions: location, fulfilment, banners (L)
+The detailed design is in [C1 in detail](#c1-in-detail-interactions-before-and-during-reading) below.
+- **Fails today:** a recipe can only click before it reads. That isn't enough on retailer product pages, where what you see
+  depends on choices the visitor makes:
+  - **Location:** Amazon's "Deliver to …" and Walmart's "Pickup or delivery?" open a chooser where the visitor types a
+    ZIP code, applies it, and sometimes picks a store. Price, stock, delivery date and which fulfilment methods are
+    offered all change with it. Target, Home Depot, Lowe's, Kroger, Best Buy, and UK grocers (postcode, then a
+    delivery slot or store) work the same way.
+  - **Fulfilment:** a product page offers *Pickup*, *Delivery* and *Shipping* (or *Collect* and *Deliver*) as tiles or
+    radio buttons, each with its own availability, date and sometimes price.
+  - **Interruptions:** cookie consent (UK, Ireland), "Is this your location?" prompts, sign-up and promo modals, and app
+    banners, which cover the content or swallow a click.
+- **Proposal:** recipes get *interaction steps* beyond clicks:
+  - steps run once per browser session to set it up (location);
+  - steps run on every page before or between fields (fulfilment choice, dismissing a modal);
+  - *variables*, so one recipe collects for many ZIP codes and stores, and every document records the location its
+    values are for.
 
 ### C2. Product variants as rows (M)
 - **Fails today:** a product with sizes and colours gives one record. The price and stock of other variants are lost,
@@ -125,10 +125,113 @@ week or two, L: several weeks).
   jobs pinned to the version, through a small job producer next to the worker. A `start` source is a list recipe's
   first page.
 
+## C1 in detail: interactions before and during reading
+### What it has to handle
+| Situation | What the visitor does | What the recipe needs |
+| --- | --- | --- |
+| Set the delivery location (Amazon "Deliver to", Walmart location, Target "Ship to") | Click the location link, type a ZIP code, click Apply, sometimes confirm or close; the page reloads or updates | Click, type a variable, click, wait for the page to settle, check the new location shows |
+| Choose a store (Walmart, Home Depot, Kroger, UK grocers) | Open the store chooser, type a ZIP code or postcode, pick a store from the list (by name or id, or the nearest) | Choose an item from a list by its text, a variable, or position |
+| Choose a fulfilment method on the product page | Click *Pickup*, *Delivery* or *Shipping* | Click, then read the fields that method shows; later, one row per method |
+| Dismiss an interruption | Close a consent banner, a promo modal, "Is this your location?" | A click that is *optional*: done if the control is there, skipped if not |
+| Choose an option from a dropdown | Pick a size or quantity in a `<select>` | Choose an option by text or value |
+| Content that waits for scrolling or appears late | Scroll to a section; wait for a price to appear | Scroll into view; wait for an element to appear, or for a spinner to go |
+
+### The model
+- **Step kinds**, each with a target found by ways (selectors, with fallbacks, way ids and usage tracking, as fields
+  have):
+
+  | Kind | What it does |
+  | --- | --- |
+  | `click` | Clicks the target (today's click step) |
+  | `type` | Types text into the target, e.g. `{zip}`, clearing it first; optional key to press after (Enter) |
+  | `choose` | In a list (a store list, a set of tiles), clicks the item whose text contains a value or variable, or the n-th |
+  | `select` | Picks an option of a `<select>` by text or value |
+  | `press` | Presses a key (Escape to close a modal) |
+  | `wait` | Waits for the target to appear, or to go (a spinner), or for text |
+  | `scroll` | Scrolls the target into view, or to the end of the page |
+
+  Every step can be `optional` (skipped when its target isn't there: banners and prompts) and can say what to expect
+  after it: the target goes away, an element appears, the page navigates. Each step has a timeout.
+- **Session setup:** steps that set the browser session up once (the location and store), plus a **check**. The check
+  is an element and the text it must contain, such as the header's "Deliver to …" containing `{zip}`. It is part of
+  the recipe version, so it is reviewed and digested like the fields.
+  - The setup runs before the first page of a session.
+  - The check runs on every page. If the site has dropped the location (an expired cookie, a redirect), the setup
+    runs once more.
+  - If the check still fails, the attempt fails as `setup_failed`, naming the step. It is never read silently for
+    the wrong location.
+- **Page steps:** the steps of a page recipe, run in order with its fields as clicks are today. This is where the
+  fulfilment choice and optional dismissals go.
+- **Variables:** the recipe declares the ones it uses (`zip`, `store`, or any name). Each crawl job carries their
+  values (`context: { "zip": "10001" }`), and so does each test in Pro (set in the editor).
+  - Scrape and usage documents carry `context`.
+  - The document id includes it, so 10001 and 94105 for one URL are two documents.
+  - The job producer makes one job per URL and location.
+- **Later, with C2:** *for each* fulfilment method (or variant), choose it, then read the fields, giving one row per
+  method.
+
+### Running it
+Choosing a location usually reloads the page, so the steps are run from outside the page, one at a time. A script
+inside the page would not survive the reload.
+- **Worker:**
+  - **Steps:** Node runs each step. It finds the target with the extension's own resolver inside the page (so
+    selectors mean the same as in Pro), then acts on it with Playwright: real clicks, typing with key events,
+    `selectOption`, the keyboard. After each step it waits for the expected change and for any navigation to load.
+  - **Sessions:** a browser context is keyed by site, proxy, the setup's digest and the variable values. A context set
+    to 10001 is never reused for 94105, and the setup runs once per context, not once per page.
+  - **Telemetry:** request events carry `context`, whether the setup ran, how long it took, and which step failed.
+- **Pro** (Test on this page, Test on sample pages):
+  - **Steps:** the side panel runs the steps one at a time through the content script. The content script finds the
+    target with the same resolver and acts on it with the events a framework listens to: the native value setter plus
+    `input` and `change` for typing, and pointer and mouse events for clicks.
+  - **Reloads:** when a step navigates, the background waits for the tab to load, injects the content script again,
+    and carries on.
+  - **Limitation:** these are not trusted browser events. A site that ignores them can be run through Chrome's
+    debugger input later; that is a follow-up, not part of this work.
+- **Building it:** in the editor, a *Before reading* section (session setup and check) and the page's step list both
+  get **Add step**:
+  1. pick the element on the page with the existing picker;
+  2. choose what to do (click, type, choose, select, press, wait, scroll);
+  3. give the value (text, or a variable such as `{zip}`) and whether the step is optional.
+
+  **Try steps** runs them on the open tab with the test values of the variables. A *record* mode, where Pro watches
+  the builder's clicks and typing and writes the steps, is a follow-up.
+
+### Hook points in the public engine (option 2)
+Two small, generic seams. Everything specific to Pro sits in `src/pro/steps/`.
+1. **A command registry in the content script**, so Pro can add `CMD_RUN_STEP` (find a target, act on it, report the
+   result) without editing the message switch.
+2. **A step-kind registry in `extractPage`**, so page steps other than `click` (`type`, `choose`, `select`, `press`,
+   `wait`, `scroll`) run in order with the fields through a handler Pro registers.
+
+Selector resolution, readers and the picker are used as they are.
+
+### Done when
+The e2e site gets a retailer page that behaves like the real ones:
+- a consent banner;
+- a "Deliver to" link that opens a ZIP dialog, sets a cookie and reloads;
+- a store list;
+- Pickup, Delivery and Shipping tiles whose price and stock depend on the ZIP and the store.
+
+Then:
+- **In Pro:** a recipe built in the editor reads that page for ZIP 10001 and for 94105, with the values each should
+  have.
+- **In the worker:**
+  - two jobs for the same URL with those two ZIPs give two documents with the right `context` and values;
+  - their contexts are not shared;
+  - the setup runs once per context;
+  - a check that fails gives `setup_failed` with the step named.
+
+### On Amazon and Walmart specifically
+Both have strong bot protection. The worker identifies their blocks and waits them out; it does not work around them.
+Both sites' terms also restrict automated collection. Confirm the business may collect from a site before targeting
+it, or use the official sources where they exist (Amazon's Selling Partner API returns delivery offers by ZIP code for
+sellers). The interaction steps themselves are generic, and serve every retailer that allows it.
+
 ## Order
 | Phase | Gaps | Why first |
 | --- | --- | --- |
-| 1 | C1 preparation, C8 structured sources, C2 variants from data | Most English retail sites need a consent click or a store; structured data is the cheapest, most stable source; variants are where product data is most often wrong |
+| 1 | C1 interactions (location, fulfilment, banners), C8 structured sources, C2 variants from data | Most English retail sites need a consent click or a store; structured data is the cheapest, most stable source; variants are where product data is most often wrong |
 | 2 | C3 network ways, C4 API recipes | Prices, stock and listings loaded by XHR; the fastest way to collect at scale |
 | 3 | C5 shadow DOM and iframes, C6 lists inside a page, C7 interactions, C2 variants by clicking | Reach for the harder page structures |
 | 4 | C9 starter recipes, C10 page sources | Less work per new site, once the sources exist |
@@ -145,18 +248,12 @@ week or two, L: several weeks).
 - **Digest:** new spec fields are part of the digest; leaving one unset leaves the digest as it was, so existing
   versions keep their identity.
 
-## Decision needed: the upstream boundary
-C1, C3, C5, C6, C7 and C8 change the extraction engine:
-- selector resolution in `src/shared/selectors/`;
-- readers and `extractPage` in `src/content/`;
-- the picker.
+## Decided: the upstream boundary
+C1, C3, C5, C6, C7 and C8 change the extraction engine: selector resolution in `src/shared/selectors/`, the readers and
+`extractPage` in `src/content/`, and the picker. Those are public extension files.
 
-These are public extension files, which Pro only gives small hook points. There are three ways to proceed:
-1. **Build them in the public CrawlPilot first**, then merge into Pro as usual. This keeps the boundary; Pro waits
-   on public releases.
-2. **Pro hook points:** the engine gets a small extension interface (extra way kinds, extra step kinds, a resolver
-   hook), with Pro's implementations in `src/pro/`. Upstream conflicts stay small, and Pro isn't blocked.
-3. **Change the public files in Pro.** This is the fastest, but every upstream merge gets harder. Not recommended.
-
-The recommendation is option 2: it keeps both products moving. C2, C4, C9 and C10 can start inside `src/pro/`
-whichever option is chosen.
+The decision is **option 2, Pro hook points**. The engine gets small, generic extension interfaces (extra way kinds,
+extra step kinds, a content-script command registry), and Pro's implementations live in `src/pro/`. The hook points
+are kept generic, so they can go upstream to the public CrawlPilot as they are. The alternatives were to build in the
+public extension first (Pro waits on its releases) or to edit the public files freely (every upstream merge gets
+harder).
