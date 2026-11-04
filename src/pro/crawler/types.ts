@@ -48,6 +48,8 @@ export type ErrorClass =
     | 'page_crashed'
     | 'proxy' | 'proxy_auth'
     | 'rate_limited' | 'blocked' | 'captcha'
+    /** A waiting room (Queue-it): the site lets visitors in in turn; waited out like a rate limit. */
+    | 'waiting_room'
     | 'not_found' | 'gone' | 'client_error' | 'server_error'
     | 'empty_page' | 'robots_disallowed'
     | 'extraction' | 'no_recipe' | 'recipe_store' | 'paused'
@@ -124,6 +126,16 @@ export interface RequestEvent {
     errorMessage?: string;
     /** What gave a block away ("status 403 + cf-mitigated: challenge"). */
     blockSignal?: string;
+    /** The block identified (`detect.ts`): its vendor, kind (challenge, captcha, block, rate_limit, queue, soft_block) and confidence. */
+    blockVendor?: string;
+    blockKind?: string;
+    blockConfidence?: 'high' | 'medium' | 'low';
+    /** Bot protection vendors seen on the response, blocked or not: which sites use what. */
+    protection?: string[];
+    /** On a block: what the page showed, for a person checking the identification. */
+    blockEvidence?: { title?: string; textSample?: string; resourceHosts?: string[]; cookieNames?: string[] };
+    /** Length of the page's visible text. */
+    textLength?: number;
     retryAfterMs?: number;
     /** How long the worker waits before the next attempt, when there is one. */
     nextAttemptInMs?: number;
@@ -144,6 +156,10 @@ export interface SiteEvent {
     worker: string;
     state: 'ok' | 'cooldown' | 'blocked';
     reason: string;
+    /** The block's vendor, kind and confidence (`detect.ts`), when a block moved the site. */
+    vendor?: string;
+    blockKind?: string;
+    blockConfidence?: string;
     consecutiveBlocks: number;
     delayMs: number;
     cooldownUntil?: string;

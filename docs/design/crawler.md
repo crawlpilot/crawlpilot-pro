@@ -28,9 +28,10 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
 | `dns`, `connection`, `timeout`, `proxy` | Chromium net error | Here, backoff, another proxy | — | Set aside after 2 |
 | `proxy_auth` | 407, proxy auth error | Here, another proxy | — | Set aside at once |
 | `tls`, `navigation` | Certificate error, redirect loop | No: failed | — | — |
-| `rate_limited` | 429 | Queue, after `Retry-After` or the cooldown | Cooldown, delay doubles | — |
-| `blocked` | 403; challenge headers or page (Cloudflare, DataDome, PerimeterX, Imperva, Akamai, block wording) | Queue, after the cooldown | Cooldown grows; `blocked` after 3 in a row | Never moves |
-| `captcha` | Captcha wording on a short page or an error page | As `blocked` | As `blocked` | Never moves |
+| `rate_limited` | 429; a vendor's rate-limit page (Cloudflare 1015) | Queue, after `Retry-After` or the cooldown | Cooldown, delay doubles | — |
+| `waiting_room` | Redirected to a waiting room (Queue-it) | Queue, after the cooldown | Cooldown of `cooldownBaseMs`, delay kept | — |
+| `blocked` | A vendor's challenge or block page (below); a soft block; a bare 403 | Queue, after the cooldown | Cooldown grows; `blocked` after 3 in a row | Never moves |
+| `captcha` | A vendor's captcha, or a captcha widget or wording on a short or error page | As `blocked` | As `blocked` | Never moves |
 | `not_found`, `gone` | 404, 410 | No: failed; scrape written with `pageStatus: not_found` | — | — |
 | `client_error` | Other 4xx | No: failed | — | — |
 | `server_error` | 5xx | Here, backoff (`Retry-After` if sent) | Delay ×1.5 | — |
@@ -43,8 +44,34 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
 
 Out of attempts (`retry.maxAttempts`, counted over every delivery of the job), a retryable job is dead-lettered.
 
-Captcha and challenge wording on a **2xx** page counts only when the page is short, as block pages are: shop pages
-often load a captcha script for a newsletter form, and that is not a block. On 4xx and 5xx pages it always counts.
+## Block identification
+`detect.ts` reads each response for bot protection: the status, response headers, cookie **names** (values are never
+read or kept), the page's script and frame URLs, where it was redirected, the title and the visible text. It knows the
+marks of Cloudflare, Akamai, DataDome, HUMAN (PerimeterX), Imperva, Kasada, AWS WAF, F5, Radware, Sucuri and Queue-it,
+the captcha widgets (reCAPTCHA, hCaptcha, Turnstile, GeeTest, Arkose), and generic block and captcha wording.
+- **Presence vs block.** A site's vendor shows on every page: Cloudflare's `__cf_bm` cookie, Akamai's `_abck`,
+  DataDome's tag. Those marks name the site's protection (`protection` on every request event) and never make a block.
+  A block takes a mark the vendor shows only when it stops a visitor: `cf-mitigated: challenge`,
+  `x-amzn-waf-action: captcha`, a 429 with Kasada's `x-kpsdk-*` headers, DataDome's captcha frame, an Akamai reference
+  number, an Incapsula incident id, an F5 support id.
+- **Where wording counts.** Marks ordinary pages carry too (a captcha widget on a login form, "access denied" in a help
+  text) count only on an error status or a short page (under 2,000 characters), as interstitials are.
+- **What it is.** Each finding has a kind: `challenge`, `captcha`, `block`, `rate_limit`, `queue` or `soft_block`. It
+  also has a confidence: `high` for a vendor's own block marker or two of its marks agreeing, `medium` for its wording
+  on a suspicious page, and `low` for generic wording or a bare 403. Generic wording on a site with one known vendor is
+  put down to that vendor. The class follows the kind: a queue is a `waiting_room`, a rate limit is `rate_limited`, a
+  captcha is `captcha`, and anything else is `blocked`.
+- **Soft blocks** (`baseline.ts`). Some blocks are a 200 with an ordinary-looking page and no vendor mark: a "back
+  soon" stub, an empty shell. Per host and page type, the worker keeps the typical text length of pages the recipe got
+  data from (after 5 such pages). A page that gives the recipe nothing and is under 30% of that length is a
+  `soft_block` (`blocked`, medium confidence). A page of usual length with no data is left alone: that is a recipe that
+  no longer fits, which Pro's maintenance flags.
+- **For people.** A blocked attempt's request event carries `blockVendor`, `blockKind`, `blockConfidence` and
+  `blockEvidence`: the title, the start of the text, the hosts of its scripts and frames, and its cookie names. These let
+  a person check the identification and add a signature when a vendor changes its pages. Site events name the vendor
+  that moved the site to `cooldown` or `blocked`.
+
+Identification decides what the worker does and what people see. It never decides to get past a block: see below.
 
 ## Blocks: identified and resolved, not evaded
 A block is resolved by slowing down and waiting, never by changing who is asking. Per host:
@@ -67,6 +94,9 @@ Install the templates once per cluster: `node src/pro/crawler/dist/worker.mjs --
 | `crawl-sites-YYYY.MM` | Site state change | Given when written | `cooldown`, `blocked`, back to `ok`, with the reason and delay |
 | `scrapes-<competitor>` | Page | `jobId` | The values read (`attributes`, stored, not indexed: types differ by recipe), field status, page status, recipe version |
 | `selector-usage-YYYY.MM` | Page | `jobId` | `ways` nested: field, way id, tried, matched, won. Pro's selector labels add these up per way id |
+
+Request events also carry what block identification found (`blockVendor`, `blockKind`, `blockConfidence`,
+`blockEvidence`), the protection seen (`protection`) and the page's `textLength`; site events carry the block's `vendor`.
 
 `test-` is put in front of the scrape and usage indices for `mode: 'test'`. A redelivered job overwrites its scrape and
 usage documents. Events get their id when written and are created, so a bulk sent again (a timeout after Elasticsearch

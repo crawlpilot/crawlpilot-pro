@@ -27,7 +27,35 @@ export interface Visit {
     bytes?: number;
     title?: string;
     text?: string;
+    /** The whole visible text's length (`text` is its start). */
+    textLength?: number;
+    /** Cookie names the browser holds for the page (values are not read). */
+    cookies?: string[];
+    /** Script and frame URLs, for identifying bot protection (`detect.ts`). */
+    resources?: string[];
     navigationMs: number;
+}
+
+const MAX_RESOURCES = 120;
+
+/** The page's script and frame URLs and its text length; nothing when the page can't say. */
+async function pageResources(page: Page): Promise<{ textLength?: number; resources: string[] }> {
+    const inPage = await page.evaluate(() => ({
+        textLength: (document.body?.innerText ?? '').length,
+        urls: [...Array.from(document.scripts, s => s.src), ...Array.from(document.querySelectorAll('iframe'), f => f.src)].filter(Boolean),
+    })).catch(() => null) as { textLength?: unknown; urls?: unknown } | null;
+    let frames: string[] = [];
+    try { frames = page.frames().map(f => f.url()); } catch { /* a page without frames to list */ }
+    const urls = [...(Array.isArray(inPage?.urls) ? inPage.urls.filter((u): u is string => typeof u === 'string') : []), ...frames]
+        .filter(u => /^https?:/.test(u)).map(u => u.slice(0, 300));
+    return {
+        ...(typeof inPage?.textLength === 'number' ? { textLength: inPage.textLength } : {}),
+        resources: [...new Set(urls)].slice(0, MAX_RESOURCES),
+    };
+}
+
+async function cookiesOf(page: Page): Promise<string[]> {
+    try { return [...new Set((await page.context().cookies(page.url())).map(c => c.name))]; } catch { return []; }
 }
 
 /** What the worker needs from a browser: a page for a host through a proxy, and robots.txt through it. */
@@ -203,12 +231,14 @@ export async function visit(page: Page, url: string, o: { timeoutMs: number; set
     if (o.settleMs > 0) await page.waitForTimeout(o.settleMs);
     const navigationMs = now() - started;
     if (!response) return { error: 'No response', redirects: [], navigationMs };
-    const [headers, requestHeaders, sizes, title, text] = await Promise.all([
+    const [headers, requestHeaders, sizes, title, text, found, cookies] = await Promise.all([
         response.allHeaders(),
         response.request().allHeaders(),
         response.request().sizes().catch(() => null),
         page.title().catch(() => ''),
         page.evaluate(() => (document.body?.innerText ?? '').slice(0, 5000)).catch(() => ''),
+        pageResources(page),
+        cookiesOf(page),
     ]);
     return {
         status: response.status(),
@@ -219,6 +249,9 @@ export async function visit(page: Page, url: string, o: { timeoutMs: number; set
         ...(sizes ? { bytes: sizes.responseBodySize } : {}),
         title,
         text,
+        ...(found.textLength !== undefined ? { textLength: found.textLength } : {}),
+        cookies,
+        resources: found.resources,
         navigationMs,
     };
 }

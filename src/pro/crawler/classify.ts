@@ -3,12 +3,15 @@
  * page status the documents carry, and, for a block, what gave it away. Rules:
  * - a navigation error is classed by Chromium's net error (DNS, connection, TLS, proxy, timeout);
  * - 407 is the proxy refusing its credentials; 429 is rate limiting (with `Retry-After` when sent);
- * - a challenge or captcha is found from the status, headers, title and visible text. On a 2xx page the
- *   text markers count only when the page is short, as block pages are: shop pages often load a captcha
- *   script for a newsletter form, and that is not a block;
+ * - bot protection is identified by `detect.ts`: the vendors a site uses (`protection`), and whether this
+ *   response is a challenge, captcha, block page, rate limit or waiting room (`block`, with the vendor and a
+ *   confidence). Marks that ordinary pages carry too count only on an error status or a short page: shop
+ *   pages often load a captcha script for a newsletter form, and that is not a block;
+ * - a bare 403 is a block of low confidence;
  * - 404 and 410 are final; other 4xx are final; 5xx is retried;
  * - a 2xx page with almost no text is empty (a page that has not rendered), tried again once.
  */
+import { cookieNames, identify, type BlockFinding } from './detect';
 import type { ErrorClass, PageStatus } from './types';
 
 export interface Observation {
@@ -20,6 +23,12 @@ export interface Observation {
     title?: string;
     /** The page's visible text, or its start. */
     text?: string;
+    /** Cookie names the page set (from the response and the browser); values are never read. */
+    cookies?: string[];
+    /** The page's script and frame URLs. */
+    resources?: string[];
+    /** Redirects and the final URL. */
+    navigation?: string[];
 }
 
 export interface Classification {
@@ -28,13 +37,18 @@ export interface Classification {
     pageStatus: PageStatus;
     blockSignal?: string;
     retryAfterMs?: number;
+    /** What kind of block, from which vendor, how sure. */
+    block?: BlockFinding;
+    /** Bot protection vendors seen on the response, blocked or not. */
+    protection?: string[];
 }
 
 /** Response headers kept on request events: they explain caching, blocks and rate limits. */
 export const KEEP_HEADERS = [
     'server', 'content-type', 'content-length', 'content-language', 'cache-control', 'age', 'via', 'date',
     'location', 'retry-after', 'x-cache', 'x-served-by', 'x-amz-cf-pop', 'x-amz-cf-id',
-    'cf-ray', 'cf-cache-status', 'cf-mitigated', 'x-datadome', 'x-iinfo', 'x-akamai-transformed', 'akamai-grn',
+    'cf-ray', 'cf-cache-status', 'cf-mitigated', 'x-datadome', 'x-dd-b', 'x-iinfo', 'x-cdn', 'x-akamai-transformed', 'akamai-grn',
+    'x-amzn-waf-action', 'x-sucuri-id', 'x-sucuri-block',
 ] as const;
 
 /** Visible text shorter than this, on a 2xx page, is a page that did not render. */
@@ -54,24 +68,6 @@ const NET_ERRORS: [RegExp, ErrorClass][] = [
     [/ERR_TOO_MANY_REDIRECTS|ERR_ABORTED|ERR_INVALID_RESPONSE|ERR_BLOCKED_BY/i, 'navigation'],
 ];
 
-const CAPTCHA: [RegExp, string][] = [
-    [/\bcaptcha\b|recaptcha|hcaptcha|cf-turnstile|px-captcha|captcha-delivery/i, 'captcha'],
-];
-
-const CHALLENGE: [RegExp, string][] = [
-    [/just a moment\.\.\.|attention required!?\s*\|\s*cloudflare|cf-chl|challenge-platform|checking your browser/i, 'Cloudflare challenge'],
-    [/datadome/i, 'DataDome'],
-    [/perimeterx|press (?:&|and) hold|px-block/i, 'PerimeterX'],
-    [/incapsula incident|_incapsula_resource|imperva/i, 'Imperva'],
-    [/reference\s*#\s*\d+\.[0-9a-f]+\.\d+/i, 'Akamai reference'],
-    [/access denied|request blocked|you have been blocked|unusual traffic|are you a (?:robot|human)|bot detection|automated (?:access|queries)/i, 'block page'],
-];
-
-const BLOCK_HEADERS: [string, RegExp, string][] = [
-    ['cf-mitigated', /challenge/i, 'cf-mitigated: challenge'],
-    ['x-datadome', /./, 'x-datadome'],
-];
-
 const RULES: Record<ErrorClass, { retryable: boolean; pageStatus: PageStatus }> = {
     none: { retryable: false, pageStatus: 'ok' },
     dns: { retryable: true, pageStatus: 'error' },
@@ -84,6 +80,7 @@ const RULES: Record<ErrorClass, { retryable: boolean; pageStatus: PageStatus }> 
     proxy: { retryable: true, pageStatus: 'error' },
     proxy_auth: { retryable: true, pageStatus: 'error' },
     rate_limited: { retryable: true, pageStatus: 'blocked' },
+    waiting_room: { retryable: true, pageStatus: 'blocked' },
     blocked: { retryable: true, pageStatus: 'blocked' },
     captcha: { retryable: true, pageStatus: 'blocked' },
     not_found: { retryable: false, pageStatus: 'not_found' },
@@ -112,11 +109,6 @@ export function retryAfterMs(value: string | undefined, now = Date.now()): numbe
     return Number.isNaN(at) ? undefined : Math.max(0, at - now);
 }
 
-function marker(list: [RegExp, string][], ...texts: (string | undefined)[]): string | undefined {
-    for (const [re, name] of list) if (texts.some(t => t && re.test(t))) return name;
-    return undefined;
-}
-
 export function classify(o: Observation, now = Date.now()): Classification {
     if (o.error && o.status === undefined) {
         const hit = NET_ERRORS.find(([re]) => re.test(o.error!));
@@ -125,25 +117,32 @@ export function classify(o: Observation, now = Date.now()): Classification {
     const status = o.status ?? 0;
     const headers = o.headers ?? {};
     if (status === 407) return classOf('proxy_auth');
-    if (status === 429) return classOf('rate_limited', { blockSignal: 'status 429', retryAfterMs: retryAfterMs(headers['retry-after'], now) });
 
     const text = o.text ?? '';
     const failed = status >= 400;
-    const short = text.length < SHORT_PAGE;
-    const header = BLOCK_HEADERS.find(([name, re]) => headers[name] !== undefined && re.test(headers[name]));
-    const captcha = (failed || short) ? marker(CAPTCHA, o.title, text) : undefined;
-    const challenge = (failed || short) ? marker(CHALLENGE, o.title, text) : undefined;
-    const signal = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(' + ');
+    const { protection, finding } = identify({
+        status, headers, title: o.title ?? '', text,
+        cookies: [...new Set([...cookieNames(headers['set-cookie']), ...(o.cookies ?? [])])],
+        resources: o.resources ?? [], navigation: o.navigation ?? [],
+        suspicious: failed || text.length < SHORT_PAGE,
+    });
+    const seen = protection.length ? { protection } : {};
+    const retryAfter = retryAfterMs(headers['retry-after'], now);
+    const blockOf = (f: BlockFinding) => ({ ...seen, block: f, blockSignal: [`status ${status}`, ...f.signals].join(' + '), ...(retryAfter !== undefined ? { retryAfterMs: retryAfter } : {}) });
 
-    if (captcha) return classOf('captcha', { blockSignal: signal(status ? `status ${status}` : undefined, header?.[2], captcha) });
-    if (header || challenge) return classOf('blocked', { blockSignal: signal(`status ${status}`, header?.[2], challenge) });
-    if (status === 403) return classOf('blocked', { blockSignal: 'status 403' });
-    if (status === 404) return classOf('not_found');
-    if (status === 410) return classOf('gone');
-    if (status >= 500) return classOf('server_error', { retryAfterMs: retryAfterMs(headers['retry-after'], now) });
-    if (failed) return classOf('client_error');
-    if (text.trim().length < MIN_TEXT) return classOf('empty_page');
-    return classOf('none');
+    if (finding) {
+        if (finding.kind === 'queue') return classOf('waiting_room', blockOf(finding));
+        if (finding.kind === 'rate_limit') return classOf('rate_limited', blockOf(finding));
+        return classOf(finding.kind === 'captcha' ? 'captcha' : 'blocked', blockOf(finding));
+    }
+    if (status === 429) return classOf('rate_limited', { ...seen, blockSignal: 'status 429', ...(retryAfter !== undefined ? { retryAfterMs: retryAfter } : {}) });
+    if (status === 403) return classOf('blocked', blockOf({ vendor: protection[0] ?? 'unknown', kind: 'block', confidence: 'low', signals: [] }));
+    if (status === 404) return classOf('not_found', seen);
+    if (status === 410) return classOf('gone', seen);
+    if (status >= 500) return classOf('server_error', { ...seen, retryAfterMs: retryAfter });
+    if (failed) return classOf('client_error', seen);
+    if (text.trim().length < MIN_TEXT) return classOf('empty_page', seen);
+    return classOf('none', seen);
 }
 
 /** The kept headers of a response, and every header name. */

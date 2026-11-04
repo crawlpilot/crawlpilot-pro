@@ -21,6 +21,7 @@ import { ProxyPool, type ProxyConfig } from './proxies';
 import { followUps, inPageRequest, partOf, readListRows, readRun, type RunRead } from './recipeRun';
 import { decide } from './retry';
 import type { RobotsCache } from './robots';
+import type { PageBaselines } from './baseline';
 import type { SearchSink } from './search';
 import type { RecipeStore, ResolvedRecipe } from './store';
 import type { CrawlJob, RequestEvent, ScrapeDoc, SelectorUsageDoc, SiteEvent } from './types';
@@ -37,6 +38,8 @@ export interface WorkerDeps {
     robots: RobotsCache | null;
     /** The in-page script (`dist/inpage.js`). */
     script: string;
+    /** Typical page lengths per site, for soft blocks (`baseline.ts`). */
+    baselines?: PageBaselines;
     /** Told when the browser fails or works (`vitals.ts`). */
     vitals?: Vitals;
     /** The worker is stopping: take no new attempt. */
@@ -87,6 +90,37 @@ export function siteEventWriter(sink: SearchSink, worker: string, now: () => num
     return (e: Omit<SiteEvent, '@timestamp' | 'worker'>) => {
         const t = now();
         sink.write(indices.sites(t), { '@timestamp': new Date(t).toISOString(), worker, ...e } satisfies SiteEvent);
+    };
+}
+
+/**
+ * A page that loaded but gave the recipe nothing, much shorter than the site's pages usually are: a soft block
+ * (`baseline.ts`). A page that gave data adds to the site's typical length.
+ */
+function softBlock(c: Classification, key: string, textLength: number | undefined, read: RunRead | undefined, listRead: ListRead | undefined, baselines?: PageBaselines): Classification {
+    if (!baselines || textLength === undefined) return c;
+    const rows = listRead?.lists.reduce((n, l) => n + l.rows.length, 0);
+    const gotData = read ? read.filled > 0 : rows !== undefined ? rows > 0 : true;
+    const expected = read ? read.total > 0 : rows !== undefined;
+    if (gotData) { baselines.good(key, textLength); return c; }
+    const short = expected ? baselines.softBlock(key, textLength) : undefined;
+    if (!short) return c;
+    const signal = `no data, page ${Math.round(short.share * 100)}% of its usual length (${textLength} of ~${short.typical} characters)`;
+    return classOf('blocked', {
+        ...(c.protection ? { protection: c.protection } : {}),
+        blockSignal: `soft block: ${signal}`,
+        block: { vendor: c.protection?.length === 1 ? c.protection[0] : 'unknown', kind: 'soft_block', confidence: 'medium', signals: [signal] },
+    });
+}
+
+/** What a block page showed, kept on its request event so a person can check the identification. */
+function evidenceOf(v: Visit): RequestEvent['blockEvidence'] {
+    const hosts = [...new Set((v.resources ?? []).flatMap(u => { try { return [new URL(u).host]; } catch { return []; } }))].slice(0, 30);
+    return {
+        ...(v.title ? { title: v.title.slice(0, 200) } : {}),
+        ...(v.text ? { textSample: v.text.slice(0, 300) } : {}),
+        ...(hosts.length ? { resourceHosts: hosts } : {}),
+        ...(v.cookies?.length ? { cookieNames: v.cookies.slice(0, 50) } : {}),
     };
 }
 
@@ -207,7 +241,10 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
                 if (d.signal?.aborted) abandon(); else d.signal?.addEventListener('abort', abandon, { once: true });
                 try {
                     v = await visit(page, job.url, { timeoutMs: config.navigationTimeoutMs, settleMs: config.settleMs, now });
-                    c = classify({ error: v.error, status: v.status, headers: v.headers, title: v.title, text: v.text }, now());
+                    c = classify({
+                        error: v.error, status: v.status, headers: v.headers, title: v.title, text: v.text,
+                        cookies: v.cookies, resources: v.resources, navigation: [...v.redirects, ...(v.finalUrl ? [v.finalUrl] : [])],
+                    }, now());
                     errorMessage = v.error;
                     if (c.errorClass === 'none') {
                         const t = now();
@@ -220,6 +257,7 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
                             errorMessage = e instanceof Error ? e.message : String(e);
                         }
                         extractMs = now() - t;
+                        if (c.errorClass === 'none') c = softBlock(c, `${host}|${job.pageType}|${job.part ?? 'page'}`, v.textLength, read, listRead, d.baselines);
                     }
                 } finally {
                     clearTimeout(deadline);
@@ -288,6 +326,9 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
             errorClass: c.errorClass,
             ...(errorMessage ? { errorMessage: errorMessage.slice(0, 500) } : {}),
             ...(c.blockSignal ? { blockSignal: c.blockSignal } : {}),
+            ...(c.block ? { blockVendor: c.block.vendor, blockKind: c.block.kind, blockConfidence: c.block.confidence, blockEvidence: evidenceOf(v) } : {}),
+            ...(c.protection?.length ? { protection: c.protection } : {}),
+            ...(v.textLength !== undefined ? { textLength: v.textLength } : {}),
             ...(c.retryAfterMs !== undefined ? { retryAfterMs: c.retryAfterMs } : {}),
             ...(decision.action === 'retry' ? { nextAttemptInMs: decision.waitMs } : decision.action === 'defer' ? { nextAttemptInMs: decision.delayMs } : {}),
             recipe: ref,
