@@ -93,4 +93,22 @@ describe('SQS queue', () => {
         const refusing: SqsSender = { send: async () => ({ Failed: [{ Id: '0', Message: 'too big' }] }) };
         await expect(new SqsQueue({ url: URL, deadLetterUrl: DLQ }, refusing).enqueue([job])).rejects.toThrow('1 follow-up jobs not queued: too big');
     });
+
+    it('tries a failed delete again, so a job sent on is not left behind as a second copy', async () => {
+        const waits: number[] = [];
+        const sqs = fakeSqs([{ Body: JSON.stringify(job), ReceiptHandle: 'r1' }]);
+        let failures = 2;
+        const flaky: SqsSender = { send: async c => { if (c.constructor.name === 'DeleteMessageCommand' && failures-- > 0) throw new Error('throttled'); return sqs.client.send(c); } };
+        const q = new SqsQueue({ url: URL, deadLetterUrl: DLQ }, flaky, () => 0, () => {}, async ms => { waits.push(ms); });
+        const [d] = await q.receive(1);
+        await d.retryLater(1000, { ...job, attempts: 1 });
+        expect(waits).toEqual([500, 2000]);
+        expect(sqs.sent.map(x => x.command)).toEqual(['ReceiveMessageCommand', 'SendMessageCommand', 'DeleteMessageCommand']);
+
+        // Three failures: the settle fails, and the run loop logs it.
+        const down = fakeSqs([{ Body: JSON.stringify(job), ReceiptHandle: 'r2' }]);
+        const refusing: SqsSender = { send: async c => { if (c.constructor.name === 'DeleteMessageCommand') throw new Error('throttled'); return down.client.send(c); } };
+        const [d3] = await new SqsQueue({ url: URL, deadLetterUrl: DLQ }, refusing, () => 0, () => {}, async () => {}).receive(1);
+        await expect(d3.ack()).rejects.toThrow('throttled');
+    });
 });

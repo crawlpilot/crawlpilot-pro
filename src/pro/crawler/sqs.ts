@@ -7,6 +7,9 @@
  *   deleted. SQS delays a message at most 15 minutes; a job that arrives before its `notBefore` is sent
  *   again for the rest of the wait.
  * - Dead letter: the job, with why, goes to `deadLetterUrl`, and the old message is deleted.
+ * - Sending the job on and deleting its message can't be one step: a delete that fails is tried twice more
+ *   (after 0.5 s and 2 s). If it still fails the old message comes back once its visibility ends and the job
+ *   runs one more time: its documents and follow-ups are keyed, so that only costs a page visit.
  * - A message that is not a job is dead-lettered as it is.
  * - Follow-up jobs (a list's next page, its details pages) are sent ten at a time; if any is refused the
  *   job that led to them is not acknowledged, so it comes back and sends them again (their ids are stable).
@@ -51,7 +54,8 @@ export class SqsQueue implements JobQueue {
     private client: SqsSender;
 
     constructor(private cfg: SqsConfig, client?: SqsSender, private now: () => number = Date.now,
-        private onError: (message: string) => void = m => console.error(`[sqs] ${m}`)) {
+        private onError: (message: string) => void = m => console.error(`[sqs] ${m}`),
+        private sleep: (ms: number) => Promise<void> = ms => new Promise(r => setTimeout(r, ms))) {
         if (isFifo(cfg.url) || isFifo(cfg.deadLetterUrl)) throw new Error('FIFO queues are not supported: use standard queues (docs/design/crawler.md, Queue).');
         this.client = client ?? new SQSClient({ ...(cfg.region ? { region: cfg.region } : {}), ...(cfg.endpoint ? { endpoint: cfg.endpoint } : {}) });
     }
@@ -76,7 +80,15 @@ export class SqsQueue implements JobQueue {
     }
 
     private async remove(m: Message) {
-        await this.client.send(new DeleteMessageCommand({ QueueUrl: this.cfg.url, ReceiptHandle: m.ReceiptHandle! }));
+        for (const wait of [500, 2000, -1]) {
+            try {
+                await this.client.send(new DeleteMessageCommand({ QueueUrl: this.cfg.url, ReceiptHandle: m.ReceiptHandle! }));
+                return;
+            } catch (e) {
+                if (wait < 0) throw e;
+                await this.sleep(wait);
+            }
+        }
     }
 
     async receive(max: number): Promise<Delivery[]> {

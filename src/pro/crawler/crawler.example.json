@@ -5,6 +5,8 @@
   "navigationTimeoutMs": 30000,
   "settleMs": 500,
   "pagesPerContext": 50,
+  "contextIdleMs": 300000,
+  "maxContexts": 50,
   "maxListPages": 20,
   "followDetails": true,
   "retry": { "maxAttempts": 4, "baseDelayMs": 2000, "maxDelayMs": 120000, "maxInlineWaitMs": 15000, "maxJobAgeMs": 86400000 },

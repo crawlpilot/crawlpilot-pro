@@ -37,6 +37,9 @@ export interface CrawlerConfig {
     settleMs: number;
     /** A browser context serves this many pages before it is replaced. */
     pagesPerContext: number;
+    /** A context unused this long is closed; past `maxContexts`, the least recently used idle ones are. */
+    contextIdleMs: number;
+    maxContexts: number;
     /** A list is read to this many pages at most: clicked through in one job, or followed as jobs. */
     maxListPages: number;
     /** A list row's details page is crawled as a job of its own. */
@@ -57,6 +60,8 @@ export const DEFAULTS: Omit<CrawlerConfig, 'recipeStore' | 'search'> = {
     navigationTimeoutMs: 30_000,
     settleMs: 500,
     pagesPerContext: 50,
+    contextIdleMs: 5 * 60_000,
+    maxContexts: 50,
     maxListPages: 20,
     followDetails: true,
     retry: DEFAULT_RETRY,
