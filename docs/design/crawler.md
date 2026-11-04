@@ -14,6 +14,8 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
    robots.txt is fetched through the same proxy and respected unless the site's profile says otherwise.
 4. **Visit** (`browser.ts`). Chromium, one context per site and proxy (cookies kept between pages, renewed after
    `pagesPerContext`), rendering as the site's profile says: locale, timezone, viewport, user agent, extra headers.
+   A context unused for `contextIdleMs` (5 minutes) is closed, and beyond `maxContexts` (50) the least recently used
+   idle ones are; one in use (a page open, robots.txt being fetched) never is.
 5. **Classify** (`classify.ts`), then, on a good page, **extract** (`inPage.ts`): the extension's own `extractPage`,
    unchanged, bundled into one script, so a page reads the same here as in Pro's Test on this page. Values are cleaned
    and checked with Pro's own `readPageResult`.
@@ -88,8 +90,8 @@ Install the templates once per cluster: `node src/pro/crawler/dist/worker.mjs --
 
 | Index | One document per | Id | Notes |
 | --- | --- | --- | --- |
-| `crawl-requests-YYYY.MM.DD` | Attempt | — | Status, kept headers and every header name, request headers (user agent, language), redirects, bytes, timings, proxy id and country, error class and message, block signal, `Retry-After`, next attempt, outcome, recipe |
-| `crawl-sites-YYYY.MM` | Site state change | — | `cooldown`, `blocked`, back to `ok`, with the reason and delay |
+| `crawl-requests-YYYY.MM.DD` | Attempt | Given when written | Status, kept headers and every header name, request headers (user agent, language), redirects, bytes, timings, proxy id and country, error class and message, block signal, `Retry-After`, next attempt, outcome, recipe |
+| `crawl-sites-YYYY.MM` | Site state change | Given when written | `cooldown`, `blocked`, back to `ok`, with the reason and delay |
 | `scrapes-<competitor>` | Page | `jobId` | The values read (`attributes`, stored, not indexed: types differ by recipe), field status, page status, recipe version |
 | `selector-usage-YYYY.MM` | Page | `jobId` | `ways` nested: field, way id, tried, matched, won. Pro's selector labels add these up per way id |
 
@@ -97,7 +99,8 @@ Request events also carry what block identification found (`blockVendor`, `block
 `blockEvidence`), the protection seen (`protection`) and the page's `textLength`; site events carry the block's `vendor`.
 
 `test-` is put in front of the scrape and usage indices for `mode: 'test'`. A redelivered job overwrites its scrape and
-usage documents. Proxy credentials never reach a document: events carry the proxy's id and country.
+usage documents. Events get their id when written and are created, so a bulk sent again (a timeout after Elasticsearch
+had it) finds them there (409, taken as written) instead of adding them twice. Proxy credentials never reach a document: events carry the proxy's id and country.
 
 The writer batches (`batchSize`, `flushMs`), retries when Elasticsearch is down, re-sends items rejected with 429, and
 drops the oldest documents past `maxBuffer` with a log line. Request and site events are best effort: crawling never
@@ -116,9 +119,11 @@ the queue (`resilience.test.ts` covers each):
   next page starts a new one. A dead browser or context is not the job's fault: the job comes back in 5 s, its attempt
   not counted. Five browser failures in a row stop the worker with exit code 1, so the task is replaced. A page that
   crashes its own tab (`page_crashed`) is the page's, and counted.
-- **The queue**: a settle that fails (ack, re-queue, dead letter, follow-ups) is logged and the message left to come back
-  when its visibility ends; a receive that fails is tried again after 1 s, doubling to 30 s. One message that can't be
-  moved doesn't cost the rest of its batch.
+- **The queue**: putting a job back is a send then a delete; a delete that fails is tried twice more, and if the old
+  message still comes back, the job runs once more, harmlessly (keyed documents and follow-ups). A settle that
+  fails (ack, re-queue, dead letter, follow-ups) is logged and the message left to come back when its visibility
+  ends; a receive that fails is tried again after 1 s, doubling to 30 s. One message that can't be moved doesn't
+  cost the rest of its batch.
 - **A job's results**: the job is acknowledged only once Elasticsearch confirms its scrape and usage documents. A
   document refused (a mapping conflict, a 401), dropped from a full buffer, or not confirmed within 2 minutes puts the
   job back for a minute, its attempt not counted, to be read again; its documents are keyed, so nothing is doubled.

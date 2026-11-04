@@ -72,7 +72,7 @@ async function main() {
     const script = await readFile(arg('script', path.join(here, 'inpage.js')), 'utf8');
 
     const sink = createSearchSink(config.search);
-    const pages = new BrowserPool({ pagesPerContext: config.pagesPerContext, ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) });
+    const pages = new BrowserPool({ pagesPerContext: config.pagesPerContext, idleMs: config.contextIdleMs, maxContexts: config.maxContexts, ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) });
     const governor = new SiteGovernor(host => sitePolicy(config, host), siteEventWriter(sink, config.workerId));
     const proxies = new Map(Object.entries(config.proxyPools).map(([name, list]) => [name, new ProxyPool(list)]));
     // robots.txt goes out as the site's pages do: its profile, through its proxy.
