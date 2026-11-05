@@ -139,6 +139,13 @@ What Atlas templates do and a plain selector way doesn't (`recipe/types.ts` `Way
 - **Read way by way.** A field with any of these on any way (`readsByWay`) is not read by the public element reader. The page reads each way's raw values (`content/services/page/ways.ts`, `readWays`: Jsoup-like text, comma groups in page order, `:contains`, at most 200 matches) and returns them as the step's `hits`; Pro decides the winner (`runner/ways.ts`, `resolveWays`: bidi marks stripped, pick, the way's ops). Conditions are counted once per page (`PageProbe`). Such a field is never healed.
 - **Ops** `join` (a list into one text) and `lua` (a script run by fengari on the recipe side, never in the page: base, string, table and math only, no `load`/`require`/`string.rep`, an instruction budget; `str` is the value, the first value returned is kept, `nil` is no value).
 - **Page rules** (`spec.rules`, page and list recipes): checked in order before any field or row is read; the first that holds names the page `not_found`, `unavailable`, `blocked` or `error`, and nothing is read. Check and the editor's test name the rule; readiness counts it as a reason unless the sample expects it (`Sample.expectRule`: an error page kept to test the rules, passing when that rule holds and not counted among the 3 pages read; `runner/outcome.ts`); the crawler classifies the page by it (`crawler.md`, Statuses).
+- **Transform** (`spec.transform.jolt`, `recipe/jolt.ts`):
+  - The page's record (its fields by name) goes through a JOLT chain, as in Atlas: shift, default, remove,
+    cardinality, sort and modify-*-beta.
+  - The crawler writes the result as the scrape's `record`, and Check shows it.
+  - Fields can be added from the page's data (JSON-LD, `__NEXT_DATA__`, state) in the editor.
+
+  See `docs/plans/pro-page-data-jolt-plan.md`.
 - **Value checks** (`field.checks`, `recipe/valueChecks.ts`): beyond its type, a found value can be held to a pattern (or not), a numeric range, a list of allowed values, a length, or a comparison with another field on the page (`sale ≤ list`). A failed one is the field's problem: in Check, readiness and the crawler's `fieldStatus` (`check_failed`).
 - **Identity** (`spec.identity`): regexes on the URL give the id the page should have; a page whose field (by name) has another value is another product (`mismatch`), a readiness reason and a crawler status.
 - **Editing keeps them.** Re-picking a field keeps its rich ways while its selectors and data are unchanged (`carryOver`); rules and identity are kept on every save. A list re-pick keeps the base version's rules, setup and details page (`keepListExtras`). Renaming a field carries the comparisons with it and the identity check along.

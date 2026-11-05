@@ -181,6 +181,10 @@ function pageChanges(a: PageRecipeSpec, b: PageRecipeSpec, prefix = ''): Change[
     if (json(common(oa, ob)) !== json(common(ob, oa))) changes.push({ kind: 'moved', subject: `${prefix}steps`, details: ['the run order changed'] });
 
     changes.push(...rulesChanges(a.rules, b.rules, prefix));
+    if (json(a.transform) !== json(b.transform)) {
+        const ops = (t: PageRecipeSpec['transform']) => t?.jolt.map(o => o.operation).join(', ') || 'none';
+        changes.push({ kind: 'changed', subject: `${prefix}transform`, details: [ops(a.transform) === ops(b.transform) ? `its JOLT spec changed (${ops(b.transform)})` : `JOLT ${ops(a.transform)} → ${ops(b.transform)}`] });
+    }
     if (json(a.identity) !== json(b.identity)) {
         const say = (s: PageRecipeSpec) => s.identity ? `${s.identity.field} (${s.identity.url.length} URL pattern${s.identity.url.length === 1 ? '' : 's'})` : 'none';
         const from = say(a), to = say(b);
