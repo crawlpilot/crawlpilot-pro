@@ -1,17 +1,18 @@
 /**
  * The side panel's mirror of the picker (docs/plans/picker-level-control-plan.md §3.5): the selection's
- * path, what a click saves, and buttons for Wider / Narrower / Prev / Next / Lock / Select. The page's
+ * path, what a click saves, and buttons for Wider / Narrower / Prev / Next / Lock / Select / Deselect (start over:
+ * the selection is dropped and the next one hovered is picked afresh). The page's
  * picker sends its state (`PICKER_STATE`); the buttons and the arrow keys here act on it.
  */
 import { useEffect, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, Lock, LockOpen } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, Lock, LockOpen, RotateCcw } from 'lucide-react';
 import { on, sendToActiveTab, type PickerState } from '../../../shared/messages';
 import { Button, Text, ToggleChip } from '../../ui';
 
 const act = (action: string) => { sendToActiveTab('PICKER_ACTION', { action }).catch(() => { /* picker not on this page */ }); };
 
 /** Keys pressed in the side panel act on the page's picker. */
-const KEYS: Record<string, string> = { ArrowUp: 'wider', ArrowDown: 'narrower', ArrowLeft: 'prev', ArrowRight: 'next', Enter: 'select', '[': 'wider', ']': 'narrower' };
+const KEYS: Record<string, string> = { ArrowUp: 'wider', ArrowDown: 'narrower', ArrowLeft: 'prev', ArrowRight: 'next', Enter: 'select', '[': 'wider', ']': 'narrower', Backspace: 'deselect', Delete: 'deselect' };
 
 export function PickerControls({ onCancel }: { onCancel?: () => void }) {
     const [state, setState] = useState<PickerState | null>(null);
@@ -81,6 +82,8 @@ export function PickerControls({ onCancel }: { onCancel?: () => void }) {
                         <Button size="sm" variant={state.locked ? 'secondary' : 'ghost'} icon={state.locked ? <Lock /> : <LockOpen />} onClick={() => act('lock')}>
                             {state.locked ? 'Locked' : 'Lock'}
                         </Button>
+                        <Button size="sm" variant="ghost" icon={<RotateCcw />} onClick={() => act('deselect')}
+                            title="Drop this selection and point at something else on the page">Deselect</Button>
                         <Button size="sm" variant="primary" className="flex-1" icon={<Check />} onClick={() => act('select')}>Select</Button>
                     </div>
                     {!state.locked && <Text size="caption" tone="muted">Lock it to move the mouse here without losing the selection.</Text>}

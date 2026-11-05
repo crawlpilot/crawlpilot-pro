@@ -105,10 +105,12 @@ export class VisualElementPicker {
 
     /**
      * An action from the side panel or the bar: `wider`, `narrower`, `prev`, `next`, `lock`,
-     * `select`, `reading:<i>`, `step:<i>` (also the keys' names: ArrowUp, ArrowDown, Enter).
+     * `select`, `deselect`, `reading:<i>`, `step:<i>` (also the keys' names: ArrowUp, ArrowDown, Enter).
      */
     public handleExternalAction(action: string) {
-        if (!this.isActive || !this.path) return;
+        if (!this.isActive) return;
+        if (action === 'deselect') { this.deselect(); return; }
+        if (!this.path) return;
         const [name, arg] = action.split(':');
         const sections = !!this.strategy?.stepsThroughReadings && this.readings.length > 0;
         switch (name) {
@@ -138,6 +140,26 @@ export class VisualElementPicker {
         this.update(true);
         const i = pick?.(this.readings) ?? -1;
         if (i >= 0) this.chooseReading(i);
+    }
+
+    /**
+     * Start over: the selection (a pick being adjusted, or a level the user moved to) is dropped and the picker
+     * unlocked, so the next element hovered and clicked is picked afresh, wherever it is on the page.
+     */
+    private deselect() {
+        this.path = null;
+        this.currentElement = null;
+        this.adjusted = false;
+        this.locked = false;
+        this.readings = [];
+        this.readingIndex = 0;
+        this.lastHighlightedElement = null;
+        this.highlightBox?.style.setProperty('display', 'none', 'important');
+        this.tooltip?.style.setProperty('display', 'none', 'important');
+        this.clearSiblingHighlights();
+        this.renderBar();
+        if (this.stateTimer) { clearTimeout(this.stateTimer); this.stateTimer = null; }
+        void send('PICKER_STATE', null);
     }
 
     /** What is outlined: the reading's own outline (a section's container) or the selected element. */
@@ -365,6 +387,7 @@ export class VisualElementPicker {
             ...(sections ? [] : [key('prev', '←', 'Prev'), key('next', '→', 'Next')]),
             key('lock', '␣', this.locked ? 'Locked' : 'Lock', this.locked),
             key('select', 'Enter', 'Select'),
+            ...(this.path ? [key('deselect', '⌫', 'Deselect')] : []),
             key('cancel', 'Esc', 'Cancel'),
         ].join('')}</div>`;
         this.bar.innerHTML = pathRow + readingRow + keys;
@@ -616,7 +639,7 @@ export class VisualElementPicker {
         if (!this.path) return;
         const keys: Record<string, string> = {
             ArrowUp: 'wider', '[': 'wider', ArrowDown: 'narrower', ']': 'narrower',
-            ArrowLeft: 'prev', ArrowRight: 'next', ' ': 'lock', Enter: 'select',
+            ArrowLeft: 'prev', ArrowRight: 'next', ' ': 'lock', Enter: 'select', Backspace: 'deselect', Delete: 'deselect',
         };
         let action = keys[e.key];
         // L / T / V: read as a list, a table (or the items like this), one value.
