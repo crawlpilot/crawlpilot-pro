@@ -163,7 +163,7 @@ test('build new: a list picked on the page saves as version 1, then opens again 
 
     await ui.getByRole('button', { name: 'Back to recipes' }).click();
     await ui.getByRole('button', { name: 'Edit Local list' }).click();
-    await expect(ui.getByText("A list recipe's fields are edited by picking the list again.")).toBeVisible();
+    await expect(ui.getByText("A list recipe's rows are edited by picking the list again.")).toBeVisible();
     await ui.getByRole('banner').getByRole('button', { name: 'Re-pick on page' }).click();
     await expect(ui.getByRole('button', { name: 'Title' })).toBeVisible();
     await ui.getByRole('button', { name: 'Change pages & settings' }).click();
