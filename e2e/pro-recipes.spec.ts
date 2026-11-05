@@ -749,7 +749,7 @@ test('build new: a product\'s bullets picked by pointing at one come as a list f
     await form.getByLabel('Competitor').fill('acme');
     await form.getByRole('button', { name: 'Pick it on this page' }).click();
     await ui.getByText('Pick data fields').click();
-    const box = (await page.locator('li:nth-child(3)').boundingBox())!;
+    const box = (await page.locator('#top-highlights-module li:nth-child(3)').boundingBox())!;
     await page.mouse.move(box.x + 4, box.y + 4);
     await page.mouse.move(box.x + 6, box.y + 6);
     await page.waitForTimeout(150);

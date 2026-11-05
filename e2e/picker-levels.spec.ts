@@ -284,9 +284,9 @@ test('a bullet of a list: the whole list is offered first, and saved as a list; 
     const tabId = await panel.tabId(page.url());
     await panel.clear();
     await panel.toTab(tabId, 'START_PICKER', { mode: 'detail', action: 'extract' });
-    await hover(page, 'li:nth-child(2)');
+    await hover(page, '#top-highlights-module li:nth-child(2)');
     await expect(tooltip(page)).toContainText('Texts · 6 (the whole list)');
-    await outlined(page, 'ul');
+    await outlined(page, '#top-highlights-module ul');
     await expect(page.getByTestId('element-picker-bar')).toContainText('Read as');
     await page.keyboard.press('Enter');
     const list = await panel.next('ELEMENT_SELECTED');
@@ -297,10 +297,30 @@ test('a bullet of a list: the whole list is offered first, and saved as a list; 
     // V: the one bullet's text.
     await panel.clear();
     await panel.toTab(tabId, 'START_PICKER', { mode: 'detail', action: 'extract' });
-    await hover(page, 'li:nth-child(2)');
+    await hover(page, '#top-highlights-module li:nth-child(2)');
     await page.keyboard.press('v');
     await expect(tooltip(page)).toContainText('Text · “Black nickel-finish handles');
     await page.keyboard.press('Enter');
     expect(await panel.next('ELEMENT_SELECTED')).toMatchObject({ extractionType: 'text', value: expect.stringMatching(/^Black nickel-finish handles/) });
+    await page.close();
+});
+
+test('spec rows and tables are read as before: no whole-list default on name / value rows, the table still a table', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/bullets.html`);
+    const tabId = await panel.tabId(page.url());
+    const readings = async (target: string) => {
+        await panel.clear();
+        await panel.toTab(tabId, 'START_PICKER', { mode: 'detail', action: 'extract', adjust: { chain: [target] } });
+        await page.waitForTimeout(250);
+        return (await page.getByTestId('element-picker-bar').innerText()).replace(/\s+/g, ' ');
+    };
+    // Amazon-style detail bullets: li > span > (name, value). One row is one row, not the whole list.
+    expect(await readings('#detailBullets_feature_div li:nth-child(2)')).not.toContain('the whole list');
+    expect(await readings('#detailBullets_feature_div ul')).toContain('Texts · 4');
+    // An HTML spec table: a row is offered with every row like it, the table as a table.
+    expect(await readings('#specs tr:nth-child(2)')).toContain('Items like this · 3');
+    expect(await readings('#specs')).toContain('Table · 3 items');
+    await page.keyboard.press('Escape');
     await page.close();
 });

@@ -32,13 +32,23 @@ function valueLabel(c: ClassificationResult): string {
 
 const ARRAY_NAMES = { image_array: 'Images', link_array: 'Links', text_array: 'Texts' } as const;
 
+/** The elements under `el` (itself included) that hold text of their own: the parts its text is split into. */
+function textParts(el: Element): number {
+    let n = 0;
+    for (const node of [el, ...Array.from(el.querySelectorAll('*'))]) {
+        if (Array.from(node.childNodes).some(c => c.nodeType === Node.TEXT_NODE && (c.textContent || '').trim())) n++;
+    }
+    return n;
+}
+
 /**
- * A list of plain bullets: two or more items, each one piece of text (at most one part of it in an element of its
- * own). Rows split into parts (a name and a value: "Height | 45 cm") are not bullets: one of them is a row.
+ * A list of plain bullets: two or more items, each one piece of text. Items split into parts, a name and a value
+ * however deep ("Height | 45 cm", Amazon's `<span><span>Brand :</span><span>Lenovo</span></span>`), are spec rows:
+ * one of them is a row, and all of them a table.
  */
 function isBulletList(list: Element): boolean {
     const items = Array.from(list.children).filter(c => c.tagName === 'LI');
-    return items.length >= 2 && items.every(li => Array.from(li.children).filter(c => (c.textContent || '').trim()).length <= 1);
+    return items.length >= 2 && items.every(li => textParts(li) <= 1);
 }
 
 export class DetailSelectionStrategy implements ISelectionStrategy {
@@ -65,7 +75,8 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
     readings(element: HTMLElement): Reading[] {
         const out: Reading[] = [];
         const parent = element.parentElement;
-        if (element.tagName === 'LI' && parent && (parent.tagName === 'UL' || parent.tagName === 'OL') && isBulletList(parent)) {
+        // Never over a table of rows: the items like it read as name / value pairs keep that reading first.
+        if (element.tagName === 'LI' && parent && (parent.tagName === 'UL' || parent.tagName === 'OL') && isBulletList(parent) && !this.classifyAsSiblingTable(element)) {
             const whole = this.detectHomogeneousArray(parent);
             // Bullets of text only: one link of a menu, or one thumbnail, is still picked as itself first.
             if (whole?.arrayType === 'text_array') out.push({ kind: 'array', label: `${ARRAY_NAMES[whole.arrayType]} · ${whole.count} (the whole list)`, outline: parent });
