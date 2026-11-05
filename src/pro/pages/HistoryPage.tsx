@@ -5,7 +5,7 @@
  * approved version can be marked live or submitted.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, GitCompare, Pencil, RefreshCw, RotateCcw, Send, Tag, Wrench, X } from 'lucide-react';
+import { Check, ClipboardCheck, GitCompare, Pencil, RefreshCw, RotateCcw, Send, Tag, Wrench, X } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Card, Chip, Dialog, Notice, Select, Text, TextField, type ChipTone } from '../../sidepanel/ui';
 import { pro, reviewReason } from '../db';
@@ -158,7 +158,10 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
                 title={recipe.name}
                 subtitle={`${recipe.site} · ${recipe.kind} · ${versions.length} version${versions.length === 1 ? '' : 's'}`}
                 onBack={onBack}
-                actions={<Button size="sm" variant="primary" icon={<Pencil />} onClick={() => onNavigate('pro-editor')} disabled={!versions[0]}>Edit fields</Button>}
+                actions={<span className="flex gap-1.5">
+                    {recipe?.kind === 'page' && <Button size="sm" variant="secondary" icon={<ClipboardCheck />} onClick={() => onNavigate('pro-check')} disabled={!versions[0]}>Check</Button>}
+                    <Button size="sm" variant="primary" icon={<Pencil />} onClick={() => onNavigate('pro-editor')} disabled={!versions[0]}>Edit fields</Button>
+                </span>}
             />
             <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
                 {error && <Notice tone="danger" onClose={() => setError(null)}>{error}</Notice>}
