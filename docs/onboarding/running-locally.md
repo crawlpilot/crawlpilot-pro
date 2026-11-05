@@ -113,7 +113,8 @@ With the backend running (with or without the seed):
 2. Build a recipe: open a page (for example `http://127.0.0.1:8000/site/product.html?id=1`), then **Build new**.
    - Say what it is for: competitor (for example `demo2`), page type `product`, and a name.
    - Pick the fields on the page, then **Next: save**.
-   - Check the proposed field names and types, then **Save version**.
+   - Check the proposed field names and types. A field's **Cleanup** takes the cleanup steps, Pro's included (text to
+     list, "Name: value" to object, list to text, a **Lua script**), shown on the value just picked. Then **Save version**.
 3. **Check** (on the recipe's card, or *Check it on this page* after saving) shows what it reads on the open page.
    It gives one row per field, with its typed value and whether it checks out, and outlines each field's element on
    the page. It also lists what is left before submitting.
