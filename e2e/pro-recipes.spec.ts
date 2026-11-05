@@ -425,6 +425,78 @@ test('markup: a field read from the page\'s meta tags or microdata, chosen from 
     await page.close();
 });
 
+test('check: one row per field with its typed value, outlined on the page, and what is left before submitting', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1100 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    const file = { name: 'Overshirt', site: '127.0.0.1', built_on: page.url(), spec: { kind: 'page', settings: {}, elements: [
+        { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] },
+        { id: 'b', name: 'price', action: 'extract', type: 'text', selectors: ['p.price'], shape: 'price' },
+        { id: 'c', name: 'sku', action: 'extract', type: 'text', selectors: ['.sku'] },
+    ] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'o.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+
+    // From the recipe's card straight to Check.
+    await ui.getByRole('button', { name: 'Check Overshirt' }).click();
+    await ui.getByRole('button', { name: 'Check this page' }).click();
+    const rows = ui.getByTestId('pro-check-row');
+    await expect(rows).toHaveCount(3);
+    const row = (name: string) => rows.filter({ has: ui.getByText(name, { exact: true }) });
+    await expect(row('title')).toContainText('Linen Overshirt');
+    await expect(row('title')).toContainText('✓ text');
+    await expect(row('price').getByTestId('pro-check-value')).toHaveText('79.00 USD');
+    await expect(row('price')).toContainText('✓ money, USD');
+    await expect(row('price')).toContainText('selector');
+    await expect(row('sku').getByTestId('pro-check-value')).toHaveText('—');
+    await expect(row('sku')).toContainText('empty');
+
+    // On the page: each field it found, outlined with its name.
+    await expect(page.locator('#crawlpilot-check-layer [data-field="price"]')).toHaveCount(1);
+    await expect(page.locator('#crawlpilot-check-layer [data-field="sku"]')).toHaveCount(0);
+    await ui.getByRole('button', { name: 'Hide on page' }).click();
+    await expect(page.locator('#crawlpilot-check-layer')).toHaveCount(0);
+    await ui.getByRole('button', { name: 'Show on page' }).click();
+    await expect(page.locator('#crawlpilot-check-layer [data-field="title"]')).toHaveCount(1);
+
+    // What is left before submitting, each with the way to it.
+    const items = ui.getByTestId('pro-check-item');
+    await expect(items.nth(0)).toContainText('2 of 3 fields found on this page');
+    await expect(items.nth(1)).toContainText('Not tested on sample pages yet.');
+    await expect(items.nth(2).getByRole('button', { name: 'Set targeting' })).toBeVisible();
+    await expect(items.nth(3)).toContainText('Not reviewed');
+    if (process.env.UX_SHOTS) await ui.screenshot({ path: `${process.env.UX_SHOTS}/pro-check.png` });
+    if (process.env.UX_SHOTS) await page.screenshot({ path: `${process.env.UX_SHOTS}/pro-check-page.png` });
+
+    // The page the recipe was built on is its first sample; checked, it fills the grid and is kept for the version.
+    await expect(ui.getByRole('button', { name: 'Add this page' })).toBeDisabled();
+    await ui.getByRole('button', { name: 'Check 1 sample page' }).click();
+    await expect(ui.getByTestId('pro-check-samples')).toContainText('title', { timeout: 30_000 });
+    await expect(items.nth(1)).toContainText('Tested on 1 page; it needs 3.');
+
+    // Saving a new version from the Page Extractor goes on to Check.
+    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
+    await ui.getByRole('button', { name: 'Edit Overshirt' }).click();
+    await ui.getByRole('banner').getByRole('button', { name: 'Re-pick on page' }).click();
+    await ui.getByRole('button', { name: 'Remove' }).last().click();
+    await ui.getByRole('button', { name: 'Next: pages' }).click();
+    await ui.getByRole('button', { name: 'Next: 1 page' }).click();
+    await ui.getByLabel('What changed').fill('no sku');
+    await ui.getByRole('button', { name: 'Save version' }).click();
+    await ui.getByRole('button', { name: 'Check it on this page' }).click();
+    await expect(ui.getByRole('banner')).toContainText('Overshirt · v2');
+    await ui.getByRole('button', { name: 'Check this page' }).click();
+    await expect(ui.getByTestId('pro-check-row')).toHaveCount(2);
+    await expect(ui.getByTestId('pro-check-item').first()).toContainText('2 of 2 fields found on this page');
+    await ui.close();
+    await page.close();
+});
+
 test('test on sample pages: background tabs, a grid of fields × pages, the run kept', async ({ panel, ext, origin }) => {
     test.setTimeout(90_000);
     const page = await ext.newPage();

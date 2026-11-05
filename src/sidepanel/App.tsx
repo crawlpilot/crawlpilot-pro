@@ -24,6 +24,7 @@ const KitPage = lazy(() => import('./pages/KitPage'));
 const ProRecipesPage = lazy(() => import('../pro/pages/RecipesPage'));
 const ProHistoryPage = lazy(() => import('../pro/pages/HistoryPage'));
 const ProEditorPage = lazy(() => import('../pro/pages/EditorPage'));
+const ProCheckPage = lazy(() => import('../pro/pages/CheckPage'));
 
 import Header from './components/ui/Header';
 import { useTabSync } from './hooks/useTabSync';
@@ -108,6 +109,8 @@ function App() {
                 return <ProHistoryPage onBack={goBack} onNavigate={navigate} />;
             case 'pro-editor':
                 return <ProEditorPage onBack={goBack} onNavigate={navigate} />;
+            case 'pro-check':
+                return <ProCheckPage onBack={goBack} onNavigate={navigate} />;
             default:
                 return <HomePage onNavigate={navigate} isTabConnected={isTabConnected} />;
         }

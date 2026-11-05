@@ -9,6 +9,21 @@ export function openedRecipe(): string | null {
     return openedRecipeId;
 }
 
+/** A screen to go on to once the Recipes screen opens: Check, right after a new version is saved. */
+let nextView: string | null = null;
+
+export function openNext(recipeId: string, view: string) {
+    openedRecipeId = recipeId;
+    nextView = view;
+}
+
+/** The screen to go on to, once. */
+export function takeNextView(): string | null {
+    const v = nextView;
+    nextView = null;
+    return v;
+}
+
 /** A repair the editor opens with: the fields a crawl found failing, and pages they failed on. */
 export interface Repair {
     recipeId: string;

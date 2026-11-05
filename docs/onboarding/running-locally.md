@@ -112,16 +112,19 @@ With the backend running (with or without the seed):
    **Address** `http://127.0.0.1:8787` and the **Access token** `dev-token`, then **Save**.
 2. Build a recipe: **Build new** opens the public tools. Pick the fields on a page (for example
    `http://127.0.0.1:8000/site/product.html?id=1`), then **Save version**. It lands in Pro's **Recipes** as version 1.
-3. Open it and set **Targeting**:
+3. **Check** (on the recipe's card, or *Check it on this page* after saving) shows what it reads on the open page.
+   It gives one row per field, with its typed value and whether it checks out, and outlines each field's element on
+   the page. It also lists what is left before submitting.
+4. Open it and set **Targeting**:
    - **Competitor**, for example `demo2`.
    - **Page type**, for example `product`.
    - **URLs it is for**, for example `http://127.0.0.1:8000/site/product.html*`. These are the match rules: globs
      where `*` is any run of characters, and the glob must match the whole URL.
 
    Then **Test on this page** or **Test on sample pages**.
-4. **Submit** uploads the version. A version can't go live until someone else approves it. Change **Your name** in
+5. **Submit** uploads the version. A version can't go live until someone else approves it. Change **Your name** in
    **Backend** to another name, open **History**, **Approve** the version, then **Mark live**.
-5. Crawl it: copy `deploy/local/jobs.sample.jsonl`, set `"competitor": "demo2"`, and run step 4 again with your file.
+6. Crawl it: copy `deploy/local/jobs.sample.jsonl`, set `"competitor": "demo2"`, and run the crawl (section 4) again with your file.
 
 For a page that needs choices first (a delivery ZIP code, a store, a cookie banner), open **Before reading** in the
 editor:
