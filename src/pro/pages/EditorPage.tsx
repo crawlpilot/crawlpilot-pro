@@ -1,11 +1,12 @@
 /**
  * The fields panel (`docs/design/LLD.md` §10): a page recipe's latest version, edited without the page.
- * Each field can be renamed, typed, required, moved or removed; its selectors moved, removed or added;
- * its cleanup steps set and tried on a value. Saving writes the next version with a note. Picking new
- * fields on the page stays in the Page Extractor (Re-pick).
+ * Each field can be renamed, typed, required, moved or removed; its selectors moved, removed or added, and
+ * each way's reading, pick, condition and own cleanup set; its cleanup steps set and tried on a value. The
+ * page rules and the identity check are edited here too. Saving writes the next version with a note.
+ * Picking new fields on the page stays in the Page Extractor (Re-pick).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, FlaskConical, Layers, Plus, Save, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, Fingerprint, FlaskConical, Layers, Plus, Save, ShieldAlert, Trash2, X } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Chip, Disclosure, IconButton, Notice, Select, Switch, Text, TextArea, TextField } from '../../sidepanel/ui';
 import { pro } from '../db';
@@ -22,10 +23,11 @@ import { BeforeReading, newStep, PageAction, usePicker } from './StepsCard';
 import { Ways } from './Ways';
 import { MarkupSource } from './MarkupSource';
 import { readiness } from '../recipe/ready';
-import { diffVersions } from '../recipe/diff';
+import { conditionLabel, diffVersions } from '../recipe/diff';
 import * as edits from '../recipe/editSpec';
 import { applyProOps, NEW_OP, opSummary, PRO_OP_LABELS, type ProOp } from '../recipe/ops';
-import type { Field, FieldType, OutputSpec, PageRecipeSpec, ProRecipe, Sample, Version } from '../recipe/types';
+import type { Field, FieldType, Identity, OutputSpec, PageRecipeSpec, ProRecipe, Sample, Version, Way, WayPick } from '../recipe/types';
+import type { PageRule, RuleStatus, WayRead } from '../../shared/types/ways';
 
 interface Props {
     onBack: () => void;
@@ -54,33 +56,153 @@ function OpSettings({ op, onChange }: { op: ProOp; onChange: (op: ProOp) => void
     const text = (label: string, value: string, set: (v: string) => ProOp) =>
         <TextField key={label} size="sm" className="flex-1" label={label} value={value} onChange={e => onChange(set(e.target.value))} />;
     switch (op.op) {
-        case 'regex': return <div className="flex gap-2">{text('Pattern', op.pattern, pattern => ({ ...op, pattern }))}</div>;
+        case 'regex': return <div className="flex gap-2">{text('Pattern', op.pattern, pattern => ({ ...op, pattern }))}<TextField size="sm" className="w-16" label="Flags" value={op.flags ?? 'i'} onChange={e => onChange({ ...op, flags: e.target.value })} /></div>;
         case 'replace': return <div className="flex gap-2">{text('Find', op.find, find => ({ ...op, find }))}{text('With', op.with, w => ({ ...op, with: w }))}</div>;
         case 'split': return <div className="flex gap-2">{text('Separator', op.sep, sep => ({ ...op, sep }))}{text('Part #', String(op.index), i => ({ ...op, index: Number(i) || 0 }))}</div>;
         case 'prefix': case 'suffix': return <div className="flex gap-2">{text('Text', op.text, t => ({ ...op, text: t }))}</div>;
         case 'splitList': case 'toObject': return <div className="flex gap-2">{text(op.op === 'splitList' ? 'Split on' : 'Name and value split on', op.sep, sep => ({ ...op, sep }))}</div>;
+        case 'join': return <div className="flex gap-2">{text('Joined with', op.sep, sep => ({ ...op, sep }))}</div>;
+        case 'lua': return <TextArea label="Lua: the value is str, the first value returned is kept" rows={3} value={op.code} onChange={e => onChange({ ...op, code: e.target.value })} />;
         default: return null;
     }
 }
 
-function Cleanup({ field, onChange }: { field: Field; onChange: (ops: ProOp[]) => void }) {
+function Cleanup({ ops, onChange, title = 'Cleanup, in order', empty = 'None: the value is kept as found.' }: { ops: ProOp[]; onChange: (ops: ProOp[]) => void; title?: string; empty?: string }) {
     const [sample, setSample] = useState('');
-    const result = sample ? applyProOps(sample.replace(/\\n/g, '\n'), field.ops) : null;
+    const result = sample ? applyProOps(sample.replace(/\\n/g, '\n'), ops) : null;
     return (
         <div className="flex flex-col gap-2">
-            <Text size="caption" weight="semibold" tone="muted">Cleanup, in order</Text>
-            {field.ops.length === 0 && <Text size="caption" tone="faint">None: the value is kept as found.</Text>}
-            {field.ops.map((op, i) => (
+            <Text size="caption" weight="semibold" tone="muted">{title}</Text>
+            {ops.length === 0 && <Text size="caption" tone="faint">{empty}</Text>}
+            {ops.map((op, i) => (
                 <div key={i} className="flex flex-col gap-1.5">
-                    <div><Chip tone="outline" onRemove={() => onChange(field.ops.filter((_, j) => j !== i))} removeLabel={`Remove ${PRO_OP_LABELS[op.op]}`}>{opSummary(op)}</Chip></div>
-                    <OpSettings op={op} onChange={next => onChange(field.ops.map((o, j) => j === i ? next : o))} />
+                    <div><Chip tone="outline" onRemove={() => onChange(ops.filter((_, j) => j !== i))} removeLabel={`Remove ${PRO_OP_LABELS[op.op]}`}>{opSummary(op)}</Chip></div>
+                    <OpSettings op={op} onChange={next => onChange(ops.map((o, j) => j === i ? next : o))} />
                 </div>
             ))}
             <Select<ProOp['op'] | ''> size="sm" aria-label="Add a step" value=""
                 options={[{ value: '', label: '+ Add a step' }, ...(Object.keys(NEW_OP) as ProOp['op'][]).map(k => ({ value: k, label: PRO_OP_LABELS[k] }))]}
-                onChange={k => { if (k) onChange([...field.ops, NEW_OP[k]]); }} />
+                onChange={k => { if (k) onChange([...ops, NEW_OP[k]]); }} />
             <TextField size="sm" label="Try on a value" hint="\n is a new line." value={sample} onChange={e => setSample(e.target.value)} placeholder="Fit: Relaxed\nLength: Regular" />
             {sample && <Text size="caption" mono className="break-all" data-testid="pro-try-result">→ {typeof result === 'string' ? result : JSON.stringify(result)}</Text>}
+        </div>
+    );
+}
+
+const READS: { value: WayRead | ''; label: string }[] = [
+    { value: '', label: 'As the field reads' }, { value: 'text', label: 'Its text' }, { value: 'attr', label: 'An attribute' },
+    { value: 'html', label: 'Its HTML' }, { value: 'count', label: 'How many match' }, { value: 'pairs', label: 'Name/value pairs' },
+];
+const PICKS: { value: WayPick; label: string }[] = [
+    { value: 'first', label: 'The first match' }, { value: 'firstFilled', label: 'The first that cleans to a value' }, { value: 'all', label: 'Every match' },
+];
+
+/** The way with these options set; an option back at its default is dropped, so the digest stays as it was. */
+function patchWay(way: Way, changes: Record<string, unknown>): Way {
+    const next: Record<string, unknown> = { ...way, ...changes };
+    for (const [k, v] of Object.entries(changes)) if (v === undefined || v === '' || v === 'first' || (Array.isArray(v) && v.length === 0)) delete next[k];
+    return next as unknown as Way;
+}
+
+function WayEditor({ way, onChange }: { way: Way; onChange: (w: Way) => void }) {
+    const set = (changes: Record<string, unknown>) => onChange(patchWay(way, changes));
+    return (
+        <div className="flex flex-col gap-2 rounded-xl bg-ink/4 px-2.5 py-2" data-testid="pro-way-editor">
+            {way.kind === 'selector' && <>
+                <div className="flex items-end gap-2">
+                    <Select<WayRead | ''> size="sm" label="Reads" value={way.read ?? ''} options={READS}
+                        onChange={read => set({ read, attr: read === 'attr' || read === 'pairs' ? way.attr : undefined, pairs: read === 'pairs' ? way.pairs ?? {} : undefined })} />
+                    {(way.read === 'attr' || way.read === 'pairs') && <TextField size="sm" className="flex-1" label={way.read === 'pairs' ? 'Value from attribute' : 'Attribute'}
+                        value={way.attr ?? ''} onChange={e => set({ attr: e.target.value })} />}
+                </div>
+                {way.read === 'pairs' && <div className="flex gap-2">
+                    <TextField size="sm" className="flex-1" label="Name inside it" placeholder="the match itself" value={way.pairs?.key ?? ''}
+                        onChange={e => set({ pairs: patchPairs(way.pairs, 'key', e.target.value) })} />
+                    <TextField size="sm" className="flex-1" label="Value inside it" placeholder="the match itself" value={way.pairs?.value ?? ''}
+                        onChange={e => set({ pairs: patchPairs(way.pairs, 'value', e.target.value) })} />
+                </div>}
+            </>}
+            {!(way.kind === 'selector' && (way.read === 'pairs' || way.read === 'count')) &&
+                <Select<WayPick> size="sm" label="Keeps" value={way.pick ?? 'first'} options={PICKS} onChange={pick => set({ pick })} />}
+            {way.when && <div className="flex items-start gap-1.5">
+                <Text size="caption" mono className="min-w-0 flex-1 break-all">Only when {conditionLabel(way.when)}</Text>
+                <Button size="sm" variant="ghost" onClick={() => set({ when: undefined })}>Always try it</Button>
+            </div>}
+            <Cleanup ops={way.ops ?? []} onChange={ops => set({ ops })} title="This way's cleanup, before the field's" empty="None." />
+        </div>
+    );
+}
+
+const patchPairs = (pairs: { key?: string; value?: string } | undefined, key: 'key' | 'value', v: string) => {
+    const next = { ...pairs, [key]: v.trim() || undefined };
+    if (!next[key]) delete next[key];
+    return next;
+};
+
+const STATUS_LABELS: Record<RuleStatus, string> = { not_found: 'Not found', unavailable: 'Unavailable', blocked: 'Blocked', error: 'Error page' };
+const STATUSES = (Object.keys(STATUS_LABELS) as RuleStatus[]).map(value => ({ value, label: STATUS_LABELS[value] }));
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Page rules: checked in order before any field; the first that holds says what the page is. */
+function PageRules({ rules, onChange }: { rules: PageRule[]; onChange: (rules: PageRule[]) => void }) {
+    const [name, setName] = useState('');
+    const [status, setStatus] = useState<RuleStatus>('not_found');
+    const [by, setBy] = useState<'css' | 'text'>('text');
+    const [what, setWhat] = useState('');
+    const add = () => {
+        const when: PageRule['when'] = by === 'css'
+            ? { kind: 'css', selector: what.trim(), op: 'gt', value: 0 }
+            : { kind: 'regex', pattern: escapeRegex(what.trim()), flags: 'i', op: 'gt', value: 0 };
+        onChange([...rules, { name: name.trim(), status, when }]);
+        setName(''); setWhat('');
+    };
+    return (
+        <div className="flex flex-col gap-2 pt-2" data-testid="pro-page-rules">
+            <Text size="caption" tone="faint">Checked before any field is read: the first that holds marks the page and nothing is read.</Text>
+            {rules.map((r, i) => (
+                <div key={i} className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5">
+                        <Text size="small" weight="semibold" className="min-w-0 flex-1 truncate">{r.name}</Text>
+                        <Select<RuleStatus> size="sm" aria-label={`Status of ${r.name}`} value={r.status} options={STATUSES}
+                            onChange={s => onChange(rules.map((x, j) => j === i ? { ...x, status: s } : x))} />
+                        <IconButton size="sm" label={`Remove rule ${r.name}`} onClick={() => onChange(rules.filter((_, j) => j !== i))}><Trash2 /></IconButton>
+                    </div>
+                    <Text size="caption" mono tone="muted" className="break-all" lines={3}>{conditionLabel(r.when)}</Text>
+                </div>
+            ))}
+            <form className="flex flex-col gap-1.5" onSubmit={e => { e.preventDefault(); add(); }}>
+                <div className="flex items-end gap-1.5">
+                    <TextField size="sm" className="flex-1" label="New rule" placeholder="Name (404, captcha…)" value={name} onChange={e => setName(e.target.value)} />
+                    <Select<RuleStatus> size="sm" aria-label="Status of the new rule" value={status} options={STATUSES} onChange={setStatus} />
+                </div>
+                <div className="flex items-end gap-1.5">
+                    <Select<'css' | 'text'> size="sm" aria-label="Holds when" value={by} onChange={setBy}
+                        options={[{ value: 'text', label: 'The page has the text' }, { value: 'css', label: 'Something matches' }]} />
+                    <TextField size="sm" className="flex-1" aria-label="Text or selector" placeholder={by === 'css' ? '#captcha' : 'Page not found'} value={what} onChange={e => setWhat(e.target.value)} />
+                    <Button size="sm" variant="ghost" type="submit" disabled={!name.trim() || !what.trim()}>Add</Button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
+/** The identity check: a field compared with the id its URL names. */
+function IdentityCheck({ identity, fields, onChange }: { identity?: Identity; fields: string[]; onChange: (identity: Identity | undefined) => void }) {
+    const [patterns, setPatterns] = useState(identity?.url.join('\n') ?? '');
+    if (!identity) {
+        return <div className="pt-2"><Button size="sm" variant="ghost" icon={<Plus />} disabled={!fields.length}
+            onClick={() => { setPatterns(''); onChange({ field: fields.find(f => /sku|id/i.test(f)) ?? fields[0], url: [] }); }}>Check a field against the URL</Button></div>;
+    }
+    return (
+        <div className="flex flex-col gap-2 pt-2" data-testid="pro-identity">
+            <Text size="caption" tone="faint">A page whose field differs from what the patterns find in its URL is another product.</Text>
+            <div className="flex items-end gap-2">
+                <Select size="sm" label="Field" value={identity.field} options={fields.map(f => ({ value: f, label: f }))} onChange={field => onChange({ ...identity, field })} />
+                <span className="flex-1" />
+                <Button size="sm" variant="ghost" icon={<Trash2 />} onClick={() => onChange(undefined)}>Remove</Button>
+            </div>
+            <TextArea label="URL patterns (regex, one per line; the first match is the id)" rows={2} value={patterns}
+                onChange={e => { setPatterns(e.target.value); onChange({ ...identity, url: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) }); }} />
         </div>
     );
 }
@@ -212,7 +334,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
             <div className="flex flex-col gap-3 pt-2">
                 {results.get(field.id) && (
                     <div className="flex flex-col gap-0.5 rounded-xl bg-ink/4 px-2.5 py-2" data-testid="pro-field-result">
-                        <Text size="caption" tone="muted">On the tested page ({results.get(field.id)!.status})</Text>
+                        <Text size="caption" tone="muted">On the tested page ({results.get(field.id)!.status}{results.get(field.id)!.way !== undefined ? ` · way ${results.get(field.id)!.way! + 1}` : ''})</Text>
                         <Text size="caption" mono className="break-all" lines={3}>{preview(results.get(field.id)!.value)}</Text>
                     </div>
                 )}
@@ -234,9 +356,10 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                         <Ways ways={field.ways}
                             onMove={(w, d) => setSpec(edits.moveWay(spec, field.id, w, d))}
                             onRemove={w => setSpec(edits.removeWay(spec, field.id, w))}
-                            onAdd={s => setSpec(edits.addSelector(spec, field.id, s))} />
+                            onAdd={s => setSpec(edits.addSelector(spec, field.id, s))}
+                            options={(way, w) => <WayEditor way={way} onChange={next => setSpec(edits.setWay(spec, field.id, w, next))} />} />
                         <MarkupSource onAdd={way => setSpec(edits.addWayFirst(spec, field.id, way))} />
-                        <Cleanup field={field} onChange={ops => setSpec(edits.setOps(spec, field.id, ops))} />
+                        <Cleanup ops={field.ops} onChange={ops => setSpec(edits.setOps(spec, field.id, ops))} />
                     </div>
                 </Disclosure></div>
             </div>
@@ -262,10 +385,15 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                 )}
                 {test && (test.result.error
                     ? <Notice tone="danger" title="The test could not run on this page">{test.result.error}</Notice>
-                    : <div data-testid="pro-test-summary"><Notice tone={passed([test.result]) ? 'success' : 'warning'}
+                    : test.result.rule
+                    ? <div data-testid="pro-test-summary"><Notice tone="warning" title={`Page rule "${test.result.rule.name}" holds: ${STATUS_LABELS[test.result.rule.status]}`}>
+                        No field was read. {stale ? 'You changed the recipe since this test.' : ''}
+                    </Notice></div>
+                    : <div data-testid="pro-test-summary"><Notice tone={passed([test.result]) && !test.result.mismatch ? 'success' : 'warning'}
                         title={`On ${new URL(test.result.url).host}: ${summarize(test.result).filled} of ${summarize(test.result).total} fields found`}>
                         {test.result.setup ? (test.result.setup.ran ? `Session set up first (${test.result.setup.steps.length} steps). ` : 'Session already set up. ') : ''}
                         {summarize(test.result).total - summarize(test.result).ok ? `${summarize(test.result).total - summarize(test.result).ok} with a problem. ` : ''}
+                        {test.result.mismatch ? `Another product: the URL names ${test.result.mismatch.expected}, the page has ${test.result.mismatch.found}. ` : ''}
                         {stale ? 'You changed the recipe since this test.' : ''}
                     </Notice></div>)}
                 {test?.result.options && (
@@ -312,6 +440,14 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                             fields={spec.steps.flatMap(st => st.kind === 'field' ? [st.field] : [])}
                             results={pagesTest && !pagesStale ? pagesTest.results : undefined} />
                     </div>
+                </Disclosure>
+                <Disclosure icon={<ShieldAlert />} summary={`Page rules (${spec.rules?.length ?? 0})`}>
+                    <PageRules rules={spec.rules ?? []} onChange={rules => setSpec(edits.setRules(spec, rules))} />
+                </Disclosure>
+                <Disclosure icon={<Fingerprint />} summary="Identity check"
+                    meta={spec.identity ? <Chip tone="info">{spec.identity.field}</Chip> : <Text size="caption" tone="faint">none</Text>}>
+                    <IdentityCheck identity={spec.identity} fields={spec.steps.flatMap(st => st.kind === 'field' ? [st.field.name] : [])}
+                        onChange={identity => setSpec(edits.setIdentity(spec, identity))} />
                 </Disclosure>
                 <BeforeReading spec={spec} onChange={setSpec} context={context} onContext={changeContext} picker={picker} />
                 <Text size="caption" tone="faint">Steps run in this order: a step (a click, a choice, typing), then the fields it reveals.</Text>

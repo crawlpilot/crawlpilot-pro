@@ -1,0 +1,3238 @@
+{
+  "responseObj": {
+    "attributes": [
+      {
+        "templates": [
+          {
+            "assrtXprn": null,
+            "seq": 1,
+            "extractMethod": "div.js-product-primary-seller.product-controls.product-buying-table-row-alt > div > div.top-row > span.primary-seller.copy-mini b",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 106,
+            "uniqueTemplateId": "BUYBOX_WINNER-0",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 2,
+            "extractMethod": "#BUY_OPT_HEADER > h2",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 109,
+            "uniqueTemplateId": "BUYBOX_WINNER-1",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 3,
+            "extractMethod": "div.js-seller-fulfillment-section-container > div.seller-info",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 438,
+            "uniqueTemplateId": "BUYBOX_WINNER-2",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 4,
+            "extractMethod": "div.seller-fulfillment-section > div.seller-info > span[class^=\"seller-\"]",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 488,
+            "uniqueTemplateId": "BUYBOX_WINNER-3",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 5,
+            "extractMethod": "div.prod-Bot.prod-PositionedRelative span.product-seller span.font-bold",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 526,
+            "uniqueTemplateId": "BUYBOX_WINNER-4",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 6,
+            "extractMethod": "div.Grid.Grid--gutters div.prod-Bot.prod-PositionedRelative a.font-bold.prod-SoldShipByMsg",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 567,
+            "uniqueTemplateId": "BUYBOX_WINNER-5",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 7,
+            "extractMethod": "div.Grid.Grid--gutters div.prod-Bot.prod-PositionedRelative a.font-bold",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 568,
+            "uniqueTemplateId": "BUYBOX_WINNER-6",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 8,
+            "extractMethod": "div.prod-SellerFulfillmentSection a.font-bold.prod-SoldShipByMsg",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 581,
+            "uniqueTemplateId": "BUYBOX_WINNER-7",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 9,
+            "extractMethod": "div.prod-SellerFulfillmentSection a.font-bold",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 582,
+            "uniqueTemplateId": "BUYBOX_WINNER-8",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 10,
+            "extractMethod": "a.seller-name",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 582,
+            "uniqueTemplateId": "BUYBOX_WINNER-9",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 11,
+            "extractMethod": "div[data-testid=\"sticky-buy-box\"] span.lh-title div",
+            "specialFormatting": "(?<=([Ss]old and [Ss]hipped by ))(.*)",
+            "tmplName": null,
+            "competitorTemplateId": 585,
+            "uniqueTemplateId": "BUYBOX_WINNER-10",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 12,
+            "extractMethod": "div[data-testid=\"sticky-buy-box\"] span.lh-title",
+            "specialFormatting": "(?<=([Ss]old and [Ss]hipped by ))(.*)",
+            "tmplName": null,
+            "competitorTemplateId": 583,
+            "uniqueTemplateId": "BUYBOX_WINNER-11",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 13,
+            "extractMethod": "div[data-testid=\"sticky-buy-box\"] span.lh-title span:nth-child(1)",
+            "specialFormatting": "(?<=([Ss]old by ))(.*)",
+            "tmplName": null,
+            "competitorTemplateId": 584,
+            "uniqueTemplateId": "BUYBOX_WINNER-12",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 14,
+            "extractMethod": "div[data-testid=\"sold-and-shipped-by\"] span.lh-title span",
+            "specialFormatting": "(?<=([Ss]old and [Ss]hipped by ))(.*)",
+            "tmplName": null,
+            "competitorTemplateId": 588,
+            "uniqueTemplateId": "BUYBOX_WINNER-13",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 15,
+            "extractMethod": "span[data-testid=\"product-seller-info\"]",
+            "specialFormatting": "(?<=([Ss]old by ))(.*)",
+            "tmplName": null,
+            "competitorTemplateId": 589,
+            "uniqueTemplateId": "BUYBOX_WINNER-14",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": null,
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "name": "BUYBOX_WINNER"
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": null,
+            "seq": 1,
+            "extractMethod": "[data-testid=\"module-2-badges\"] [data-testid=\"badgeTagComponent\"] span",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 110,
+            "uniqueTemplateId": "PROMO_MESSAGE-0",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 2,
+            "extractMethod": "[data-testid=\"ItemPageBadgeModule2\"] [data-testid=\"badgeTagComponent\"]",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 9001,
+            "uniqueTemplateId": "PROMO_MESSAGE-1",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": "All promo badges (Rollback, Overall pick, ...) on WMART PDP",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "AL",
+        "name": "PROMO_MESSAGE"
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": null,
+            "seq": 1,
+            "extractMethod": "div.product-buying-table-row.js-product-offers-row.product-buying-table-row-hero-price > div > div div.js-price-display.price.price-display",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 84,
+            "uniqueTemplateId": "IS_PRICE-0",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 2,
+            "extractMethod": "div.js-choice-fixed-bot-container > div > div > div.content > div.hero-price-section.clearfix > div.price-display",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 85,
+            "uniqueTemplateId": "IS_PRICE-1",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 3,
+            "extractMethod": "[class^=onlinePrice] > div.PricingInfo.clearfix .clearfix.camelPrice",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 86,
+            "uniqueTemplateId": "IS_PRICE-2",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 4,
+            "extractMethod": "div.product-buying-table-row.js-product-offers-row.product-buying-table-row-hero-price > div > div.js-product-price.product-price.clearfix > div.price-add-to-cart",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 96,
+            "uniqueTemplateId": "IS_PRICE-3",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 5,
+            "extractMethod": "[class^=onlinePrice] > div.PricingInfo > div > span.camelPrice > span#SWFromPrice",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 97,
+            "uniqueTemplateId": "IS_PRICE-4",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 6,
+            "extractMethod": "div[itemprop=\"price\"].js-price-display.Price.Price--stylized.Price--large.hide-content.display-inline-m.price-display",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 380,
+            "uniqueTemplateId": "IS_PRICE-5",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 7,
+            "extractMethod": "div.cart-header div.cart-header-info-price span",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 481,
+            "uniqueTemplateId": "IS_PRICE-6",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 8,
+            "extractMethod": "div.prod-BOTContainer div.prod-PriceHero span.hide-content.display-inline-block-m span.display-inline-block.arrange-fit.Price.Price--stylized.u-textColor",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 579,
+            "uniqueTemplateId": "IS_PRICE-7",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 9,
+            "extractMethod": "div.prod-PriceHero span.display-inline-block.arrange-fit.Price.Price--stylized.u-textGray span.Price-group",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 655,
+            "uniqueTemplateId": "IS_PRICE-8",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 10,
+            "extractMethod": "span.PriceRange.prod-PriceHero",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 657,
+            "uniqueTemplateId": "IS_PRICE-9",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 11,
+            "extractMethod": "div.prod-rightContainer div.prod-PriceHero span.display-inline-block.arrange-fit.Price span.Price-group",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 656,
+            "uniqueTemplateId": "IS_PRICE-10",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 12,
+            "extractMethod": "div.prod-rightContainer div.prod-PriceHero.Price-Hero-Enhanced",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 658,
+            "uniqueTemplateId": "IS_PRICE-11",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 13,
+            "extractMethod": "div.prod-PriceHero span.hide-content.display-inline-block-m span.price-group",
+            "specialFormatting": "luaj:ret1 = string.gsub(str, \"\\$%s+\", \"\\$\"); return string.gsub(ret1, \"%s+\", \".\")",
+            "tmplName": null,
+            "competitorTemplateId": 658,
+            "uniqueTemplateId": "IS_PRICE-12",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": "ASSERT1",
+            "seq": 14,
+            "extractMethod": "div[data-testid='sticky-buy-box']  span[itemprop='price']",
+            "specialFormatting": "(\\$\\d+(,\\d+)*(\\.)?\\d+)|(\\$\\d+)",
+            "tmplName": null,
+            "competitorTemplateId": 659,
+            "uniqueTemplateId": "IS_PRICE-13",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 15,
+            "extractMethod": "div[data-testid='add-to-cart-section'] span[itemprop='price']",
+            "specialFormatting": "(\\$\\d+(,\\d+)*(\\.)?\\d+)|(\\$\\d+)",
+            "tmplName": null,
+            "competitorTemplateId": 660,
+            "uniqueTemplateId": "IS_PRICE-14",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 16,
+            "extractMethod": "span[data-testid='price-wrap'] > span[class='inline-flex flex-column'] > span[itemprop='price']",
+            "specialFormatting": "(\\$\\d+(,\\d+)*(\\.)?\\d+)|(\\$\\d+)",
+            "tmplName": "Walmart template for IS_PRICE-15",
+            "competitorTemplateId": 661,
+            "uniqueTemplateId": "IS_PRICE-15",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": "ASSERT1",
+            "seq": 17,
+            "extractMethod": "span[class='inline-flex flex-column'] > span[itemprop='price']",
+            "specialFormatting": "luaj:if string.find(str, \"%.\") then str1 = str else str1 = string.gsub(str, '()', {[string.len(str)-1]='.'}) end;str2 = string.gsub(str1, \"[^0-9.$]\",\"\"); if string.find(str, \"%d\") then return str2 else return nil end;",
+            "tmplName": "Walmart template for IS_PRICE-16",
+            "competitorTemplateId": 662,
+            "uniqueTemplateId": "IS_PRICE-16",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [
+              {
+                "assrt": "span[class='inline-flex flex-column'] > span[itemprop='price'] > span > span.f2",
+                "assrtValue": "1",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 1,
+                "type": "CSS_SLCTR_CNT"
+              }
+            ],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 18,
+            "extractMethod": "div.nowrap.items-center.inline-flex.h1 > span.mr2.f6.gray.mr1.strike",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 663,
+            "uniqueTemplateId": "IS_PRICE-17",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": null,
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "name": "IS_PRICE"
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": null,
+            "seq": 1,
+            "extractMethod": "div.product-buying-table-row.js-product-offers-row.product-buying-table-row-hero-price > div > div.js-product-price.product-price.clearfix > div.price-display-oos > p",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 81,
+            "uniqueTemplateId": "OL_AVAILABILITY-0",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 2,
+            "extractMethod": "div.product-buying-table-row.js-product-offers-row.product-buying-table-row-hero-price > div > div.js-product-price.product-price.clearfix > div.price-out-of-stock",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 82,
+            "uniqueTemplateId": "OL_AVAILABILITY-1",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 3,
+            "extractMethod": "p#WMNotAvailableLine:not([style^=display:none]) > span.NotAvailable.BodyXLBoldGrey",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 83,
+            "uniqueTemplateId": "OL_AVAILABILITY-2",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 4,
+            "extractMethod": "[id^=MP_SELLER_NA_MSG_].NotAvailable.BodyXLBoldGrey:not([style^=display: none])",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 88,
+            "uniqueTemplateId": "OL_AVAILABILITY-3",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 5,
+            "extractMethod": "[id^=MP_SELLER_OOS_MSG_]:not([style^=display: none]) > span.OutOnline.BodyMBoldGrey",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 89,
+            "uniqueTemplateId": "OL_AVAILABILITY-4",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 6,
+            "extractMethod": "#WM_ROW > td.cellTL > div:nth-child(3) > span.OutOnline.BodyLBoldGrey",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 98,
+            "uniqueTemplateId": "OL_AVAILABILITY-5",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 7,
+            "extractMethod": "div.product-buying-table-row.js-product-offers-row.product-buying-table-row-alt.product-buying-table-row-hero-price.bot-carousel-padding > div > div:nth-child(2) > div > div.price-display-oos > p",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 304,
+            "uniqueTemplateId": "OL_AVAILABILITY-6",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 8,
+            "extractMethod": "div.seller-fulfillment-section span.soi-pipe",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 571,
+            "uniqueTemplateId": "OL_AVAILABILITY-7",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 9,
+            "extractMethod": "span.prod-seller-in-store",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 573,
+            "uniqueTemplateId": "OL_AVAILABILITY-8",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 10,
+            "extractMethod": "div > div.product-buying-table-row.js-product-offers-row.product-buying-table-row-alt.product-buying-table-row-hero-price > div > div:nth-child(n) > div > div.price-info > div > div",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 305,
+            "uniqueTemplateId": "OL_AVAILABILITY-9",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 11,
+            "extractMethod": "body > div.page-wrapper.js-page-wrapper div.product-primary.js-product-primary.ResponsiveContainer > div:nth-child(n) div:nth-child(n) > div div.heading-d",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 320,
+            "uniqueTemplateId": "OL_AVAILABILITY-10",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 12,
+            "extractMethod": "body section.center div.js-product-page.product-page div.product-buying-table-row.js-product-offers-row.product-buying-table-row-alt.product-buying-table-row-hero-price span.heading-b.js-offer-invalid",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 328,
+            "uniqueTemplateId": "OL_AVAILABILITY-11",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 13,
+            "extractMethod": "div.Grid div.Grid-col div[itemprop=\"offers\"] div.js-product-price.product-price.clearfix p.price-out-of-stock.js-submap-price-out-of-stock",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 426,
+            "uniqueTemplateId": "OL_AVAILABILITY-12",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 14,
+            "extractMethod": "div.Grid div.Grid-col div[itemprop=\"offers\"] div.js-product-price.product-price.clearfix p.price-oos",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 427,
+            "uniqueTemplateId": "OL_AVAILABILITY-13",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 15,
+            "extractMethod": "div.Grid div.Grid-col div[itemprop=\"offers\"] div.js-product-price.product-price.clearfix span.heading-b.soi-na-offer1",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 425,
+            "uniqueTemplateId": "OL_AVAILABILITY-14",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 16,
+            "extractMethod": "div.buying-options-unavailable.js-buying-options-unavailable div.heading-e",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 489,
+            "uniqueTemplateId": "OL_AVAILABILITY-15",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 17,
+            "extractMethod": "#WMInStockAvailabilityLine > span",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 490,
+            "uniqueTemplateId": "OL_AVAILABILITY-16",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 18,
+            "extractMethod": "div.prod-ProductOffer.prod-PositionedRelative.Grid.prod-ProductOfferWrapper div.copy-mini.font-semibold.prod-PaddingTop--xxs.prod-ProductOffer-urgencyMsg",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 532,
+            "uniqueTemplateId": "OL_AVAILABILITY-17",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 19,
+            "extractMethod": "div.prod-BorderedContainer.prod-OfferFulfillment span.display-inline-block-xs.prod-ShowRightBorder--xs.prod-MarginRight--xs.prod-PaddingRight--xs.copy-small.prod-OfferFulfillment-freeShipping",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 533,
+            "uniqueTemplateId": "OL_AVAILABILITY-18",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 20,
+            "extractMethod": "div.prod-Bot.prod-PositionedRelative div.font-semibold.prod-Bot-partial-head",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 534,
+            "uniqueTemplateId": "OL_AVAILABILITY-19",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 21,
+            "extractMethod": "div.prod-BotRow.prod-showBottomBorder div.prod-PaddingTop--xxs span.copy-mini.display-block-xs.font-bold.u-textBlack",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 535,
+            "uniqueTemplateId": "OL_AVAILABILITY-20",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 22,
+            "extractMethod": "div.prod-ProductOffer.prod-PositionedRelative.Grid.prod-ProductOfferWrapper  h2.Price--unavailable.heading-b",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 547,
+            "uniqueTemplateId": "OL_AVAILABILITY-21",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 23,
+            "extractMethod": "div.prod-BOTContainer div.prod-fulfillment-messaging-text div.font-semibold.prod-AccessMarketplaceShippingMessage",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 648,
+            "uniqueTemplateId": "OL_AVAILABILITY-22",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 24,
+            "extractMethod": "span.free-shipping-msg.font-bold",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 648,
+            "uniqueTemplateId": "OL_AVAILABILITY-23",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 25,
+            "extractMethod": "div.Grid div.prod-PaddingTop--xxs",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 648,
+            "uniqueTemplateId": "OL_AVAILABILITY-24",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 26,
+            "extractMethod": "div.prod-fulfillment.prod-ShippingFulfillmentWrapper div.prod-fulfillment-messaging-text",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 651,
+            "uniqueTemplateId": "OL_AVAILABILITY-25",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 27,
+            "extractMethod": "div.fulfillment-shipping-text",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 678,
+            "uniqueTemplateId": "OL_AVAILABILITY-26",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 28,
+            "extractMethod": "h2.prod-InvalidPromptMsg.font-bold",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 679,
+            "uniqueTemplateId": "OL_AVAILABILITY-27",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 29,
+            "extractMethod": "div[data-testid='sticky-buy-box'] div[data-testid='add-to-cart-section'] div[class='b f4 gray lh-copy pt2-m flex fr-m tr']",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 680,
+            "uniqueTemplateId": "OL_AVAILABILITY-28",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 30,
+            "extractMethod": "div[data-testid='sticky-buy-box'] div[class='inline'] span:nth-child(1)",
+            "specialFormatting": ".*[^,$]",
+            "tmplName": null,
+            "competitorTemplateId": 681,
+            "uniqueTemplateId": "OL_AVAILABILITY-29",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 31,
+            "extractMethod": "div[data-testid='sticky-buy-box']  ul[data-testid='fulfillmentLabel-1P']",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 682,
+            "uniqueTemplateId": "OL_AVAILABILITY-30",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 32,
+            "extractMethod": "div[data-testid='sticky-buy-box']  div[data-testid='fulfillmentLabel-1P'] div:nth-child(1)",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 683,
+            "uniqueTemplateId": "OL_AVAILABILITY-31",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 33,
+            "extractMethod": "label[data-testid=shipping-tile]",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 684,
+            "uniqueTemplateId": "OL_AVAILABILITY-32",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 34,
+            "extractMethod": "div[data-testid='sticky-buy-box'] div[data-testid='add-to-cart-section']  div[class='b gray lh-copy pt2-m flex fr-m f4']",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 685,
+            "uniqueTemplateId": "OL_AVAILABILITY-33",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 35,
+            "extractMethod": "div[data-testid='fulfillmentLabel-1P'] span",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 686,
+            "uniqueTemplateId": "OL_AVAILABILITY-34",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 36,
+            "extractMethod": "div[data-testid='store-only-inventory'] h2",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 687,
+            "uniqueTemplateId": "OL_AVAILABILITY-35",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 37,
+            "extractMethod": "div[data-testid=fulfillment-zone-2] > div.f6.b",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 688,
+            "uniqueTemplateId": "OL_AVAILABILITY-36",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": null,
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "name": "OL_AVAILABILITY"
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": null,
+            "seq": 1,
+            "extractMethod": "div.product-price-flag.price-flags > span.js-price-flag.flag-clearance",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 129,
+            "uniqueTemplateId": "PRICE_PROMO-0",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 2,
+            "extractMethod": "div.product-price-flag.price-flags > span.js-price-flag.flag-rollback",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 130,
+            "uniqueTemplateId": "PRICE_PROMO-1",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 3,
+            "extractMethod": "div.product-price-flag.price-flags > span.js-price-flag.flag-reduced",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 131,
+            "uniqueTemplateId": "PRICE_PROMO-2",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 9,
+            "extractMethod": "div.Grid-col.hide-content.display-block-s > span.flag.flag-rollback.flag-alt.prod-MarginBottom--xxs",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 530,
+            "uniqueTemplateId": "PRICE_PROMO-3",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 6,
+            "extractMethod": "span.prod-PriceFlags span.flag.flag-clearance",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 611,
+            "uniqueTemplateId": "PRICE_PROMO-4",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 7,
+            "extractMethod": "div.prod-flagList span.flag.flag-clearance",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 531,
+            "uniqueTemplateId": "PRICE_PROMO-5",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 8,
+            "extractMethod": "div.prod-flagList span.flag.flag-rollback",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 532,
+            "uniqueTemplateId": "PRICE_PROMO-6",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 5,
+            "extractMethod": "div.prod-FlagList-container",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 533,
+            "uniqueTemplateId": "PRICE_PROMO-7",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 4,
+            "extractMethod": "span.prod-PriceFlags.prod-PositionedAbsolute.display-inline-block-xs",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 534,
+            "uniqueTemplateId": "PRICE_PROMO-8",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 10,
+            "extractMethod": "div[data-testid='sticky-buy-box']  p span",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 535,
+            "uniqueTemplateId": "PRICE_PROMO-9",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": null,
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "name": "PRICE_PROMO"
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": null,
+            "seq": 1,
+            "extractMethod": "h1.prod-ProductTitle",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 615,
+            "uniqueTemplateId": "PRODUCT_TITLE-0",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 2,
+            "extractMethod": "h2.prod-ProductTitle",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 616,
+            "uniqueTemplateId": "PRODUCT_TITLE-1",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 3,
+            "extractMethod": "div.ProductTitle div",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 616,
+            "uniqueTemplateId": "PRODUCT_TITLE-2",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 4,
+            "extractMethod": "div[data-testid='sticky-buy-box'] h1[itemprop='name']",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 617,
+            "uniqueTemplateId": "PRODUCT_TITLE-3",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 5,
+            "extractMethod": "#main-title",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 618,
+            "uniqueTemplateId": "PRODUCT_TITLE-4",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": null,
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "name": "PRODUCT_TITLE"
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": null,
+            "seq": 1,
+            "extractMethod": "#WMItemAddToCartBtn",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 77,
+            "uniqueTemplateId": "BUYABILITY-0",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 2,
+            "extractMethod": "div.product-controls.product-buying-table-row.module > div > div.js-product-call-to-action-summary > div > div > div:nth-child(2) > div > div > button",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 78,
+            "uniqueTemplateId": "BUYABILITY-1",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 3,
+            "extractMethod": "div.content > div.call-to-action-button > button",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 79,
+            "uniqueTemplateId": "BUYABILITY-2",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 4,
+            "extractMethod": "div.product-controls.product-buying-table-row.module > div > div.js-product-call-to-action-summary > div > div:nth-child(2) > div > div > button",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 80,
+            "uniqueTemplateId": "BUYABILITY-3",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 5,
+            "extractMethod": "div.product-controls.product-buying-table-row.module > div > div > div > div > div:nth-child(2) > div > div > button",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 103,
+            "uniqueTemplateId": "BUYABILITY-4",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 6,
+            "extractMethod": "div.prod-ProductCTAAddToCart button span:nth-child(2)",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 529,
+            "uniqueTemplateId": "BUYABILITY-5",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 7,
+            "extractMethod": "div.prod-BOTContainer div.prod-ProductCTAAddToCart button",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 649,
+            "uniqueTemplateId": "BUYABILITY-6",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 8,
+            "extractMethod": "div.prod-ProductPrimaryCTA button.prod-ProductCTA--primary",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 671,
+            "uniqueTemplateId": "BUYABILITY-7",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 9,
+            "extractMethod": "button.prod-ProductCTA--primary",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 672,
+            "uniqueTemplateId": "BUYABILITY-8",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 10,
+            "extractMethod": "div[data-testid='sticky-buy-box'] div[data-testid='add-to-cart-section'] div.relative.dib button span",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 673,
+            "uniqueTemplateId": "BUYABILITY-9",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 11,
+            "extractMethod": "div[data-testid='sticky-buy-box'] div[data-testid='add-to-cart-section'] button span",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 674,
+            "uniqueTemplateId": "BUYABILITY-10",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 12,
+            "extractMethod": "div[data-testid='atc-buynow-container'] button",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 675,
+            "uniqueTemplateId": "BUYABILITY-11",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": null,
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "name": "BUYABILITY"
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": null,
+            "seq": 1,
+            "extractMethod": "div.seller-fulfillment-section > div.seller-info > span[class^=\"seller-\"]",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 437,
+            "uniqueTemplateId": "BUYBOX_FLFL_BY-0",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 2,
+            "extractMethod": "div.prod-Bot.prod-PositionedRelative > div > div:nth-child(3) > div > a",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 536,
+            "uniqueTemplateId": "BUYBOX_FLFL_BY-1",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 3,
+            "extractMethod": "div.prod-SellerFulfillmentSection a.font-bold.prod-SoldShipByMsg",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 537,
+            "uniqueTemplateId": "BUYBOX_FLFL_BY-2",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 4,
+            "extractMethod": "div.prod-SoldShippedBySection.hf-BotRow a.seller-name",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 538,
+            "uniqueTemplateId": "BUYBOX_FLFL_BY-3",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 5,
+            "extractMethod": "div[data-testid=\"sticky-buy-box\"] span.lh-title div",
+            "specialFormatting": "(?<=([Ss]old and [Ss]hipped by ))(.*)",
+            "tmplName": null,
+            "competitorTemplateId": 541,
+            "uniqueTemplateId": "BUYBOX_FLFL_BY-4",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 6,
+            "extractMethod": "div[data-testid=\"sticky-buy-box\"] span.lh-title",
+            "specialFormatting": "(?<=([Ss]old and [Ss]hipped by ))(.*)",
+            "tmplName": null,
+            "competitorTemplateId": 539,
+            "uniqueTemplateId": "BUYBOX_FLFL_BY-5",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 7,
+            "extractMethod": "div[data-testid=\"sticky-buy-box\"] span.lh-title",
+            "specialFormatting": "(?<=([Ff]ulfilled by ))(.*)",
+            "tmplName": null,
+            "competitorTemplateId": 540,
+            "uniqueTemplateId": "BUYBOX_FLFL_BY-6",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 8,
+            "extractMethod": "div[data-testid=\"sold-and-shipped-by\"] span.lh-title span",
+            "specialFormatting": "(?<=([Ss]old and [Ss]hipped by ))(.*)",
+            "tmplName": null,
+            "competitorTemplateId": 543,
+            "uniqueTemplateId": "BUYBOX_FLFL_BY-7",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 9,
+            "extractMethod": "div[data-automation-id=\"Walmart-delivery\"]",
+            "specialFormatting": "[^by ]*$",
+            "tmplName": null,
+            "competitorTemplateId": 544,
+            "uniqueTemplateId": "BUYBOX_FLFL_BY-8",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": null,
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "name": "BUYBOX_FLFL_BY"
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": null,
+            "seq": 1,
+            "extractMethod": "link[rel=canonical]",
+            "specialFormatting": "luaj:str1 = string.match(str, \"^[^?#]+\"); return string.match(str1, \"/ip/.*/([%w]+)/*$\") or string.match(str1, \"/ip/([%w]+)/*$\");",
+            "tmplName": null,
+            "competitorTemplateId": 528,
+            "uniqueTemplateId": "SKU-0",
+            "keyElement": "href",
+            "extractMethodType": "CSS_SLCTR_ATTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": null,
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "name": "SKU"
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": null,
+            "seq": 1,
+            "extractMethod": "div.Grid div.Grid-col div[itemprop=\"offers\"] div.js-product-price.product-price.clearfix div.submap-flyout span.submap-price.js-submap-price",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 440,
+            "uniqueTemplateId": "HIDDEN_PRICE_STRING-0",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": null,
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "name": "HIDDEN_PRICE_STRING"
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": null,
+            "seq": 2,
+            "extractMethod": "div .buy-box-container [data-seo-id=\"strike-through-price\"]",
+            "specialFormatting": "^\\$\\d+(\\.\\d+)?$",
+            "tmplName": null,
+            "competitorTemplateId": 90,
+            "uniqueTemplateId": "WAS_PRICE-0",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 15,
+            "extractMethod": "div.nowrap.items-center.inline-flex.h1 > span.mr2.f6.gray.mr1.strike",
+            "specialFormatting": "^\\$\\d+(\\.\\d+)?$",
+            "tmplName": null,
+            "competitorTemplateId": 530,
+            "uniqueTemplateId": "WAS_PRICE-14",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": null,
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "name": "WAS_PRICE"
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 870,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": ".meter-bar .meter-text",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "RECO_PERCENT-1"
+          }
+        ],
+        "name": "RECO_PERCENT",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": true
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 176,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div div.product-subhead-section.product-subhead-reviews-count > a > span",
+            "keyElement": null,
+            "specialFormatting": "(\\d+\\,\\d+)|(\\d+)",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "REVIEWS-1"
+          },
+          {
+            "competitorTemplateId": 842,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div > div.Grid-col.u-size-1-2.stars.stars-large.pull-left.hide-content.display-inline-block-m > p",
+            "keyElement": null,
+            "specialFormatting": "(\\d+\\,\\d+)|(\\d+)",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 2,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "REVIEWS-2"
+          },
+          {
+            "competitorTemplateId": 842,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div[itemprop=aggregateRating] span.stars-reviews-count-node",
+            "keyElement": null,
+            "specialFormatting": "(\\d+\\,\\d+)|(\\d+)",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 2,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "REVIEWS-3"
+          }
+        ],
+        "name": "REVIEWS",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": true
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 145,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div.Grid.prod-breadcrumb > div > ol",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "BREADCRUMB-1"
+          },
+          {
+            "competitorTemplateId": 1370,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "nav > ol.breadcrumb-list",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 3,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "BREADCRUMB-2"
+          }
+        ],
+        "name": "BREADCRUMB",
+        "description": null,
+        "type": "AL",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": true
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 938,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div > div.about-item-complete.js-slide-panel-content.hide-content.display-block-m > section > div > div.ellipsis-content.module, div > div.about-item-complete.js-slide-panel-content.hide-content.display-block-m > section > div, div > div.about-item-complete, div.product-short-description",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "COMPLETE_PROD_DETAILS-1"
+          }
+        ],
+        "name": "COMPLETE_PROD_DETAILS",
+        "description": null,
+        "type": "AL",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": true
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 1140,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div.about-product-section div.item-ranks",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "SALES_RANK-1"
+          }
+        ],
+        "name": "SALES_RANK",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": false
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 1369,
+            "extractMethodType": "CSS_SLCTR_ATTR",
+            "extractMethod": "div.prod-ProductSecondaryInformation > span",
+            "keyElement": "content",
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "UPC-1"
+          }
+        ],
+        "name": "UPC",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": true
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 1195,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div.seller-fulfillment-section div.seller-fulfillment-subsection.pickup-info .pickup-date-msg",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "OFL_AVAILABILITY-1"
+          },
+          {
+            "competitorTemplateId": 1197,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div.product-fulfillment-tabs [data-tab=js-tab-pickup]",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 2,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "OFL_AVAILABILITY-2"
+          },
+          {
+            "competitorTemplateId": 1197,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div.prod-pickupMessageSection",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 2,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "OFL_AVAILABILITY-3"
+          }
+        ],
+        "name": "OFL_AVAILABILITY",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": false
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 178,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div.product-price-flag.price-flags > span.js-price-flag.flag.flag-new.hide-content.display-block.flag-alt",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "NEW_ITEM-1"
+          }
+        ],
+        "name": "NEW_ITEM",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": true
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 843,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "span[itemprop=\"brand\"]",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "uniqueTemplateId": 1,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": []
+          },
+          {
+            "competitorTemplateId": 845,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "#WMItemBrandLnk",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "uniqueTemplateId": 2,
+            "seq": 2,
+            "assrtXprn": null,
+            "asserts": []
+          },
+          {
+            "competitorTemplateId": 846,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "a[link-identifier=\"brandLink\"]",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "uniqueTemplateId": 3,
+            "seq": 3,
+            "assrtXprn": null,
+            "asserts": []
+          },
+          {
+            "competitorTemplateId": 847,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div.nt1",
+            "keyElement": null,
+            "specialFormatting": "(?<=Brand\\s)[\\w-]*",
+            "supplementaryExtractLogic": null,
+            "uniqueTemplateId": 4,
+            "seq": 4,
+            "assrtXprn": null,
+            "asserts": []
+          },
+          {
+            "competitorTemplateId": 848,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "section[data-pcss-show] > div",
+            "keyElement": null,
+            "specialFormatting": "(?<=Visit the)(.*?)(?=store)",
+            "supplementaryExtractLogic": null,
+            "uniqueTemplateId": 5,
+            "seq": 5,
+            "assrtXprn": null,
+            "asserts": []
+          },
+          {
+            "competitorTemplateId": 849,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "a[data-seo-id=\"brand-name\"]",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "uniqueTemplateId": 6,
+            "seq": 6,
+            "assrtXprn": null,
+            "asserts": []
+          }
+        ],
+        "name": "BRAND",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": false
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 937,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div>div.about-item-complete.js-slide-panel-content.hide-content.display-block-m>.product-about",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": null,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "PRODUCT_DESCRIPTION-1"
+          },
+          {
+            "competitorTemplateId": 991,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": ".product-about",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "PRODUCT_DESCRIPTION-2"
+          },
+          {
+            "competitorTemplateId": 1415,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "#about-product-section",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 2,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "PRODUCT_DESCRIPTION-3"
+          },
+          {
+            "competitorTemplateId": 1416,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "section [data-testid=\"product-description\"]",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 3,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "PRODUCT_DESCRIPTION-4"
+          }
+        ],
+        "name": "PRODUCT_DESCRIPTION",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": true
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": null,
+            "seq": 1,
+            "extractMethod": "#product-description-atf > div > ul > li",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 2001,
+            "uniqueTemplateId": "ABOUT_ITEM-1",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": null,
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "ALO",
+        "name": "ABOUT_ITEM"
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 177,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div > div.Grid-col.u-size-1-2.stars.stars-large.pull-left.hide-content.display-inline-block-m > p",
+            "keyElement": null,
+            "specialFormatting": "((\\d)|(\\d\\.\\d))(?=\\s*out)",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "RATING-1"
+          },
+          {
+            "competitorTemplateId": 840,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div > div.Grid-col.u-size-1-2.stars.stars-large.pull-left.hide-content.display-inline-block-m > span.visuallyhidden",
+            "keyElement": null,
+            "specialFormatting": "((\\d)|(\\d\\.\\d))(?=\\s*out)",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 2,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "RATING-2"
+          },
+          {
+            "competitorTemplateId": 841,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "#WMItemRevLnk > span[itemprop=ratingValue] > span.visuallyhidden",
+            "keyElement": null,
+            "specialFormatting": "((\\d)|(\\d\\.\\d))(?=\\s*out)",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 3,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "RATING-3"
+          },
+          {
+            "competitorTemplateId": 841,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div.ReviewsHeader-ratingContainer span.ReviewsHeader-ratingPrefix",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 3,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "RATING-4"
+          }
+        ],
+        "name": "RATING",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": true
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div.product-specifications",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 1421,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null,
+            "uniqueTemplateId": "PRODUCT_SPECIFICATION-1"
+          },
+          {
+            "extractMethod": "div.collapsable-content-container table",
+            "assrtXprn": null,
+            "seq": 2,
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 1422,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null,
+            "uniqueTemplateId": "PRODUCT_SPECIFICATION-2"
+          },
+          {
+            "extractMethod": "div.nt1 > div",
+            "assrtXprn": null,
+            "seq": 3,
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 1423,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null,
+            "uniqueTemplateId": "PRODUCT_SPECIFICATION-3"
+          }
+        ],
+        "name": "PRODUCT_SPECIFICATION",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "AL",
+        "description": "specifications"
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 1368,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div.wm-item-number",
+            "keyElement": null,
+            "specialFormatting": "[0-9]+",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "WIN-1"
+          }
+        ],
+        "name": "WIN",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": true
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div.product-specifications",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "luaj: if string.match(str,\"ISBN[-]?[1][0]%s[0-9]+\") then str = string.match(str,\"ISBN[-]?[1][0]%s[0-9]+\");num = string.sub(str,9); return num else return nil end;\n",
+            "tmplName": null,
+            "competitorTemplateId": 100,
+            "uniqueTemplateId": "ISBN-10",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "div.collapsable-content-container table",
+            "assrtXprn": null,
+            "seq": 2,
+            "keyElement": null,
+            "specialFormatting": "luaj: if string.match(str,\"ISBN[-]?[1][0]%s[0-9]+\") then str = string.match(str,\"ISBN[-]?[1][0]%s[0-9]+\");num = string.sub(str,9); return num else return nil end;\n",
+            "tmplName": null,
+            "competitorTemplateId": 100,
+            "uniqueTemplateId": "ISBN-10",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "div.nt1",
+            "assrtXprn": null,
+            "seq": 3,
+            "keyElement": null,
+            "specialFormatting": "(?<=ISBN-10\\s)\\d{10}",
+            "tmplName": null,
+            "competitorTemplateId": 100,
+            "uniqueTemplateId": "ISBN-10",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "section[data-testid=\"product-description\"]  div.mb3 ",
+            "assrtXprn": null,
+            "seq": 4,
+            "keyElement": null,
+            "specialFormatting": "(?<=ISBN10: )\\d{10}",
+            "tmplName": null,
+            "competitorTemplateId": 100,
+            "uniqueTemplateId": "ISBN-10",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "ISBN-10",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "description": "ISBN-10"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div.product-specifications",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "luaj:  if string.match(str,\"ISBN[-]?[1][3]%s[0-9]+\") then str = string.match(str,\"ISBN[-]?[1][3]%s[0-9]+\");num = string.sub(str,9); return num else return nil end;\n",
+            "tmplName": null,
+            "competitorTemplateId": 100,
+            "uniqueTemplateId": "ISBN-13",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "div.collapsable-content-container table",
+            "assrtXprn": null,
+            "seq": 2,
+            "keyElement": null,
+            "specialFormatting": "luaj:  if string.match(str,\"ISBN[-]?[1][3]%s[0-9]+\") then str = string.match(str,\"ISBN[-]?[1][3]%s[0-9]+\");num = string.sub(str,9); return num else return nil end;\n",
+            "tmplName": null,
+            "competitorTemplateId": 100,
+            "uniqueTemplateId": "ISBN-13",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "div.nt1",
+            "assrtXprn": null,
+            "seq": 3,
+            "keyElement": null,
+            "specialFormatting": "(?<=ISBN-13\\s)\\d{13}",
+            "tmplName": null,
+            "competitorTemplateId": 100,
+            "uniqueTemplateId": "ISBN-13",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "section[data-testid=\"product-description\"]  div.mb3 ",
+            "assrtXprn": null,
+            "seq": 4,
+            "keyElement": null,
+            "specialFormatting": "(?<=ISBN13: )\\d{13}",
+            "tmplName": null,
+            "competitorTemplateId": 100,
+            "uniqueTemplateId": "ISBN-13",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "ISBN-13",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "description": "ISBN-13"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div.hf-Bot > h1",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 100,
+            "uniqueTemplateId": "TITLE",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "TITLE",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "description": "Title of product"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div.mid-gray.mb2 > span.ml1",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "luaj: if string.match(str, \"Hardcover\") or string.match(str, \"Paperback\") or string.match(str, \"Board Book\") then return str else return nil end",
+            "tmplName": null,
+            "competitorTemplateId": 101,
+            "uniqueTemplateId": "BOOK_FORMAT-0",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "div.product-specifications",
+            "assrtXprn": null,
+            "seq": 3,
+            "keyElement": null,
+            "specialFormatting": "luaj: if string.match(str,\"Book%sFormat%s[A-Za-z]+\") then str = string.match(str,\"Book%sFormat%s[A-Za-z]+\");format = string.sub(str,12); return format; else return nil end;\n",
+            "tmplName": null,
+            "competitorTemplateId": 100,
+            "uniqueTemplateId": "BOOK_FORMAT-2",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "BOOK_FORMAT",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "description": "format of books"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "#variants-section div.visuallyhidden",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "luaj: if str then return \"Y\" else return \"N\" end",
+            "tmplName": null,
+            "competitorTemplateId": 100,
+            "uniqueTemplateId": "VARIANT-1",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "#item-page-variant-group-bg-div",
+            "assrtXprn": null,
+            "seq": 2,
+            "keyElement": null,
+            "specialFormatting": "luaj: if str then return \"Y\" else return \"N\" end",
+            "tmplName": null,
+            "competitorTemplateId": 100,
+            "uniqueTemplateId": "VARIANT-2",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "VARIANT_FLAG",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "description": "variation present on page or not"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div.nt1 > div",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "(?i)(?<=\\s*model\\s)[^>]+",
+            "tmplName": null,
+            "competitorTemplateId": 450,
+            "uniqueTemplateId": "MODEL_NUMBER-1",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "MODEL_NUMBER",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "AFL",
+        "description": "model number"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div.nt1 > div",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "(?i)(?<=\\s*color\\s)[^>]+",
+            "tmplName": null,
+            "competitorTemplateId": 501,
+            "uniqueTemplateId": "SELECTED_COLOR-1",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "#item-page-variant-group-bg-div   div.mid-gray.mb1 > span",
+            "assrtXprn": null,
+            "seq": 2,
+            "keyElement": null,
+            "specialFormatting": "(?i)(?<=\\s*Actual Color:\\s)[^>]+",
+            "tmplName": null,
+            "competitorTemplateId": 502,
+            "uniqueTemplateId": "SELECTED_COLOR-2",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "div.mt4 #item-page-variant-group-bg-div div[data-testid=\"variant-group-0\"] div.mid-gray",
+            "assrtXprn": null,
+            "seq": 3,
+            "keyElement": null,
+            "specialFormatting": "(?<=Color:)(.*?)(?=-)",
+            "tmplName": null,
+            "competitorTemplateId": 503,
+            "uniqueTemplateId": "SELECTED_COLOR-3",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "#item-page-variant-group-bg-div div[data-testid=\"variant-group-0\"] div.mid-gray",
+            "assrtXprn": null,
+            "seq": 4,
+            "keyElement": null,
+            "specialFormatting": "(?<=Color:)(.*?)(?=-)",
+            "tmplName": null,
+            "competitorTemplateId": 504,
+            "uniqueTemplateId": "SELECTED_COLOR-4",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "div[class=\"flex flex-wrap dark-gray\"] > div",
+            "assrtXprn": null,
+            "seq": 5,
+            "keyElement": null,
+            "specialFormatting": "(?i)(?<=\\s*Color\\s)[^>]+",
+            "tmplName": null,
+            "competitorTemplateId": 505,
+            "uniqueTemplateId": "SELECTED_COLOR-5",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "SELECTED_COLOR",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "AFL",
+        "description": "SELECTED_COLOR"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div.nt1 > div",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "(?i)(?<=\\s*assembled\\s+product\\s+weight\\s)[^>]+",
+            "tmplName": null,
+            "competitorTemplateId": 520,
+            "uniqueTemplateId": "PRODUCT_WEIGHT-1",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "PRODUCT_WEIGHT",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "AFL",
+        "description": "PRODUCT_WEIGHT"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div.nt1 > div",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "(?i)(?<=\\s*assembled\\s+product\\s+dimensions\\s*\\(\\s*l\\s*x\\s*w\\s*x\\s*h\\s*\\)\\s*)[^>]+",
+            "tmplName": null,
+            "competitorTemplateId": 540,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null,
+            "uniqueTemplateId": "PRODUCT_DIMENSIONS-1"
+          }
+        ],
+        "name": "PRODUCT_DIMENSIONS",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "AFL",
+        "description": "PRODUCT_DIMENSIONS"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div.nt1 > div",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "(?i)(?<=^\\s*material\\s)[^>]+",
+            "tmplName": null,
+            "competitorTemplateId": 560,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null,
+            "uniqueTemplateId": "MATERIAL-1"
+          }
+        ],
+        "name": "MATERIAL",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "AFL",
+        "description": "MATERIAL"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div[data-testid=add-to-cart-section] div[data-testid=atc-buynow-container]  > div > div >  div",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": "data-id",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 580,
+            "extractMethodType": "CSS_SLCTR_ATTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null,
+            "uniqueTemplateId": "PRODUCT_ID-1"
+          }
+        ],
+        "name": "PRODUCT_ID",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "description": "PRODUCT_ID"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "#item-page-variant-group-bg-div   div.mid-gray",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "(?i)(?<=^\\s*size:)[^>]+",
+            "tmplName": null,
+            "competitorTemplateId": 611,
+            "uniqueTemplateId": "SELECTED_SIZE-1",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "div.mt4 #item-page-variant-group-bg-div div[data-testid=\"variant-group-1\"] div.mid-gray",
+            "assrtXprn": null,
+            "seq": 2,
+            "keyElement": null,
+            "specialFormatting": "(?<=Size:)(.*?)(?=-)",
+            "tmplName": null,
+            "competitorTemplateId": 612,
+            "uniqueTemplateId": "SELECTED_SIZE-2",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "extractMethod": "button[style*=\"box-shadow\"][id^=\"clothing_size-\"] span.w_V_DM > span",
+            "assrtXprn": null,
+            "seq": 3,
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 613,
+            "uniqueTemplateId": "SELECTED_SIZE-3",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "SELECTED_SIZE",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "description": "SELECTED_SIZE"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div.nt1 > div",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "(?i)(?<=^\\s*unit count\\s)[^>]+",
+            "tmplName": null,
+            "competitorTemplateId": 641,
+            "uniqueTemplateId": "UNIT_COUNT-1",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "UNIT_COUNT",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "AFL",
+        "description": "UNIT_COUNT"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div.w_rNem.expand-collapse-content > div > button[aria-label=\"More details\"]",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "luaj: if str then return \"Y\" else return \"N\" end",
+            "tmplName": null,
+            "competitorTemplateId": 671,
+            "uniqueTemplateId": "MORE_DETAILS_FLAG-1",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "MORE_DETAILS_FLAG",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "description": "MORE_DETAILS_FLAG"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "div[data-testid=\"variant-group-0\"] div.flex.flex-wrap.nl1.nr1 div button div label.flex.dark-gray.pointer.relative.flex-column.items-center.h-100.bg-white.b span span",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 1007,
+            "uniqueTemplateId": "TEXT_ON_SWATCH-1",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "TEXT_ON_SWATCH",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "description": "subtitle"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "span[data-seo-id=\"hero-unit-price\"]",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "luaj: if string.find(str, \"/\") then return str else return null end;",
+            "tmplName": "",
+            "competitorTemplateId": 201,
+            "uniqueTemplateId": "UNIT_PRICE_RAW_TEXT-0",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "UNIT_PRICE_RAW_TEXT",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "description": "Unit price in WMART"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "span[data-seo-id=\"hero-unit-price\"]",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "(\\d+\\.\\d+)",
+            "tmplName": "",
+            "competitorTemplateId": 201,
+            "uniqueTemplateId": "UNIT_PRICE-0",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "UNIT_PRICE",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "A",
+        "description": "Unit price in Wmart"
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 84,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "span[data-seo-id=\"hero-price\"]",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "IS_PRICE_STRING-0"
+          },
+          {
+            "competitorTemplateId": 85,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "span[data-testid=\\\"variant-tile-price-text-Child\\\"]",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 2,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "IS_PRICE_STRING-1"
+          }
+        ],
+        "name": "IS_PRICE_STRING",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": false
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": null,
+            "seq": 2,
+            "extractMethod": "div .buy-box-container [data-seo-id=\"strike-through-price\"]",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 90,
+            "uniqueTemplateId": "WAS_PRICE_STRING-0",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          },
+          {
+            "assrtXprn": null,
+            "seq": 15,
+            "extractMethod": "div.nowrap.items-center.inline-flex.h1 > span.mr2.f6.gray.mr1.strike",
+            "specialFormatting": ".*",
+            "tmplName": null,
+            "competitorTemplateId": 530,
+            "uniqueTemplateId": "WAS_PRICE_STRING-1",
+            "keyElement": null,
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "WAS_PRICE_STRING",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": false
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 936,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "label[data-testid=\"shipping-tile\"] div div",
+            "keyElement": null,
+            "specialFormatting": "luaj:if string.match(str,\"$[0-9]\") then return str else return null end",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "SHIPPING_CHARGE-0"
+          }
+        ],
+        "name": "SHIPPING_CHARGE",
+        "description": null,
+        "type": "ALO",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": true
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 938,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div[data-testid=\"fulfillment-zone-2\"] div div[class=\"mb2\"] span",
+            "keyElement": null,
+            "specialFormatting": "luaj:return string.gsub(str,\"%D\", \"\");",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "ZIPCODE-0"
+          },
+          {
+            "competitorTemplateId": 939,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div[data-testid=\"fulfillment-zone-2\"] span",
+            "keyElement": null,
+            "specialFormatting": "luaj:return string.gsub(str,\"%D\", \"\");",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 2,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "ZIPCODE-1"
+          }
+        ],
+        "name": "ZIPCODE",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": true
+      },
+      {
+        "templates": [
+          {
+            "competitorTemplateId": 936,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "div.f7.mt2",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 1,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "SHIPPING_MESSAGE-0"
+          },
+          {
+            "competitorTemplateId": 937,
+            "extractMethodType": "CSS_SLCTR",
+            "extractMethod": "li[data-testid=free-shipping]",
+            "keyElement": null,
+            "specialFormatting": ".*",
+            "supplementaryExtractLogic": null,
+            "tmplName": null,
+            "seq": 2,
+            "assrtXprn": null,
+            "asserts": [],
+            "uniqueTemplateId": "SHIPPING_MESSAGE-1"
+          }
+        ],
+        "name": "SHIPPING_MESSAGE",
+        "description": null,
+        "type": "A",
+        "regexValidator": null,
+        "extractOnline": true,
+        "extractOffline": true
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "[class=\"ma3 mh0-l\"] [class=\"f6\"]",
+            "assrtXprn": null,
+            "seq": 1,
+            "keyElement": null,
+            "specialFormatting": "(?i).*packaging.*",
+            "tmplName": null,
+            "competitorTemplateId": 614,
+            "uniqueTemplateId": "PACKAGING_TEXT-0",
+            "extractMethodType": "CSS_SLCTR",
+            "asserts": [],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "name": "PACKAGING_TEXT",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "AL",
+        "description": null
+      }
+    ],
+    "elements": [
+      {
+        "templates": [
+          {
+            "extractMethod": "#global-search-input",
+            "extractMethodType": "CSS_SLCTR",
+            "competitorTemplateId": 401
+          }
+        ],
+        "type": "EM",
+        "description": "Search box element",
+        "name": "SEARCH_BOX"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "#global-search-form > div > div:nth-child(3) > button",
+            "extractMethodType": "CSS_SLCTR",
+            "competitorTemplateId": 402
+          }
+        ],
+        "type": "EM",
+        "description": "Search button",
+        "name": "SEARCH_BUTTON"
+      },
+      {
+        "templates": [
+          {
+            "extractMethod": "#searchProductResult > div.search-result-listview-items .search-result-product-title:not(.hide-content) a.product-title-link",
+            "keyElement": "href",
+            "extractMethodType": "CSS_SLCTR",
+            "specialFormatting": "luaj:str1 = string.match(str, \"^[^?#]+\"); return string.match(str1, \"/ip/.*/([%w]+)/*$\") or string.match(str1, \"/ip/([%w]+)/*$\");",
+            "competitorTemplateId": 403
+          }
+        ],
+        "type": "EML",
+        "description": "Search results",
+        "name": "URL_SKU"
+      }
+    ],
+    "errorPages": [
+      {
+        "templates": [
+          {
+            "assrtXprn": "ASSERT36 OR ASSERT37 OR ASSERT39 OR ASSERT40 OR ASSERT41 OR ASSERT42 OR ASSERT43 OR ASSERT44 OR ASSERT45 OR ASSERT46",
+            "seq": 1,
+            "extractMethod": "ERR",
+            "specialFormatting": "ERR",
+            "tmplName": null,
+            "competitorTemplateId": 94,
+            "keyElement": "ERR",
+            "extractMethodType": "ERR",
+            "asserts": [
+              {
+                "assrt": "We can't find the product you are looking for",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 36,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "This page may be missing or may have been retired",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 37,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "This item is no longer available",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 39,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "The page you are looking for could not be found",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 40,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": ".search-result-gridview-items .Grid-col",
+                "assrtValue": "1",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": "SLP on Walmart",
+                "assrtId": 41,
+                "type": "CSS_SLCTR_CNT"
+              },
+              {
+                "assrt": "Oops! This item is unavailable or on backorder.",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 42,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "Forbidden ([0-9]+)-([0-9]+)-([0-9]+)-([0-9]+)",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 43,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrtId": 44,
+                "type": "CSS_SLCTR_CNT",
+                "assrt": "div[data-testid=\"item-not-found\"]",
+                "assrtFnct": "EQUAL_TO",
+                "assrtValue": "1",
+                "assrtName": "PNF"
+              },
+              {
+                "assrt": "This page could not be found",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 45,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "head > [content=\"homePage\"]",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 46,
+                "type": "CSS_SLCTR_CNT"
+              }
+            ],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": "PNF - product not found",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "E",
+        "name": "404"
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": "ASSERT100 OR ASSERT101 OR ASSERT102 OR ASSERT103 OR ASSERT104 OR ASSERT105 OR ASSERT106",
+            "seq": 1,
+            "extractMethod": "ERR",
+            "specialFormatting": "ERR",
+            "tmplName": null,
+            "competitorTemplateId": 545,
+            "keyElement": "ERR",
+            "extractMethodType": "ERR",
+            "asserts": [
+              {
+                "assrt": "You don't have permission to access",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 100,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "Verify your identity",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 101,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "Help us keep your account safe by clicking on the checkbox below",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 102,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "Verify Your Identity",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 103,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "Robot or human?",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 104,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "Sign in to your ",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 105,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "<title>Login</title>",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 106,
+                "type": "REGEX_CNT"
+              }
+            ],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": null,
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "E",
+        "name": "ANONYMITY_ERROR_PAGE"
+      },
+      {
+        "templates": [
+          {
+            "assrtXprn": "ASSERT1 OR ASSERT2 OR ASSERT3 OR ASSERT4 OR ASSERT5 OR ASSERT6 OR ASSERT7 OR ASSERT8 OR ASSERT9 OR ASSERT10 OR ASSERT11",
+            "seq": 1,
+            "extractMethod": "ERR",
+            "specialFormatting": "ERR",
+            "tmplName": null,
+            "competitorTemplateId": 546,
+            "keyElement": "ERR",
+            "extractMethodType": "ERR",
+            "asserts": [
+              {
+                "assrt": "An error occurred while attempting to load this content.",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 1,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "Could not connect to server",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 2,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "\\{\"statusCode\":500,\"error\":\"Internal Server Error\",\"message\":\"An internal server error occurred\"\\}",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 3,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "We're having technical difficulties and are looking into the problem now",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 4,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "This site can’t be reached",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 5,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "We’re having technical issues",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 6,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "Hang tight — you're in the right place.",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 7,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "Stay close, you're almost in",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 8,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "We're have technical issues, but we'll be back in a flash.",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 9,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "upstream connect error or disconnect/reset before headers. reset reason: connection failure",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 10,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "We\\?re having technical issues",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": null,
+                "assrtId": 11,
+                "type": "REGEX_CNT"
+              },
+              {
+                "assrt": "This page could not be found",
+                "assrtValue": "0",
+                "assrtFnct": "GREATER_THAN",
+                "assrtName": "SUE",
+                "assrtId": 12,
+                "type": "REGEX_CNT"
+              }
+            ],
+            "supplementaryExtractLogic": null
+          }
+        ],
+        "description": "Walmart server error - Site Unavailable Error",
+        "extractOnline": true,
+        "regexValidator": null,
+        "extractOffline": false,
+        "type": "E",
+        "name": "503"
+      }
+    ],
+    "competitorShortName": "WMART"
+  }
+}

@@ -8,13 +8,11 @@
  */
 import { sendToTab } from '../../shared/messages';
 
-export { readPageResult, type FieldResult, type PageResult } from './readPage';
-import type { StepResult } from '../../shared/listing/stepStats';
+export { pageRequest, readPageResult, type FieldResult, type PageResult, type PageStepReply, type RuleHit } from './readPage';
 import { hasProActions, MissingVariable } from '../recipe/actions';
-import { toPageSpec } from '../recipe/fromPublic';
 import type { PageRecipeSpec, RunSettings, SessionSetup } from '../recipe/types';
 import { DEFAULT_STEP_OPTIONS, prepareSession, runAction, runPageSteps, StepFailed } from '../steps/runner';
-import { readPageResult, readStepsResult, type PageResult } from './readPage';
+import { pageRequest, readPageResult, readStepsResult, type PageResult, type PageStepReply, type RuleHit } from './readPage';
 import { call as callInTab, dismissInTab, tabDriver } from './tabSteps';
 
 /** A setup with something to do. */
@@ -25,20 +23,21 @@ export const setupOf = (spec: PageRecipeSpec): SessionSetup | undefined =>
 const TAB_STEP_OPTIONS = { ...DEFAULT_STEP_OPTIONS, timeoutMs: 8_000, settleMs: 500 };
 
 export function pageTestRequest(spec: PageRecipeSpec, settings: RunSettings, url: string) {
-    const { elements } = toPageSpec(spec, settings);
-    return { url, elements, config: { ...settings, listOutput: 'nested' as const } };
+    return { url, ...pageRequest(spec, settings) };
 }
 
 /** The content script starts after a load: a message sent too early finds no one listening. */
 const notListening = (e: unknown) => /Receiving end does not exist|Could not establish connection/i.test(e instanceof Error ? e.message : String(e));
 
 /** The public extractor on the tab: the fields' raw values and each step's status. */
-async function readOnTab(tabId: number, spec: PageRecipeSpec, settings: RunSettings, url: string): Promise<{ item: Record<string, unknown>; steps: StepResult[] }> {
+async function readOnTab(tabId: number, spec: PageRecipeSpec, settings: RunSettings, url: string): Promise<{ item: Record<string, unknown>; steps: PageStepReply[]; rule?: RuleHit }> {
     for (let tries = 0; ; tries++) {
         try {
             const reply = await sendToTab(tabId, 'CMD_EXTRACT_PAGE_BACKGROUND', pageTestRequest(spec, settings, url));
             if (!reply?.success) throw new Error(reply && 'error' in reply ? String(reply.error) : 'No reply from the page');
-            const result = reply.result as { item?: Record<string, unknown>; steps?: StepResult[] };
+            const result = reply.result as { item?: Record<string, unknown>; steps?: PageStepReply[]; rule?: RuleHit };
+            // A page rule that held: nothing was read.
+            if (result.rule) return { item: result.item ?? {}, steps: result.steps ?? [], rule: result.rule };
             return withMarkup(tabId, spec, { item: result.item ?? {}, steps: result.steps ?? [] });
         } catch (e) {
             // After a step loaded a new page, its content script may not be listening yet.
@@ -48,19 +47,37 @@ async function readOnTab(tabId: number, spec: PageRecipeSpec, settings: RunSetti
     }
 }
 
-/** Fields with markup ways read from the page's markup first: a value there is the field's, found in the page's data. */
-async function withMarkup(tabId: number, spec: PageRecipeSpec, read: { item: Record<string, unknown>; steps: StepResult[] }) {
-    const fields = spec.steps.flatMap(s => s.kind === 'field' && s.field.ways.some(w => w.kind === 'markup')
-        ? [{ id: s.field.id, ways: s.field.ways.flatMap(w => w.kind === 'markup' ? [{ source: w.source, key: w.key, ...(w.type ? { type: w.type } : {}) }] : []) }] : []);
-    if (!fields.length) return read;
-    const hits = await callInTab<Record<string, { value: string }>>(tabId, 'readMarkupFields', [fields]);
-    for (const [id, hit] of Object.entries(hits ?? {})) {
-        read.item[id] = hit.value;
-        const step = read.steps.find(s => s.id === id);
+/**
+ * Fields with markup ways read from the page's markup first: a value there is the field's, found in the page's data.
+ * A field read way by way gets each markup way's value in that way's place, and its ways decide as usual.
+ */
+async function withMarkup(tabId: number, spec: PageRecipeSpec, read: { item: Record<string, unknown>; steps: PageStepReply[] }) {
+    const byWay = new Map(read.steps.flatMap(s => s.hits ? [[s.id, s] as const] : []));
+    const asks = spec.steps.flatMap(s => {
+        if (s.kind !== 'field') return [];
+        const marks = s.field.ways.flatMap((w, i) => w.kind === 'markup' ? [{ i, way: { source: w.source, key: w.key, ...(w.type ? { type: w.type } : {}) } }] : []);
+        if (!marks.length) return [];
+        return byWay.has(s.field.id) ? marks.map(m => ({ id: `${s.field.id}${WAY_KEY}${m.i}`, ways: [m.way] })) : [{ id: s.field.id, ways: marks.map(m => m.way) }];
+    });
+    if (!asks.length) return read;
+    const hits = await callInTab<Record<string, { value: string }>>(tabId, 'readMarkupFields', [asks]);
+    for (const [key, hit] of Object.entries(hits ?? {})) {
+        const at = key.lastIndexOf(WAY_KEY);
+        if (at >= 0) {
+            const wayHits = byWay.get(key.slice(0, at))?.hits;
+            const i = Number(key.slice(at + WAY_KEY.length));
+            if (wayHits && !wayHits[i]?.skipped) wayHits[i] = { values: [hit.value] };
+            continue;
+        }
+        read.item[key] = hit.value;
+        const step = read.steps.find(s => s.id === key);
         if (step) step.status = 'data';
     }
     return read;
 }
+
+/** Joins a field's id and a way's place in the markup asked for a field read way by way. */
+const WAY_KEY = '\u0000way';
 
 /**
  * Runs the spec on a tab. A page the extension can't reach comes back as an error, not a throw.
@@ -71,7 +88,7 @@ export async function testOnTab(tabId: number, url: string, spec: PageRecipeSpec
     if (!setup && !hasProActions(spec)) {
         try {
             const r = await readOnTab(tabId, spec, settings, url);
-            return readPageResult(spec, url, r.item, r.steps);
+            return readPageResult(spec, url, r.item, r.steps, r.rule);
         } catch (e) {
             return { url, fields: [], clicks: [], error: e instanceof Error ? e.message : String(e) };
         }

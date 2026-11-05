@@ -1,19 +1,25 @@
 /**
- * A field's cleanup steps: the public text ops (`shared/transforms/chain.ts`) plus Pro's two that change
- * the value's shape (recipe-improvements-plan B9): `splitList` turns text into a list, `toObject` turns
- * "Name: value" lines (or list items) into an object. Text ops after `splitList` run on each item.
+ * A field's cleanup steps: the public text ops (`shared/transforms/chain.ts`) plus Pro's own: `splitList`
+ * turns text into a list, `toObject` turns "Name: value" lines (or list items) into an object, `join` turns
+ * a list back into text, and `lua` runs a short Lua script on the text (`lua.ts`). Text ops after
+ * `splitList` run on each item.
  */
 import { applyOps, OP_LABELS, type TransformOp } from '../../shared/transforms/chain';
+import { runLua } from './lua';
 
 export type ProOp =
     | TransformOp
     | { op: 'splitList'; sep: string }
-    | { op: 'toObject'; sep: string };
+    | { op: 'toObject'; sep: string }
+    | { op: 'join'; sep: string }
+    | { op: 'lua'; code: string };
 
 export const PRO_OP_LABELS: Record<ProOp['op'], string> = {
     ...OP_LABELS,
     splitList: 'Text to list',
     toObject: '"Name: value" to object',
+    join: 'List to text',
+    lua: 'Lua script',
 };
 
 /** A new step of each kind, with its default settings. */
@@ -31,6 +37,8 @@ export const NEW_OP: Record<ProOp['op'], ProOp> = {
     absoluteUrl: { op: 'absoluteUrl' },
     splitList: { op: 'splitList', sep: '\\n' },
     toObject: { op: 'toObject', sep: ':' },
+    join: { op: 'join', sep: ', ' },
+    lua: { op: 'lua', code: 'return str' },
 };
 
 /** A separator as typed: `\n` and `\t` written out mean a new line and a tab. */
@@ -58,6 +66,10 @@ export function applyProOps(raw: unknown, ops: ProOp[], base?: string): unknown 
         } else if (o.op === 'toObject') {
             const lines = Array.isArray(v) ? v.map(String) : typeof v === 'string' ? v.split('\n') : [];
             if (lines.length) v = toObject(lines, sepOf(o.sep));
+        } else if (o.op === 'join') {
+            if (Array.isArray(v)) v = v.map(item => item ?? '').join(o.sep);
+        } else if (o.op === 'lua') {
+            v = Array.isArray(v) ? v.map(item => runLua(o.code, String(item))) : typeof v === 'string' ? runLua(o.code, v) : v;
         } else if (Array.isArray(v)) {
             v = v.map(item => applyOps(String(item), [o], base));
         } else if (typeof v === 'string') {
@@ -76,6 +88,8 @@ export function opSummary(o: ProOp): string {
         case 'split': return `${label} "${o.sep}" #${o.index}`;
         case 'prefix': case 'suffix': return `${label} "${o.text}"`;
         case 'splitList': case 'toObject': return `${label} (${o.sep})`;
+        case 'join': return `${label} "${o.sep}"`;
+        case 'lua': return `${label} ${o.code.length > 40 ? `${o.code.slice(0, 40)}…` : o.code}`;
         default: return label;
     }
 }

@@ -11,6 +11,7 @@
 import { fillVariables, MAX_EACH, segments } from '../recipe/actions';
 import type { Click, PageRecipeSpec, SessionSetup } from '../recipe/types';
 import type { StepResult } from '../../shared/listing/stepStats';
+import type { PageRule } from '../../shared/types/ways';
 import type { TargetRequest, TargetResult } from './inPageSteps';
 
 /** A step or the setup check that could not be done: the attempt fails, naming it. */
@@ -184,6 +185,8 @@ export interface SegmentRead {
     item: Record<string, unknown>;
     steps: StepResult[];
     ways: StepWayUse[];
+    /** A page rule held (`PageRecipeSpec.rules`): the page is not one the recipe reads. */
+    rule?: Pick<PageRule, 'name' | 'status'>;
 }
 
 /** A page read with its steps: the values, and one row of values per item a "for each" step went through. */
@@ -207,8 +210,11 @@ export async function runPageSteps(d: StepDriver, spec: PageRecipeSpec, context:
         Object.assign(into.item, r.item);
         into.steps.push(...r.steps);
         into.ways.push(...r.ways);
+        if (r.rule && !out.rule) out.rule = r.rule;
     };
     for (const seg of segments(spec)) {
+        // A page rule held: the page is not one to read, nor to act on.
+        if (out.rule) break;
         if (seg.kind === 'read') await readInto(seg.spec, out);
         else if (seg.kind === 'act') {
             const r = await runAction(d, seg.click, context, o);

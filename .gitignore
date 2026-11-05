@@ -1,3 +1,4 @@
+chromium/*
 # Logs
 logs
 *.log
@@ -158,3 +159,5 @@ walamrt-toys.html
 # CrawlPilot Pro
 crawlpilot-pro.zip
 *.pem
+chromium/mac_arm-1735939/chrome-mac/Chromium.app/Contents/Resources/th.lproj/InfoPlist.strings
+.DS_Store

@@ -73,3 +73,15 @@ describe('for each item', () => {
         expect(problems(notChoose)).toContain('Step "Fulfilment" goes through each item, so it must choose from a list.');
     });
 });
+
+describe('a page rule', () => {
+    it('stops the page: no step runs after the read where it held, and the rule comes back', async () => {
+        const acted: string[] = [];
+        const { driver } = fakePage(['Pickup']);
+        driver.act = async () => { acted.push('act'); };
+        const typed: PageRecipeSpec = { kind: 'page', steps: [field('title'), { kind: 'click', click: { id: 'zip', name: 'ZIP', ways: [sel('#zip')], do: 'type', value: '10001' } }, field('price')] };
+        const r = await runPageSteps(driver, typed, {}, options, async () => ({ item: {}, steps: [], ways: [], rule: { name: '404', status: 'not_found' as const } }));
+        expect(r.rule).toEqual({ name: '404', status: 'not_found' });
+        expect(acted).toEqual([]);
+    });
+});

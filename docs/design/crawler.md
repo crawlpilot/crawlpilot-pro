@@ -34,6 +34,8 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
 | `blocked` | A vendor's challenge or block page (below); a soft block; a bare 403 | Queue, after the cooldown | Cooldown grows; `blocked` after 3 in a row | Never moves |
 | `captcha` | A vendor's captcha, or a captcha widget or wording on a short or error page | As `blocked` | As `blocked` | Never moves |
 | `not_found`, `gone` | 404, 410 | No: failed; scrape written with `pageStatus: not_found` | — | — |
+| `unavailable` | A recipe page rule with status `unavailable` held | No: failed; scrape written with `pageStatus: unavailable` | — | — |
+| `mismatch` | The recipe's identity check: the page is another product than its URL names | No: failed; scrape written with `pageStatus: mismatch`, no attributes | — | — |
 | `client_error` | Other 4xx | No: failed | — | — |
 | `server_error` | 5xx | Here, backoff (`Retry-After` if sent) | Delay ×1.5 | — |
 | `empty_page` | A 2xx page with almost no text | Here, backoff | — | — |
@@ -46,6 +48,12 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
 | `expired` | Put back for longer than `retry.maxJobAgeMs` (24 h) since it was first taken | Dead letter | — | — |
 
 Out of attempts (`retry.maxAttempts`, counted over every delivery of the job), a retryable job is dead-lettered.
+
+**Recipe verdicts** (`recipeRun.ts`). A 2xx page can still be classed by its recipe (`LLD.md` §2.3): the first page rule
+that holds classes it before any field is read (`not_found` → `not_found`, `unavailable` → `unavailable`, `blocked` →
+`blocked`, with the rule's name as the block signal, `error` → `server_error`), and a failed identity check classes it
+`mismatch`. Each then follows its row above. The scrape document carries the status and the rule or mismatch as its
+error message but no attributes, and no way usage is recorded for the page.
 
 ## Fields from the page's markup
 A field's ways can include the page's **markup**:

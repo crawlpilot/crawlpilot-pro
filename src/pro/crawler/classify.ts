@@ -87,6 +87,8 @@ const RULES: Record<ErrorClass, { retryable: boolean; pageStatus: PageStatus }> 
     gone: { retryable: false, pageStatus: 'not_found' },
     client_error: { retryable: false, pageStatus: 'error' },
     server_error: { retryable: true, pageStatus: 'error' },
+    unavailable: { retryable: false, pageStatus: 'unavailable' },
+    mismatch: { retryable: false, pageStatus: 'mismatch' },
     empty_page: { retryable: true, pageStatus: 'error' },
     robots_disallowed: { retryable: false, pageStatus: 'error' },
     extraction: { retryable: true, pageStatus: 'error' },

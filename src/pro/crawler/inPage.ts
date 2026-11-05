@@ -17,6 +17,7 @@ import { readWhenReady, type ReaderColumn } from '../../content/services/extract
 import { resolveContainer, resolveItems, resolveOne } from '../../shared/selectors/resolve';
 import type { StepResult } from '../../shared/listing/stepStats';
 import type { Chain, DataBinding, ListTarget } from '../../shared/types/database';
+import type { PageRule, WayHit } from '../../shared/types/ways';
 import { isShown, listItems, markTarget } from '../steps/inPageSteps';
 import { readMarkupFields } from '../markup/markup';
 import type { MarkupWay } from '../recipe/types';
@@ -34,6 +35,8 @@ export interface InPageRequest {
     elements: ElementDefinition[];
     config: ExtractionConfig;
     probes: WayProbe[];
+    /** The markup ways of fields read way by way, by their place among the field's ways. */
+    markupWays?: { elementId: string; index: number; way: Pick<MarkupWay, 'source' | 'key' | 'type'> }[];
 }
 
 export interface WayUse {
@@ -46,8 +49,11 @@ export interface WayUse {
 
 export interface InPageResult {
     item: Record<string, unknown>;
-    steps: StepResult[];
+    /** A field read way by way has what each way read (`hits`); its usage is worked out from them (`recipeRun.ts`). */
+    steps: (StepResult & { hits?: WayHit[] })[];
     ways: WayUse[];
+    /** A page rule held: nothing was read. */
+    rule?: Pick<PageRule, 'name' | 'status'>;
 }
 
 const filled = (v: unknown) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
@@ -55,8 +61,15 @@ const filled = (v: unknown) => v !== undefined && v !== null && v !== '' && !(Ar
 /** Steps that used a selector: an extracted field read from the DOM, or a click that did something. */
 const USED_SELECTOR = new Set(['ok', 'clicked', 'opened', 'already-open']);
 
-export async function run({ elements, config, probes }: InPageRequest): Promise<InPageResult> {
-    const { item, steps } = await extractPage(elements, config) as { item: Record<string, unknown>; steps: StepResult[] };
+export async function run({ elements, config, probes, markupWays }: InPageRequest): Promise<InPageResult> {
+    const { item, steps, rule } = await extractPage(elements, config) as Omit<InPageResult, 'ways'>;
+    if (rule) return { item, steps, ways: [], rule };
+    // A field read way by way: each of its markup ways is read here, into its place among the field's ways.
+    for (const m of markupWays ?? []) {
+        const hits = steps.find(s => s.id === m.elementId)?.hits;
+        const hit = hits && readMarkupFields([{ id: m.elementId, ways: [m.way] }])[m.elementId];
+        if (hits && hit && !hits[m.index]?.skipped) hits[m.index] = { values: [hit.value] };
+    }
     const status = new Map(steps.map(s => [s.id, s.status as string]));
     const ways: WayUse[] = [];
     for (const probe of probes) {

@@ -4,11 +4,13 @@
  * Format 3, the one written, adds what the crawler workers resolve a recipe by (competitor, page type,
  * match rules) and each way's stable id; a format 2 file's ways get their ids when its versions are saved.
  * Importing never overwrites: format 1 becomes version 1 of a new recipe, and a format 2 file adds the
- * versions whose digest the recipe doesn't have yet.
+ * versions whose digest the recipe doesn't have yet. An Atlas template export becomes a page recipe
+ * (`atlas/import.ts`).
  */
 import type { ListSpec, PageSpec } from '../../shared/types/database';
 import { fromListSpec, fromPageSpec } from './fromPublic';
 import { resolveContract } from './contract';
+import { isAtlasExport, readAtlasExport } from './atlas/import';
 import type { LabelName, MatchRules, PageSource, ProRecipe, RecipeKind, Sample, Targeting, Version, VersionDraft } from './types';
 
 export class RecipeFileError extends Error {
@@ -38,9 +40,12 @@ export interface ImportedRecipe {
     targeting: Targeting;
     versions: (VersionDraft & { note: string; digest?: string })[];
     samples: string[];
+    /** An Atlas export's parts that could not be carried over (also in the version's note). */
+    notes?: string[];
 }
 
 export function readRecipeFile(raw: string): ImportedRecipe {
+    if (isAtlasExport(raw)) return readAtlasExport(raw);
     let json: unknown;
     try { json = JSON.parse(raw); } catch { throw new RecipeFileError('$', 'not JSON'); }
     if (!isObject(json)) throw new RecipeFileError('$', 'expected an object');

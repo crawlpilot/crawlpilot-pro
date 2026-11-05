@@ -300,6 +300,11 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
                                     : await extract(page, d.script, request!, EXTRACT_TIMEOUT_MS);
                                 read = readRun(part.page, v.finalUrl ?? job.url, { ...result, ways: [...setupWays, ...result.ways] }, recipe.spec.setup);
                             } else listRead = await readListPages(page, d.script, part.list, { maxPages: config.maxListPages, settleMs: config.settleMs, timeoutMs: LIST_TIMEOUT_MS });
+                            // The recipe's page rules and identity check class the page: a block page is a block, a gone product is not found.
+                            if (read?.verdict) {
+                                c = classOf(read.verdict.errorClass, read.verdict.errorClass === 'blocked' ? { blockSignal: read.verdict.message } : {});
+                                errorMessage = read.verdict.message;
+                            }
                         } catch (e) {
                             errorMessage = e instanceof Error ? e.message : String(e);
                             if (e instanceof StepFailed) c = classOf('setup_failed');
@@ -408,15 +413,16 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
                 for (const r of readListRows(part.list, listRead.lists).rows) {
                     confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape({ attributes: r.attributes, fieldStatus: r.fieldStatus, listId: r.listId, row: r.index, page: job.page ?? 1 }), `${docId}~${r.listId}~${r.index}`));
                 }
-            } else if (read?.rows) {
+            } else if (read?.rows && !read.verdict) {
                 // One document per item a "for each" step went through: its id ends with the item.
                 for (const r of read.rows) {
                     confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape({ attributes: r.attributes, fieldStatus: r.fieldStatus, option: r.option }), `${docId}~opt=${r.option.value}`));
                 }
             } else if (read || c.pageStatus === 'not_found') {
-                confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape(read ? { attributes: read.attributes, fieldStatus: read.fieldStatus } : {}), docId));
+                // A verdict's page is written with its status only: what was read is not this product's.
+                confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape(read && !read.verdict ? { attributes: read.attributes, fieldStatus: read.fieldStatus } : {}), docId));
             }
-            if (read) {
+            if (read && !read.verdict) {
                 confirm(d.sink.writeConfirmed(indices.usage(job, t), {
                     jobId: job.jobId, crawledAt, competitor: job.competitor, pageType: job.pageType, pageStatus: c.pageStatus, ...ref,
                     ...(job.context ? { context: job.context } : {}), ways: read.ways,

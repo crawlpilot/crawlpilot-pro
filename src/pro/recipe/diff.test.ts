@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import zara from '../../shared/samples/recipes/zara-product.json';
 import type { ListSpec, PageSpec } from '../../shared/types/database';
 import { outputDigest, specDigest } from './canonical';
-import { diffVersions } from './diff';
+import { conditionLabel, diffVersions } from './diff';
 import { fromListSpec, fromPageSpec } from './fromPublic';
 import { assignWayIds } from './wayIds';
 import type { Field, PageRecipeSpec, ProSpec, Version } from './types';
@@ -63,6 +63,24 @@ describe('diffVersions, page recipes', () => {
         expect(d.changes).toContainEqual({ kind: 'changed', subject: 'settings', details: ['requestDelay 1000 → 3000'] });
         expect(d.changes).toContainEqual({ kind: 'changed', subject: 'pages', details: ['1 added, 0 removed (2 now)'] });
         expect(d.outputChanged).toBe(false);
+    });
+
+    it('notices page rules and the identity check', async () => {
+        const rule = { name: '404', status: 'not_found' as const, when: { kind: 'css' as const, selector: '.gone', op: 'gt' as const, value: 0 } };
+        const b: PageRecipeSpec = { ...structuredClone(base), rules: [rule], identity: { field: 'title', url: ['\\d+'] } };
+        const d = diffVersions(await version(1, base), await version(2, b));
+        expect(d.changes).toContainEqual({ kind: 'changed', subject: 'page rules', details: ['rule added or changed: 404'] });
+        expect(d.changes).toContainEqual({ kind: 'changed', subject: 'identity check', details: ['none → title (1 URL pattern)'] });
+        const c = { ...b, identity: { field: 'title', url: ['\\w+'] } };
+        expect(diffVersions(await version(2, b), await version(3, c)).changes).toEqual([{ kind: 'changed', subject: 'identity check', details: ['its URL patterns changed'] }]);
+    });
+
+    it('says a condition in one line', () => {
+        expect(conditionLabel({ kind: 'any', of: [
+            { kind: 'css', selector: '#a', op: 'gt', value: 0 },
+            { kind: 'all', of: [{ kind: 'regex', pattern: 'Sold out', op: 'eq', value: 0 }, { kind: 'not', of: { kind: 'css', selector: '#c', op: 'lt', value: 2 } }] },
+        ] })).toBe('#a > 0 OR (/Sold out/ = 0 AND NOT (#c < 2))');
+        expect(conditionLabel({ kind: 'any', of: [] })).toBe('never');
     });
 });
 

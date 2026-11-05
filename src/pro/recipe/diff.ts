@@ -7,6 +7,7 @@ import { canonicalString } from './canonical';
 import type { Click, Field, ListRecipeSpec, PageRecipeSpec, PageSource, SessionSetup, Version, Way } from './types';
 import { describeAction } from './actions';
 import type { Column, ListTarget } from '../../shared/types/database';
+import type { Condition } from '../../shared/types/ways';
 
 export type ChangeKind = 'added' | 'removed' | 'renamed' | 'changed' | 'moved';
 
@@ -52,6 +53,22 @@ export function wayLabel(w: Way): string {
     const b = w.binding;
     const path = [...b.path.map(p => typeof p === 'object' ? `[${p.where}=${p.is}]` : String(p)), b.key].filter(Boolean).join('.');
     return `${b.kind === 'ld' ? `JSON-LD${b.type ? ` ${b.type}` : ''}` : b.label}${path ? ` · ${path}` : ''}`;
+}
+
+const OP_SIGN = { eq: '=', gt: '>', lt: '<' } as const;
+
+/** A condition in one line: `#captcha > 0`, `/Sold out/ = 0`, joined with AND / OR. */
+export function conditionLabel(c: Condition): string {
+    switch (c.kind) {
+        case 'css': return `${c.selector} ${OP_SIGN[c.op]} ${c.value}`;
+        case 'regex': return `/${c.pattern}/${c.flags ?? ''} ${OP_SIGN[c.op]} ${c.value}`;
+        case 'not': return `NOT (${conditionLabel(c.of)})`;
+        default: {
+            if (!c.of.length) return c.kind === 'all' ? 'always' : 'never';
+            const parts = c.of.map(x => x.kind === 'all' || x.kind === 'any' ? `(${conditionLabel(x)})` : conditionLabel(x));
+            return parts.join(c.kind === 'all' ? ' AND ' : ' OR ');
+        }
+    }
 }
 
 /** The ways that differ: added and removed, then "order" when the same ways moved. */
@@ -127,6 +144,21 @@ function pageChanges(a: PageRecipeSpec, b: PageRecipeSpec, prefix = ''): Change[
     const oa = order(a), ob = order(b);
     const common = (x: string[], y: string[]) => x.filter(k => y.includes(k));
     if (json(common(oa, ob)) !== json(common(ob, oa))) changes.push({ kind: 'moved', subject: `${prefix}steps`, details: ['the run order changed'] });
+
+    const rulesA = (a.rules ?? []).map(r => json(r)), rulesB = (b.rules ?? []).map(r => json(r));
+    if (json(rulesA) !== json(rulesB)) {
+        const names = (rules: typeof a.rules, other: string[]) => (rules ?? []).filter(r => !other.includes(json(r))).map(r => r.name);
+        const added = names(b.rules, rulesA), removed = names(a.rules, rulesB);
+        changes.push({ kind: 'changed', subject: `${prefix}page rules`, details: [
+            ...added.map(n => `rule added or changed: ${n}`), ...removed.map(n => `rule removed or changed: ${n}`),
+            ...(added.length + removed.length === 0 ? ['rules reordered'] : []),
+        ] });
+    }
+    if (json(a.identity) !== json(b.identity)) {
+        const say = (s: PageRecipeSpec) => s.identity ? `${s.identity.field} (${s.identity.url.length} URL pattern${s.identity.url.length === 1 ? '' : 's'})` : 'none';
+        const from = say(a), to = say(b);
+        changes.push({ kind: 'changed', subject: `${prefix}identity check`, details: [from === to ? 'its URL patterns changed' : `${from} → ${to}`] });
+    }
     return changes;
 }
 

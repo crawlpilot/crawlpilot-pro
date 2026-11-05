@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { readFileSync } from 'node:fs';
 import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import uniqlo from '../../shared/samples/recipes/uniqlo-product.json';
@@ -144,6 +145,18 @@ describe('import', () => {
         expect((await pro.importRecipeFile(raw, 'tester')).added).toBe(0);
         expect((await pro.importRecipeFile(JSON.stringify(zara), 'tester')).added).toBe(0);
         expect(await pro.recipes.list()).toHaveLength(1);
+    });
+
+    it('brings in an Atlas export as a targeted page recipe, once, with what it left out', async () => {
+        const raw = readFileSync('src/pro/recipe/atlas/fixtures/amz.json', 'utf8');
+        const { recipe, added, notes } = await pro.importRecipeFile(raw, 'tester');
+        expect(added).toBe(1);
+        expect(recipe).toMatchObject({ name: 'AMZ product (Atlas)', site: 'amazon.com', kind: 'page', competitor: 'amz', pageType: 'product' });
+        expect(notes).toHaveLength(2);
+        const v1 = (await pro.versions.get(recipe.id, 1))!;
+        expect(v1.note).toMatch(/^Imported from Atlas \(AMZ\): 62 fields, 6 page rules, identity check on SKU\.\n- PDP/);
+        expect(v1.spec.kind === 'page' && v1.spec.steps.every(s => s.kind !== 'field' || s.field.ways.every(w => w.id))).toBe(true);
+        expect((await pro.importRecipeFile(raw, 'tester')).added).toBe(0);
     });
 });
 

@@ -7,7 +7,7 @@
 import { listRunInput, listSpec, pageSpec, type RunElement } from '../shared/recipes/spec';
 import type { ListPick, PaginationMode } from '../shared/types/extraction';
 import { pro } from './db';
-import { fromListSpec, fromPageSpec, toListSpec, toPageSpec } from './recipe/fromPublic';
+import { carryOver, fromListSpec, fromPageSpec, toListSpec, toPageSpec } from './recipe/fromPublic';
 import type { FieldType, PageRecipeSpec, PageSource, ProRecipe, RecipeKind, RunSettings, Version, VersionDraft } from './recipe/types';
 import { keepFromBase } from './recipe/repick';
 import { currentUser } from './identity';
@@ -91,13 +91,14 @@ async function saveDraft(edit: ProEdit, name: string, draft: VersionDraft, note:
 }
 
 /**
- * The page recipe the extractor's picks make: what Pro added to the base version kept (`recipe/repick.ts`), then the
- * names and types given in the save step (`fields`, by field id).
+ * The page recipe the extractor's picks make: what Pro added to the base version kept (`recipe/repick.ts`), the
+ * ways of fields read way by way and the page rules and identity check carried over (`carryOver`), then the names
+ * and types given in the save step (`fields`, by field id).
  */
 export function pageDraftSpec(edit: ProEdit, elements: RunElement[], settings: RunSettings, fields: FieldNaming[] = []) {
     const picked = fromPageSpec(pageSpec(elements, settings));
     const base = edit.version?.spec.kind === 'page' ? edit.version.spec : undefined;
-    const kept = keepFromBase(picked.spec, base);
+    const kept = base ? carryOver(base, keepFromBase(picked.spec, base)) : picked.spec;
     const named = new Map(fields.map(f => [f.id, f]));
     const spec: PageRecipeSpec = {
         ...kept,

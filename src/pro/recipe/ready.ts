@@ -23,6 +23,11 @@ export function readiness(results: PageResult[] | undefined, version?: { spec: P
     if (pages < MIN_TEST_PAGES) reasons.push(`Tested on ${pages} page${pages === 1 ? '' : 's'}; it needs ${MIN_TEST_PAGES}.`);
     const unread = results.filter(r => r.error).length;
     if (unread) reasons.push(`${unread} page${unread === 1 ? '' : 's'} could not be read.`);
+    const ruled = new Map<string, number>();
+    for (const r of results) if (r.rule) ruled.set(r.rule.name, (ruled.get(r.rule.name) ?? 0) + 1);
+    for (const [name, n] of ruled) reasons.push(`Page rule "${name}" held on ${n} page${n === 1 ? '' : 's'}: not a page to read.`);
+    const mismatched = results.filter(r => r.mismatch).length;
+    if (mismatched) reasons.push(`${mismatched} page${mismatched === 1 ? ' is' : 's are'} another product than ${mismatched === 1 ? 'its' : 'their'} URL names.`);
     const problems = new Map<string, Map<string, number>>();
     for (const r of results) for (const f of r.fields) {
         if (f.ok) continue;

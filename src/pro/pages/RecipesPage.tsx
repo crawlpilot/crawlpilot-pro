@@ -55,8 +55,9 @@ export default function RecipesPage({ onNavigate }: Props) {
         const done: string[] = [];
         try {
             for (const text of texts) {
-                const { recipe, added } = await pro.importRecipeFile(text, await currentUser());
-                done.push(added ? `${recipe.name}: ${added} version${added > 1 ? 's' : ''} added` : `${recipe.name}: already up to date`);
+                const { recipe, added, notes } = await pro.importRecipeFile(text, await currentUser());
+                const left = notes.length ? ` (${notes.length} part${notes.length > 1 ? 's' : ''} not imported: see the version's note)` : '';
+                done.push(added ? `${recipe.name}: ${added} version${added > 1 ? 's' : ''} added${left}` : `${recipe.name}: already up to date`);
             }
             setMessage({ tone: 'success', text: done.join(' · ') });
         } catch (e) {

@@ -5,6 +5,7 @@
   "type": "module",
   "dependencies": {
     "@aws-sdk/client-sqs": "3.1151.0",
+    "fengari": "0.1.5",
     "playwright": "1.62.1"
   }
 }

@@ -4,6 +4,7 @@
  * back into what the upstream `extractPage` runs.
  */
 import type { ListSpec, PageElement, PageSpec } from '../../shared/types/database';
+import { canonicalString } from './canonical';
 import type { Field, FieldType, ListRecipeSpec, PageRecipeSpec, ProSpec, RunSettings, Step, Way } from './types';
 
 const LIST_READS = new Set(['text_array', 'link_array', 'image_array']);
@@ -62,6 +63,31 @@ function elementOf(step: Step): PageElement {
 /** A page version as the public extractor runs it. Page data is always tried before selectors there. */
 export function toPageSpec(spec: PageRecipeSpec, settings: RunSettings): PageSpec {
     return { kind: 'page', elements: spec.steps.map(elementOf), settings: { ...settings } };
+}
+
+/** A way the public extractor can't run: a condition, a pick, its own steps, or a reader of its own. */
+const richWay = (w: Way) => !!(w.when || w.pick || w.ops?.length || (w.kind === 'selector' && (w.read || w.attr || w.pairs)));
+
+/** The field is read way by way (`pro/runner/ways.ts`), not by the public extractor: one of its ways needs it. */
+export const readsByWay = (field: Field) => field.ways.some(richWay);
+
+/**
+ * What the public extractor can't hold, carried from the version an edit started from: page rules, the
+ * identity check, and the ways of a field read way by way whose selectors and data the edit left as
+ * they were (the extractor only sees those).
+ */
+export function carryOver(base: PageRecipeSpec, edited: PageRecipeSpec): PageRecipeSpec {
+    const plain = (s: Step) => {
+        const e = elementOf(s);
+        return canonicalString({ selectors: e.selectors, data: e.data ?? null });
+    };
+    const before = new Map(base.steps.flatMap(s => s.kind === 'field' && readsByWay(s.field) ? [[s.field.id, s] as const] : []));
+    const steps = edited.steps.map(s => {
+        const old = s.kind === 'field' ? before.get(s.field.id) : undefined;
+        if (s.kind !== 'field' || old?.kind !== 'field' || plain(old) !== plain(s)) return s;
+        return { kind: 'field' as const, field: { ...s.field, ways: old.field.ways } };
+    });
+    return { ...edited, steps, ...(base.rules ? { rules: base.rules } : {}), ...(base.identity ? { identity: base.identity } : {}) };
 }
 
 export function toListSpec(spec: ListRecipeSpec, settings: RunSettings): ListSpec {

@@ -2,7 +2,8 @@
  * Edits to a page recipe's spec, each returning a new spec (the editor keeps the old one for undo-free
  * compare). Page data stays the first way: the extractor reads it before any selector.
  */
-import type { Click, Field, FieldType, PageRecipeSpec, SessionSetup, Step, Way } from './types';
+import type { Click, Field, FieldType, Identity, PageRecipeSpec, SessionSetup, Step, Way } from './types';
+import type { PageRule } from '../../shared/types/ways';
 import type { ProOp } from './ops';
 
 const mapField = (spec: PageRecipeSpec, id: string, f: (field: Field) => Field): PageRecipeSpec => ({
@@ -34,6 +35,15 @@ export const moveWay = (spec: PageRecipeSpec, id: string, index: number, delta: 
     return { ...f, ways: move(f.ways, index, to) };
 });
 export const removeWay = (spec: PageRecipeSpec, id: string, index: number) => mapField(spec, id, f => ({ ...f, ways: f.ways.filter((_, i) => i !== index) }));
+export const setWay = (spec: PageRecipeSpec, id: string, index: number, way: Way) => mapField(spec, id, f => ({ ...f, ways: f.ways.map((w, i) => i === index ? way : w) }));
+export const setRules = (spec: PageRecipeSpec, rules: PageRule[]): PageRecipeSpec => {
+    const { rules: _, ...rest } = spec;
+    return rules.length ? { ...rest, rules } : rest;
+};
+export const setIdentity = (spec: PageRecipeSpec, identity: Identity | undefined): PageRecipeSpec => {
+    const { identity: _, ...rest } = spec;
+    return identity ? { ...rest, identity } : rest;
+};
 export const addSelector = (spec: PageRecipeSpec, id: string, selector: string) => mapField(spec, id, f => {
     const s = selector.trim();
     if (!s || f.ways.some(w => w.kind === 'selector' && w.selector === s)) return f;
@@ -86,6 +96,13 @@ export function problems(spec: PageRecipeSpec): string[] {
     for (const c of spec.setup?.dismiss ?? []) if (c.ways.length === 0) out.push(`Dismiss "${c.name}" has nothing to click.`);
     if (spec.setup?.check && !spec.setup.check.contains.trim()) out.push('The setup check needs the text it must contain.');
     if (spec.setup?.check && spec.setup.check.ways.length === 0) out.push('The setup check has no element to read.');
+    if (spec.rules?.some(r => !r.name.trim())) out.push('Every page rule needs a name.');
+    const identity = spec.identity;
+    if (identity) {
+        if (!names.includes(identity.field)) out.push(`The identity check reads "${identity.field}", which is not a field.`);
+        if (identity.url.length === 0) out.push('The identity check has no URL pattern.');
+        for (const p of identity.url) { try { new RegExp(p); } catch { out.push(`URL pattern ${p} is not a valid regex.`); } }
+    }
     return out;
 }
 
