@@ -30,6 +30,8 @@ interface Step2SchemaProps {
     handleSaveElement: () => void;
     onBack: () => void;
     onNext: () => void;
+    /** The Next button's label, when the next step isn't the pages (a Pro recipe saves next). */
+    nextLabel?: string;
     onCancel: () => void;
     sendHighlightMessage: HighlightSender;
     /** Adds fields picked from the attributes found in the page's data. */
@@ -58,6 +60,7 @@ export function Step2Schema({
     handleSaveElement,
     onBack,
     onNext,
+    nextLabel,
     onCancel,
     sendHighlightMessage,
     onAddElements
@@ -211,7 +214,7 @@ export function Step2Schema({
 
             <div className="flex justify-between gap-3 border-t border-line pt-4">
                 <Button variant="ghost" onClick={onBack}>Back</Button>
-                <Button variant="primary" onClick={onNext} disabled={elements.length === 0} iconEnd={<ArrowRight />}>Next: pages</Button>
+                <Button variant="primary" onClick={onNext} disabled={elements.length === 0} iconEnd={<ArrowRight />}>{nextLabel ?? 'Next: pages'}</Button>
             </div>
         </Stack>
     );

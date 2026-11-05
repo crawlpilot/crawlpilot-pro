@@ -44,7 +44,7 @@ export function SaveVersionStep({ edit, site, summary, canSave, fields: proposed
     const names = fields.map(f => f.name.trim());
     const nameProblem = names.some(n => !n) ? 'Every field needs a name.'
         : names.some((n, i) => names.indexOf(n) !== i) ? 'Two fields have the same name.' : null;
-    const [name, setName] = useState(edit.recipe?.name ?? (site ? `${site} · ${edit.kind === 'list' ? 'list' : 'page details'}` : ''));
+    const [name, setName] = useState(edit.recipe?.name ?? edit.draft?.name ?? (site ? `${site} · ${edit.kind === 'list' ? 'list' : 'page details'}` : ''));
     const [note, setNote] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -81,6 +81,7 @@ export function SaveVersionStep({ edit, site, summary, canSave, fields: proposed
             <Card className="flex flex-col gap-1">
                 <Text weight="semibold">{editing ? `${edit.recipe!.name}: version ${edit.version!.version + 1}` : `A new ${edit.kind} recipe`}</Text>
                 <Text size="caption" tone="muted">{summary}{site ? ` · ${site}` : ''}</Text>
+                {edit.draft && <Text size="caption" tone="faint">For {edit.draft.competitor} · {edit.draft.pageType}</Text>}
                 {editing && <Text size="caption" tone="faint">Edited from version {edit.version!.version}</Text>}
             </Card>
             {!editing && <TextField label="Recipe name" value={name} onChange={e => setName(e.target.value)} />}
