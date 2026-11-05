@@ -155,13 +155,6 @@
               "read": "text",
               "ways": [
                 {
-                  "id": "PROMO_MESSAGE-0",
-                  "kind": "selector",
-                  "selector": "#primeEarlyAccess_feature_div > div > div > div:nth-child(2)",
-                  "read": "text",
-                  "addedIn": 1
-                },
-                {
                   "id": "PROMO_MESSAGE-1",
                   "kind": "selector",
                   "selector": "span[id=\"pe-text-buyboxheader\" i]",
@@ -191,6 +184,13 @@
                       "op": "trim"
                     }
                   ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PROMO_MESSAGE-0",
+                  "kind": "selector",
+                  "selector": "#primeEarlyAccess_feature_div > div > div > div:nth-child(2)",
+                  "read": "text",
                   "addedIn": 1
                 },
                 {
@@ -3448,16 +3448,16 @@
               "read": "text",
               "ways": [
                 {
-                  "id": "UNIT_PRICE_RAW_TEXT-0",
+                  "id": "UNIT_PRICE_RAW_TEXT-1",
                   "kind": "selector",
-                  "selector": "#corePriceDisplay_desktop_feature_div > div.a-section.a-spacing-none.aok-align-center.aok-relative>span.aok-relative >span.pricePerUnit",
+                  "selector": "div.a-section.a-spacing-micro >span.aok-relative > span.a-size-mini.aok-offscreen",
                   "read": "text",
                   "addedIn": 1
                 },
                 {
-                  "id": "UNIT_PRICE_RAW_TEXT-1",
+                  "id": "UNIT_PRICE_RAW_TEXT-0",
                   "kind": "selector",
-                  "selector": "div.a-section.a-spacing-micro >span.aok-relative > span.a-size-mini.aok-offscreen",
+                  "selector": "#corePriceDisplay_desktop_feature_div > div.a-section.a-spacing-none.aok-align-center.aok-relative>span.aok-relative >span.pricePerUnit",
                   "read": "text",
                   "addedIn": 1
                 }
@@ -4048,7 +4048,7 @@
         ]
       },
       "output": {},
-      "digest": "4fcbb9cfc55ffe6d884e0d3d3e732f4bb0758605da20e3921702f3ee3476684e",
+      "digest": "8e5aa01a9f6304dc75ba60bf33415b1d1f1a6dede38c892f3f219132f2d4e853",
       "outputDigest": "e06464a5f8f2a0f060a10c043f1038c32431cb1c9afcd8e08d175b0c182573ee",
       "origin": "imported",
       "note": "From the amazon Atlas export, with what Pro adds.\nAdded: the delivery ZIP ({zip}) set before reading, checked in the header on every page\nAdded: SKU read from the hidden ASIN input and the title widget first (the add-to-cart form is missing when there is no buy box)\nAdded: page rules: a sign-in redirect, robot-check wording\nAdded: checks: SKU is an ASIN, prices in US dollars, rating 0–5, review count\nAdded: PRODUCT_TITLE and SKU required\nNot carried over: PDP: attribute type HL is not supported; left out.\nNot carried over: Elements SEARCH_BOX, REGULAR_PRICE_SELECTOR, SEARCH_BUTTON, URL_SECONDARY_SKU, SKU_ELEMENT: page actions and search results are not part of a page recipe; left out.",
