@@ -69,9 +69,11 @@ export function applyProOps(raw: unknown, ops: ProOp[], base?: string): unknown 
         } else if (o.op === 'join') {
             if (Array.isArray(v)) v = v.map(item => item ?? '').join(o.sep);
         } else if (o.op === 'lua') {
-            v = Array.isArray(v) ? v.map(item => runLua(o.code, String(item))) : typeof v === 'string' ? runLua(o.code, v) : v;
+            // A list's items the script returns nil for are left out, as in Atlas ("return null" for the ones to skip).
+            v = Array.isArray(v) ? v.map(item => runLua(o.code, String(item))).filter(item => item !== '') : typeof v === 'string' ? runLua(o.code, v) : v;
         } else if (Array.isArray(v)) {
-            v = v.map(item => applyOps(String(item), [o], base));
+            // An item a step cleans to nothing (a regex that doesn't match it) is left out of the list.
+            v = v.map(item => applyOps(String(item), [o], base)).filter(item => item !== '');
         } else if (typeof v === 'string') {
             v = applyOps(v, [o], base);
         }

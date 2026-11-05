@@ -8,6 +8,7 @@ import { readsByWay, toPageSpec } from '../recipe/fromPublic';
 import type { PageRecipeSpec, RunSettings } from '../recipe/types';
 import { checkField, type FieldCheck } from './check';
 import { failsCompare } from '../recipe/valueChecks';
+import { joltTransform } from '../recipe/jolt';
 import { identityMismatch, pageWays, resolveWays } from './ways';
 
 export interface FieldResult extends FieldCheck {
@@ -34,6 +35,9 @@ export interface PageResult {
     rule?: RuleHit;
     /** The page is another product than its URL names (`PageRecipeSpec.identity`). */
     mismatch?: { expected: string; found: string };
+    /** The fields by name turned into the wanted schema (`PageRecipeSpec.transform`), or why that failed. */
+    record?: unknown;
+    recordError?: string;
     /** A "for each" step's items: each one's label and the fields read for it (`fields` holds the first's). */
     options?: { step: string; label: string; fields: FieldResult[] }[];
     /** The session setup on this page: whether it ran, its steps, and the one that failed. */
@@ -71,7 +75,21 @@ export function readPageResult(spec: PageRecipeSpec, url: string, item: Record<s
     }
     compareFields(spec, fields);
     const mismatch = spec.identity ? identityMismatch(spec.identity, url, fields.find(f => f.name === spec.identity!.field)?.cleaned) : undefined;
-    return { url, fields, clicks, ...(mismatch ? { mismatch } : {}) };
+    return { url, fields, clicks, ...(mismatch ? { mismatch } : {}), ...transformed(spec, recordOf(fields)) };
+}
+
+/** A page's fields by name, as read (typed, cleaned): what the transform starts from. */
+export const recordOf = (fields: Pick<FieldResult, 'name' | 'value'>[]): Record<string, unknown> =>
+    Object.fromEntries(fields.map(f => [f.name, f.value ?? null]));
+
+/** The record through the recipe's JOLT chain; nothing when it has none. */
+export function transformed(spec: PageRecipeSpec, record: Record<string, unknown>): { record?: unknown; recordError?: string } {
+    if (!spec.transform?.jolt.length) return {};
+    try {
+        return { record: joltTransform(record, spec.transform.jolt) };
+    } catch (e) {
+        return { recordError: e instanceof Error ? e.message : String(e) };
+    }
 }
 
 /** Each field's comparisons with another field on the page, once all are read: a failed one is the field's problem. */

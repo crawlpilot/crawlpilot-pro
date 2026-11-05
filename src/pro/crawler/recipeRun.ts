@@ -9,7 +9,7 @@ import { hitFilled, type RuleStatus } from '../../shared/types/ways';
 import { readsByWay } from '../recipe/fromPublic';
 import { setupOwners } from '../recipe/actions';
 import type { ListRecipeSpec, PageRecipeSpec, ProSpec, RunSettings, SessionSetup, Way } from '../recipe/types';
-import { pageRequest, readStepsResult, type FieldResult } from '../runner/readPage';
+import { pageRequest, readStepsResult, transformed, type FieldResult } from '../runner/readPage';
 import type { StepsRead } from '../steps/runner';
 import { CrawlError } from './classify';
 import type { InPageRequest, InPageResult, ListPageResult, WayProbe } from './inPage';
@@ -53,7 +53,11 @@ export interface RunRead {
     /** The recipe's own word on the page (a page rule, another product): it is classed by this, not read. */
     verdict?: { errorClass: ErrorClass; message: string };
     /** A "for each" step's items: one row each, the page's other fields repeated in every row. */
-    rows?: { option: { step: string; value: string }; attributes: ScrapeDoc['attributes']; fieldStatus: ScrapeDoc['fieldStatus'] }[];
+    rows?: { option: { step: string; value: string }; attributes: ScrapeDoc['attributes']; fieldStatus: ScrapeDoc['fieldStatus']; record?: unknown }[];
+    /** The attributes through the recipe's transform (`PageRecipeSpec.transform`). */
+    record?: unknown;
+    /** Why the transform failed on this page. */
+    recordError?: string;
 }
 
 /** `setup`: the version's session setup, whose ways' usage comes with the result. */
@@ -75,7 +79,9 @@ export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult 
     // Each item's row: the page's fields, with that item's values for the fields it repeats.
     const rows = page.options?.map(o => {
         const own = named(o.fields);
-        return { option: { step: o.step, value: o.label }, attributes: { ...attributes, ...own.attributes }, fieldStatus: { ...fieldStatus, ...own.fieldStatus } };
+        const rowAttributes = { ...attributes, ...own.attributes };
+        const { record } = transformed(spec, rowAttributes);
+        return { option: { step: o.step, value: o.label }, attributes: rowAttributes, fieldStatus: { ...fieldStatus, ...own.fieldStatus }, ...(record !== undefined ? { record } : {}) };
     });
     const owner = new Map([
         ...spec.steps.flatMap(s => s.kind === 'field'
@@ -100,6 +106,8 @@ export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult 
         filled: page.fields.filter(f => f.filled).length,
         total: page.fields.length,
         ...(rows ? { rows } : {}),
+        ...(page.record !== undefined ? { record: page.record } : {}),
+        ...(page.recordError ? { recordError: page.recordError } : {}),
         ...(page.mismatch ? { verdict: { errorClass: 'mismatch' as const, message: `Another product: the URL names ${page.mismatch.expected}, the page ${page.mismatch.found}` } } : {}),
     };
 }

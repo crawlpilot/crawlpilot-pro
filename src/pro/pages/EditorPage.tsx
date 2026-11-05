@@ -6,7 +6,7 @@
  * Picking new fields on the page stays in the Page Extractor (Re-pick).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, Fingerprint, FlaskConical, Layers, Plus, Save, ShieldAlert, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, Fingerprint, FlaskConical, Layers, Plus, Save, ShieldAlert, SlidersHorizontal, Trash2, X, Shuffle } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Chip, Disclosure, IconButton, Notice, Select, Switch, Text, TextArea, TextField } from '../../sidepanel/ui';
 import { pro } from '../db';
@@ -16,6 +16,9 @@ import { usePageTab } from '../../sidepanel/hooks/usePageTab';
 import { specDigest } from '../recipe/canonical';
 import { passed } from '../db/tests';
 import { summarize, testOnTab, type FieldResult, type PageResult } from '../runner/testPage';
+import { recordOf } from '../runner/readPage';
+import { TransformPanel } from './TransformPanel';
+import { dataWay, newFieldOf, PageDataSource } from './PageDataSource';
 import { testOnPages, type PagesProgress } from '../runner/testPages';
 import { TestGrid } from './TestGrid';
 import { ConditionEditor } from './ConditionEditor';
@@ -237,7 +240,8 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     };
 
     const changes = useMemo(() => base && spec ? diffVersions(base, { ...base, spec, output, version: base.version + 1 }).changes : [], [base, spec, output]);
-    const blockers = spec ? edits.problems(spec) : [];
+    const [transformValid, setTransformValid] = useState(true);
+    const blockers = spec ? [...edits.problems(spec), ...(transformValid ? [] : ['The transform is not valid JOLT yet.'])] : [];
 
     const repick = () => {
         if (!recipe || !base) return;
@@ -385,6 +389,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                             onAdd={s => setSpec(edits.addSelector(spec, field.id, s))}
                             options={(way, w) => <WayEditor way={way} onChange={next => setSpec(edits.setWay(spec, field.id, w, next))} />} />
                         <MarkupSource onAdd={way => setSpec(edits.addWayFirst(spec, field.id, way))} />
+                        <PageDataSource onPick={e => setSpec(edits.addWayFirst(spec, field.id, dataWay(e.binding)))} />
                         <Cleanup ops={field.ops} onChange={ops => setSpec(edits.setOps(spec, field.id, ops))} />
                     </div>
                 </Disclosure></div>
@@ -481,6 +486,13 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                             results={pagesTest && !pagesStale ? pagesTest.results : undefined} />
                     </div>
                 </Disclosure>
+                <div data-testid="pro-transform-section"><Disclosure icon={<Shuffle />} summary="Transform (JOLT)"
+                    meta={spec.transform ? <Chip tone="info">{spec.transform.jolt.map(o => o.operation).join(', ')}</Chip> : <Text size="caption" tone="faint">none</Text>}>
+                    <TransformPanel jolt={spec.transform?.jolt} onValid={setTransformValid}
+                        fields={spec.steps.flatMap(st => st.kind === 'field' ? [st.field.name] : [])}
+                        {...(test ? { sample: recordOf(test.result.fields) } : {})}
+                        onChange={jolt => setSpec(edits.setTransform(spec, jolt))} />
+                </Disclosure></div>
                 <Disclosure icon={<ShieldAlert />} summary={`Page rules (${spec.rules?.length ?? 0})`}>
                     <PageRules rules={spec.rules ?? []} onChange={rules => setSpec(edits.setRules(spec, rules))} />
                 </Disclosure>
@@ -492,7 +504,13 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                 <BeforeReading spec={spec} onChange={setSpec} context={context} onContext={changeContext} picker={picker} />
                 <Text size="caption" tone="faint">Steps run in this order: a step (a click, a choice, typing), then the fields it reveals.</Text>
                 {spec.steps.map((s, i) => s.kind === 'field' ? fieldCard(s.field, i) : <PageAction key={s.click.id} spec={spec} click={s.click} index={i} onChange={setSpec} picker={picker} />)}
-                <div><Button size="sm" variant="ghost" icon={<Plus />} onClick={() => setSpec(edits.addAction(spec, newStep(`Step ${spec.steps.filter(x => x.kind === 'click').length + 1}`)))}>Add a step</Button></div>
+                <div className="flex flex-wrap items-start gap-1.5">
+                    <Button size="sm" variant="ghost" icon={<Plus />} onClick={() => setSpec(edits.addAction(spec, newStep(`Step ${spec.steps.filter(x => x.kind === 'click').length + 1}`)))}>Add a step</Button>
+                </div>
+                <div data-testid="pro-add-data-field">
+                    <PageDataSource label="Add a field from the page's data" onPick={e => setSpec(edits.addField(spec,
+                        newFieldOf(e, spec.steps.flatMap(st => st.kind === 'field' ? [st.field.name] : []), `f-${crypto.randomUUID().slice(0, 8)}`)))} />
+                </div>
             </div>
             <div className="flex flex-col gap-2 border-t border-line bg-bg p-4">
                 {blockers.length > 0 && <Notice tone="warning">{blockers.join(' ')}</Notice>}

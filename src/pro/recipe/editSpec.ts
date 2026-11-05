@@ -6,6 +6,7 @@ import type { Click, Field, FieldType, Identity, PageRecipeSpec, SessionSetup, S
 import type { PageRule } from '../../shared/types/ways';
 import { conditionProblems } from './conditions';
 import { checkProblems } from './valueChecks';
+import { joltProblems, type JoltOperation } from './jolt';
 import type { ProOp } from './ops';
 
 const mapField = (spec: PageRecipeSpec, id: string, f: (field: Field) => Field): PageRecipeSpec => ({
@@ -56,6 +57,15 @@ export const moveWay = (spec: PageRecipeSpec, id: string, index: number, delta: 
 });
 export const removeWay = (spec: PageRecipeSpec, id: string, index: number) => mapField(spec, id, f => ({ ...f, ways: f.ways.filter((_, i) => i !== index) }));
 export const setWay = (spec: PageRecipeSpec, id: string, index: number, way: Way) => mapField(spec, id, f => ({ ...f, ways: f.ways.map((w, i) => i === index ? way : w) }));
+/** A new field, after the recipe's other steps. */
+export const addField = (spec: PageRecipeSpec, field: Field): PageRecipeSpec => ({ ...spec, steps: [...spec.steps, { kind: 'field', field }] });
+
+/** The JOLT chain the page's record goes through; none drops it. */
+export function setTransform(spec: PageRecipeSpec, jolt: JoltOperation[] | undefined): PageRecipeSpec {
+    const { transform: _, ...rest } = spec;
+    return jolt?.length ? { ...rest, transform: { jolt } } : rest;
+}
+
 /** A list recipe's page rules; none drops the key. */
 export function setListRules(spec: ListRecipeSpec, rules: PageRule[]): ListRecipeSpec {
     const { rules: _, ...rest } = spec;
@@ -138,6 +148,7 @@ export function problems(spec: PageRecipeSpec): string[] {
     if (spec.setup?.check && !spec.setup.check.contains.trim()) out.push('The setup check needs the text it must contain.');
     if (spec.setup?.check && spec.setup.check.ways.length === 0) out.push('The setup check has no element to read.');
     out.push(...rulesProblems(spec.rules ?? []));
+    if (spec.transform) out.push(...joltProblems(spec.transform.jolt).map(p => `Transform: ${p}`));
     for (const f of fields) out.push(...checkProblems(f, names));
     for (const f of fields) f.ways.forEach((w, i) => { if (w.when) out.push(...conditionProblems(w.when, `"${f.name}" way ${i + 1}`)); });
     const identity = spec.identity;
