@@ -420,11 +420,12 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
             } else if (read?.rows && !read.verdict) {
                 // One document per item a "for each" step went through: its id ends with the item.
                 for (const r of read.rows) {
-                    confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape({ attributes: r.attributes, fieldStatus: r.fieldStatus, option: r.option }), `${docId}~opt=${r.option.value}`));
+                    confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape({ attributes: r.attributes, fieldStatus: r.fieldStatus, option: r.option, ...(r.record !== undefined ? { record: r.record } : {}) }), `${docId}~opt=${r.option.value}`));
                 }
             } else if (read || c.pageStatus === 'not_found') {
                 // A verdict's page is written with its status only: what was read is not this product's.
-                confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape(read && !read.verdict ? { attributes: read.attributes, fieldStatus: read.fieldStatus } : {}), docId));
+                confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape(read && !read.verdict
+                    ? { attributes: read.attributes, fieldStatus: read.fieldStatus, ...(read.record !== undefined ? { record: read.record } : {}), ...(read.recordError ? { recordError: read.recordError } : {}) } : {}), docId));
             }
             if (read && !read.verdict) {
                 confirm(d.sink.writeConfirmed(indices.usage(job, t), {

@@ -49,6 +49,10 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
 
 Out of attempts (`retry.maxAttempts`, counted over every delivery of the job), a retryable job is dead-lettered.
 
+**Transformed records.** A page recipe with a transform (`spec.transform.jolt`, `LLD.md` §2.3) gets a `record` in its
+scrape document: the attributes turned into the wanted schema by its JOLT chain. A chain that fails on a page leaves
+`recordError` instead, and the attributes are written as read.
+
 **Recipe verdicts** (`recipeRun.ts`). A 2xx page can still be classed by its recipe (`LLD.md` §2.3): the first page rule
 that holds classes it before any field is read (or, for a list recipe, any row: an empty search, a captcha; a rule that
 holds on a later page of a list stops the paging and keeps the rows so far) (`not_found` → `not_found`, `unavailable` → `unavailable`, `blocked` →

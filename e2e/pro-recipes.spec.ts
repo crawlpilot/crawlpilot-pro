@@ -734,6 +734,68 @@ test('retailer recipes: the Amazon and Walmart files import with their targeting
     await expect(ui.getByTestId('pro-editor-changes')).toHaveText('No changes yet.');
 });
 
+test('page data and JOLT: a field added from the page\'s JSON, the record shaped by a transform, shown on Check', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1100 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    const file = { name: 'Overshirt', site: '127.0.0.1', built_on: page.url(), spec: { kind: 'page', settings: {}, elements: [
+        { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] },
+        { id: 'b', name: 'price', action: 'extract', type: 'text', selectors: ['p.price'] },
+    ] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'o.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await ui.getByRole('button', { name: 'Edit Overshirt' }).click();
+
+    // A field from the page's JSON-LD, found by its value.
+    const add = ui.getByTestId('pro-add-data-field');
+    await add.getByRole('button', { name: 'Add a field from the page\'s data' }).click();
+    await add.getByLabel('Find in the page\'s data').fill('LX-2041');
+    const entry = add.getByTestId('pro-page-data-entry').filter({ hasText: 'productGroupID' });
+    await expect(entry).toHaveCount(1);
+    await expect(entry).toContainText('JSON-LD');
+    await entry.click();
+    await expect(ui.getByTestId('pro-field')).toHaveCount(3);
+    await expect(ui.getByTestId('pro-field').nth(2)).toContainText('product_group_id');
+
+    // A transform: started from the fields, then shaped.
+    const transform = ui.getByTestId('pro-transform-section');
+    await transform.getByRole('button', { name: /^Transform \(JOLT\)/ }).click();
+    await transform.getByRole('button', { name: 'Start from the fields' }).click();
+    const jolt = transform.getByLabel('JOLT spec (JSON: one operation or a list)');
+    await expect(jolt).toHaveValue(/"product_group_id": "product_group_id"/);
+    await jolt.fill('not json');
+    await expect(transform).toContainText('Not JSON');
+    await expect(ui.getByRole('button', { name: 'Save version 2' })).toBeDisabled();
+    await jolt.fill(JSON.stringify([
+        { operation: 'shift', spec: { title: 'product.name', price: 'offer.price', product_group_id: 'product.id', '#overshirt': 'source' } },
+        { operation: 'modify-overwrite-beta', spec: { product: { name: '=toUpper' } } },
+    ]));
+    await ui.getByRole('button', { name: 'Test on this page' }).click();
+    const output = transform.getByTestId('pro-transform-output');
+    await expect(output).toContainText('"name": "LINEN OVERSHIRT"');
+    await expect(output).toContainText('"id": "LX-2041"');
+    if (process.env.UX_SHOTS) await transform.screenshot({ path: `${process.env.UX_SHOTS}/pro-transform.png` });
+    await ui.getByLabel('What changed').fill('group id and a transform');
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    const diff = ui.getByTestId('pro-diff');
+    await expect(diff).toContainText('product_group_id');
+    await expect(diff).toContainText('JOLT none → shift, modify-overwrite-beta');
+
+    // Check shows the record as the crawler will write it.
+    await ui.getByRole('banner').getByRole('button', { name: 'Check', exact: true }).click();
+    await ui.getByRole('button', { name: 'Check this page' }).click();
+    const record = ui.getByTestId('pro-check-record');
+    await expect(record).toContainText('"source": "overshirt"');
+    await expect(record).toContainText('"price": "$79.00"');
+    await ui.close();
+    await page.close();
+});
+
 test('build new: picked fields come to the save step named and typed from the page, and can be changed there', async ({ panel, ext, origin }) => {
     const page = await ext.newPage();
     await page.goto(`${origin}/site/json-product.html`);

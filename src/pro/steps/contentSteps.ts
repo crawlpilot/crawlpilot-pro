@@ -9,6 +9,7 @@
 import { isShown, listItems, MARK, markTarget } from './inPageSteps';
 import { listMarkup, readMarkupFields } from '../markup/markup';
 import { clearFields, focusField, showFields } from './showFields';
+import { listPageData } from './pageData';
 
 export interface ActRequest {
     mark: string;
@@ -76,4 +77,4 @@ function scrollToEnd() {
     window.scrollTo(0, document.documentElement.scrollHeight);
 }
 
-(globalThis as unknown as { crawlpilotSteps: object }).crawlpilotSteps = { markTarget, isShown, listItems, act, pressKey, scrollToEnd, readMarkupFields, listMarkup, showFields, focusField, clearFields };
+(globalThis as unknown as { crawlpilotSteps: object }).crawlpilotSteps = { markTarget, isShown, listItems, act, pressKey, scrollToEnd, readMarkupFields, listMarkup, listPageData, showFields, focusField, clearFields };
