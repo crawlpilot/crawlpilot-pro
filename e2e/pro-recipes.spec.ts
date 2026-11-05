@@ -57,19 +57,17 @@ test('edit: a version opens in the Page Extractor; unchanged is refused, an edit
     await ui.getByRole('banner').getByRole('button', { name: 'Re-pick on page' }).click();
 
     await expect(ui.getByRole('button', { name: 'Remove' })).toHaveCount(2);
-    await ui.getByRole('button', { name: 'Next: pages' }).click();
-    await ui.getByRole('button', { name: 'Next: 1 page' }).click();
+    await ui.getByRole('button', { name: 'Next: save' }).click();
     const step = ui.getByTestId('pro-save-version');
     await expect(step).toContainText('Local product: version 2');
     await expect(step).toContainText('Edited from version 1');
     await ui.getByRole('button', { name: 'Save version' }).click();
     await expect(ui.getByText('Nothing changed since the version this was edited from')).toBeVisible();
 
+    // Back from saving is back at the fields: there is no pages step in a recipe session.
     await step.getByRole('button', { name: 'Back' }).click();
-    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
     await ui.getByRole('button', { name: 'Remove' }).first().click();
-    await ui.getByRole('button', { name: 'Next: pages' }).click();
-    await ui.getByRole('button', { name: 'Next: 1 page' }).click();
+    await ui.getByRole('button', { name: 'Next: save' }).click();
     await ui.getByLabel('What changed').fill('heading dropped');
     await ui.getByRole('button', { name: 'Save version' }).click();
     await expect(ui.getByText('Saved Local product v2')).toBeVisible();
@@ -126,8 +124,14 @@ test('build new: a list picked on the page saves as version 1, then opens again 
     await proClear(ui);
     await ui.reload();
 
+    // What it is for first: the kind, the competitor and the page type, then picking.
     await ui.getByRole('button', { name: 'Build new' }).click();
-    await ui.getByRole('button', { name: /^List recipe/ }).click();
+    const form = ui.getByTestId('pro-new-recipe');
+    await form.getByRole('radio', { name: 'List recipe' }).click();
+    await expect(form.getByLabel('Page type')).toHaveValue('listing');
+    await form.getByLabel('Competitor').fill('acme');
+    await expect(form.getByLabel('Name')).toHaveValue('acme listing');
+    await form.getByRole('button', { name: 'Pick it on this page' }).click();
     await ui.getByRole('button', { name: 'Point at one item' }).click();
     const box = (await page.locator('li.card').first().boundingBox())!;
     await page.mouse.move(box.x + 20, box.y + 10);
@@ -148,6 +152,7 @@ test('build new: a list picked on the page saves as version 1, then opens again 
 
     const [version] = await proStore(ui, 'versions');
     expect(version).toMatchObject({ version: 1, origin: 'built', pages: { kind: 'start', url: page.url() }, spec: { kind: 'list' } });
+    expect((await proStore(ui, 'recipes'))[0]).toMatchObject({ name: 'Local list', competitor: 'acme', pageType: 'listing' });
     expect(version.spec.lists[0].fields.length).toBeGreaterThan(0);
 
     await ui.getByRole('button', { name: 'Back to recipes' }).click();
@@ -381,8 +386,7 @@ test('steps before reading: a ZIP set through the page\'s dialog, checked, pop-u
     // Picked again in the Page Extractor, and saved with a field renamed: the setup and the step stay as they were.
     await ui.getByRole('button', { name: 'Edit fields' }).click();
     await ui.getByRole('banner').getByRole('button', { name: 'Re-pick on page' }).click();
-    await ui.getByRole('button', { name: 'Next: pages' }).click();
-    await ui.getByRole('button', { name: 'Next: 1 page' }).click();
+    await ui.getByRole('button', { name: 'Next: save' }).click();
     const saveFields = ui.getByTestId('pro-save-field');
     await expect(saveFields).toHaveCount(3);
     await saveFields.nth(2).getByLabel('Field 3', { exact: true }).fill('delivery_message');
@@ -500,8 +504,7 @@ test('check: one row per field with its typed value, outlined on the page, and w
     await ui.getByRole('button', { name: 'Edit Overshirt' }).click();
     await ui.getByRole('banner').getByRole('button', { name: 'Re-pick on page' }).click();
     await ui.getByRole('button', { name: 'Remove' }).last().click();
-    await ui.getByRole('button', { name: 'Next: pages' }).click();
-    await ui.getByRole('button', { name: 'Next: 1 page' }).click();
+    await ui.getByRole('button', { name: 'Next: save' }).click();
     await ui.getByLabel('What changed').fill('no sku');
     await ui.getByRole('button', { name: 'Save version' }).click();
     await ui.getByRole('button', { name: 'Check it on this page' }).click();
@@ -524,7 +527,9 @@ test('build new: picked fields come to the save step named and typed from the pa
     await proClear(ui);
     await ui.reload();
     await ui.getByRole('button', { name: 'Build new' }).click();
-    await ui.getByRole('button', { name: /^Page recipe/ }).click();
+    const form = ui.getByTestId('pro-new-recipe');
+    await form.getByLabel('Competitor').fill('acme');
+    await form.getByRole('button', { name: 'Pick it on this page' }).click();
     const pickOn = async (target: string) => {
         const box = (await page.locator(target).first().boundingBox())!;
         await page.mouse.move(box.x + 4, box.y + 4);
@@ -538,8 +543,7 @@ test('build new: picked fields come to the save step named and typed from the pa
     await ui.getByRole('button', { name: 'Add field' }).click();
     await pickOn('p.price');
     await expect(ui.getByText('2 fields')).toBeVisible();
-    await ui.getByRole('button', { name: 'Next: pages' }).click();
-    await ui.getByRole('button', { name: 'Next: 1 page' }).click();
+    await ui.getByRole('button', { name: 'Next: save' }).click();
 
     // Not h1 and p: what the page says they are, and the type the crawler will output.
     const fields = ui.getByTestId('pro-save-field');
@@ -555,8 +559,13 @@ test('build new: picked fields come to the save step named and typed from the pa
     await expect(ui.getByText('Two fields have the same name.')).toBeVisible();
     await expect(ui.getByRole('button', { name: 'Save version' })).toBeDisabled();
     await fields.nth(0).getByLabel('Field 1', { exact: true }).fill('product_name');
+    await expect(ui.getByTestId('pro-save-version')).toContainText('For acme · product');
+    await expect(ui.getByLabel('Recipe name')).toHaveValue('acme product');
     await ui.getByRole('button', { name: 'Save version' }).click();
     await expect(ui.getByRole('button', { name: 'Check it on this page' })).toBeVisible();
+    // Saved with what it is for: the recipe is not "needed to submit: set the competitor".
+    expect((await proStore(ui, 'recipes'))[0]).toMatchObject({ name: 'acme product', competitor: 'acme', pageType: 'product' });
+    expect((await proStore(ui, 'samples')).map((x: any) => x.url)).toEqual([page.url()]);
     const [v1] = await proStore(ui, 'versions');
     expect(v1.spec.steps.map((s: any) => [s.field.name, s.field.type])).toEqual([['product_name', 'text'], ['price', 'money']]);
     await ui.close();

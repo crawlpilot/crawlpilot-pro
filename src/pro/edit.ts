@@ -17,6 +17,26 @@ export interface ProEdit {
     kind: RecipeKind;
     recipe?: ProRecipe;
     version?: Version;
+    /** A new recipe: what Build new asked first, set on the recipe when version 1 is saved. */
+    draft?: NewRecipe;
+}
+
+/** What Build new asks before picking: what the recipe is for, and its name. */
+export interface NewRecipe {
+    name: string;
+    competitor: string;
+    pageType: string;
+}
+
+const SECOND_LEVEL = /^(co|com|org|net|ac|gov)$/;
+
+/** A site's competitor name as a suggestion: `www.zara.com` → zara, `shop.example.co.uk` → example. */
+export function competitorOf(host: string): string {
+    if (/^[\d.:]+$/.test(host.split(':')[0])) return ''; // an IP address names no one
+    const parts = host.replace(/^www\./, '').split(':')[0].split('.').filter(Boolean);
+    if (parts.length < 2) return parts[0] ?? '';
+    const tld = parts.length > 2 && SECOND_LEVEL.test(parts[parts.length - 2]) ? 2 : 1;
+    return (parts[parts.length - 1 - tld] ?? '').toLowerCase();
 }
 
 let pending: ProEdit | null = null;
@@ -63,7 +83,8 @@ async function saveDraft(edit: ProEdit, name: string, draft: VersionDraft, note:
         return { recipe: (await pro.recipes.get(edit.recipe.id))!, version };
     }
     const urls = urlsOf(draft.pages);
-    const recipe = await pro.recipes.create({ name: name.trim(), site: siteOfUrl(urls[0]), kind: edit.kind });
+    const targeting = edit.draft ? { competitor: edit.draft.competitor.trim(), pageType: edit.draft.pageType.trim() } : {};
+    const recipe = await pro.recipes.create({ name: name.trim(), site: siteOfUrl(urls[0]), kind: edit.kind, ...targeting });
     const version = await pro.versions.save(recipe.id, 0, draft, { ...by, origin: 'built' });
     if (urls.length > 0) await pro.samples.add(recipe.id, urls);
     return { recipe: (await pro.recipes.get(recipe.id))!, version };

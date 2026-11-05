@@ -120,5 +120,12 @@ be, and to propose a simpler flow. Findings are numbered and referenced in the p
    - Found while doing it: a re-pick used to drop everything Pro adds (types, required, cleanup, markup ways, session
      setup, action steps). Re-picks now keep it (`src/pro/recipe/repick.ts`).
 3. **New recipe form and no Pages step** (3, 4). The wizard is the public extension's, so this needs a Pro hook in
-   it, or Pro's own picking screen.
+   it, or Pro's own picking screen. **Done:**
+   - *Build new* is one short form: the kind, the competitor (suggested from the open page's site), the page type
+     and a name. They are set on the recipe when version 1 is saved.
+   - In a recipe session the Page Extractor goes from the fields straight to saving (*Next: save*), and the open page
+     becomes the recipe's sample.
+   - Public hooks: an optional label for the fields step's Next button, and the step skip in `PageExtractorPage`
+     (12 lines).
+   - The List Extractor keeps its pages step for now, because its start page is part of the recipe.
 4. **Field editor folded down, recipe screen reordered, approving as someone else** (10–13).

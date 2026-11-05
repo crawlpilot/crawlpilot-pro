@@ -4,14 +4,15 @@
  * Internal tool, so the text is English only.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BookOpen, ClipboardCheck, Download, FileText, Hammer, History, List, Pencil, Server, Upload } from 'lucide-react';
+import { BookOpen, ClipboardCheck, Download, Hammer, History, Pencil, Server, Upload } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
-import { Button, Chip, Dialog, EmptyState, IconButton, Notice, Text } from '../../sidepanel/ui';
+import { Button, Chip, EmptyState, IconButton, Notice, Text } from '../../sidepanel/ui';
 import uniqlo from '../../shared/samples/recipes/uniqlo-product.json';
 import zara from '../../shared/samples/recipes/zara-product.json';
 import { pro } from '../db';
 import { writeRecipeFile } from '../recipe/file';
-import { setProEdit } from '../edit';
+import { setProEdit, type NewRecipe } from '../edit';
+import { NewRecipeDialog } from './NewRecipeDialog';
 import { currentUser } from '../identity';
 import { openRecipe, takeNextView } from '../nav';
 import { BackendDialog } from './BackendDialog';
@@ -73,8 +74,9 @@ export default function RecipesPage({ onNavigate }: Props) {
     const extractor = (kind: RecipeKind) => kind === 'page' ? 'page-extractor' : 'list-extractor';
 
     /** A new recipe: its extractor opens on the current tab, and ends with Save version. */
-    const buildNew = (kind: RecipeKind) => {
-        setProEdit({ kind });
+    const buildNew = (kind: RecipeKind, draft: NewRecipe) => {
+        setChoosing(false);
+        setProEdit({ kind, draft });
         onNavigate(extractor(kind));
     };
 
@@ -101,12 +103,7 @@ export default function RecipesPage({ onNavigate }: Props) {
                 </>}
             />
             <BackendDialog open={backend} onClose={() => setBackend(false)} />
-            <Dialog open={choosing} onClose={() => setChoosing(false)} size="sm" title="Build a new recipe" description="Pick it on the open page. Its last step saves version 1; nothing runs.">
-                <div className="flex flex-col gap-2">
-                    <Button variant="secondary" icon={<FileText />} onClick={() => buildNew('page')}>Page recipe: the same fields from each page</Button>
-                    <Button variant="secondary" icon={<List />} onClick={() => buildNew('list')}>List recipe: every item in a list, page after page</Button>
-                </div>
-            </Dialog>
+            <NewRecipeDialog open={choosing} onClose={() => setChoosing(false)} onStart={buildNew} />
             <input ref={input} type="file" accept=".json,application/json" multiple hidden data-testid="recipe-import" onChange={e => onFiles(e.target.files)} />
             <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto p-4">
                 {message && <Notice tone={message.tone} onClose={() => setMessage(null)}>{message.text}</Notice>}
