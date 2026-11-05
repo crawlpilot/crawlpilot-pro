@@ -28,3 +28,10 @@ describe('applyProOps', () => {
         expect(opSummary({ op: 'splitList', sep: '\\n' })).toBe('Text to list (\\n)');
     });
 });
+
+describe('cleanup on a list', () => {
+    it('leaves out the items a step cleans to nothing: Lua returning nil (as Atlas), a regex that misses', () => {
+        expect(applyProOps(['Free', '$5.99', 'Arrives tomorrow'], [{ op: 'lua', code: 'if string.match(str,"$[0-9]") then return str else return null end' }])).toEqual(['$5.99']);
+        expect(applyProOps(['Color: Red', 'Note', 'Size: L'], [{ op: 'regex', pattern: ':\\s*(.+)', flags: 'i', group: 1 }])).toEqual(['Red', 'L']);
+    });
+});

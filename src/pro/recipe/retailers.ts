@@ -140,6 +140,7 @@ export function walmartProduct(fixture: string): Promise<RetailerRecipe> {
         added: [
             'the shipping ZIP ({zip}) set before reading, checked on every page (the dialog\'s selectors are not on the saved page: test them live)',
             'the page\'s data (__NEXT_DATA__) read first for the title, SKU, brand, UPC, model, price, was price, rating, reviews and description',
+            'ABOUT_ITEM read from the highlights list (#top-highlights-module ul li), every item, first',
             'the identity check: SKU against the id in the /ip/ URL',
             'page rules: a sign-in redirect, robot-check wording',
             'checks: SKU and UPC are numbers, prices in US dollars, rating 0–5, review count',
@@ -161,6 +162,8 @@ export function walmartProduct(fixture: string): Promise<RetailerRecipe> {
             s = edit(s, 'RATING', f => checks(RATING)(firstWays(product('averageRating'))(f)));
             s = edit(s, 'REVIEWS', f => checks(COUNT)(firstWays(product('numberOfReviews'))(f)));
             s = edit(s, 'PRODUCT_DESCRIPTION', firstWays(product('shortDescription')));
+            // Today's layout lists the item's highlights here; the export's `#product-description-atf` list is gone.
+            s = edit(s, 'ABOUT_ITEM', firstWays(sel('#top-highlights-module ul li', { pick: 'all' })));
             return s;
         },
     });
