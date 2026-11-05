@@ -100,12 +100,25 @@ export async function labelLog(recipeId: string): Promise<LabelMove[]> {
     return moves.reverse();
 }
 
-export async function addSamples(recipeId: string, urls: string[]): Promise<void> {
+/** `expect`: the page rule each page should hit, by URL (error pages kept to test the rules). */
+export async function addSamples(recipeId: string, urls: string[], expect: Record<string, string> = {}): Promise<void> {
     const tx = await proTransaction(STORES.samples, 'readwrite');
     const store = tx.objectStore(STORES.samples);
     const now = Date.now();
     // One millisecond apart, so they list in the order given.
-    [...new Set(urls)].forEach((url, i) => store.put({ recipeId, url, addedAt: now + i } satisfies Sample));
+    [...new Set(urls)].forEach((url, i) => store.put({ recipeId, url, addedAt: now + i, ...(expect[url] ? { expectRule: expect[url] } : {}) } satisfies Sample));
+    await done(tx);
+}
+
+/** Sets the page rule a sample should hit, or clears it (`undefined`: a page to read). */
+export async function expectRule(recipeId: string, url: string, rule: string | undefined): Promise<void> {
+    const tx = await proTransaction(STORES.samples, 'readwrite');
+    const store = tx.objectStore(STORES.samples);
+    const sample = await req<Sample | undefined>(store.get([recipeId, url]));
+    if (sample) {
+        const { expectRule: _, ...rest } = sample;
+        store.put(rule ? { ...rest, expectRule: rule } : rest);
+    }
     await done(tx);
 }
 

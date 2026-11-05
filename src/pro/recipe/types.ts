@@ -258,5 +258,10 @@ export interface Sample {
     url: string;
     /** Checked by the backend on a schedule. */
     canary?: boolean;
+    /**
+     * The page rule this page should hit (by name): an error page kept to test the rules. It passes when that rule
+     * holds, and is not one of the pages a read is tested on.
+     */
+    expectRule?: string;
     addedAt: number;
 }

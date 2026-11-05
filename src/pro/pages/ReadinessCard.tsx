@@ -17,9 +17,9 @@ export interface ReadinessItem {
 }
 
 /** The lines for a version: sample pages, targeting, review; `actions` gives each open one its way to it. */
-export function readinessItems(o: { recipe: ProRecipe; version: Version; samples: { url: string }[]; review?: Review; pages?: PageResult[]; ready?: Readiness;
+export function readinessItems(o: { recipe: ProRecipe; version: Version; samples: { url: string; expectRule?: string }[]; review?: Review; pages?: PageResult[]; ready?: Readiness;
     actions?: { samples?: () => void; targeting?: () => void; review?: () => void } }): ReadinessItem[] {
-    const sampleReady = o.ready ?? readiness(o.pages, o.version);
+    const sampleReady = o.ready ?? readiness(o.pages, o.version, o.samples);
     const targeting = targetingReasons(o.recipe, o.samples.map(s => s.url));
     const reviewed = reviewReason(o.review);
     const with_ = (go: (() => void) | undefined, label: string) => go ? { action: { label, go } } : {};

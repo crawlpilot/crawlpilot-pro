@@ -527,6 +527,69 @@ test('check: one row per field with its typed value, outlined on the page, and w
     await page.close();
 });
 
+test('page rules: Check names the rule that held, and an error page is kept as a sample that should hit it', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1100 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    const file = { name: 'Overshirt', site: '127.0.0.1', built_on: page.url(), spec: { kind: 'page', settings: {}, elements: [
+        { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] },
+        { id: 'b', name: 'price', action: 'extract', type: 'text', selectors: ['p.price'], shape: 'price' },
+    ] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'o.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+
+    // A rule for a product that is gone, added in the editor.
+    await ui.getByRole('button', { name: 'Edit Overshirt' }).click();
+    await ui.getByRole('button', { name: /^Page rules/ }).click();
+    const rules = ui.getByTestId('pro-page-rules');
+    await rules.getByRole('textbox', { name: 'New rule' }).fill('Gone');
+    await rules.getByLabel('Status of the new rule').selectOption('unavailable');
+    await rules.getByLabel('Text or selector').fill('no longer available');
+    await rules.getByRole('button', { name: 'Add', exact: true }).click();
+    await ui.getByLabel('What changed').fill('gone rule');
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    await expect(ui.getByTestId('pro-version')).toHaveCount(2);
+
+    // On a gone product, Check says which rule held instead of "0 of 0 fields".
+    await page.goto(`${origin}/site/gone-product.html`);
+    await ui.getByRole('banner').getByRole('button', { name: 'Check', exact: true }).click();
+    await ui.getByRole('button', { name: 'Check this page' }).click();
+    const outcome = ui.getByTestId('pro-check-outcome');
+    await expect(outcome).toContainText('Page rule "Gone" held: Unavailable');
+    await expect(outcome).toContainText('the recipe says this is not a page to read');
+    await expect(ui.getByTestId('pro-check-table')).toHaveCount(0);
+    const items = ui.getByTestId('pro-check-item');
+    await expect(items.nth(0)).toContainText('Page rule "Gone" held');
+
+    // Kept as a sample that should hit it: now as it should be.
+    await outcome.getByRole('button', { name: 'Keep as a sample that should hit "Gone"' }).click();
+    await expect(outcome).toContainText('As this sample expects');
+    await expect(ui.getByTestId('pro-check-kept')).toContainText('should hit "Gone"');
+    expect((await proStore(ui, 'samples')).find(s => s.url === page.url())).toMatchObject({ expectRule: 'Gone' });
+
+    // On the samples: the gone page passes by its rule and is not one of the pages read.
+    await ui.getByRole('button', { name: 'Check 2 sample pages' }).click();
+    const outcomes = ui.getByTestId('pro-grid-outcome');
+    await expect(outcomes).toHaveCount(1, { timeout: 30_000 });
+    await expect(outcomes.first()).toContainText('gone-product.html: Page rule "Gone" held: Unavailable. As this sample expects.');
+    await expect(items.nth(1)).toContainText('Tested on 1 page; it needs 3.');
+    await expect(items.nth(1)).not.toContainText('Gone');
+    if (process.env.UX_SHOTS) await ui.screenshot({ path: `${process.env.UX_SHOTS}/pro-check-rule.png` });
+
+    // In the editor, the sample says what it should be, and can go back to a page to read.
+    await ui.getByRole('button', { name: 'Edit fields' }).click();
+    await expect(ui.getByLabel('Sample 2 should be')).toHaveValue('Gone');
+    await ui.getByLabel('Sample 2 should be').selectOption('');
+    await expect.poll(async () => (await proStore(ui, 'samples')).find(s => s.url === page.url())?.expectRule).toBeUndefined();
+    await ui.close();
+    await page.close();
+});
+
 test('build new: picked fields come to the save step named and typed from the page, and can be changed there', async ({ panel, ext, origin }) => {
     const page = await ext.newPage();
     await page.goto(`${origin}/site/json-product.html`);

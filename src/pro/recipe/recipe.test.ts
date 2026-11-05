@@ -77,13 +77,13 @@ describe('recipe file', () => {
             recipeId: 'r1', version: 1, spec: v1.spec, settings: v1.settings, pages: v1.pages, output: v1.output,
             digest: await specDigest(v1.spec), outputDigest: await outputDigest(v1.spec), origin: 'imported', note: 'first', author: 'me', createdAt: 0,
         };
-        const raw = writeRecipeFile(recipe, [version], [{ recipeId: 'r1', url: zara.built_on, canary: true, addedAt: 0 }]);
+        const raw = writeRecipeFile(recipe, [version], [{ recipeId: 'r1', url: zara.built_on, canary: true, addedAt: 0 }, { recipeId: 'r1', url: 'https://z.test/404', expectRule: '404', addedAt: 1 }]);
         const json = JSON.parse(raw);
-        expect(json).toMatchObject({ format: 3, recipe: targeting, labels: { latest: 1, live: 1 }, samples: [{ url: zara.built_on, canary: true }] });
+        expect(json).toMatchObject({ format: 3, recipe: targeting, labels: { latest: 1, live: 1 }, samples: [{ url: zara.built_on, canary: true }, { url: 'https://z.test/404', expectRule: '404' }] });
         expect(json.versions[0]).not.toHaveProperty('recipeId');
 
         const back = readRecipeFile(raw);
-        expect(back).toMatchObject({ name: zara.name, site: zara.site, kind: 'page', targeting, samples: [zara.built_on] });
+        expect(back).toMatchObject({ name: zara.name, site: zara.site, kind: 'page', targeting, samples: [zara.built_on, 'https://z.test/404'], sampleRules: { 'https://z.test/404': '404' } });
         expect(back.versions[0]).toMatchObject({ spec: v1.spec, settings: v1.settings, pages: v1.pages, note: 'first', digest: version.digest });
     });
 

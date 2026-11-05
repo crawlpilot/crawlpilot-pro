@@ -2,7 +2,9 @@
  * Check (`docs/plans/pro-ops-workflow-review.md`): what the recipe reads, field by field, before anyone submits it.
  * - **This page:** one row per field: the value as the crawler will output it (typed: money with its currency, a
  *   date as the date understood), whether it checks out, and where it came from. Each field's element is outlined
- *   on the page with its name; a row brings its element into view. A "for each" step gives a row per item.
+ *   on the page with its name; a row brings its element into view. A "for each" step gives a row per item. A page
+ *   rule that held (a 404, a captcha) or another product than the URL names is said instead, and an error page can
+ *   be kept as a sample that should hit its rule.
  * - **Sample pages:** the same recipe on the samples, as a grid of fields × pages.
  * - **Ready to submit:** what is left, each with the way to it.
  * It checks the newest version as saved; Edit fields changes it.
@@ -17,6 +19,7 @@ import { passed } from '../db/tests';
 import { openedRecipe } from '../nav';
 import { variablesOf } from '../recipe/actions';
 import type { Field, PageRecipeSpec, ProRecipe, Review, Sample, Version } from '../recipe/types';
+import { expectations, pageOutcome } from '../runner/outcome';
 import { shownValue, sourceOf, verdictOf, type Verdict } from '../runner/present';
 import { testOnTab, type FieldResult, type PageResult } from '../runner/testPage';
 import { testOnPages, type PagesProgress } from '../runner/testPages';
@@ -118,12 +121,14 @@ export default function CheckPage({ onBack, onNavigate }: Props) {
         const results = await testOnPages(samples.slice(0, CHECK_PAGES).map(s => s.url), spec, version.settings, setProgress, undefined, context);
         setProgress(null);
         setPages(results);
-        await pro.tests.save({ recipeId: recipe.id, digest: version.digest, kind: 'pages', results, passed: passed(results), at: Date.now() });
+        await pro.tests.save({ recipeId: recipe.id, digest: version.digest, kind: 'pages', results, passed: passed(results, samples), at: Date.now() });
     };
 
-    const addSample = async () => {
+    /** `rule`: kept as a page that should hit that rule. */
+    const addSample = async (rule?: string) => {
         if (!recipe) return;
-        await pro.samples.add(recipe.id, [page.url]);
+        if (samples.some(s => s.url === page.url)) await pro.samples.expectRule(recipe.id, page.url, rule);
+        else await pro.samples.add(recipe.id, [page.url], rule ? { [page.url]: rule } : {});
         setSamples(await pro.samples.list(recipe.id));
     };
 
@@ -145,10 +150,14 @@ export default function CheckPage({ onBack, onNavigate }: Props) {
         );
     }
 
+    const expect = expectations(samples);
+    const outcome = result ? pageOutcome(result, expect.get(result.url)) : null;
+    const keptFor = samples.find(s => s.url === page.url)?.expectRule;
     // What stands between this version and a submit, each with the way to it.
-    const thisPage = result ? (result.error ? { ok: false, text: `This page could not be checked: ${result.error}` }
-        : { ok: result.fields.every(f => f.ok) && result.fields.some(f => f.filled), text: `${result.fields.filter(f => f.filled).length} of ${result.fields.length} fields found on this page${result.fields.some(f => !f.ok) ? `; ${result.fields.filter(f => !f.ok).length} with a problem` : ''}` })
-        : { ok: false, text: 'Not checked on this page yet' };
+    const thisPage = !result || !outcome ? { ok: false, text: 'Not checked on this page yet' }
+        : result.error ? { ok: false, text: `This page could not be checked: ${result.error}` }
+        : outcome.kind === 'read' ? { ok: outcome.ok && result.fields.some(f => f.filled), text: `${outcome.title} on this page${outcome.detail ? `; ${outcome.detail.toLowerCase()}` : ''}` }
+        : { ok: outcome.ok, text: `${outcome.title}${outcome.detail ? `. ${outcome.detail}` : ''}` };
     const checklist: ReadinessItem[] = [
         thisPage,
         ...readinessItems({ recipe, version, samples, ...(review ? { review } : {}), ...(pages ? { pages } : {}),
@@ -163,7 +172,7 @@ export default function CheckPage({ onBack, onNavigate }: Props) {
                     <div className="flex items-center gap-2">
                         <ClipboardCheck size={16} className="shrink-0 text-ink-2" />
                         <Text weight="semibold" className="min-w-0 flex-1 truncate">On {page.host || 'this page'}</Text>
-                        {result && !result.error && (
+                        {result && !result.error && !result.rule && (
                             <Button size="sm" variant="ghost" icon={outlined ? <EyeOff /> : <Eye />}
                                 onClick={() => { const on = !outlined; setOutlined(on); void outline(result, on); }}>{outlined ? 'Hide on page' : 'Show on page'}</Button>
                         )}
@@ -176,8 +185,22 @@ export default function CheckPage({ onBack, onNavigate }: Props) {
                     <div><Button variant="primary" icon={<FlaskConical />} loading={checking} disabled={!page.web} onClick={checkPage}
                         title={page.web ? undefined : 'Open the page in a tab first'}>Check this page</Button></div>
                     {result?.error && <Notice tone="danger" title="The check stopped">{result.error}</Notice>}
+                    {result && outcome && outcome.kind !== 'read' && outcome.kind !== 'error' && (
+                        <div data-testid="pro-check-outcome">
+                            <Notice tone={outcome.ok ? 'success' : 'warning'} title={outcome.title}>
+                                {outcome.detail}
+                                {result.rule && !outcome.ok && (
+                                    <div className="pt-1.5">
+                                        <Button size="sm" variant="secondary" onClick={() => void addSample(result.rule!.name)}>
+                                            Keep as a sample that should hit "{result.rule.name}"
+                                        </Button>
+                                    </div>
+                                )}
+                            </Notice>
+                        </div>
+                    )}
                     {result?.setup && <Text size="caption" tone="muted">{result.setup.ran ? `Session set up first: ${result.setup.steps.map(s => s.name).join(', ')}.` : 'Session already set up.'}</Text>}
-                    {result && !result.error && (
+                    {result && !result.error && !result.rule && (
                         <div className="flex flex-col divide-y divide-line" data-testid="pro-check-table">
                             {fields.map(f => <FieldRow key={f.id} field={f} result={byId.get(f.id)}
                                 onFocus={() => { if (page.tab?.id) void call(page.tab.id, 'focusField', [f.name]).catch(() => {}); }} />)}
@@ -201,13 +224,14 @@ export default function CheckPage({ onBack, onNavigate }: Props) {
                         <Text weight="semibold" className="flex-1">Sample pages ({samples.length})</Text>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                        <Button size="sm" variant="ghost" icon={<Plus />} onClick={addSample} disabled={!page.web || samples.some(s => s.url === page.url)}>Add this page</Button>
+                        <Button size="sm" variant="ghost" icon={<Plus />} onClick={() => void addSample()} disabled={!page.web || samples.some(s => s.url === page.url)}>Add this page</Button>
                         <Button size="sm" variant="secondary" icon={<FlaskConical />} loading={!!progress} disabled={!samples.length || !!progress} onClick={checkSamples}>
                             Check {Math.min(samples.length, CHECK_PAGES)} sample page{Math.min(samples.length, CHECK_PAGES) === 1 ? '' : 's'}
                         </Button>
                     </div>
                     {progress && <Text size="caption" tone="muted">Checking page {progress.done + 1} of {progress.total}…</Text>}
-                    {pages && <TestGrid results={pages} fields={fields.map(f => ({ id: f.id, name: f.name }))} />}
+                    {keptFor && <Text size="caption" tone="muted" data-testid="pro-check-kept">This page is a sample that should hit "{keptFor}".</Text>}
+                    {pages && <TestGrid results={pages} fields={fields.map(f => ({ id: f.id, name: f.name }))} expect={expect} />}
                 </Card>
 
                 <ReadinessCard items={checklist} />

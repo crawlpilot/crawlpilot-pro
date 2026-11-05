@@ -2,6 +2,7 @@
 import { done, req } from '../../shared/db/idb';
 import { proTransaction } from './idb';
 import { STORES } from './schema';
+import { expectations, pageOutcome } from '../runner/outcome';
 import type { PageResult } from '../runner/testPage';
 
 export interface TestRun {
@@ -37,6 +38,11 @@ export async function latestTest(recipeId: string, digest: string, kind?: TestRu
     return runs.filter(r => !kind || r.kind === kind).sort((a, b) => b.at - a.at)[0];
 }
 
-export function passed(results: PageResult[]): boolean {
-    return results.length > 0 && results.every(r => !r.error && r.fields.every(f => f.ok));
+/**
+ * Every page as it should be: read with every field ok, or, for a sample kept to hit a page rule, that rule held.
+ * A page where a rule held unexpectedly, or another product, does not pass.
+ */
+export function passed(results: PageResult[], samples?: { url: string; expectRule?: string }[]): boolean {
+    const expect = expectations(samples);
+    return results.length > 0 && results.every(r => pageOutcome(r, expect.get(r.url)).ok);
 }

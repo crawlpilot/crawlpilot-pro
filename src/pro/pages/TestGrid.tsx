@@ -1,9 +1,12 @@
 /**
  * A test on several pages as a grid (recipe-improvements-plan C11): a row per field, a column per page,
- * each cell found, empty or a problem. A cell opens what was read there.
+ * each cell found, empty or a problem. A cell opens what was read there. A page where a page rule held has no
+ * fields read: its column says so, green when the sample expects that rule (`Sample.expectRule`). Under the
+ * grid, each page that was not simply read says what happened.
  */
 import { useState } from 'react';
 import { cx, Text } from '../../sidepanel/ui';
+import { pageOutcome } from '../runner/outcome';
 import type { FieldResult, PageResult } from '../runner/testPage';
 
 const preview = (v: unknown) => v === null || v === undefined ? '—' : typeof v === 'string' ? v : JSON.stringify(v);
@@ -14,7 +17,10 @@ function mark(f?: FieldResult): { text: string; tone: string; label: string } {
     return f.filled ? { text: '✓', tone: 'text-success', label: 'found' } : { text: '–', tone: 'text-ink-3', label: 'empty' };
 }
 
-export function TestGrid({ results, fields }: { results: PageResult[]; fields: { id: string; name: string }[] }) {
+export function TestGrid({ results, fields, expect = new Map() }: { results: PageResult[]; fields: { id: string; name: string }[]; expect?: Map<string, string> }) {
+    const outcomes = results.map(r => pageOutcome(r, expect.get(r.url)));
+    // Pages a rule held on have no fields to count.
+    const readable = results.filter(r => !r.rule).length;
     const [open, setOpen] = useState<{ field: string; page: number } | null>(null);
     const cell = (fieldId: string, page: number) => results[page].fields.find(f => f.fieldId === fieldId);
     const opened = open && cell(open.field, open.page);
@@ -27,7 +33,8 @@ export function TestGrid({ results, fields }: { results: PageResult[]; fields: {
                     <thead>
                         <tr>
                             <th className="py-1 pr-2 text-left font-semibold text-ink-2">Field</th>
-                            {results.map((r, i) => <th key={i} title={r.url} className="w-7 py-1 text-center font-semibold text-ink-2">{i + 1}</th>)}
+                            {results.map((r, i) => <th key={i} title={`${r.url}${expect.has(r.url) ? ` (should hit "${expect.get(r.url)}")` : ''}`}
+                                className={cx('w-7 py-1 text-center font-semibold', outcomes[i].ok ? 'text-ink-2' : 'text-danger')}>{i + 1}{expect.has(r.url) ? '⊘' : ''}</th>)}
                             <th className="py-1 pl-2 text-right font-semibold text-ink-2">Found</th>
                         </tr>
                     </thead>
@@ -38,7 +45,9 @@ export function TestGrid({ results, fields }: { results: PageResult[]; fields: {
                                 <tr key={f.id} className="border-t border-line">
                                     <td className="max-w-32 truncate py-1 pr-2 text-ink" title={f.name}>{f.name}</td>
                                     {results.map((r, i) => {
-                                        const m = r.error ? { text: '!', tone: 'text-danger', label: r.error } : mark(cell(f.id, i));
+                                        const m = r.error ? { text: '!', tone: 'text-danger', label: r.error }
+                                            : r.rule ? { text: '⊘', tone: outcomes[i].ok ? 'text-success' : 'text-warning', label: outcomes[i].title }
+                                            : mark(cell(f.id, i));
                                         const active = open?.field === f.id && open.page === i;
                                         return (
                                             <td key={i} className="text-center">
@@ -48,15 +57,21 @@ export function TestGrid({ results, fields }: { results: PageResult[]; fields: {
                                             </td>
                                         );
                                     })}
-                                    <td className="py-1 pl-2 text-right text-ink-2">{found}/{results.length}</td>
+                                    <td className="py-1 pl-2 text-right text-ink-2">{found}/{readable}</td>
                                 </tr>
                             );
                         })}
                     </tbody>
                 </table>
             </div>
-            {results.some(r => r.error) && (
-                <Text size="caption" tone="danger">{results.filter(r => r.error).map(r => `${host(r.url)}: ${r.error}`).join(' · ')}</Text>
+            {outcomes.some(o => o.kind !== 'read') && (
+                <div className="flex flex-col gap-0.5" data-testid="pro-grid-outcomes">
+                    {outcomes.map((o, i) => o.kind === 'read' ? null : (
+                        <Text key={i} size="caption" tone={o.ok ? 'success' : o.kind === 'error' ? 'danger' : 'warning'} className="break-all" data-testid="pro-grid-outcome">
+                            {i + 1}. {host(results[i].url)}: {o.title}{o.detail ? `. ${o.detail}` : ''}
+                        </Text>
+                    ))}
+                </div>
             )}
             {open && (
                 <div className="flex flex-col gap-0.5 rounded-xl bg-ink/4 px-2.5 py-2" data-testid="pro-grid-cell">

@@ -18,6 +18,7 @@ import { passed } from '../db/tests';
 import { summarize, testOnTab, type FieldResult, type PageResult } from '../runner/testPage';
 import { testOnPages, type PagesProgress } from '../runner/testPages';
 import { TestGrid } from './TestGrid';
+import { expectations, RULE_STATUS_LABELS } from '../runner/outcome';
 import { ContractPanel } from './ContractPanel';
 import { BeforeReading, newStep, PageAction, usePicker } from './StepsCard';
 import { Ways } from './Ways';
@@ -139,7 +140,7 @@ const patchPairs = (pairs: { key?: string; value?: string } | undefined, key: 'k
     return next;
 };
 
-const STATUS_LABELS: Record<RuleStatus, string> = { not_found: 'Not found', unavailable: 'Unavailable', blocked: 'Blocked', error: 'Error page' };
+const STATUS_LABELS = RULE_STATUS_LABELS;
 const STATUSES = (Object.keys(STATUS_LABELS) as RuleStatus[]).map(value => ({ value, label: STATUS_LABELS[value] }));
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -279,6 +280,12 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         await pro.samples.add(recipe.id, [url]);
         setSamples(await pro.samples.list(recipe.id));
     };
+    /** The page rule a sample should hit, or none: a page to read. */
+    const expectSample = async (url: string, rule: string | undefined) => {
+        if (!recipe) return;
+        await pro.samples.expectRule(recipe.id, url, rule);
+        setSamples(await pro.samples.list(recipe.id));
+    };
     const removeSample = async (url: string) => {
         if (!recipe) return;
         await pro.samples.remove(recipe.id, url);
@@ -292,10 +299,10 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         const results = await testOnPages(samples.slice(0, TEST_PAGES).map(x => x.url), tested, base.settings, setProgress, undefined, context);
         setProgress(null);
         setPagesTest({ results, spec: JSON.stringify(tested) });
-        await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(tested), kind: 'pages', results, passed: passed(results), at: Date.now() });
+        await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(tested), kind: 'pages', results, passed: passed(results, samples), at: Date.now() });
     };
     const pagesStale = !!pagesTest && pagesTest.spec !== JSON.stringify(spec);
-    const ready = pagesTest && !pagesStale && spec ? readiness(pagesTest.results, { spec, output }) : null;
+    const ready = pagesTest && !pagesStale && spec ? readiness(pagesTest.results, { spec, output }, samples) : null;
 
     const results = new Map((test?.result.fields ?? []).map(f => [f.fieldId, f]));
     const stale = !!test && test.spec !== JSON.stringify(spec);
@@ -388,6 +395,12 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     : test.result.rule
                     ? <div data-testid="pro-test-summary"><Notice tone="warning" title={`Page rule "${test.result.rule.name}" holds: ${STATUS_LABELS[test.result.rule.status]}`}>
                         No field was read. {stale ? 'You changed the recipe since this test.' : ''}
+                        {samples.find(x => x.url === test.result.url)?.expectRule !== test.result.rule.name && (
+                            <div className="pt-1.5"><Button size="sm" variant="secondary" onClick={() => void (async () => {
+                                if (!samples.some(x => x.url === test.result.url)) await addSample(test.result.url);
+                                await expectSample(test.result.url, test.result.rule!.name);
+                            })()}>Keep as a sample that should hit "{test.result.rule.name}"</Button></div>
+                        )}
                     </Notice></div>
                     : <div data-testid="pro-test-summary"><Notice tone={passed([test.result]) && !test.result.mismatch ? 'success' : 'warning'}
                         title={`On ${new URL(test.result.url).host}: ${summarize(test.result).filled} of ${summarize(test.result).total} fields found`}>
@@ -411,11 +424,19 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     meta={ready && <Chip tone={ready.ready ? 'success' : 'warning'}>{ready.ready ? 'ready' : 'not ready'}</Chip>}>
                     <div className="flex flex-col gap-2 pt-2">
                         {samples.map((x, i) => (
-                            <div key={x.url} className="flex items-center gap-1.5">
+                            <div key={x.url} className="flex items-center gap-1.5" data-testid="pro-sample">
                                 <Text size="caption" mono className="min-w-0 flex-1 truncate" title={x.url}>{i + 1}. {shortUrl(x.url)}</Text>
+                                {(spec.rules?.length || x.expectRule) ? (
+                                    <Select<string> size="sm" aria-label={`Sample ${i + 1} should be`} value={x.expectRule ?? ''}
+                                        options={[{ value: '', label: 'A page to read' },
+                                            ...(spec.rules ?? []).map(r => ({ value: r.name, label: `Hits "${r.name}"` })),
+                                            ...(x.expectRule && !spec.rules?.some(r => r.name === x.expectRule) ? [{ value: x.expectRule, label: `Hits "${x.expectRule}" (gone)` }] : [])]}
+                                        onChange={rule => void expectSample(x.url, rule || undefined)} />
+                                ) : null}
                                 <IconButton size="sm" label={`Remove sample ${i + 1}`} onClick={() => removeSample(x.url)}><X /></IconButton>
                             </div>
                         ))}
+                        {spec.rules?.length ? <Text size="caption" tone="faint">An error page kept to test a page rule passes when that rule holds; it needs 3 other pages to read.</Text> : null}
                         <div className="flex flex-wrap gap-1.5">
                             <Button size="sm" variant="ghost" icon={<Plus />} onClick={() => addSample(page.url)}
                                 disabled={!page.web || samples.some(x => x.url === page.url)}>Add this page</Button>
@@ -426,7 +447,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                         </div>
                         {progress && <Text size="caption" tone="muted">Testing page {progress.done + 1} of {progress.total}…</Text>}
                         {pagesStale && <Text size="caption" tone="warning">You changed the recipe since this test.</Text>}
-                        {pagesTest && <TestGrid results={pagesTest.results}
+                        {pagesTest && <TestGrid results={pagesTest.results} expect={expectations(samples)}
                             fields={spec.steps.flatMap(st => st.kind === 'field' ? [{ id: st.field.id, name: st.field.name }] : [])} />}
                         {ready && (ready.ready
                             ? <Text size="caption" tone="success" data-testid="pro-readiness">Ready to submit{changes.length ? ' once saved' : ''}.</Text>
