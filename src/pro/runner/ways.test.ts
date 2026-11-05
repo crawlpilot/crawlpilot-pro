@@ -63,7 +63,7 @@ describe('a page recipe read way by way', () => {
     it('sends the ways of the fields that need them, and the page rules', () => {
         const req = pageTestRequest(spec, {}, 'https://a.test/dp/B1');
         expect(req.elements[0]).not.toHaveProperty('ways');
-        expect(req.elements[1].ways).toEqual([{ selector: '#asin', read: 'attr', attr: 'value' }, { selector: '#sku', read: 'text' }]);
+        expect((req.elements[1] as { ways?: unknown }).ways).toEqual([{ selector: '#asin', read: 'attr', attr: 'value' }, { selector: '#sku', read: 'text' }]);
         expect(req.config.pageRules).toEqual(spec.rules);
     });
 

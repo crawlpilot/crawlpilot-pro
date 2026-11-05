@@ -18,9 +18,9 @@ const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringif
 /**
  * Imports a `.crawlpilot.json` into the recipe with the same name, site and kind (or a new one). A version
  * the recipe already has, by spec digest, settings, pages and output, is skipped. The file's own digests
- * are not trusted: each one is computed again.
+ * are not trusted: each one is computed again. `notes`: what an Atlas export had that the recipe doesn't.
  */
-async function importRecipeFile(raw: string, author: string): Promise<{ recipe: ProRecipe; added: number }> {
+async function importRecipeFile(raw: string, author: string): Promise<{ recipe: ProRecipe; added: number; notes: string[] }> {
     const file = readRecipeFile(raw);
     const existing = (await listRecipes()).find(r => r.name === file.name && r.site === file.site && r.kind === file.kind);
     const recipe = existing ?? await createRecipe({ name: file.name, site: file.site, kind: file.kind, ...file.targeting });
@@ -37,7 +37,7 @@ async function importRecipeFile(raw: string, author: string): Promise<{ recipe: 
         added++;
     }
     if (file.samples.length > 0) await addSamples(recipe.id, file.samples);
-    return { recipe: (await getRecipe(recipe.id))!, added };
+    return { recipe: (await getRecipe(recipe.id))!, added, notes: file.notes ?? [] };
 }
 
 export const pro = {

@@ -1,0 +1,46 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90m/Users/Z006CXD/Documents/personal/crawlpilot-pro[39m
+
+ [32m✓[39m src/pro/recipe/recipe.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/pro/crawler/search.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 142[2mms[22m[39m
+ [32m✓[39m src/pro/db/store.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 165[2mms[22m[39m
+ [32m✓[39m src/pro/edit.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m src/pro/recipe/lua.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+ [32m✓[39m src/pro/backend/submit.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+ [32m✓[39m src/pro/crawler/store.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+ [32m✓[39m src/pro/recipe/atlas/import.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m src/pro/crawler/resilience.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 917[2mms[22m[39m
+   [32m✓[39m a page that hangs [2m(1)[22m
+     [33m[2m✓[22m[39m is closed at the attempt's deadline, counted as a timeout, and gives its site slot back[33m 870[2mms[22m[39m
+ [32m✓[39m src/pro/recipe/diff.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m src/pro/crawler/deploy.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/pro/backend/client.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/pro/crawler/sqs.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/pro/crawler/rollup.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/pro/runner/runner.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/pro/runner/ways.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/pro/recipe/wayIds.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/pro/crawler/classify.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/pro/recipe/contract.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/pro/crawler/templates.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/pro/recipe/ready.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/pro/recipe/wayHealth.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/pro/recipe/editSpec.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/pro/crawler/config.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/pro/crawler/governor.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/pro/recipe/ops.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/pro/crawler/robots.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/pro/crawler/retry.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/pro/crawler/proxies.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/pro/recipe/health.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/pro/recipe/targeting.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m31 passed[39m[22m[90m (31)[39m
+[2m      Tests [22m [1m[32m189 passed[39m[22m[90m (189)[39m
+[2m   Start at [22m 13:29:55
+[2m   Duration [22m 9.11s[2m (environment 92%, import 3%, tests 3%, transform 2%)[22m
+
+[2mEnvironment [22m [33mjsdom was created 31 times[39m[2m · 55.40s total, 92% of tracked time[22m
+[2m            [22m [2mcreate it once per worker with [22m[33mpool: 'vmThreads'[39m[2m (keeps per-file isolation) or [22m[33misolate: false[39m[2m (shares it across files)[22m
+[2m            [22m [2mlearn more: https://vitest.dev/guide/improving-performance#test-environments[22m
+
