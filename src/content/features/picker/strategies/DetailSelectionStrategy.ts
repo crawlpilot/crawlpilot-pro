@@ -32,6 +32,25 @@ function valueLabel(c: ClassificationResult): string {
 
 const ARRAY_NAMES = { image_array: 'Images', link_array: 'Links', text_array: 'Texts' } as const;
 
+const WRAPPER_SKIP = new Set(['SCRIPT', 'STYLE', 'BR', 'HR', 'TEMPLATE']);
+
+/**
+ * What a wrapper stands for: down through elements that hold nothing but one element child (no text of their own),
+ * as `span > div > ul` around a product's bullets. The outline is the same box, so the selection is read as what it
+ * shows: the list, not a wrapper with one child. An element with text or more children of its own is itself.
+ */
+export function unwrap(el: HTMLElement): HTMLElement {
+    let cur = el;
+    for (let depth = 0; depth < 8; depth++) {
+        const kids = Array.from(cur.children).filter(c => !WRAPPER_SKIP.has(c.tagName));
+        if (kids.length !== 1) break;
+        const ownText = Array.from(cur.childNodes).some(n => n.nodeType === Node.TEXT_NODE && (n.textContent || '').trim());
+        if (ownText) break;
+        cur = kids[0] as HTMLElement;
+    }
+    return cur;
+}
+
 export class DetailSelectionStrategy implements ISelectionStrategy {
     private extractor: DataExtractor;
 
@@ -53,13 +72,16 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
      */
     readings(element: HTMLElement): Reading[] {
         const out: Reading[] = [];
-        const inside = findListInside(element);
+        // A wrapper is read as what it wraps (`unwrap`): the list or array is found, and saved, on that element.
+        const core = unwrap(element);
+        const at = core === element ? {} : { outline: core };
+        const inside = findListInside(core);
         if (inside.isContainer && inside.container) {
             const n = inside.childCount || inside.siblings.length;
-            out.push({ kind: 'list', label: `${inside.containerType === 'table' ? 'Table' : 'List'} · ${n} items`, outlines: inside.siblings });
+            out.push({ kind: 'list', label: `${inside.containerType === 'table' ? 'Table' : 'List'} · ${n} items`, outlines: inside.siblings, ...at });
         } else {
-            const array = this.detectHomogeneousArray(element);
-            if (array) out.push({ kind: 'array', label: `${ARRAY_NAMES[array.arrayType]} · ${array.count}` });
+            const array = this.detectHomogeneousArray(core);
+            if (array) out.push({ kind: 'array', label: `${ARRAY_NAMES[array.arrayType]} · ${array.count}`, ...at });
         }
         const strong = this.classifyAsDirectTag(element) ?? this.classifyAsWrapperContent(element);
         const value: Reading = { kind: 'value', label: valueLabel(strong ?? this.classifyAsText(element)) };
@@ -72,8 +94,10 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
     }
 
     handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void, reading?: Reading): void {
-        const target = element;
-        const kind = (reading ?? this.readings(element)[0]).kind;
+        const chosen = reading ?? this.readings(element)[0];
+        const kind = chosen.kind;
+        // A list or array read through a wrapper is saved on the element that holds it (the `ul`, not its `span`).
+        const target = (kind === 'list' || kind === 'array') && chosen.outline ? chosen.outline : element;
         const none = { isContainer: false, siblings: [], container: null, childCount: 0 };
 
         // What the user chose to save, read that way: the click never re-decides it.

@@ -796,6 +796,42 @@ test('page data and JOLT: a field added from the page\'s JSON, the record shaped
     await page.close();
 });
 
+test('build new: a product\'s bullets, widened from one to all of them, come as a list field', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/bullets.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1000 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    await ui.getByRole('button', { name: 'Build new' }).click();
+    const form = ui.getByTestId('pro-new-recipe');
+    await form.getByLabel('Competitor').fill('acme');
+    await form.getByRole('button', { name: 'Pick it on this page' }).click();
+    await ui.getByText('Pick data fields').click();
+    const box = (await page.locator('#top-highlights-module li:nth-child(3)').boundingBox())!;
+    await page.mouse.move(box.x + 4, box.y + 4);
+    await page.mouse.move(box.x + 6, box.y + 6);
+    await page.waitForTimeout(150);
+    // One step wider than the bullet: the six.
+    await page.keyboard.press('ArrowUp');
+    await page.waitForTimeout(150);
+    await page.keyboard.press('Enter');
+    await expect(ui.getByText('1 field')).toBeVisible();
+    await ui.getByRole('button', { name: 'Next: save' }).click();
+    const field = ui.getByTestId('pro-save-field').first();
+    await expect(field.getByLabel('Type of field 1')).toHaveValue('list');
+    await expect(field).toContainText('Array (6 items)');
+    await ui.getByRole('button', { name: 'Save version' }).click();
+    await expect(ui.getByRole('button', { name: 'Check it on this page' })).toBeVisible();
+    const [v1] = await proStore(ui, 'versions');
+    expect(v1.spec.steps[0].field).toMatchObject({ type: 'list', read: 'text_array' });
+    await ui.close();
+    await page.close();
+});
+
 test('build new: picked fields come to the save step named and typed from the page, and can be changed there', async ({ panel, ext, origin }) => {
     const page = await ext.newPage();
     await page.goto(`${origin}/site/json-product.html`);
