@@ -1,0 +1,17 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Grill · details behind two clicks</title>
+<style>body{font:14px sans-serif;margin:24px}</style></head>
+<body>
+<h1>Expert Grill 4-Burner</h1>
+<button id="more" type="button">More details</button>
+<div id="details"></div>
+<script>
+// Walmart-style: "More details" shows the tabs; the Specifications tab then renders its panel.
+document.getElementById('more').addEventListener('click', () => setTimeout(() => {
+  document.getElementById('details').innerHTML = '<button id="specs-tab" type="button" role="tab">Specifications</button><section id="panel"></section>';
+  document.getElementById('specs-tab').addEventListener('click', () => setTimeout(() => {
+    document.getElementById('panel').innerHTML = '<p class="material">Stainless steel</p>';
+  }, 100));
+}, 100));
+</script>
+</body></html>

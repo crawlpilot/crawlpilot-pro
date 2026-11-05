@@ -19,6 +19,13 @@ import { extractColumns, collapseTableToJson } from './columnHelpers';
 export class ElementProcessor {
     private extractor = new DataExtractor();
 
+    /**
+     * The page was swept for lazy content in this read: one sweep wakes every lazy loader, so a second field that
+     * isn't on the page is looked for, not swept for again (a recipe with many missing fields swept the page
+     * top to bottom once per field).
+     */
+    private swept = false;
+
     constructor(private config: ExtractionConfig) { }
 
     /** `waitFor`: wait for the element to appear (it follows a click that reveals it). */
@@ -320,8 +327,13 @@ export class ElementProcessor {
         return openByMarkup(control) ? 'opened' : 'no-effect';
     }
 
-    /** Scrolls the whole page a viewport at a time (so lazy loaders fire), looking for the element at each step. */
+    /**
+     * Scrolls the whole page a viewport at a time (so lazy loaders fire), looking for the element at each step; once
+     * per read (`swept`): after that, only looked for.
+     */
     private async scrollPageToReveal(selectors: string[]): Promise<HTMLElement | null> {
+        if (this.swept) return this.find(selectors);
+        this.swept = true;
         const viewportHeight = window.innerHeight || 800;
         const STEP_DELAY_MS = 600;
         const totalHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);

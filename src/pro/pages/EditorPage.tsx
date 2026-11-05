@@ -6,7 +6,7 @@
  * Picking new fields on the page stays in the Page Extractor (Re-pick).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, Fingerprint, FlaskConical, Layers, Plus, Save, ShieldAlert, SlidersHorizontal, Trash2, X, Shuffle } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, Fingerprint, FlaskConical, Layers, MousePointerClick, Plus, Save, ShieldAlert, Shuffle, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Chip, Disclosure, IconButton, Notice, Select, Switch, Text, TextArea, TextField } from '../../sidepanel/ui';
 import { pro } from '../db';
@@ -368,6 +368,11 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                 <div className="flex items-center gap-1">
                     <Switch label="Required" checked={!!field.required} onChange={r => setSpec(edits.setRequired(spec, field.id, r))} />
                     <span className="flex-1" />
+                    <Button size="sm" variant="ghost" icon={<MousePointerClick />} title="A click that reveals this field (a tab, a 'More details' button), run just before it is read"
+                        onClick={() => {
+                            const n = spec.steps.filter(st => st.kind === 'click' && st.click.name.startsWith(`Reveal ${field.name}`)).length;
+                            setSpec(edits.insertAction(spec, i, newStep(n ? `Reveal ${field.name} (${n + 1})` : `Reveal ${field.name}`)));
+                        }}>Add a click before it</Button>
                     <IconButton size="sm" label="Move up" onClick={() => setSpec(edits.moveStep(spec, i, -1))} disabled={i === 0}><ArrowUp /></IconButton>
                     <IconButton size="sm" label="Move down" onClick={() => setSpec(edits.moveStep(spec, i, 1))} disabled={i === spec.steps.length - 1}><ArrowDown /></IconButton>
                     <IconButton size="sm" label={`Remove field ${field.name}`} onClick={() => setSpec(edits.removeStep(spec, i))}><Trash2 /></IconButton>
@@ -502,7 +507,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                         onChange={identity => setSpec(edits.setIdentity(spec, identity))} />
                 </Disclosure>
                 <BeforeReading spec={spec} onChange={setSpec} context={context} onContext={changeContext} picker={picker} />
-                <Text size="caption" tone="faint">Steps run in this order: a step (a click, a choice, typing), then the fields it reveals.</Text>
+                <Text size="caption" tone="faint">Steps run in this order: a step (a click, a choice, typing), then the fields it reveals. A field behind a tab or a button gets its clicks with "Add a click before it".</Text>
                 {spec.steps.map((s, i) => s.kind === 'field' ? fieldCard(s.field, i) : <PageAction key={s.click.id} spec={spec} click={s.click} index={i} onChange={setSpec} picker={picker} />)}
                 <div className="flex flex-wrap items-start gap-1.5">
                     <Button size="sm" variant="ghost" icon={<Plus />} onClick={() => setSpec(edits.addAction(spec, newStep(`Step ${spec.steps.filter(x => x.kind === 'click').length + 1}`)))}>Add a step</Button>

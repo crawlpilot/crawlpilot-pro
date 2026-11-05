@@ -87,3 +87,28 @@ describe('Page Extractor healing', () => {
         expect(record.steps[0].status).toBe('not-found');
     });
 });
+
+describe('fields not on the page', () => {
+    it('the page is swept for lazy content once per read, not once per missing field', async () => {
+        document.body.innerHTML = '<h1>Lamp</h1><div style="height:3000px"></div>';
+        const scrolls: number[] = [];
+        const real = window.scrollTo;
+        window.scrollTo = ((o: ScrollToOptions) => { scrolls.push(o.top ?? 0); }) as typeof window.scrollTo;
+        Object.defineProperty(document.documentElement, 'scrollHeight', { configurable: true, value: 3000 });
+        try {
+            const record = await extractPage([
+                step('title', 'extract', 'h1'),
+                step('gone1', 'extract', '.no-such-1'),
+                step('gone2', 'extract', '.no-such-2'),
+                step('gone3', 'extract', '.no-such-3'),
+            ], {});
+            expect(record.item.title).toBe('Lamp');
+            // One sweep, top to bottom: each viewport once.
+            expect(scrolls.filter(y => y === 0)).toHaveLength(1);
+            expect(scrolls).toEqual([...scrolls].sort((a, b) => a - b));
+        } finally {
+            window.scrollTo = real;
+            delete (document.documentElement as unknown as { scrollHeight?: number }).scrollHeight;
+        }
+    }, 30_000);
+});
