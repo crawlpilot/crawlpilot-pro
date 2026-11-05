@@ -2,7 +2,7 @@
  * Edits to a page recipe's spec, each returning a new spec (the editor keeps the old one for undo-free
  * compare). Page data stays the first way: the extractor reads it before any selector.
  */
-import type { Field, FieldType, Identity, PageRecipeSpec, Step, Way } from './types';
+import type { Click, Field, FieldType, Identity, PageRecipeSpec, SessionSetup, Step, Way } from './types';
 import type { PageRule } from '../../shared/types/ways';
 import type { ProOp } from './ops';
 
@@ -50,6 +50,35 @@ export const addSelector = (spec: PageRecipeSpec, id: string, selector: string) 
     return { ...f, ways: [...f.ways, { kind: 'selector', selector: s }] };
 });
 
+/** A way read before the others (the page's markup), unless the field has it already. */
+export const addWayFirst = (spec: PageRecipeSpec, id: string, way: Way) => mapField(spec, id, f =>
+    f.ways.some(w => JSON.stringify({ ...w, id: undefined, addedIn: undefined }) === JSON.stringify({ ...way, id: undefined, addedIn: undefined })) ? f : { ...f, ways: [way, ...f.ways] });
+
+/** A page step that acts (a click or another action), changed. */
+export const updateClick = (spec: PageRecipeSpec, id: string, f: (c: Click) => Click): PageRecipeSpec => ({
+    ...spec,
+    steps: spec.steps.map(s => s.kind === 'click' && s.click.id === id ? { kind: 'click', click: f(s.click) } : s),
+});
+
+/** A new action step, at the end of the page's steps (moved into place from there). */
+export const addAction = (spec: PageRecipeSpec, click: Click): PageRecipeSpec => ({ ...spec, steps: [...spec.steps, { kind: 'click', click }] });
+
+/** The session setup, changed; an empty one is dropped, so a recipe without it keeps its digest. */
+export function editSetup(spec: PageRecipeSpec, f: (s: SessionSetup) => SessionSetup): PageRecipeSpec {
+    const next = f(spec.setup ?? { steps: [] });
+    const { setup: _, ...rest } = spec;
+    const empty = next.steps.length === 0 && !next.check && !next.dismiss?.length;
+    const tidy: SessionSetup = { steps: next.steps, ...(next.dismiss?.length ? { dismiss: next.dismiss } : {}), ...(next.check ? { check: next.check } : {}) };
+    return empty ? rest : { ...rest, setup: tidy };
+}
+
+/** A list's item moved, replaced or removed: for the setup's steps and dismissals. */
+export const listEdit = {
+    move: <T,>(list: T[], index: number, delta: number) => move(list, index, index + delta),
+    replace: <T,>(list: T[], index: number, item: T) => list.map((x, i) => i === index ? item : x),
+    remove: <T,>(list: T[], index: number) => list.filter((_, i) => i !== index),
+};
+
 /** What stops a save: one line each. */
 export function problems(spec: PageRecipeSpec): string[] {
     const fields = spec.steps.flatMap(s => s.kind === 'field' ? [s.field] : []);
@@ -60,7 +89,13 @@ export function problems(spec: PageRecipeSpec): string[] {
     const dupes = [...new Set(names.filter((n, i) => n && names.indexOf(n) !== i))];
     if (dupes.length) out.push(`Two fields are named ${dupes.map(d => `"${d}"`).join(', ')}.`);
     for (const f of fields) if (f.ways.length === 0) out.push(`"${f.name || 'A field'}" has no way to find it.`);
-    for (const s of spec.steps) if (s.kind === 'click' && s.click.ways.length === 0) out.push(`Click "${s.click.name}" has nothing to click.`);
+    for (const s of spec.steps) if (s.kind === 'click') out.push(...actionProblems(s.click));
+    const repeating = spec.steps.filter(s => s.kind === 'click' && s.click.forEach);
+    if (repeating.length > 1) out.push('Only one step can go through each item.');
+    for (const c of spec.setup?.steps ?? []) out.push(...actionProblems(c, 'Setup step'));
+    for (const c of spec.setup?.dismiss ?? []) if (c.ways.length === 0) out.push(`Dismiss "${c.name}" has nothing to click.`);
+    if (spec.setup?.check && !spec.setup.check.contains.trim()) out.push('The setup check needs the text it must contain.');
+    if (spec.setup?.check && spec.setup.check.ways.length === 0) out.push('The setup check has no element to read.');
     if (spec.rules?.some(r => !r.name.trim())) out.push('Every page rule needs a name.');
     const identity = spec.identity;
     if (identity) {
@@ -68,5 +103,17 @@ export function problems(spec: PageRecipeSpec): string[] {
         if (identity.url.length === 0) out.push('The identity check has no URL pattern.');
         for (const p of identity.url) { try { new RegExp(p); } catch { out.push(`URL pattern ${p} is not a valid regex.`); } }
     }
+    return out;
+}
+
+/** What an action step lacks: a target (scrolling to the end needs none), or the value its kind needs. */
+export function actionProblems(c: Click, label = 'Step'): string[] {
+    const name = `${label} "${c.name}"`;
+    const what = c.do ?? 'click';
+    const out: string[] = [];
+    if (c.ways.length === 0 && what !== 'scroll' && what !== 'press') out.push(what === 'click' ? `Click "${c.name}" has nothing to click.` : `${name} has no element to act on.`);
+    if ((what === 'type' || what === 'select' || what === 'press') && !c.value?.trim()) out.push(`${name} needs a value to ${what}.`);
+    if (what === 'choose' && !c.forEach && !c.value?.trim() && c.index === undefined) out.push(`${name} needs the text to choose, or which item.`);
+    if (c.forEach && what !== 'choose') out.push(`${name} goes through each item, so it must choose from a list.`);
     return out;
 }

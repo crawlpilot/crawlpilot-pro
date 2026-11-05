@@ -37,6 +37,9 @@ export interface CrawlerConfig {
     settleMs: number;
     /** A browser context serves this many pages before it is replaced. */
     pagesPerContext: number;
+    /** A context unused this long is closed; past `maxContexts`, the least recently used idle ones are. */
+    contextIdleMs: number;
+    maxContexts: number;
     /** A list is read to this many pages at most: clicked through in one job, or followed as jobs. */
     maxListPages: number;
     /** A list row's details page is crawled as a job of its own. */
@@ -57,6 +60,8 @@ export const DEFAULTS: Omit<CrawlerConfig, 'recipeStore' | 'search'> = {
     navigationTimeoutMs: 30_000,
     settleMs: 500,
     pagesPerContext: 50,
+    contextIdleMs: 5 * 60_000,
+    maxContexts: 50,
     maxListPages: 20,
     followDetails: true,
     retry: DEFAULT_RETRY,
@@ -77,9 +82,11 @@ function substitute(value: unknown, env: Record<string, string | undefined>): un
     return value;
 }
 
-export function parseConfig(json: unknown, env: Record<string, string | undefined> = process.env): CrawlerConfig {
+/** `noSearch`: the worker prints what it would write (`--print`), so Elasticsearch is not needed. */
+export function parseConfig(json: unknown, env: Record<string, string | undefined> = process.env, o: { noSearch?: boolean } = {}): CrawlerConfig {
     const raw = substitute(json, env) as Partial<CrawlerConfig>;
     if (!raw.recipeStore?.url || !raw.recipeStore.token) throw new Error('The configuration needs recipeStore.url and recipeStore.token.');
+    if (o.noSearch && !raw.search?.url) raw.search = { url: 'unused' };
     if (!raw.search?.url) throw new Error('The configuration needs search.url.');
     const config: CrawlerConfig = {
         ...DEFAULTS, ...raw,
@@ -102,8 +109,8 @@ export function parseConfig(json: unknown, env: Record<string, string | undefine
     return config;
 }
 
-export async function loadConfig(path: string, env = process.env): Promise<CrawlerConfig> {
-    return parseConfig(JSON.parse(await readFile(path, 'utf8')), env);
+export async function loadConfig(path: string, env = process.env, o: { noSearch?: boolean } = {}): Promise<CrawlerConfig> {
+    return parseConfig(JSON.parse(await readFile(path, 'utf8')), env, o);
 }
 
 /** The profile for a host: the longest matching site key, over `default`. */

@@ -8,7 +8,8 @@ import { listRunInput, listSpec, pageSpec, type RunElement } from '../shared/rec
 import type { ListPick, PaginationMode } from '../shared/types/extraction';
 import { pro } from './db';
 import { carryOver, fromListSpec, fromPageSpec, toListSpec, toPageSpec } from './recipe/fromPublic';
-import type { PageSource, ProRecipe, RecipeKind, RunSettings, Version, VersionDraft } from './recipe/types';
+import type { FieldType, PageRecipeSpec, PageSource, ProRecipe, RecipeKind, RunSettings, Version, VersionDraft } from './recipe/types';
+import { keepFromBase } from './recipe/repick';
 import { currentUser } from './identity';
 
 /** A recipe being built (no version yet) or edited (from `version`). */
@@ -16,6 +17,26 @@ export interface ProEdit {
     kind: RecipeKind;
     recipe?: ProRecipe;
     version?: Version;
+    /** A new recipe: what Build new asked first, set on the recipe when version 1 is saved. */
+    draft?: NewRecipe;
+}
+
+/** What Build new asks before picking: what the recipe is for, and its name. */
+export interface NewRecipe {
+    name: string;
+    competitor: string;
+    pageType: string;
+}
+
+const SECOND_LEVEL = /^(co|com|org|net|ac|gov)$/;
+
+/** A site's competitor name as a suggestion: `www.zara.com` → zara, `shop.example.co.uk` → example. */
+export function competitorOf(host: string): string {
+    if (/^[\d.:]+$/.test(host.split(':')[0])) return ''; // an IP address names no one
+    const parts = host.replace(/^www\./, '').split(':')[0].split('.').filter(Boolean);
+    if (parts.length < 2) return parts[0] ?? '';
+    const tld = parts.length > 2 && SECOND_LEVEL.test(parts[parts.length - 2]) ? 2 : 1;
+    return (parts[parts.length - 1 - tld] ?? '').toLowerCase();
 }
 
 let pending: ProEdit | null = null;
@@ -62,17 +83,43 @@ async function saveDraft(edit: ProEdit, name: string, draft: VersionDraft, note:
         return { recipe: (await pro.recipes.get(edit.recipe.id))!, version };
     }
     const urls = urlsOf(draft.pages);
-    const recipe = await pro.recipes.create({ name: name.trim(), site: siteOfUrl(urls[0]), kind: edit.kind });
+    const targeting = edit.draft ? { competitor: edit.draft.competitor.trim(), pageType: edit.draft.pageType.trim() } : {};
+    const recipe = await pro.recipes.create({ name: name.trim(), site: siteOfUrl(urls[0]), kind: edit.kind, ...targeting });
     const version = await pro.versions.save(recipe.id, 0, draft, { ...by, origin: 'built' });
     if (urls.length > 0) await pro.samples.add(recipe.id, urls);
     return { recipe: (await pro.recipes.get(recipe.id))!, version };
 }
 
-export function savePageVersion(edit: ProEdit, input: { name: string; elements: RunElement[]; urls: string[]; settings: RunSettings; note: string }) {
-    const edited = fromPageSpec(pageSpec(input.elements, input.settings));
-    const base = edit.version?.spec;
-    const spec = base?.kind === 'page' ? carryOver(base, edited.spec) : edited.spec;
-    const draft: VersionDraft = { spec, settings: edited.settings, pages: { kind: 'urls', urls: input.urls }, output: edit.version?.output ?? {} };
+/**
+ * The page recipe the extractor's picks make: what Pro added to the base version kept (`recipe/repick.ts`), the
+ * ways of fields read way by way and the page rules and identity check carried over (`carryOver`), then the names
+ * and types given in the save step (`fields`, by field id).
+ */
+export function pageDraftSpec(edit: ProEdit, elements: RunElement[], settings: RunSettings, fields: FieldNaming[] = []) {
+    const picked = fromPageSpec(pageSpec(elements, settings));
+    const base = edit.version?.spec.kind === 'page' ? edit.version.spec : undefined;
+    const kept = base ? carryOver(base, keepFromBase(picked.spec, base)) : picked.spec;
+    const named = new Map(fields.map(f => [f.id, f]));
+    const spec: PageRecipeSpec = {
+        ...kept,
+        steps: kept.steps.map(st => {
+            const n = st.kind === 'field' ? named.get(st.field.id) : undefined;
+            return n && st.kind === 'field' ? { kind: 'field', field: { ...st.field, name: n.name.trim() || st.field.name, type: n.type } } : st;
+        }),
+    };
+    return { spec, settings: picked.settings };
+}
+
+/** A field's name and output type as set in the save step. */
+export interface FieldNaming {
+    id: string;
+    name: string;
+    type: FieldType;
+}
+
+export function savePageVersion(edit: ProEdit, input: { name: string; elements: RunElement[]; urls: string[]; settings: RunSettings; note: string; fields?: FieldNaming[] }) {
+    const { spec, settings } = pageDraftSpec(edit, input.elements, input.settings, input.fields);
+    const draft: VersionDraft = { spec, settings, pages: { kind: 'urls', urls: input.urls }, output: edit.version?.output ?? {} };
     return saveDraft(edit, input.name, draft, input.note);
 }
 

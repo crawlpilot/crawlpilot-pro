@@ -21,6 +21,8 @@ export function pageWays(field: Field): PageWay[] {
         const many = !!w.pick && w.pick !== 'first';
         const when = w.when ? { when: w.when } : {};
         if (w.kind === 'data') return { data: w.binding, ...when, ...(many ? { many } : {}) };
+        // Read from the page's markup by Pro's script, into this way's place (`crawler/inPage.ts`, `runner/testPage.ts`).
+        if (w.kind === 'markup') return { ...when };
         return {
             selector: w.selector, read: w.read ?? 'text',
             ...(w.attr ? { attr: w.attr } : {}), ...(w.pairs ? { pairs: w.pairs } : {}), ...when,

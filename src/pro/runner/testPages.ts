@@ -28,8 +28,9 @@ export interface PagesProgress {
     url: string;
 }
 
+/** `context`: test values of the recipe's variables; each page sets its session up as the recipe says. */
 export async function testOnPages(urls: string[], spec: PageRecipeSpec, settings: RunSettings,
-    onProgress?: (p: PagesProgress) => void, stopped?: () => boolean): Promise<PageResult[]> {
+    onProgress?: (p: PagesProgress) => void, stopped?: () => boolean, context?: Record<string, string>): Promise<PageResult[]> {
     const results: PageResult[] = [];
     const pace = typeof settings.requestDelay === 'number' ? settings.requestDelay : 1000;
     const loadTimeout = typeof settings.loadTimeout === 'number' ? settings.loadTimeout : 15000;
@@ -41,10 +42,10 @@ export async function testOnPages(urls: string[], spec: PageRecipeSpec, settings
             tabId = (await chrome.tabs.create({ url, active: false })).id;
             if (tabId === undefined) throw new Error('No tab');
             await loaded(tabId, loadTimeout);
-            let result = await testOnTab(tabId, url, spec, settings);
+            let result = await testOnTab(tabId, url, spec, settings, context);
             for (let tries = 0; notListening(result.error) && tries < 10; tries++) {
                 await sleep(500);
-                result = await testOnTab(tabId, url, spec, settings);
+                result = await testOnTab(tabId, url, spec, settings, context);
             }
             results.push(result);
         } catch (e) {

@@ -13,6 +13,11 @@
  * acknowledges the job only once Elasticsearch has them. Index names: `crawl-requests-YYYY.MM.DD`, `crawl-sites-YYYY.MM`,
  * `scrapes-<competitor>` and `selector-usage-YYYY.MM` (with `test-` in front in test mode).
  */
+import { createHash } from 'node:crypto';
+import { hasProActions, missingVariables } from '../recipe/actions';
+import { canonicalString } from '../recipe/canonical';
+import { DEFAULT_STEP_OPTIONS, dismissNow, extractWithActions, installDismissals, prepareSession, StepFailed, type StepOptions } from './steps';
+import type { WayUse } from './inPage';
 import { classify, classOf, CrawlError, keepHeaders, type Classification } from './classify';
 import { siteProfile, type CrawlerConfig } from './config';
 import { extract, readListPages, visit, type ListRead, type PageSource, type Visit } from './browser';
@@ -21,6 +26,7 @@ import { ProxyPool, type ProxyConfig } from './proxies';
 import { followUps, inPageRequest, partOf, readListRows, readRun, type RunRead } from './recipeRun';
 import { decide } from './retry';
 import type { RobotsCache } from './robots';
+import type { PageBaselines } from './baseline';
 import type { SearchSink } from './search';
 import type { RecipeStore, ResolvedRecipe } from './store';
 import type { CrawlJob, RequestEvent, ScrapeDoc, SelectorUsageDoc, SiteEvent } from './types';
@@ -37,6 +43,8 @@ export interface WorkerDeps {
     robots: RobotsCache | null;
     /** The in-page script (`dist/inpage.js`). */
     script: string;
+    /** Typical page lengths per site, for soft blocks (`baseline.ts`). */
+    baselines?: PageBaselines;
     /** Told when the browser fails or works (`vitals.ts`). */
     vitals?: Vitals;
     /** The worker is stopping: take no new attempt. */
@@ -68,6 +76,15 @@ export function storeDelay(failures: number, random: () => number): number {
     return Math.round(cap / 2 + random() * cap / 2);
 }
 
+/** A context in a document id: `~store=2280,zip=10001`, keys sorted; nothing without one. */
+export function contextSuffix(context?: Record<string, string>): string {
+    const keys = Object.keys(context ?? {}).sort();
+    return keys.length ? `~${keys.map(k => `${k}=${context![k]}`).join(',')}` : '';
+}
+
+/** Room in an attempt's deadline for a session setup and action steps. */
+const STEPS_MS = 90_000;
+
 const proxyOf = (proxy?: ProxyConfig) => proxy ? { proxyId: proxy.id, ...(proxy.country ? { proxyCountry: proxy.country } : {}) } : {};
 /** A list page clicked through several times takes longer. */
 const LIST_TIMEOUT_MS = 180_000;
@@ -87,6 +104,37 @@ export function siteEventWriter(sink: SearchSink, worker: string, now: () => num
     return (e: Omit<SiteEvent, '@timestamp' | 'worker'>) => {
         const t = now();
         sink.write(indices.sites(t), { '@timestamp': new Date(t).toISOString(), worker, ...e } satisfies SiteEvent);
+    };
+}
+
+/**
+ * A page that loaded but gave the recipe nothing, much shorter than the site's pages usually are: a soft block
+ * (`baseline.ts`). A page that gave data adds to the site's typical length.
+ */
+function softBlock(c: Classification, key: string, textLength: number | undefined, read: RunRead | undefined, listRead: ListRead | undefined, baselines?: PageBaselines): Classification {
+    if (!baselines || textLength === undefined) return c;
+    const rows = listRead?.lists.reduce((n, l) => n + l.rows.length, 0);
+    const gotData = read ? read.filled > 0 : rows !== undefined ? rows > 0 : true;
+    const expected = read ? read.total > 0 : rows !== undefined;
+    if (gotData) { baselines.good(key, textLength); return c; }
+    const short = expected ? baselines.softBlock(key, textLength) : undefined;
+    if (!short) return c;
+    const signal = `no data, page ${Math.round(short.share * 100)}% of its usual length (${textLength} of ~${short.typical} characters)`;
+    return classOf('blocked', {
+        ...(c.protection ? { protection: c.protection } : {}),
+        blockSignal: `soft block: ${signal}`,
+        block: { vendor: c.protection?.length === 1 ? c.protection[0] : 'unknown', kind: 'soft_block', confidence: 'medium', signals: [signal] },
+    });
+}
+
+/** What a block page showed, kept on its request event so a person can check the identification. */
+function evidenceOf(v: Visit): RequestEvent['blockEvidence'] {
+    const hosts = [...new Set((v.resources ?? []).flatMap(u => { try { return [new URL(u).host]; } catch { return []; } }))].slice(0, 30);
+    return {
+        ...(v.title ? { title: v.title.slice(0, 200) } : {}),
+        ...(v.text ? { textSample: v.text.slice(0, 300) } : {}),
+        ...(hosts.length ? { resourceHosts: hosts } : {}),
+        ...(v.cookies?.length ? { cookieNames: v.cookies.slice(0, 50) } : {}),
     };
 }
 
@@ -110,7 +158,9 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
 
     // Put back for too long (a site that stays blocked): for a person, not the queue, to decide.
     if (job.firstSeenAt !== undefined && now() - job.firstSeenAt > config.retry.maxJobAgeMs) {
-        const message = `Put back for ${Math.round((now() - job.firstSeenAt) / 3_600_000)} h, past retry.maxJobAgeMs, after ${before} attempts`;
+        const age = now() - job.firstSeenAt;
+        const took = age >= 3_600_000 ? `${Math.round(age / 3_600_000)} h` : age >= 60_000 ? `${Math.round(age / 60_000)} min` : `${Math.round(age / 1000)} s`;
+        const message = `Put back for ${took}, past retry.maxJobAgeMs, after ${before} attempts`;
         emit({ ...base(), attempt: before, final: true, outcome: 'dead_letter', timings: { totalMs: 0 }, errorClass: 'expired', errorMessage: message });
         return { outcome: 'dead_letter', attempts: before, reason: `expired: ${message}` };
     }
@@ -145,10 +195,23 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
         emit({ ...base(), attempt: before + 1, final: true, outcome: 'dead_letter', timings: { totalMs: 0 }, errorClass: 'no_recipe', errorMessage: message, recipe: ref });
         return { outcome: 'dead_letter', attempts: before + 1, reason: message };
     }
-    const request = 'page' in part ? inPageRequest(part.page, recipe.settings) : undefined;
+    // The values the recipe's steps need ({zip}…) come with the job; a job without them is a person's to fix.
+    const missing = missingVariables(recipe.spec, job.context);
+    if (missing.length) {
+        const message = `The job's context lacks ${missing.map(m => `"${m}"`).join(', ')}, which the recipe's steps need`;
+        emit({ ...base(), attempt: before + 1, final: true, outcome: 'dead_letter', timings: { totalMs: 0 }, errorClass: 'missing_context', errorMessage: message, recipe: ref });
+        return { outcome: 'dead_letter', attempts: before + 1, reason: `missing_context: ${message}` };
+    }
+    const setup = recipe.spec.setup?.steps.length || recipe.spec.setup?.check ? recipe.spec.setup : undefined;
+    const withActions = 'page' in part && hasProActions(part.page);
+    // A session set up for one context is never used for another: its cookies hold the location.
+    const sessionKey = setup ? createHash('sha1').update(canonicalString({ setup, context: job.context ?? {} })).digest('hex').slice(0, 16) : undefined;
+    const request = 'page' in part && !withActions ? inPageRequest(part.page, recipe.settings) : undefined;
+    const stepOptions: StepOptions = { ...DEFAULT_STEP_OPTIONS, settleMs: Math.max(DEFAULT_STEP_OPTIONS.settleMs, config.settleMs), ...(d.sleep ? { sleep: d.sleep } : {}) };
     const failedProxies = new Set<string>();
     // How long one attempt may take, open to close: past it the page is closed and the attempt is a timeout.
-    const attemptMs = config.navigationTimeoutMs + LOAD_WAIT_MS + config.settleMs + ('page' in part ? EXTRACT_TIMEOUT_MS : LIST_TIMEOUT_MS) + ATTEMPT_MARGIN_MS;
+    const attemptMs = config.navigationTimeoutMs + LOAD_WAIT_MS + config.settleMs + ('page' in part ? EXTRACT_TIMEOUT_MS : LIST_TIMEOUT_MS) + ATTEMPT_MARGIN_MS
+        + (setup || withActions ? STEPS_MS : 0);
     let waitedBusy = 0;
 
     for (let attempt = before + 1; ; attempt++) {
@@ -178,6 +241,8 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
         let proxy: ProxyConfig | undefined;
         let started = now();
         let aborted = false;
+        let setupRun: RequestEvent['setup'];
+        let setupWays: WayUse[] = [];
         try {
             if (slot.waitMs > 0) await sleep(slot.waitMs);
             started = now();
@@ -201,30 +266,55 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
             // 4. Visit, classify, extract, within the attempt's deadline, unless the worker must stop first.
             let timedOut = false;
             try {
-                const { page, release } = await d.pages.open(host, profile, proxy);
+                const { page, release, session } = await d.pages.open(host, profile, proxy, sessionKey);
                 const deadline = setTimeout(() => { timedOut = true; void page.close().catch(() => {}); }, attemptMs);
                 const abandon = () => { aborted = true; void page.close().catch(() => {}); };
                 if (d.signal?.aborted) abandon(); else d.signal?.addEventListener('abort', abandon, { once: true });
                 try {
                     v = await visit(page, job.url, { timeoutMs: config.navigationTimeoutMs, settleMs: config.settleMs, now });
-                    c = classify({ error: v.error, status: v.status, headers: v.headers, title: v.title, text: v.text }, now());
+                    c = classify({
+                        error: v.error, status: v.status, headers: v.headers, title: v.title, text: v.text,
+                        cookies: v.cookies, resources: v.resources, navigation: [...v.redirects, ...(v.finalUrl ? [v.finalUrl] : [])],
+                    }, now());
                     errorMessage = v.error;
                     if (c.errorClass === 'none') {
                         const t = now();
                         try {
-                            if ('page' in part) read = readRun(part.page, v.finalUrl ?? job.url, await extract(page, d.script, request!, EXTRACT_TIMEOUT_MS));
-                            else listRead = await readListPages(page, d.script, part.list, { maxPages: config.maxListPages, settleMs: config.settleMs, timeoutMs: LIST_TIMEOUT_MS });
+                            // The session first (a location, a store), then the page's own steps with its fields.
+                            if (setup?.dismiss?.length) await installDismissals(page, setup.dismiss);
+                            if (setup) {
+                                const s0 = now();
+                                try {
+                                    const run = await prepareSession(page, d.script, setup, job.context, session ?? { prepared: false }, stepOptions);
+                                    setupRun = { ran: run.ran, ms: run.ms };
+                                    setupWays = run.ways;
+                                } catch (e) {
+                                    if (e instanceof StepFailed) setupRun = { ran: true, ms: now() - s0, failedStep: e.step };
+                                    throw e;
+                                }
+                            }
+                            if ('page' in part) {
+                                if (!withActions) await dismissNow(page, d.script, setup?.dismiss);
+                                const result = withActions
+                                    ? await extractWithActions(page, d.script, part.page, recipe.settings, job.context, EXTRACT_TIMEOUT_MS, stepOptions, setup?.dismiss)
+                                    : await extract(page, d.script, request!, EXTRACT_TIMEOUT_MS);
+                                read = readRun(part.page, v.finalUrl ?? job.url, { ...result, ways: [...setupWays, ...result.ways] }, recipe.spec.setup);
+                            } else listRead = await readListPages(page, d.script, part.list, { maxPages: config.maxListPages, settleMs: config.settleMs, timeoutMs: LIST_TIMEOUT_MS });
                             // The recipe's page rules and identity check class the page: a block page is a block, a gone product is not found.
                             if (read?.verdict) {
                                 c = classOf(read.verdict.errorClass, read.verdict.errorClass === 'blocked' ? { blockSignal: read.verdict.message } : {});
                                 errorMessage = read.verdict.message;
                             }
                         } catch (e) {
-                            c = classify({ error: e instanceof Error ? e.message : String(e) });
-                            if (c.errorClass === 'unknown') c = classOf('extraction');
                             errorMessage = e instanceof Error ? e.message : String(e);
+                            if (e instanceof StepFailed) c = classOf('setup_failed');
+                            else {
+                                c = classify({ error: errorMessage });
+                                if (c.errorClass === 'unknown') c = classOf('extraction');
+                            }
                         }
                         extractMs = now() - t;
+                        if (c.errorClass === 'none') c = softBlock(c, `${host}|${job.pageType}|${job.part ?? 'page'}`, v.textLength, read, listRead, d.baselines);
                     }
                 } finally {
                     clearTimeout(deadline);
@@ -293,6 +383,11 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
             errorClass: c.errorClass,
             ...(errorMessage ? { errorMessage: errorMessage.slice(0, 500) } : {}),
             ...(c.blockSignal ? { blockSignal: c.blockSignal } : {}),
+            ...(c.block ? { blockVendor: c.block.vendor, blockKind: c.block.kind, blockConfidence: c.block.confidence, blockEvidence: evidenceOf(v) } : {}),
+            ...(c.protection?.length ? { protection: c.protection } : {}),
+            ...(v.textLength !== undefined ? { textLength: v.textLength } : {}),
+            ...(job.context ? { context: job.context } : {}),
+            ...(setupRun ? { setup: setupRun } : {}),
             ...(c.retryAfterMs !== undefined ? { retryAfterMs: c.retryAfterMs } : {}),
             ...(decision.action === 'retry' ? { nextAttemptInMs: decision.waitMs } : decision.action === 'defer' ? { nextAttemptInMs: decision.delayMs } : {}),
             recipe: ref,
@@ -304,25 +399,34 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
             const t = now();
             const crawledAt = new Date(t).toISOString();
             const writes: Promise<void>[] = [];
+            // One URL read for two locations is two documents.
+            const docId = `${job.jobId}${contextSuffix(job.context)}`;
             // Awaited by the queue; a rejection before then is not an unhandled one.
             const confirm = (w: Promise<void>) => { w.catch(() => {}); writes.push(w); };
             const scrape = (extra: Partial<ScrapeDoc>): ScrapeDoc => ({
                 jobId: job.jobId, ...(job.runId ? { runId: job.runId } : {}), url: job.url, finalUrl: v.finalUrl ?? job.url,
                 competitor: job.competitor, pageType: job.pageType, mode, crawledAt, pageStatus: c.pageStatus, ...ref,
-                attributes: {}, fieldStatus: {}, ...(job.meta ? { meta: job.meta } : {}), ...(job.parent ? { parent: job.parent } : {}), ...extra,
+                attributes: {}, fieldStatus: {}, ...(job.meta ? { meta: job.meta } : {}), ...(job.context ? { context: job.context } : {}),
+                ...(job.parent ? { parent: job.parent } : {}), ...extra,
             });
             if (listRead && 'list' in part) {
                 for (const r of readListRows(part.list, listRead.lists).rows) {
-                    confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape({ attributes: r.attributes, fieldStatus: r.fieldStatus, listId: r.listId, row: r.index, page: job.page ?? 1 }), `${job.jobId}~${r.listId}~${r.index}`));
+                    confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape({ attributes: r.attributes, fieldStatus: r.fieldStatus, listId: r.listId, row: r.index, page: job.page ?? 1 }), `${docId}~${r.listId}~${r.index}`));
+                }
+            } else if (read?.rows && !read.verdict) {
+                // One document per item a "for each" step went through: its id ends with the item.
+                for (const r of read.rows) {
+                    confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape({ attributes: r.attributes, fieldStatus: r.fieldStatus, option: r.option }), `${docId}~opt=${r.option.value}`));
                 }
             } else if (read || c.pageStatus === 'not_found') {
                 // A verdict's page is written with its status only: what was read is not this product's.
-                confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape(read && !read.verdict ? { attributes: read.attributes, fieldStatus: read.fieldStatus } : {}), job.jobId));
+                confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape(read && !read.verdict ? { attributes: read.attributes, fieldStatus: read.fieldStatus } : {}), docId));
             }
             if (read && !read.verdict) {
                 confirm(d.sink.writeConfirmed(indices.usage(job, t), {
-                    jobId: job.jobId, crawledAt, competitor: job.competitor, pageType: job.pageType, pageStatus: c.pageStatus, ...ref, ways: read.ways,
-                } satisfies SelectorUsageDoc, job.jobId));
+                    jobId: job.jobId, crawledAt, competitor: job.competitor, pageType: job.pageType, pageStatus: c.pageStatus, ...ref,
+                    ...(job.context ? { context: job.context } : {}), ways: read.ways,
+                } satisfies SelectorUsageDoc, docId));
             }
             return {
                 outcome: decision.outcome, attempts: attempt, ...storeReset,

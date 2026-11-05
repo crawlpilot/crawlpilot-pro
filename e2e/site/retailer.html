@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Desk lamp – Example Retail</title>
+<!--
+  A retailer's product page that depends on the visitor's choices, as Amazon's "Deliver to" or Walmart's
+  store picker do (docs/plans/pro-data-collection-plan.md, C1):
+  - a cookie consent banner covers the page until it is answered;
+  - "Deliver to" opens a ZIP dialog; Apply saves the ZIP in a cookie and reloads;
+  - "Store" opens a list of the ZIP's stores; choosing one saves it and reloads;
+  - the price shows only once a ZIP is set, and depends on it; one ZIP is served as a nearby one;
+  - Pickup / Delivery / Shipping tiles show their own details, which depend on the store and ZIP;
+  - a promo pop-up covers the tiles shortly after load.
+-->
+<style>
+  body{font:14px sans-serif;margin:0} header{padding:12px 24px;background:#eee;display:flex;gap:16px}
+  main{padding:24px} .tile-row{display:flex;gap:8px;margin:12px 0} .fulfil-tile[aria-pressed=true]{outline:2px solid #06c}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
+  .box{background:#fff;padding:20px;min-width:280px} [hidden]{display:none!important} .error{color:#b00}
+</style>
+</head><body>
+<header>
+  <button type="button" id="deliver-to">Deliver to <span id="loc-label">Select location</span></button>
+  <button type="button" id="store-link" hidden>Store: <span id="store-label"></span></button>
+</header>
+<main>
+  <h1 class="product-title">Brass desk lamp</h1>
+  <p class="price" id="price">Select a location to see the price</p>
+  <p class="description">A warm, dimmable desk lamp with a weighted brass base, a linen shade and a two-metre fabric cable. Bulb included.</p>
+  <div class="tile-row" role="group" aria-label="How do you want it?">
+    <button type="button" class="fulfil-tile" data-m="pickup">Pickup</button>
+    <button type="button" class="fulfil-tile" data-m="delivery">Delivery</button>
+    <button type="button" class="fulfil-tile" data-m="shipping">Shipping</button>
+  </div>
+  <p id="fulfil-detail">Choose how you want it</p>
+</main>
+
+<div class="overlay" id="loc-dialog" hidden><div class="box">
+  <h2>Choose your location</h2>
+  <label>ZIP code <input id="zip-input" inputmode="numeric" autocomplete="off"></label>
+  <button type="button" id="zip-apply">Apply</button>
+  <p class="error" id="zip-error" hidden>Enter a valid ZIP code</p>
+</div></div>
+
+<div class="overlay" id="store-dialog" hidden><div class="box">
+  <h2>Choose a store</h2>
+  <ul class="store-list" id="store-list"></ul>
+</div></div>
+
+<div class="overlay" id="promo" hidden><div class="box">
+  <p>Get 10% off your first order!</p>
+  <button type="button" id="promo-close" aria-label="Close">×</button>
+</div></div>
+
+<div class="overlay" id="consent" hidden><div class="box">
+  <p>We use cookies to run this shop and to measure how it is used.</p>
+  <button type="button" id="consent-accept">Accept all</button>
+  <button type="button" id="consent-reject">Reject all</button>
+</div></div>
+
+<script>
+  const cookie = name => (document.cookie.split('; ').find(c => c.startsWith(name + '=')) || '').split('=')[1];
+  const set = (name, value) => { document.cookie = `${name}=${value}; path=/`; };
+  const $ = id => document.getElementById(id);
+  const ZIPS = {
+    '10001': { price: '$12.99', stores: { Chelsea: 'In stock', Midtown: 'Out of stock' } },
+    '94105': { price: '$14.49', stores: { SoMa: 'Only 3 left', Mission: 'In stock' } },
+    // Accepted, but served as the nearest area the shop has: the page shows 60602, not what was typed.
+    '60601': { shown: '60602', price: '$13.29', stores: { Loop: 'In stock' } },
+  };
+  const zip = cookie('zip'), store = decodeURIComponent(cookie('store') || '');
+  const area = ZIPS[zip];
+
+  if (!cookie('consent')) $('consent').hidden = false;
+  for (const id of ['consent-accept', 'consent-reject']) $(id).addEventListener('click', () => { set('consent', id === 'consent-accept' ? 'all' : 'none'); $('consent').hidden = true; });
+
+  if (area) {
+    $('loc-label').textContent = area.shown || zip;
+    $('price').textContent = area.price;
+    $('store-link').hidden = false;
+    $('store-label').textContent = store || 'Choose a store';
+  }
+  $('deliver-to').addEventListener('click', () => { $('loc-dialog').hidden = false; $('zip-input').focus(); });
+  $('zip-apply').addEventListener('click', () => {
+    const value = $('zip-input').value.trim();
+    if (!ZIPS[value]) { $('zip-error').hidden = false; return; }
+    set('zip', value); set('store', '');
+    setTimeout(() => location.reload(), 200);
+  });
+  $('store-link').addEventListener('click', () => {
+    $('store-list').innerHTML = Object.keys(area.stores).map(s => `<li><button type="button" class="store">${s} store</button></li>`).join('');
+    $('store-dialog').hidden = false;
+  });
+  $('store-list').addEventListener('click', e => {
+    const b = e.target.closest('button.store');
+    if (!b) return;
+    set('store', encodeURIComponent(b.textContent.replace(/ store$/, '')));
+    setTimeout(() => location.reload(), 200);
+  });
+
+  // The promo shows after a moment, over the tiles.
+  setTimeout(() => { $('promo').hidden = false; }, 400);
+  $('promo-close').addEventListener('click', () => { $('promo').hidden = true; });
+
+  for (const tile of document.querySelectorAll('.fulfil-tile')) tile.addEventListener('click', () => {
+    for (const t of document.querySelectorAll('.fulfil-tile')) t.setAttribute('aria-pressed', String(t === tile));
+    const m = tile.dataset.m;
+    $('fulfil-detail').textContent = !area ? 'Choose a location first'
+      : m === 'pickup' ? (store ? `Pickup today at ${store}: ${area.stores[store]}` : 'Choose a store for pickup')
+      : m === 'delivery' ? `Delivery tomorrow to ${zip}`
+      : 'Ships in 3–5 days';
+  });
+</script>
+</body></html>

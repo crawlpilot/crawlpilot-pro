@@ -369,6 +369,7 @@ export default function PageExtractorPage({ onBack, preset, onNavigate }: PageEx
 
     /** One step back: from the run to the pages, from the pages to the details, from the fields to the choice. */
     const goBack = () => {
+        if (step === 3 && proEdit && !forList) { setStep(1); return; } // Pro: no pages step
         if (step === 2) { setStep(1); if (details === 'article') setDetails('choose'); return; }
         if (step === 1 && details === 'fields') { setDetails('choose'); return; }
         setStep(step - 1);
@@ -376,7 +377,8 @@ export default function PageExtractorPage({ onBack, preset, onNavigate }: PageEx
 
     /** On to the pages: the page the details were chosen on comes first; more can be added. */
     const toPages = () => {
-        setStep(2);
+        // Pro: a recipe's pages are its samples, set in Pro; the session goes straight on to saving.
+        setStep(proEdit && !forList ? 3 : 2);
         if (selectedUrls.length > 0) return;
         void pageTabId().then(async id => {
             const url = id ? (await chrome.tabs.get(id)).url : undefined;
@@ -450,6 +452,7 @@ export default function PageExtractorPage({ onBack, preset, onNavigate }: PageEx
                         handleSaveElement={handleSaveElement}
                         onBack={preset === 'fields' ? leave : () => setDetails('choose')}
                         onNext={toPages}
+                        nextLabel={proEdit && !forList ? 'Next: save' : undefined}
                         onCancel={stopSelection}
                         sendHighlightMessage={sendHighlightMessage}
                         onAddElements={(els) => {
@@ -503,7 +506,7 @@ export default function PageExtractorPage({ onBack, preset, onNavigate }: PageEx
                     return (
                         <PageSave edit={proEdit} elements={elements} urls={selectedUrls}
                             settings={{ ...(proEdit.version?.settings ?? PAGE_RUN_DEFAULTS), requestDelay, listOutput }}
-                            onBack={() => setStep(2)}
+                            onBack={() => setStep(1)}
                             onDone={() => { handleReset(); setProEdit(null); onNavigate?.('pro-recipes'); }} />
                     );
                 }

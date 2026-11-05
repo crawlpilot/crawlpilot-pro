@@ -1,0 +1,6 @@
+{"jobId":"demo-1","url":"http://127.0.0.1:8000/site/product.html?id=1","competitor":"demo","pageType":"product","runId":"local-1"}
+{"jobId":"demo-2","url":"http://127.0.0.1:8000/site/product.html?id=2","competitor":"demo","pageType":"product","runId":"local-1"}
+{"jobId":"demo-3","url":"http://127.0.0.1:8000/site/product.html?id=3","competitor":"demo","pageType":"product","runId":"local-1"}
+{"jobId":"demo-4","url":"http://127.0.0.1:8000/site/product.html?id=4","competitor":"demo","pageType":"product","runId":"local-1"}
+{"jobId":"demo-5","url":"http://127.0.0.1:8000/site/product.html?id=5","competitor":"demo","pageType":"product","runId":"local-1"}
+{"jobId":"demo-missing","url":"http://127.0.0.1:8000/site/no-such-page.html","competitor":"demo","pageType":"product","runId":"local-1"}

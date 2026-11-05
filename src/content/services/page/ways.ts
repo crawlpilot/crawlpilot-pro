@@ -197,7 +197,8 @@ export function readWays(ways: PageWay[], probe: PageProbe): WayHit[] {
     return ways.map(way => {
         if (way.when && !probe.holds(way.when)) return { skipped: true, values: [] };
         try {
-            return way.data ? readData(way) : readSelector(way);
+            // Neither: a way read outside the page's script (Pro's markup ways), filled in after.
+            return way.data ? readData(way) : way.selector ? readSelector(way) : { values: [] };
         } catch {
             return { values: [] };
         }

@@ -19,6 +19,11 @@ export interface CrawlJob {
     runId?: string;
     /** Passed through to the scrape document as is. */
     meta?: Record<string, string>;
+    /**
+     * The values of the recipe's variables (`{zip}`, `{store}`): where its session setup puts the browser.
+     * Its documents carry it, and their ids include it, so one URL read for two locations is two documents.
+     */
+    context?: Record<string, string>;
     /** Attempts already made by earlier deliveries (set by the worker when it puts a job back). */
     attempts?: number;
     /** Times the recipe store failed this job in a row: its wait grows, its attempts don't. */
@@ -49,11 +54,17 @@ export type ErrorClass =
     | 'page_crashed'
     | 'proxy' | 'proxy_auth'
     | 'rate_limited' | 'blocked' | 'captcha'
+    /** A waiting room (Queue-it): the site lets visitors in in turn; waited out like a rate limit. */
+    | 'waiting_room'
     | 'not_found' | 'gone' | 'client_error' | 'server_error'
     /** The recipe says so: a page rule (`unavailable`), or the page is another product than its URL names (`mismatch`). */
     | 'unavailable' | 'mismatch'
     | 'empty_page' | 'robots_disallowed'
     | 'extraction' | 'no_recipe' | 'recipe_store' | 'paused'
+    /** A session setup or action step failed: its element not found, or the setup check not met. */
+    | 'setup_failed'
+    /** The job lacks a value the recipe's steps need (`context.zip`): dead-lettered, for a person to fix the job. */
+    | 'missing_context'
     /** The job was put back for longer than `retry.maxJobAgeMs` (a site that stays blocked): dead-lettered. */
     | 'expired'
     | 'unknown';
@@ -79,6 +90,10 @@ export interface ScrapeDoc extends RecipeRef {
     attributes: Record<string, unknown>;
     fieldStatus: Record<string, 'ok' | 'empty' | 'check_failed'>;
     meta?: Record<string, string>;
+    /** The job's context: the location (or other values) the page was read for. */
+    context?: Record<string, string>;
+    /** A row of a "for each" step: the step, and the item this row's values are for ("Fulfilment": "Pickup"). */
+    option?: { step: string; value: string };
     /** A list row: its list, its place on the page, and the page. */
     listId?: string;
     row?: number;
@@ -93,6 +108,7 @@ export interface SelectorUsageDoc extends RecipeRef {
     competitor: string;
     pageType: string;
     pageStatus: PageStatus;
+    context?: Record<string, string>;
     ways: { field: string; wayId: string; tried: boolean; matched: boolean; won: boolean }[];
 }
 
@@ -127,6 +143,20 @@ export interface RequestEvent {
     errorMessage?: string;
     /** What gave a block away ("status 403 + cf-mitigated: challenge"). */
     blockSignal?: string;
+    /** The block identified (`detect.ts`): its vendor, kind (challenge, captcha, block, rate_limit, queue, soft_block) and confidence. */
+    blockVendor?: string;
+    blockKind?: string;
+    blockConfidence?: 'high' | 'medium' | 'low';
+    /** Bot protection vendors seen on the response, blocked or not: which sites use what. */
+    protection?: string[];
+    /** On a block: what the page showed, for a person checking the identification. */
+    blockEvidence?: { title?: string; textSample?: string; resourceHosts?: string[]; cookieNames?: string[] };
+    /** Length of the page's visible text. */
+    textLength?: number;
+    /** The job's context (`{zip}`…). */
+    context?: Record<string, string>;
+    /** The recipe's session setup on this attempt: whether it ran, how long it took, and the step that failed. */
+    setup?: { ran: boolean; ms: number; failedStep?: string };
     retryAfterMs?: number;
     /** How long the worker waits before the next attempt, when there is one. */
     nextAttemptInMs?: number;
@@ -147,6 +177,10 @@ export interface SiteEvent {
     worker: string;
     state: 'ok' | 'cooldown' | 'blocked';
     reason: string;
+    /** The block's vendor, kind and confidence (`detect.ts`), when a block moved the site. */
+    vendor?: string;
+    blockKind?: string;
+    blockConfidence?: string;
     consecutiveBlocks: number;
     delayMs: number;
     cooldownUntil?: string;

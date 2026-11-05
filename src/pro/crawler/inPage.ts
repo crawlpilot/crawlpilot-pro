@@ -7,6 +7,7 @@
  *   `resolveOne` picks); a healed or empty field has no winner.
  * For a list recipe: each list's rows read with its frozen fields (`readWhenReady`, as the List Extractor
  * reads them), and its Next control found: its link, when it is one, or clicked, when it is a button.
+ * Action steps' targets are found here too (`../steps/inPageSteps.ts`); the worker acts on them.
  * Nothing here talks to the extension: it is plain DOM code.
  */
 import { extractPage } from '../../content/services/page/extractPage';
@@ -17,18 +18,25 @@ import { resolveContainer, resolveItems, resolveOne } from '../../shared/selecto
 import type { StepResult } from '../../shared/listing/stepStats';
 import type { Chain, DataBinding, ListTarget } from '../../shared/types/database';
 import type { PageRule, WayHit } from '../../shared/types/ways';
+import { isShown, listItems, markTarget } from '../steps/inPageSteps';
+import { readMarkupFields } from '../markup/markup';
+import type { MarkupWay } from '../recipe/types';
 
 /** One field's or click's ways, by id, in the order the extractor tries them. */
 export interface WayProbe {
     elementId: string;
     data?: { wayId: string; binding: DataBinding };
     selectors: { wayId: string; selector: string }[];
+    /** The page's markup (`../markup/markup.ts`), read before the others: a value there is the field's. */
+    markup?: { wayId: string; way: Pick<MarkupWay, 'source' | 'key' | 'type'> }[];
 }
 
 export interface InPageRequest {
     elements: ElementDefinition[];
     config: ExtractionConfig;
     probes: WayProbe[];
+    /** The markup ways of fields read way by way, by their place among the field's ways. */
+    markupWays?: { elementId: string; index: number; way: Pick<MarkupWay, 'source' | 'key' | 'type'> }[];
 }
 
 export interface WayUse {
@@ -53,9 +61,15 @@ const filled = (v: unknown) => v !== undefined && v !== null && v !== '' && !(Ar
 /** Steps that used a selector: an extracted field read from the DOM, or a click that did something. */
 const USED_SELECTOR = new Set(['ok', 'clicked', 'opened', 'already-open']);
 
-export async function run({ elements, config, probes }: InPageRequest): Promise<InPageResult> {
+export async function run({ elements, config, probes, markupWays }: InPageRequest): Promise<InPageResult> {
     const { item, steps, rule } = await extractPage(elements, config) as Omit<InPageResult, 'ways'>;
     if (rule) return { item, steps, ways: [], rule };
+    // A field read way by way: each of its markup ways is read here, into its place among the field's ways.
+    for (const m of markupWays ?? []) {
+        const hits = steps.find(s => s.id === m.elementId)?.hits;
+        const hit = hits && readMarkupFields([{ id: m.elementId, ways: [m.way] }])[m.elementId];
+        if (hits && hit && !hits[m.index]?.skipped) hits[m.index] = { values: [hit.value] };
+    }
     const status = new Map(steps.map(s => [s.id, s.status as string]));
     const ways: WayUse[] = [];
     for (const probe of probes) {
@@ -65,9 +79,20 @@ export async function run({ elements, config, probes }: InPageRequest): Promise<
             ways.push({ wayId: probe.data.wayId, tried, matched: tried && filled(readBinding(probe.data.binding)), won: step === 'data' });
         }
         const used = step && USED_SELECTOR.has(step) ? resolveOne(probe.selectors.map(s => s.selector)).used : -1;
-        probe.selectors.forEach((s, i) => {
-            ways.push({ wayId: s.wayId, tried, matched: tried && resolveOne([s.selector]).result !== null, won: i === used });
-        });
+        const own: WayUse[] = probe.selectors.map((s, i) => ({ wayId: s.wayId, tried, matched: tried && resolveOne([s.selector]).result !== null, won: i === used }));
+        if (probe.data) own.unshift({ wayId: probe.data.wayId, tried, matched: tried && filled(readBinding(probe.data.binding)), won: step === 'data' });
+        if (probe.markup?.length) {
+            // Markup first: a value there is the field's, and none of its other ways won.
+            const hit = readMarkupFields([{ id: probe.elementId, ways: probe.markup.map(m => m.way) }])[probe.elementId];
+            if (hit) {
+                item[probe.elementId] = hit.value;
+                const s = steps.find(x => x.id === probe.elementId);
+                if (s) s.status = 'data';
+                own.forEach(w => { w.won = false; });
+            }
+            own.unshift(...probe.markup.map((m, i) => ({ wayId: m.wayId, tried: true, matched: hit ? hit.matches[i] : false, won: hit?.used === i })));
+        }
+        ways.push(...own);
     }
     return { item, steps, ways };
 }
@@ -134,4 +159,4 @@ export async function scrollToEnd(max: number, settleMs: number): Promise<number
     return max;
 }
 
-(globalThis as unknown as { crawlpilot: object }).crawlpilot = { run, readLists, clickNext, scrollToEnd };
+(globalThis as unknown as { crawlpilot: object }).crawlpilot = { run, readLists, clickNext, scrollToEnd, markTarget, isShown, listItems };

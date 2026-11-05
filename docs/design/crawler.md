@@ -14,9 +14,12 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
    robots.txt is fetched through the same proxy and respected unless the site's profile says otherwise.
 4. **Visit** (`browser.ts`). Chromium, one context per site and proxy (cookies kept between pages, renewed after
    `pagesPerContext`), rendering as the site's profile says: locale, timezone, viewport, user agent, extra headers.
+   A context unused for `contextIdleMs` (5 minutes) is closed, and beyond `maxContexts` (50) the least recently used
+   idle ones are; one in use (a page open, robots.txt being fetched) never is.
 5. **Classify** (`classify.ts`), then, on a good page, **extract** (`inPage.ts`): the extension's own `extractPage`,
    unchanged, bundled into one script, so a page reads the same here as in Pro's Test on this page. Values are cleaned
-   and checked with Pro's own `readPageResult`.
+   and checked with Pro's own `readPageResult`. A recipe with a session setup or action steps puts the page in the
+   state its data needs first (below, Session setup and action steps).
 6. **Decide** (`retry.ts`): retry here, put back on the queue, or finish (done, failed, dead letter).
 
 ## Error classes and what happens
@@ -26,9 +29,10 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
 | `dns`, `connection`, `timeout`, `proxy` | Chromium net error | Here, backoff, another proxy | — | Set aside after 2 |
 | `proxy_auth` | 407, proxy auth error | Here, another proxy | — | Set aside at once |
 | `tls`, `navigation` | Certificate error, redirect loop | No: failed | — | — |
-| `rate_limited` | 429 | Queue, after `Retry-After` or the cooldown | Cooldown, delay doubles | — |
-| `blocked` | 403; challenge headers or page (Cloudflare, DataDome, PerimeterX, Imperva, Akamai, block wording) | Queue, after the cooldown | Cooldown grows; `blocked` after 3 in a row | Never moves |
-| `captcha` | Captcha wording on a short page or an error page | As `blocked` | As `blocked` | Never moves |
+| `rate_limited` | 429; a vendor's rate-limit page (Cloudflare 1015) | Queue, after `Retry-After` or the cooldown | Cooldown, delay doubles | — |
+| `waiting_room` | Redirected to a waiting room (Queue-it) | Queue, after the cooldown | Cooldown of `cooldownBaseMs`, delay kept | — |
+| `blocked` | A vendor's challenge or block page (below); a soft block; a bare 403 | Queue, after the cooldown | Cooldown grows; `blocked` after 3 in a row | Never moves |
+| `captcha` | A vendor's captcha, or a captcha widget or wording on a short or error page | As `blocked` | As `blocked` | Never moves |
 | `not_found`, `gone` | 404, 410 | No: failed; scrape written with `pageStatus: not_found` | — | — |
 | `unavailable` | A recipe page rule with status `unavailable` held | No: failed; scrape written with `pageStatus: unavailable` | — | — |
 | `mismatch` | The recipe's identity check: the page is another product than its URL names | No: failed; scrape written with `pageStatus: mismatch`, no attributes | — | — |
@@ -39,6 +43,8 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
 | `robots_disallowed` | robots.txt | No: failed | — | — |
 | `no_recipe` | No live recipe covers the page; pinned version not approved | Dead letter | — | — |
 | `recipe_store` | The store is down or does not answer in time | Queue, backoff | — | — |
+| `setup_failed` | A session setup or action step failed: its element never showed, or the setup check was not met | Here, backoff; dead letter when out of attempts | — | — |
+| `missing_context` | The job lacks a value the recipe's steps need (`context.zip`) | Dead letter | — | — |
 | `expired` | Put back for longer than `retry.maxJobAgeMs` (24 h) since it was first taken | Dead letter | — | — |
 
 Out of attempts (`retry.maxAttempts`, counted over every delivery of the job), a retryable job is dead-lettered.
@@ -49,8 +55,86 @@ that holds classes it before any field is read (`not_found` → `not_found`, `un
 `mismatch`. Each then follows its row above. The scrape document carries the status and the rule or mismatch as its
 error message but no attributes, and no way usage is recorded for the page.
 
-Captcha and challenge wording on a **2xx** page counts only when the page is short, as block pages are: shop pages
-often load a captcha script for a newsletter form, and that is not a block. On 4xx and 5xx pages it always counts.
+## Fields from the page's markup
+A field's ways can include the page's **markup**:
+- a meta tag, by property or name: `og:title`, `product:price:amount`, `product:price:currency`, Twitter cards;
+- a microdata prop, by the item's type and a dotted path through nested items: `Product` · `offers.price`.
+
+Sites keep these for search engines and link previews, so they rarely change with a redesign. Markup ways are read
+before the field's other ways (`src/pro/markup/markup.ts`, in the in-page script), and a value there is the field's.
+Selector usage counts them like any way. In Pro, *From the page's markup* lists what the open page has, values
+included.
+
+## Session setup and action steps
+Retailer pages often show price, stock and fulfilment only after the visitor has chosen something: a delivery ZIP code
+(Amazon's "Deliver to"), a store (Walmart, Home Depot, UK grocers), Pickup or Delivery. Recipes say how, and the
+worker does it with real browser input (`steps.ts`; design in `docs/plans/pro-data-collection-plan.md`, C1).
+- **Action steps:** a recipe's click steps can do more than click:
+  - `type` text (with variables, `{zip}`);
+  - `choose` the item of a list whose text contains a value (a store, the *Delivery* tile);
+  - `select` a dropdown option;
+  - `press` a key;
+  - `wait` for something to appear or go;
+  - `scroll`.
+
+  Any step can be `optional` (skipped when its element doesn't show).
+  A `choose` step can go through **each item** (`forEach`): every tile or option the page shows (or the ones it names,
+  up to `max`, 10 by default). The fields after it, up to the next action, are read once per item. The page then gives
+  one scrape document per item, with `option: { step, value }` and an id ending `~opt=<item>`; the page's other fields
+  are repeated in each. One such step per recipe. The worker finds each step's element in the page
+  with the extension's resolver (visible elements only), then acts on it with Playwright. Plain clicks still run in
+  the extractor; the other actions run between the fields around them.
+- **Session setup** (`spec.setup`): steps that set the browser session up, for example open "Deliver to", type
+  `{zip}`, Apply, open the store list and choose `{store}`. They are followed by a **check**: an element whose text
+  must contain, for example, `{zip}`.
+  - The setup runs once per browser session. The session's context is keyed by the setup and the job's context, so a
+    session set to 10001 never serves 94105.
+  - The check runs on every page. A session the site has dropped is set up once more.
+  - A check still not met fails the attempt (`setup_failed`, naming the step). The page is never read for the wrong
+    location.
+- **Dismissals** (`spec.setup.dismiss`): close controls clicked whenever they show, on every page (consent banners,
+  promo pop-ups). They are registered as Playwright locator handlers, so one that covers a step's element is closed
+  and the step goes on; any that show are also closed before each read.
+- **Context:** a job carries the values of the recipe's variables, `"context": { "zip": "10001", "store": "Chelsea" }`.
+  - A job without one the recipe needs is dead-lettered (`missing_context`).
+  - Scrape and usage documents carry `context`, and their ids end with it (`lamp~store=Chelsea,zip=10001`), so one URL
+    read for two locations is two documents.
+  - Follow-up jobs inherit it.
+- **Telemetry:** request events carry `context` and `setup` (`ran`, `ms`, `failedStep`). The setup's, dismissals' and
+  steps' selectors are counted in selector usage like fields'.
+- **Same as Pro:** waiting, optional steps, the setup and its check are one runner (`src/pro/steps/runner.ts`). The
+  worker drives it with Playwright; Pro's Test on this page drives the user's tab. A recipe tested in Pro runs its
+  steps the same way here.
+
+## Block identification
+`detect.ts` reads each response for bot protection: the status, response headers, cookie **names** (values are never
+read or kept), the page's script and frame URLs, where it was redirected, the title and the visible text. It knows the
+marks of Cloudflare, Akamai, DataDome, HUMAN (PerimeterX, as Walmart uses it), Imperva, Kasada, AWS WAF, F5, Radware,
+Sucuri, Queue-it and Amazon's own captcha and automated-access pages,
+the captcha widgets (reCAPTCHA, hCaptcha, Turnstile, GeeTest, Arkose), and generic block and captcha wording.
+- **Presence vs block.** A site's vendor shows on every page: Cloudflare's `__cf_bm` cookie, Akamai's `_abck`,
+  DataDome's tag. Those marks name the site's protection (`protection` on every request event) and never make a block.
+  A block takes a mark the vendor shows only when it stops a visitor: `cf-mitigated: challenge`,
+  `x-amzn-waf-action: captcha`, a 429 with Kasada's `x-kpsdk-*` headers, DataDome's captcha frame, an Akamai reference
+  number, an Incapsula incident id, an F5 support id.
+- **Where wording counts.** Marks ordinary pages carry too (a captcha widget on a login form, "access denied" in a help
+  text) count only on an error status or a short page (under 2,000 characters), as interstitials are.
+- **What it is.** Each finding has a kind: `challenge`, `captcha`, `block`, `rate_limit`, `queue` or `soft_block`. It
+  also has a confidence: `high` for a vendor's own block marker or two of its marks agreeing, `medium` for its wording
+  on a suspicious page, and `low` for generic wording or a bare 403. Generic wording on a site with one known vendor is
+  put down to that vendor. The class follows the kind: a queue is a `waiting_room`, a rate limit is `rate_limited`, a
+  captcha is `captcha`, and anything else is `blocked`.
+- **Soft blocks** (`baseline.ts`). Some blocks are a 200 with an ordinary-looking page and no vendor mark: a "back
+  soon" stub, an empty shell. Per host and page type, the worker keeps the typical text length of pages the recipe got
+  data from (after 5 such pages). A page that gives the recipe nothing and is under 30% of that length is a
+  `soft_block` (`blocked`, medium confidence). A page of usual length with no data is left alone: that is a recipe that
+  no longer fits, which Pro's maintenance flags.
+- **For people.** A blocked attempt's request event carries `blockVendor`, `blockKind`, `blockConfidence` and
+  `blockEvidence`: the title, the start of the text, the hosts of its scripts and frames, and its cookie names. These let
+  a person check the identification and add a signature when a vendor changes its pages. Site events name the vendor
+  that moved the site to `cooldown` or `blocked`.
+
+Identification decides what the worker does and what people see. It never decides to get past a block: see below.
 
 ## Blocks: identified and resolved, not evaded
 A block is resolved by slowing down and waiting, never by changing who is asking. Per host:
@@ -69,13 +153,17 @@ Install the templates once per cluster: `node src/pro/crawler/dist/worker.mjs --
 
 | Index | One document per | Id | Notes |
 | --- | --- | --- | --- |
-| `crawl-requests-YYYY.MM.DD` | Attempt | — | Status, kept headers and every header name, request headers (user agent, language), redirects, bytes, timings, proxy id and country, error class and message, block signal, `Retry-After`, next attempt, outcome, recipe |
-| `crawl-sites-YYYY.MM` | Site state change | — | `cooldown`, `blocked`, back to `ok`, with the reason and delay |
+| `crawl-requests-YYYY.MM.DD` | Attempt | Given when written | Status, kept headers and every header name, request headers (user agent, language), redirects, bytes, timings, proxy id and country, error class and message, block signal, `Retry-After`, next attempt, outcome, recipe |
+| `crawl-sites-YYYY.MM` | Site state change | Given when written | `cooldown`, `blocked`, back to `ok`, with the reason and delay |
 | `scrapes-<competitor>` | Page | `jobId` | The values read (`attributes`, stored, not indexed: types differ by recipe), field status, page status, recipe version |
 | `selector-usage-YYYY.MM` | Page | `jobId` | `ways` nested: field, way id, tried, matched, won. Pro's selector labels add these up per way id |
 
+Request events also carry what block identification found (`blockVendor`, `blockKind`, `blockConfidence`,
+`blockEvidence`), the protection seen (`protection`) and the page's `textLength`; site events carry the block's `vendor`.
+
 `test-` is put in front of the scrape and usage indices for `mode: 'test'`. A redelivered job overwrites its scrape and
-usage documents. Proxy credentials never reach a document: events carry the proxy's id and country.
+usage documents. Events get their id when written and are created, so a bulk sent again (a timeout after Elasticsearch
+had it) finds them there (409, taken as written) instead of adding them twice. Proxy credentials never reach a document: events carry the proxy's id and country.
 
 The writer batches (`batchSize`, `flushMs`), retries when Elasticsearch is down, re-sends items rejected with 429, and
 drops the oldest documents past `maxBuffer` with a log line. Request and site events are best effort: crawling never
@@ -94,9 +182,11 @@ the queue (`resilience.test.ts` covers each):
   next page starts a new one. A dead browser or context is not the job's fault: the job comes back in 5 s, its attempt
   not counted. Five browser failures in a row stop the worker with exit code 1, so the task is replaced. A page that
   crashes its own tab (`page_crashed`) is the page's, and counted.
-- **The queue**: a settle that fails (ack, re-queue, dead letter, follow-ups) is logged and the message left to come back
-  when its visibility ends; a receive that fails is tried again after 1 s, doubling to 30 s. One message that can't be
-  moved doesn't cost the rest of its batch.
+- **The queue**: putting a job back is a send then a delete; a delete that fails is tried twice more, and if the old
+  message still comes back, the job runs once more, harmlessly (keyed documents and follow-ups). A settle that
+  fails (ack, re-queue, dead letter, follow-ups) is logged and the message left to come back when its visibility
+  ends; a receive that fails is tried again after 1 s, doubling to 30 s. One message that can't be moved doesn't
+  cost the rest of its batch.
 - **A job's results**: the job is acknowledged only once Elasticsearch confirms its scrape and usage documents. A
   document refused (a mapping conflict, a 401), dropped from a full buffer, or not confirmed within 2 minutes puts the
   job back for a minute, its attempt not counted, to be read again; its documents are keyed, so nothing is doubled.
@@ -157,15 +247,18 @@ selectors from. Run it once a day after midnight UTC (`deploy/crawler/README.md`
 npm run crawler:build
 node src/pro/crawler/dist/worker.mjs --config crawler.json                       # jobs from the configured SQS queue
 node src/pro/crawler/dist/worker.mjs --config crawler.json --jobs jobs.jsonl     # or a file of jobs
+node src/pro/crawler/dist/worker.mjs --config crawler.json --jobs jobs.jsonl --print   # print, don't write (no search needed)
 node src/pro/crawler/dist/worker.mjs --config crawler.json --setup-elasticsearch # templates, once per cluster
 node src/pro/crawler/dist/worker.mjs --config crawler.json --rollup              # yesterday's selector usage
 ```
 The configuration is `--config <file>` or the JSON in `CRAWLER_CONFIG`. `crawler.example.json` shows every setting;
 `${NAME}` in a string is read from the environment (proxy passwords, the store token, the Elasticsearch key).
 `CHROMIUM_PATH` points at another Chromium. Jobs are JSON:
-`{ "jobId", "url", "competitor", "pageType", "recipeDigest"?, "mode"?, "runId"?, "meta"? }`.
+`{ "jobId", "url", "competitor", "pageType", "recipeDigest"?, "mode"?, "runId"?, "meta"?, "context"? }`.
 
 The container image and an ECS on Fargate deployment are in `deploy/crawler/` (`README.md` there).
+To run the worker on your laptop against a local Elasticsearch and the mock backend, see
+[docs/onboarding/running-locally.md](../onboarding/running-locally.md).
 
 ## Not built yet
 - The SQS adapter is tested against a fake client only, not a real queue or an SQS-compatible server.

@@ -8,6 +8,13 @@ import type { Page } from '@playwright/test';
 import { test, expect, type Panel } from './harness';
 
 const THROTTLE = Number(process.env.THROTTLE ?? 1);
+// A hover stops its search once the picker's budget is spent (`BUDGET_MS`, 20 ms, in
+// `src/content/services/extraction/items.ts`), after finishing the level it is on: so the budget, plus a
+// level that is slower on a slower machine. This catches a hover that ignores its budget, on any machine.
+// How fast a hover is belongs to `perf.spec.ts` (`BUDGETS`, at 4×, on a quiet machine): a fixed figure
+// here held on the dev M4 and failed on slower ones (a cloud runner took 12–24 ms at 1×).
+const PICKER_BUDGET_MS = 20;
+const HOVER_MS = PICKER_BUDGET_MS * (1 + THROTTLE);
 
 interface Case { page: string; cards: string; count: number; points: string[] }
 
@@ -70,9 +77,9 @@ for (const c of CASES) {
                 // Outlines are card-sized: the hovered card's width, give or take.
                 const sized = outlines.filter(o => o.w > 0 && Math.abs(o.w - cardSize!.width) <= cardSize!.width * 0.25);
                 expect(sized.length, where).toBeGreaterThanOrEqual(Math.floor(c.count * 0.5));
-                // Hover never stalls the page: the picker's own measure of this hover.
+                // Hover never stalls the page: the picker's own measure of this hover, within its budget.
                 const ms = Number(/(\d+) ms\n/.exec(ladder)?.[1] ?? 0);
-                expect(ms, where).toBeLessThanOrEqual(10 * THROTTLE);
+                expect(ms, where).toBeLessThanOrEqual(HOVER_MS);
             }
         }
         await page.close();

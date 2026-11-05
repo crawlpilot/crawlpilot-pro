@@ -6,7 +6,7 @@
  * Picking new fields on the page stays in the Page Extractor (Re-pick).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, Fingerprint, FlaskConical, Layers, MousePointerClick, Plus, Save, ShieldAlert, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, Fingerprint, FlaskConical, Layers, Plus, Save, ShieldAlert, Trash2, X } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Chip, Disclosure, IconButton, Notice, Select, Switch, Text, TextArea, TextField } from '../../sidepanel/ui';
 import { pro } from '../db';
@@ -19,11 +19,14 @@ import { summarize, testOnTab, type FieldResult, type PageResult } from '../runn
 import { testOnPages, type PagesProgress } from '../runner/testPages';
 import { TestGrid } from './TestGrid';
 import { ContractPanel } from './ContractPanel';
+import { BeforeReading, newStep, PageAction, usePicker } from './StepsCard';
+import { Ways } from './Ways';
+import { MarkupSource } from './MarkupSource';
 import { readiness } from '../recipe/ready';
-import { conditionLabel, diffVersions, wayLabel } from '../recipe/diff';
+import { conditionLabel, diffVersions } from '../recipe/diff';
 import * as edits from '../recipe/editSpec';
 import { applyProOps, NEW_OP, opSummary, PRO_OP_LABELS, type ProOp } from '../recipe/ops';
-import type { Click, Field, FieldType, Identity, OutputSpec, PageRecipeSpec, ProRecipe, Sample, Version, Way, WayPick } from '../recipe/types';
+import type { Field, FieldType, Identity, OutputSpec, PageRecipeSpec, ProRecipe, Sample, Version, Way, WayPick } from '../recipe/types';
 import type { PageRule, RuleStatus, WayRead } from '../../shared/types/ways';
 
 interface Props {
@@ -101,15 +104,6 @@ function patchWay(way: Way, changes: Record<string, unknown>): Way {
     return next as unknown as Way;
 }
 
-/** A way's options beyond its selector, in short. */
-function wayNotes(w: Way): string[] {
-    return [
-        ...(w.kind === 'selector' && w.read ? [w.read === 'attr' ? `@${w.attr ?? '?'}` : w.read] : []),
-        ...(w.pick === 'firstFilled' ? ['first filled'] : w.pick === 'all' ? ['every match'] : []),
-        ...(w.ops?.length ? [`${w.ops.length} step${w.ops.length === 1 ? '' : 's'}`] : []),
-    ];
-}
-
 function WayEditor({ way, onChange }: { way: Way; onChange: (w: Way) => void }) {
     const set = (changes: Record<string, unknown>) => onChange(patchWay(way, changes));
     return (
@@ -144,38 +138,6 @@ const patchPairs = (pairs: { key?: string; value?: string } | undefined, key: 'k
     if (!next[key]) delete next[key];
     return next;
 };
-
-function Ways({ ways, onMove, onRemove, onAdd, onChange }: { ways: Field['ways']; onMove: (i: number, d: number) => void; onRemove: (i: number) => void; onAdd: (s: string) => void; onChange: (i: number, w: Way) => void }) {
-    const [adding, setAdding] = useState('');
-    const [open, setOpen] = useState<number | null>(null);
-    const firstSelector = ways.findIndex(w => w.kind === 'selector');
-    return (
-        <div className="flex flex-col gap-1.5">
-            <Text size="caption" weight="semibold" tone="muted">Ways to find it, first that works wins</Text>
-            {ways.map((w, i) => (
-                <div key={`${i}-${wayLabel(w)}`} className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5">
-                        <Chip tone={w.kind === 'data' ? 'info' : 'neutral'}>{w.kind === 'data' ? 'Page data' : 'Selector'}</Chip>
-                        <Text size="caption" mono className="min-w-0 flex-1 break-all">{wayLabel(w)}</Text>
-                        {wayNotes(w).map(n => <Chip key={n} tone="outline">{n}</Chip>)}
-                        {w.when && <Chip tone="warning" title={conditionLabel(w.when)}>if…</Chip>}
-                        <IconButton size="sm" label={`Options of way ${i + 1}`} onClick={() => setOpen(open === i ? null : i)}><SlidersHorizontal /></IconButton>
-                        {w.kind === 'selector' && <>
-                            <IconButton size="sm" label="Try it earlier" onClick={() => onMove(i, -1)} disabled={i <= firstSelector}><ArrowUp /></IconButton>
-                            <IconButton size="sm" label="Try it later" onClick={() => onMove(i, 1)} disabled={i === ways.length - 1}><ArrowDown /></IconButton>
-                        </>}
-                        <IconButton size="sm" label={`Remove way ${i + 1}`} onClick={() => onRemove(i)}><Trash2 /></IconButton>
-                    </div>
-                    {open === i && <WayEditor way={w} onChange={next => onChange(i, next)} />}
-                </div>
-            ))}
-            <form className="flex items-end gap-1.5" onSubmit={e => { e.preventDefault(); onAdd(adding); setAdding(''); }}>
-                <TextField size="sm" className="flex-1" aria-label="Add a selector" placeholder="Add a selector (CSS or XPath)" value={adding} onChange={e => setAdding(e.target.value)} />
-                <Button size="sm" variant="ghost" type="submit" disabled={!adding.trim()}>Add</Button>
-            </form>
-        </div>
-    );
-}
 
 const STATUS_LABELS: Record<RuleStatus, string> = { not_found: 'Not found', unavailable: 'Unavailable', blocked: 'Blocked', error: 'Error page' };
 const STATUSES = (Object.keys(STATUS_LABELS) as RuleStatus[]).map(value => ({ value, label: STATUS_LABELS[value] }));
@@ -258,6 +220,9 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     const [error, setError] = useState<string | null>(null);
     const page = usePageTab();
     const [test, setTest] = useState<{ result: PageResult; spec: string } | null>(null);
+    /** Test values of the recipe's variables ({zip}), kept per recipe on this browser. */
+    const [context, setContext] = useState<Record<string, string>>({});
+    const picker = usePicker();
     const [testing, setTesting] = useState(false);
     const [samples, setSamples] = useState<Sample[]>([]);
     const [pagesTest, setPagesTest] = useState<{ results: PageResult[]; spec: string } | null>(null);
@@ -273,8 +238,17 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
             if (v?.spec.kind === 'page') setSpec(v.spec);
             if (v) setOutput(v.output);
             if (r) setSamples(await pro.samples.list(r.id));
+            if (r) {
+                const key = `pro.testContext.${r.id}`;
+                const saved = (await chrome.storage.local.get(key))[key];
+                if (saved && typeof saved === 'object') setContext(saved as Record<string, string>);
+            }
         })();
     }, [recipeId]);
+    const changeContext = (next: Record<string, string>) => {
+        setContext(next);
+        if (recipe) void chrome.storage.local.set({ [`pro.testContext.${recipe.id}`]: next });
+    };
 
     const changes = useMemo(() => base && spec ? diffVersions(base, { ...base, spec, output, version: base.version + 1 }).changes : [], [base, spec, output]);
     const blockers = spec ? edits.problems(spec) : [];
@@ -289,7 +263,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     const runTest = async () => {
         if (!recipe || !base || !spec || !page.tab?.id) return;
         setTesting(true);
-        const result = await testOnTab(page.tab.id, page.url, spec, base.settings);
+        const result = await testOnTab(page.tab.id, page.url, spec, base.settings, context);
         setTest({ result, spec: JSON.stringify(spec) });
         await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(spec), kind: 'page', results: [result], passed: passed([result]), at: Date.now() });
         setTesting(false);
@@ -315,7 +289,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     const runPagesTest = async () => {
         if (!recipe || !base || !spec) return;
         const tested = spec;
-        const results = await testOnPages(samples.slice(0, TEST_PAGES).map(x => x.url), tested, base.settings, setProgress);
+        const results = await testOnPages(samples.slice(0, TEST_PAGES).map(x => x.url), tested, base.settings, setProgress, undefined, context);
         setProgress(null);
         setPagesTest({ results, spec: JSON.stringify(tested) });
         await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(tested), kind: 'pages', results, passed: passed(results), at: Date.now() });
@@ -375,24 +349,21 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     <IconButton size="sm" label="Move down" onClick={() => setSpec(edits.moveStep(spec, i, 1))} disabled={i === spec.steps.length - 1}><ArrowDown /></IconButton>
                     <IconButton size="sm" label={`Remove field ${field.name}`} onClick={() => setSpec(edits.removeStep(spec, i))}><Trash2 /></IconButton>
                 </div>
-                <Ways ways={field.ways}
-                    onMove={(w, d) => setSpec(edits.moveWay(spec, field.id, w, d))}
-                    onRemove={w => setSpec(edits.removeWay(spec, field.id, w))}
-                    onAdd={s => setSpec(edits.addSelector(spec, field.id, s))}
-                    onChange={(w, way) => setSpec(edits.setWay(spec, field.id, w, way))} />
-                <Cleanup ops={field.ops} onChange={ops => setSpec(edits.setOps(spec, field.id, ops))} />
+                {/* What most edits don't need, folded: how it is found, and its cleanup. */}
+                <div data-testid="pro-field-advanced"><Disclosure variant="plain" defaultOpen={repairing.has(field.name)}
+                    summary={`Ways and cleanup · ${field.ways.length} way${field.ways.length === 1 ? '' : 's'}${field.ops.length ? `, ${field.ops.length} cleanup step${field.ops.length === 1 ? '' : 's'}` : ''}`}>
+                    <div className="flex flex-col gap-3 pt-2">
+                        <Ways ways={field.ways}
+                            onMove={(w, d) => setSpec(edits.moveWay(spec, field.id, w, d))}
+                            onRemove={w => setSpec(edits.removeWay(spec, field.id, w))}
+                            onAdd={s => setSpec(edits.addSelector(spec, field.id, s))}
+                            options={(way, w) => <WayEditor way={way} onChange={next => setSpec(edits.setWay(spec, field.id, w, next))} />} />
+                        <MarkupSource onAdd={way => setSpec(edits.addWayFirst(spec, field.id, way))} />
+                        <Cleanup ops={field.ops} onChange={ops => setSpec(edits.setOps(spec, field.id, ops))} />
+                    </div>
+                </Disclosure></div>
             </div>
         </Disclosure></div>
-    );
-
-    const clickRow = (click: Click, i: number) => (
-        <div key={click.id} className="flex items-center gap-2 rounded-card border border-dashed border-line px-3 py-2">
-            <MousePointerClick size={16} className="shrink-0 text-ink-2" />
-            <Text size="small" className="min-w-0 flex-1 truncate">Click {click.ways[0] ? wayLabel(click.ways[0]) : click.name}</Text>
-            <IconButton size="sm" label="Move up" onClick={() => setSpec(edits.moveStep(spec, i, -1))} disabled={i === 0}><ArrowUp /></IconButton>
-            <IconButton size="sm" label="Move down" onClick={() => setSpec(edits.moveStep(spec, i, 1))} disabled={i === spec.steps.length - 1}><ArrowDown /></IconButton>
-            <IconButton size="sm" label="Remove click" onClick={() => setSpec(edits.removeStep(spec, i))}><Trash2 /></IconButton>
-        </div>
     );
 
     return (
@@ -420,10 +391,21 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     </Notice></div>
                     : <div data-testid="pro-test-summary"><Notice tone={passed([test.result]) && !test.result.mismatch ? 'success' : 'warning'}
                         title={`On ${new URL(test.result.url).host}: ${summarize(test.result).filled} of ${summarize(test.result).total} fields found`}>
+                        {test.result.setup ? (test.result.setup.ran ? `Session set up first (${test.result.setup.steps.length} steps). ` : 'Session already set up. ') : ''}
                         {summarize(test.result).total - summarize(test.result).ok ? `${summarize(test.result).total - summarize(test.result).ok} with a problem. ` : ''}
                         {test.result.mismatch ? `Another product: the URL names ${test.result.mismatch.expected}, the page has ${test.result.mismatch.found}. ` : ''}
                         {stale ? 'You changed the recipe since this test.' : ''}
                     </Notice></div>)}
+                {test?.result.options && (
+                    <div className="flex flex-col gap-1 rounded-xl bg-ink/4 px-2.5 py-2" data-testid="pro-test-options">
+                        <Text size="caption" tone="muted">One row per item of "{test.result.options[0]?.step}"</Text>
+                        {test.result.options.map(o => (
+                            <Text key={o.label} size="caption" mono className="break-all" data-testid="pro-test-option">
+                                {o.label}: {o.fields.map(f => `${f.name} = ${preview(f.value)}`).join('; ') || '—'}
+                            </Text>
+                        ))}
+                    </div>
+                )}
                 <div data-testid="pro-samples"><Disclosure icon={<Layers />} defaultOpen
                     summary={`Sample pages (${samples.length})`}
                     meta={ready && <Chip tone={ready.ready ? 'success' : 'warning'}>{ready.ready ? 'ready' : 'not ready'}</Chip>}>
@@ -467,8 +449,10 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     <IdentityCheck identity={spec.identity} fields={spec.steps.flatMap(st => st.kind === 'field' ? [st.field.name] : [])}
                         onChange={identity => setSpec(edits.setIdentity(spec, identity))} />
                 </Disclosure>
-                <Text size="caption" tone="faint">Steps run in this order: a click, then the fields it reveals.</Text>
-                {spec.steps.map((s, i) => s.kind === 'field' ? fieldCard(s.field, i) : clickRow(s.click, i))}
+                <BeforeReading spec={spec} onChange={setSpec} context={context} onContext={changeContext} picker={picker} />
+                <Text size="caption" tone="faint">Steps run in this order: a step (a click, a choice, typing), then the fields it reveals.</Text>
+                {spec.steps.map((s, i) => s.kind === 'field' ? fieldCard(s.field, i) : <PageAction key={s.click.id} spec={spec} click={s.click} index={i} onChange={setSpec} picker={picker} />)}
+                <div><Button size="sm" variant="ghost" icon={<Plus />} onClick={() => setSpec(edits.addAction(spec, newStep(`Step ${spec.steps.filter(x => x.kind === 'click').length + 1}`)))}>Add a step</Button></div>
             </div>
             <div className="flex flex-col gap-2 border-t border-line bg-bg p-4">
                 {blockers.length > 0 && <Notice tone="warning">{blockers.join(' ')}</Notice>}

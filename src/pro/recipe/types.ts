@@ -84,7 +84,19 @@ export type Way = WayIdentity & WayOptions & (
         attr?: string;
         pairs?: { key?: string; value?: string };
     }
+    /** The page's markup: a meta tag (`og:title`), or a microdata prop (`offers.price` of a `Product`). Read first. */
+    | MarkupWay
 );
+
+/** A field read from the page's markup (`src/pro/markup/markup.ts`). */
+export interface MarkupWay {
+    kind: 'markup';
+    source: 'meta' | 'microdata';
+    /** The meta tag's property or name; or the itemprop path, dotted through nested items. */
+    key: string;
+    /** Microdata: the item's type (`Product`), when the page has several. */
+    type?: string;
+}
 
 export interface Field {
     id: string;
@@ -102,10 +114,47 @@ export interface Field {
     shape?: Shape;
 }
 
+/** What an action step does to its target (`docs/plans/pro-data-collection-plan.md`, C1). */
+export type ActionKind = 'click' | 'type' | 'choose' | 'select' | 'press' | 'wait' | 'scroll';
+
+/**
+ * A step that acts on the page: a click, unless `do` says otherwise. Its ways find the target (for `choose`,
+ * the items to choose from). `value` may hold variables, `{zip}`, filled from the job's context.
+ * A plain click (no `do`, not optional) runs in the public extractor as before; any other action runs in
+ * Pro's step runner, between the fields around it.
+ */
 export interface Click {
     id: string;
     name: string;
     ways: Way[];
+    do?: ActionKind;
+    /** type: the text; choose: text the item contains; select: the option's text or value; press: a key. */
+    value?: string;
+    /** choose: the n-th item (from 0), when there is no value. */
+    index?: number;
+    /** type: press Enter after typing. */
+    enter?: boolean;
+    /** Skipped when its target isn't there (a banner, a prompt), instead of failing. */
+    optional?: boolean;
+    /** wait: for the target to go away (a spinner), instead of to appear. */
+    gone?: boolean;
+    /**
+     * choose: every item in turn instead of one (Pickup, Delivery, Shipping; each size). The fields after this step,
+     * up to the next action, are read once per item: one row each. `values` limits it to those items, in that order.
+     */
+    forEach?: { values?: string[]; max?: number };
+}
+
+/** A recipe's steps that set the browser session up (a location, a store), run once per session. */
+export interface SessionSetup {
+    steps: Click[];
+    /**
+     * Interruptions to close whenever they show, on every page: a consent banner, a promo pop-up, an
+     * "Is this your location?" prompt. Each is a click on its close control, done only when it is there.
+     */
+    dismiss?: Click[];
+    /** Read on every page: the element whose text must contain `contains` (with variables), or the setup runs again. */
+    check?: { ways: Way[]; contains: string };
 }
 
 /** A page recipe's steps in run order: a click, then what it reveals, then the next click. */
@@ -114,6 +163,7 @@ export type Step = { kind: 'field'; field: Field } | { kind: 'click'; click: Cli
 export interface PageRecipeSpec {
     kind: 'page';
     steps: Step[];
+    setup?: SessionSetup;
     /** Checked before any field is read: the first that holds says what the page is, and nothing is read. */
     rules?: PageRule[];
     /** The page is the product asked for: the field (by name) equals what the patterns find in its URL. */
@@ -132,6 +182,7 @@ export interface ListRecipeSpec {
     pagination: { mode: 'auto' | 'pagination' | 'loadMore'; next?: Chain };
     /** Each item's page, read after the list and joined onto its row. */
     details?: { spec: PageRecipeSpec; urlColumn: string };
+    setup?: SessionSetup;
 }
 
 export type ProSpec = PageRecipeSpec | ListRecipeSpec;

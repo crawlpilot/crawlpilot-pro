@@ -1,7 +1,8 @@
 /**
  * Writes documents to Elasticsearch (or OpenSearch: the `_bulk` API is the same) in batches.
- * - A document with an id is indexed (a redelivered job overwrites its scrape); one without is created
- *   (request events only ever add).
+ * - A document with an id is indexed (a redelivered job overwrites its scrape); one without (request and
+ *   site events) is given an id when written and created: a bulk sent again after a timeout (Elasticsearch
+ *   had it after all) finds it there (409) instead of adding it twice.
  * - A batch is sent when it is full or `flushMs` after the first document, whichever comes first.
  * - Elasticsearch down or 429: the batch is tried again with a backoff; items it rejects with 429 go back
  *   in the buffer; other item errors (a mapping conflict) are reported and dropped.
@@ -11,6 +12,7 @@
  *   document is in, or that it was dropped, so the job is acknowledged only once its results are safe.
  * - Every request has a timeout; `close` sends what is left until its deadline, then says what it leaves.
  */
+import { randomUUID } from 'node:crypto';
 
 export interface SearchConfig {
     url: string;
@@ -37,7 +39,7 @@ export interface SearchSink {
     close(deadlineMs?: number): Promise<void>;
 }
 
-interface Item { index: string; doc: object; id?: string; confirm?: { resolve(): void; reject(e: Error): void } }
+interface Item { index: string; doc: object; id: string; create: boolean; confirm?: { resolve(): void; reject(e: Error): void } }
 
 const drop = (items: Item[], why: string) => { for (const i of items) i.confirm?.reject(new Error(why)); };
 
@@ -65,8 +67,8 @@ export function createSearchSink(cfg: SearchConfig, deps: {
 
     let closed = false;
 
-    const body = (items: Item[]) => items.map(({ index, doc, id }) =>
-        `${JSON.stringify(id ? { index: { _index: index, _id: id } } : { create: { _index: index } })}\n${JSON.stringify(doc)}\n`).join('');
+    const body = (items: Item[]) => items.map(({ index, doc, id, create }) =>
+        `${JSON.stringify({ [create ? 'create' : 'index']: { _index: index, _id: id } })}\n${JSON.stringify(doc)}\n`).join('');
 
     async function send(items: Item[]): Promise<void> {
         for (let attempt = 1; ; attempt++) {
@@ -100,7 +102,8 @@ export function createSearchSink(cfg: SearchConfig, deps: {
             const again: Item[] = [];
             items.forEach((item, i) => {
                 const result = reply?.errors && reply.items?.[i] ? Object.values(reply.items[i])[0] : undefined;
-                if (!result || result.status < 300) { item.confirm?.resolve(); return; }
+                // A create that finds its id taken: an earlier send of this bulk got there.
+                if (!result || result.status < 300 || (item.create && result.status === 409)) { item.confirm?.resolve(); return; }
                 if (result.status === 429) { again.push(item); return; }
                 const why = `${item.index}: ${result.error?.type ?? result.status} ${result.error?.reason ?? ''}`.trim();
                 onError(why);
@@ -166,10 +169,10 @@ export function createSearchSink(cfg: SearchConfig, deps: {
 
     return {
         write(index, doc, id) {
-            add({ index: `${cfg.indexPrefix ?? ''}${index}`, doc, ...(id ? { id } : {}) });
+            add({ index: `${cfg.indexPrefix ?? ''}${index}`, doc, id: id ?? randomUUID(), create: !id });
         },
         writeConfirmed(index, doc, id) {
-            return new Promise((resolve, reject) => add({ index: `${cfg.indexPrefix ?? ''}${index}`, doc, id, confirm: { resolve, reject } }));
+            return new Promise((resolve, reject) => add({ index: `${cfg.indexPrefix ?? ''}${index}`, doc, id, create: false, confirm: { resolve, reject } }));
         },
         flush,
         async close(deadlineMs = 30_000) {

@@ -7,7 +7,7 @@
  * kinds of way when it had them, or move page data from the front (it is always tried first). A change
  * someone chose to keep (`db/dismissals.ts`) is left out: it is never proposed again.
  */
-import type { ProSpec, Step, Way } from './types';
+import type { ProSpec, SessionSetup, Step, Way } from './types';
 import type { WayState } from './wayHealth';
 
 export type CleanupAction = 'removed' | 'moved last';
@@ -57,8 +57,15 @@ export function proposeCleanup(spec: ProSpec, states: Map<string, WayState>, kep
     const clean = (steps: Step[]): Step[] => steps.map(s => s.kind === 'field'
         ? { kind: 'field', field: { ...s.field, ways: cleanWays(s.field.ways, states, kept, !!s.field.required, s.field.name, changes) } }
         : { kind: 'click', click: { ...s.click, ways: cleanWays(s.click.ways, states, kept, false, `click: ${s.click.name}`, changes) } });
-    const next: ProSpec = spec.kind === 'page' ? { ...spec, steps: clean(spec.steps) }
-        : spec.details ? { ...spec, details: { ...spec.details, spec: { ...spec.details.spec, steps: clean(spec.details.spec.steps) } } }
-        : spec;
+    const cleanSetup = (setup: SessionSetup): SessionSetup => ({
+        ...setup,
+        steps: setup.steps.map(c => ({ ...c, ways: cleanWays(c.ways, states, kept, false, `setup: ${c.name}`, changes) })),
+        ...(setup.dismiss ? { dismiss: setup.dismiss.map(c => ({ ...c, ways: cleanWays(c.ways, states, kept, false, `dismiss: ${c.name}`, changes) })) } : {}),
+        ...(setup.check ? { check: { ...setup.check, ways: cleanWays(setup.check.ways, states, kept, false, 'setup: check', changes) } } : {}),
+    });
+    const setup = spec.setup ? { setup: cleanSetup(spec.setup) } : {};
+    const next: ProSpec = spec.kind === 'page' ? { ...spec, ...setup, steps: clean(spec.steps) }
+        : spec.details ? { ...spec, ...setup, details: { ...spec.details, spec: { ...spec.details.spec, steps: clean(spec.details.spec.steps) } } }
+        : { ...spec, ...setup };
     return { spec: changes.length ? next : spec, changes };
 }

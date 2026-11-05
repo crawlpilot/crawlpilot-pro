@@ -7,8 +7,10 @@
  */
 import { hitFilled, type RuleStatus } from '../../shared/types/ways';
 import { readsByWay } from '../recipe/fromPublic';
-import type { ListRecipeSpec, PageRecipeSpec, ProSpec, RunSettings, Way } from '../recipe/types';
-import { pageRequest, readPageResult } from '../runner/testPage';
+import { setupOwners } from '../recipe/actions';
+import type { ListRecipeSpec, PageRecipeSpec, ProSpec, RunSettings, SessionSetup, Way } from '../recipe/types';
+import { pageRequest, readStepsResult, type FieldResult } from '../runner/readPage';
+import type { StepsRead } from '../steps/runner';
 import { CrawlError } from './classify';
 import type { InPageRequest, InPageResult, ListPageResult, WayProbe } from './inPage';
 import type { CrawlJob, ErrorClass, RecipeRef, ScrapeDoc, SelectorUsageDoc } from './types';
@@ -26,9 +28,13 @@ export function inPageRequest(spec: PageRecipeSpec, settings: RunSettings): InPa
             elementId: id,
             ...(dataWay?.kind === 'data' ? { data: { wayId: wayId(dataWay, id, data), binding: dataWay.binding } } : {}),
             selectors: ways.flatMap((w, i) => w.kind === 'selector' ? [{ wayId: wayId(w, id, i), selector: w.selector }] : []),
+            ...(ways.some(w => w.kind === 'markup') ? { markup: ways.flatMap((w, i) => w.kind === 'markup' ? [{ wayId: wayId(w, id, i), way: { source: w.source, key: w.key, ...(w.type ? { type: w.type } : {}) } }] : []) } : {}),
         };
     });
-    return { elements, config, probes };
+    const markupWays = spec.steps.flatMap(s => s.kind === 'field' && readsByWay(s.field)
+        ? s.field.ways.flatMap((w, index) => w.kind === 'markup' ? [{ elementId: s.field.id, index, way: { source: w.source, key: w.key, ...(w.type ? { type: w.type } : {}) } }] : [])
+        : []);
+    return { elements, config, probes, ...(markupWays.length ? { markupWays } : {}) };
 }
 
 /** What a page rule's status makes of the attempt. */
@@ -42,22 +48,37 @@ export interface RunRead {
     total: number;
     /** The recipe's own word on the page (a page rule, another product): it is classed by this, not read. */
     verdict?: { errorClass: ErrorClass; message: string };
+    /** A "for each" step's items: one row each, the page's other fields repeated in every row. */
+    rows?: { option: { step: string; value: string }; attributes: ScrapeDoc['attributes']; fieldStatus: ScrapeDoc['fieldStatus'] }[];
 }
 
-export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult): RunRead {
-    const page = readPageResult(spec, url, result.item, result.steps, result.rule);
+/** `setup`: the version's session setup, whose ways' usage comes with the result. */
+export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult & Pick<StepsRead, 'options'>, setup?: SessionSetup): RunRead {
+    const page = readStepsResult(spec, url, result);
     if (page.rule) {
         return { attributes: {}, fieldStatus: {}, ways: [], filled: 0, total: 0, verdict: { errorClass: RULE_CLASS[page.rule.status], message: `Page rule "${page.rule.name}" held` } };
     }
-    const attributes: RunRead['attributes'] = {};
-    const fieldStatus: RunRead['fieldStatus'] = {};
-    for (const f of page.fields) {
-        attributes[f.name] = f.value;
-        fieldStatus[f.name] = !f.filled ? 'empty' : f.ok ? 'ok' : 'check_failed';
-    }
-    const owner = new Map(spec.steps.flatMap(s => s.kind === 'field'
-        ? s.field.ways.map((w, i) => [wayId(w, s.field.id, i), s.field.name] as const)
-        : s.click.ways.map((w, i) => [wayId(w, s.click.id, i), `click: ${s.click.name}`] as const)));
+    const named = (fields: FieldResult[]) => {
+        const attributes: RunRead['attributes'] = {};
+        const fieldStatus: RunRead['fieldStatus'] = {};
+        for (const f of fields) {
+            attributes[f.name] = f.value;
+            fieldStatus[f.name] = !f.filled ? 'empty' : f.ok ? 'ok' : 'check_failed';
+        }
+        return { attributes, fieldStatus };
+    };
+    const { attributes, fieldStatus } = named(page.fields);
+    // Each item's row: the page's fields, with that item's values for the fields it repeats.
+    const rows = page.options?.map(o => {
+        const own = named(o.fields);
+        return { option: { step: o.step, value: o.label }, attributes: { ...attributes, ...own.attributes }, fieldStatus: { ...fieldStatus, ...own.fieldStatus } };
+    });
+    const owner = new Map([
+        ...spec.steps.flatMap(s => s.kind === 'field'
+            ? s.field.ways.map((w, i) => [wayId(w, s.field.id, i), s.field.name] as const)
+            : s.click.ways.map((w, i) => [wayId(w, s.click.id, i), `click: ${s.click.name}`] as const)),
+        ...setupOwners(setup).flatMap(o => o.ways.map((w, i) => [wayId(w, o.key, i), o.name] as const)),
+    ]);
     // Ways read one by one: tried unless their condition did not hold, matched when they read something, won as `resolveWays` decided.
     const byWay: RunRead['ways'] = [];
     for (const s of spec.steps) {
@@ -74,6 +95,7 @@ export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult)
         ways: [...result.ways.map(w => ({ field: owner.get(w.wayId) ?? '', ...w })), ...byWay],
         filled: page.fields.filter(f => f.filled).length,
         total: page.fields.length,
+        ...(rows ? { rows } : {}),
         ...(page.mismatch ? { verdict: { errorClass: 'mismatch' as const, message: `Another product: the URL names ${page.mismatch.expected}, the page ${page.mismatch.found}` } } : {}),
     };
 }
@@ -117,7 +139,7 @@ export function followUps(job: CrawlJob, spec: ListRecipeSpec, ref: RecipeRef, r
     o: { maxPages: number; details: boolean }): CrawlJob[] {
     const out: CrawlJob[] = [];
     const page = job.page ?? 1;
-    const inherit = { competitor: job.competitor, pageType: job.pageType, ...(job.mode ? { mode: job.mode } : {}), ...(job.runId ? { runId: job.runId } : {}), ...(job.meta ? { meta: job.meta } : {}) };
+    const inherit = { competitor: job.competitor, pageType: job.pageType, ...(job.mode ? { mode: job.mode } : {}), ...(job.runId ? { runId: job.runId } : {}), ...(job.meta ? { meta: job.meta } : {}), ...(job.context ? { context: job.context } : {}) };
     const root = job.jobId.replace(/~p\d+$/, '');
     if (read.nextHref && page < o.maxPages) {
         // The same version for every page of one list, so a list is read with one recipe throughout.

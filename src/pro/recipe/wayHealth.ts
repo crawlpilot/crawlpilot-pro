@@ -9,6 +9,7 @@
  * - dead: tried and never found anything.
  * The backend counts only pages that loaded, so a blocked page never makes a way look dead.
  */
+import { setupOwners } from './actions';
 import type { WayDay } from '../backend/types';
 import type { ProSpec, Step, Way } from './types';
 
@@ -58,7 +59,10 @@ export function wayHealth(spec: ProSpec, days: (WayDay & { wayId: string })[], v
             : won > 0 ? 'active' : matched > 0 ? 'dormant' : 'dead';
         return { way, state, tried, matched, won, ...(lastWonAt ? { lastWonAt } : {}) };
     };
-    return steps(spec).map(s => s.kind === 'field'
-        ? { owner: s.field.name, required: !!s.field.required, ways: s.field.ways.map(one) }
-        : { owner: `click: ${s.click.name}`, required: false, ways: s.click.ways.map(one) });
+    return [
+        ...setupOwners(spec.setup).map(o => ({ owner: o.name, required: false, ways: o.ways.map(one) })),
+        ...steps(spec).map(s => s.kind === 'field'
+            ? { owner: s.field.name, required: !!s.field.required, ways: s.field.ways.map(one) }
+            : { owner: `click: ${s.click.name}`, required: false, ways: s.click.ways.map(one) }),
+    ];
 }

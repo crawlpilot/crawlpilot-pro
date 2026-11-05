@@ -1,0 +1,30 @@
+{
+  "workerId": "live-check",
+  "concurrency": 1,
+  "navigationTimeoutMs": 30000,
+  "settleMs": 1500,
+  "retry": {
+    "maxAttempts": 1,
+    "baseDelayMs": 5000,
+    "maxDelayMs": 5000,
+    "maxInlineWaitMs": 20000,
+    "maxJobAgeMs": 1000
+  },
+  "sites": {
+    "default": {
+      "minDelayMs": 15000,
+      "maxDelayMs": 60000,
+      "concurrency": 1,
+      "cooldownBaseMs": 30000,
+      "cooldownMaxMs": 30000,
+      "blockAfter": 1,
+      "respectRobots": true,
+      "locale": "en-US",
+      "timezoneId": "America/New_York"
+    }
+  },
+  "recipeStore": {
+    "url": "http://127.0.0.1:8787",
+    "token": "${STORE_TOKEN}"
+  }
+}

@@ -28,13 +28,16 @@ describe('classify', () => {
         expect(classify({ status: 407 }).errorClass).toBe('proxy_auth');
     });
 
-    it('finds blocks from status, headers, title and short block pages', () => {
-        expect(classify({ status: 403, headers: { 'cf-mitigated': 'challenge', server: 'cloudflare' }, title: 'Just a moment...' }))
-            .toMatchObject({ errorClass: 'blocked', blockSignal: 'status 403 + cf-mitigated: challenge + Cloudflare challenge' });
+    it('finds blocks from status, headers, title and short block pages, with the vendor and a confidence', () => {
+        expect(classify({ status: 403, headers: { 'cf-mitigated': 'challenge', server: 'cloudflare' }, title: 'Just a moment...' })).toMatchObject({
+            errorClass: 'blocked', protection: ['Cloudflare'], blockSignal: 'status 403 + cf-mitigated: challenge + Cloudflare challenge page',
+            block: { vendor: 'Cloudflare', kind: 'challenge', confidence: 'high' },
+        });
         expect(classify({ status: 200, title: 'Access Denied', text: 'You don\'t have permission. Reference #18.2f1b.1730.4a2b' }))
-            .toMatchObject({ errorClass: 'blocked', blockSignal: 'status 200 + Akamai reference' });
-        expect(classify({ status: 200, text: 'Please verify you are a human. Complete the CAPTCHA below.' })).toMatchObject({ errorClass: 'captcha', pageStatus: 'blocked' });
-        expect(classify({ status: 403, text: page('Nothing to see') })).toMatchObject({ errorClass: 'blocked', blockSignal: 'status 403' });
+            .toMatchObject({ errorClass: 'blocked', blockSignal: 'status 200 + Akamai reference + block wording', block: { vendor: 'Akamai', kind: 'block', confidence: 'high' } });
+        expect(classify({ status: 200, text: 'Please verify you are a human. Complete the CAPTCHA below.' }))
+            .toMatchObject({ errorClass: 'captcha', pageStatus: 'blocked', block: { vendor: 'unknown', kind: 'captcha', confidence: 'medium' } });
+        expect(classify({ status: 403, text: page('Nothing to see') })).toMatchObject({ errorClass: 'blocked', blockSignal: 'status 403', block: { vendor: 'unknown', confidence: 'low' } });
         expect(classify({ status: 503, title: 'Just a moment...' }).errorClass).toBe('blocked');
     });
 

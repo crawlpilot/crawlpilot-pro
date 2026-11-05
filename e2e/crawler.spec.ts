@@ -193,16 +193,265 @@ test('crawler worker: reads pages with the live recipe, retries, backs off on bl
     expect(of('j-robots')[0]).toMatchObject({ errorClass: 'robots_disallowed', outcome: 'failed' });
     expect(of('j-norecipe')[0]).toMatchObject({ errorClass: 'no_recipe', outcome: 'dead_letter' });
     const blocked = of('j-blocked');
-    expect(blocked[0]).toMatchObject({ status: 403, errorClass: 'blocked', blockSignal: 'status 403 + cf-mitigated: challenge + block page', outcome: 'deferred', headers: { 'cf-mitigated': 'challenge' } });
+    expect(blocked[0]).toMatchObject({
+        status: 403, errorClass: 'blocked', blockSignal: 'status 403 + cf-mitigated: challenge + block wording', outcome: 'deferred', headers: { 'cf-mitigated': 'challenge' },
+        blockVendor: 'Cloudflare', blockKind: 'challenge', blockConfidence: 'high', protection: ['Cloudflare'],
+        blockEvidence: { title: 'Access denied', textSample: 'You have been blocked.' },
+    });
     expect(blocked[blocked.length - 1]).toMatchObject({ final: true, outcome: 'dead_letter' });
     expect(of('j-captcha').some(e => e.errorClass === 'captcha')).toBe(true);
 
-    // Site events: the blocking site cooled down, then was marked blocked.
+    // Site events: the blocking site cooled down, then was marked blocked, with the vendor.
     const sites = docs.filter(d => d.index.startsWith('crawl-sites-')).map(d => d.doc).filter(e => e.host === new URL(wall.origin).host);
     expect(sites.map(e => e.state)).toContain('cooldown');
+    expect(sites.find(e => e.state === 'cooldown' && e.vendor === 'Cloudflare')).toBeTruthy();
     expect(sites.map(e => e.state)).toContain('blocked');
 
     for (const s of [shop, wall, es]) s.close();
+    mock.close();
+});
+
+test('crawler worker: identifies the bot protection a site uses, a vendor\'s captcha, and a soft block no vendor marks', async () => {
+    test.setTimeout(120_000);
+    // A shop behind a bot manager: its cookie and sensor script on every page. Its pages are long; once, it
+    // answers /p/9 with a short 200 stub that has none of the recipe's fields.
+    const LONG = (title: string) => PRODUCT(title).replace('</p>', `${'Made in Portugal from European flax, washed for softness, with mother-of-pearl buttons. '.repeat(20)}</p>`)
+        .replace('</head>', '<script src="https://client.perimeterx.net/PXtest/main.min.js" async></script></head>');
+    let stubbed = false;
+    const shop = await serve((req, res) => {
+        if (req.url === '/robots.txt') return html(res, 404, '');
+        const cookie = { 'set-cookie': '_pxhd=SECRETVALUE; path=/' };
+        if (req.url === '/p/9' && !stubbed) {
+            stubbed = true;
+            return html(res, 200, '<title>Shop</title><p>Our shop is taking a short break. Thank you for your patience, we will be right back with you soon.</p>', cookie);
+        }
+        return html(res, 200, LONG(`Shirt ${req.url}`), cookie);
+    });
+    // A site behind AWS WAF that answers with its captcha.
+    const waf = await serve((req, res) => req.url === '/robots.txt' ? html(res, 404, '') : html(res, 405, '<title></title><div id="captcha-container"></div>', { 'x-amzn-waf-action': 'captcha' }));
+    const es = await fakeElasticsearch();
+    const mock = await serveMockBackend();
+    await publishRecipe(mock.backend);
+    const dir = mkdtempSync(path.join(tmpdir(), 'crawler-detect-'));
+    writeFileSync(path.join(dir, 'crawler.json'), JSON.stringify({
+        workerId: 'e2e-worker', concurrency: 1, navigationTimeoutMs: 10_000, settleMs: 0,
+        retry: { maxAttempts: 2, baseDelayMs: 100, maxDelayMs: 500, maxInlineWaitMs: 5000 },
+        sites: { default: { minDelayMs: 20, cooldownBaseMs: 300, cooldownMaxMs: 600, blockResources: ['script'] } },
+        recipeStore: { url: mock.origin, token: '${STORE_TOKEN}' },
+        search: { url: es.origin, flushMs: 200 },
+    }));
+    const job = (jobId: string, url: string) => JSON.stringify({ jobId, url, competitor: 'acme', pageType: 'product' });
+    writeFileSync(path.join(dir, 'jobs.jsonl'), [
+        ...[1, 2, 3, 4, 5].map(n => job(`j-${n}`, `${shop.origin}/p/${n}`)),
+        job('j-9', `${shop.origin}/p/9`),
+        job('j-waf', `${waf.origin}/p/1`),
+    ].join('\n'));
+
+    const out = await runCli(dir);
+    expect(out).toContain('7 jobs: 6 read, 0 failed, 1 dead-lettered');
+    const events = es.docs.filter(d => d.index.startsWith('crawl-requests-')).map(d => d.doc);
+    const of = (id: string) => events.filter(e => e.jobId === id).sort((a, b) => a.attempt - b.attempt);
+
+    // Every page of the shop names its protection, and is read as a page.
+    expect(of('j-1')[0]).toMatchObject({ errorClass: 'none', protection: ['HUMAN'], fieldsFilled: 2 });
+    expect(of('j-1')[0].textLength).toBeGreaterThan(1500);
+    // The stub: no vendor mark, but no data and far shorter than the shop's pages. Waited out, then read.
+    expect(of('j-9').map(e => [e.errorClass, e.outcome])).toEqual([['blocked', 'deferred'], ['none', 'success']]);
+    expect(of('j-9')[0]).toMatchObject({ blockKind: 'soft_block', blockVendor: 'HUMAN', blockConfidence: 'medium', fieldsFilled: 0, blockEvidence: { cookieNames: ['_pxhd'] } });
+    expect(of('j-9')[0].blockSignal).toMatch(/^soft block: no data, page \d+% of its usual length/);
+    // The WAF's captcha: identified by the header it sends only when it challenges.
+    expect(of('j-waf')[0]).toMatchObject({ status: 405, errorClass: 'captcha', blockVendor: 'AWS WAF', blockKind: 'captcha', blockConfidence: 'high' });
+    // Cookie values are never written.
+    expect(JSON.stringify(es.docs)).not.toContain('SECRETVALUE');
+
+    for (const s of [shop, waf, es]) s.close();
+    mock.close();
+});
+
+test('crawler worker: sets the location and store a retailer page needs, chooses fulfilment, and reads it per ZIP code', async () => {
+    test.setTimeout(180_000);
+    // The retailer page (e2e/site/retailer.html): consent banner, "Deliver to" ZIP dialog, store list, promo,
+    // fulfilment tiles. Its state is in cookies, as real ones keep it.
+    const RETAILER = readFileSync(path.join(ROOT, 'e2e/site/retailer.html'), 'utf8');
+    const shop = await serve((req, res) => req.url === '/robots.txt' ? html(res, 404, '') : html(res, 200, RETAILER));
+    const es = await fakeElasticsearch();
+    const mock = await serveMockBackend();
+    const sel = (selector: string) => ({ kind: 'selector', selector });
+    const act = (id: string, name: string, selector: string | string[], extra = {}) => ({ id, name, ways: (Array.isArray(selector) ? selector : [selector]).map(sel), ...extra });
+    const field = (id: string, name: string, selector: string) => ({ kind: 'field', field: { id, name, type: 'text', read: 'text', ops: [], ways: [sel(selector)] } });
+    const spec = {
+        kind: 'page',
+        setup: {
+            // Closed whenever they show, on every page: the consent banner, and the promo that pops up after load.
+            dismiss: [act('d-consent', 'Cookie banner', '#consent-reject'), act('d-promo', 'Promo', '#promo-close')],
+            steps: [
+                act('s-open', 'Open location', '#deliver-to'),
+                act('s-zip', 'Type ZIP', '#zip-input', { do: 'type', value: '{zip}' }),
+                act('s-apply', 'Apply ZIP', '#zip-apply'),
+                act('s-store', 'Open stores', '#store-link'),
+                act('s-pick', 'Choose store', ['.store-list li button'], { do: 'choose', value: '{store}' }),
+            ],
+            check: { ways: [sel('#loc-label')], contains: '{zip}' },
+        },
+        steps: [
+            field('f-title', 'title', 'h1.product-title'),
+            field('f-price', 'price', '#price'),
+            // Optional: skipped when there is no "Show more" (there isn't).
+            { kind: 'click', click: act('p-more', 'Show more', '#show-more', { optional: true }) },
+            { kind: 'click', click: act('p-pickup', 'Pickup', '.fulfil-tile', { do: 'choose', value: 'Pickup' }) },
+            field('f-pickup', 'pickup', '#fulfil-detail'),
+            { kind: 'click', click: act('p-delivery', 'Delivery', '.fulfil-tile', { do: 'choose', value: 'Delivery' }) },
+            field('f-delivery', 'delivery', '#fulfil-detail'),
+        ],
+    };
+    await publishRecipe(mock.backend, { spec, competitor: 'retail', pageType: 'product' });
+
+    const dir = mkdtempSync(path.join(tmpdir(), 'crawler-steps-'));
+    writeFileSync(path.join(dir, 'crawler.json'), JSON.stringify({
+        workerId: 'e2e-worker', concurrency: 1, navigationTimeoutMs: 15_000, settleMs: 0,
+        retry: { maxAttempts: 2, baseDelayMs: 100, maxDelayMs: 500, maxInlineWaitMs: 5000 },
+        sites: { default: { minDelayMs: 20 } },
+        recipeStore: { url: mock.origin, token: '${STORE_TOKEN}' },
+        search: { url: es.origin, flushMs: 200 },
+    }));
+    const job = (jobId: string, p: string, context?: Record<string, string>) =>
+        JSON.stringify({ jobId, url: `${shop.origin}${p}`, competitor: 'retail', pageType: 'product', ...(context ? { context } : {}) });
+    writeFileSync(path.join(dir, 'jobs.jsonl'), [
+        job('lamp', '/p/lamp', { zip: '10001', store: 'Chelsea' }),
+        job('lamp', '/p/lamp', { zip: '94105', store: 'SoMa' }),
+        job('lamp-2', '/p/lamp-2', { zip: '10001', store: 'Chelsea' }),
+        job('no-zip', '/p/lamp'),
+        job('bad-zip', '/p/lamp', { zip: '00000', store: 'Chelsea' }),
+        job('moved-zip', '/p/lamp', { zip: '60601', store: 'Loop' }),
+    ].join('\n'));
+
+    const out = await runCli(dir);
+    expect(out).toContain('6 jobs: 3 read, 0 failed, 3 dead-lettered');
+    const scrape = (id: string) => es.docs.find(d => d.index === 'scrapes-retail' && d.id === id)?.doc;
+
+    // Each ZIP code's values, in a document of its own, with the location it is for.
+    expect(scrape('lamp~store=Chelsea,zip=10001')).toMatchObject({
+        context: { zip: '10001', store: 'Chelsea' },
+        attributes: { title: 'Brass desk lamp', price: '$12.99', pickup: 'Pickup today at Chelsea: In stock', delivery: 'Delivery tomorrow to 10001' },
+    });
+    expect(scrape('lamp~store=SoMa,zip=94105')).toMatchObject({
+        context: { zip: '94105', store: 'SoMa' },
+        attributes: { price: '$14.49', pickup: 'Pickup today at SoMa: Only 3 left', delivery: 'Delivery tomorrow to 94105' },
+    });
+
+    // The setup ran once per session: the second 10001 page found the location already set.
+    const events = es.docs.filter(d => d.index.startsWith('crawl-requests-')).map(d => d.doc);
+    const of = (id: string, zip?: string) => events.filter(e => e.jobId === id && (!zip || e.context?.zip === zip));
+    expect(of('lamp', '10001')[0]).toMatchObject({ errorClass: 'none', setup: { ran: true }, context: { zip: '10001' } });
+    expect(of('lamp-2')[0]).toMatchObject({ errorClass: 'none', setup: { ran: false } });
+
+    // A job without the ZIP its recipe needs is a person's to fix. A ZIP the site refuses fails the setup at the
+    // step that can't go on; one it serves as another area fails the check: never read for the wrong location.
+    expect(of('no-zip')[0]).toMatchObject({ errorClass: 'missing_context', outcome: 'dead_letter' });
+    expect(of('bad-zip')[0]).toMatchObject({ errorClass: 'setup_failed', setup: { ran: true, failedStep: 'Open stores' } });
+    expect(of('moved-zip')[0]).toMatchObject({ errorClass: 'setup_failed', setup: { ran: true, failedStep: 'check' } });
+    expect(of('moved-zip')[0].errorMessage).toContain('should show "60601", but it shows "60602"');
+    expect(es.docs.some(d => d.index === 'scrapes-retail' && d.doc.context?.zip === '60601')).toBe(false);
+    const dead = readFileSync(path.join(dir, 'dead.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l));
+    expect(dead.map(d => d.jobId).sort()).toEqual(['bad-zip', 'moved-zip', 'no-zip']);
+
+    // The setup's and steps' selectors are counted like fields'.
+    const usage = es.docs.find(d => d.index.startsWith('selector-usage-') && d.id === 'lamp~store=Chelsea,zip=10001')!.doc;
+    expect(usage.ways).toEqual(expect.arrayContaining([
+        expect.objectContaining({ field: 'setup: Type ZIP', tried: true, matched: true, won: true }),
+        expect.objectContaining({ field: 'click: Delivery', tried: true, matched: true, won: true }),
+    ]));
+
+    for (const s of [shop, es]) s.close();
+    mock.close();
+});
+
+test('crawler worker: reads fields from the page\'s meta tags and microdata when selectors find nothing', async () => {
+    test.setTimeout(90_000);
+    const PAGE = readFileSync(path.join(ROOT, 'e2e/site/microdata-product.html'), 'utf8');
+    const shop = await serve((req, res) => req.url === '/robots.txt' ? html(res, 404, '') : html(res, 200, PAGE));
+    const es = await fakeElasticsearch();
+    const mock = await serveMockBackend();
+    const field = (id: string, name: string, ways: object[]) => ({ kind: 'field', field: { id, name, type: 'text', read: 'text', ops: [], ways } });
+    await publishRecipe(mock.backend, { competitor: 'marked', pageType: 'product', spec: { kind: 'page', steps: [
+        // The old layout's selectors first in the list, the markup read before them anyway.
+        field('f-title', 'title', [{ id: 'w-old', kind: 'selector', selector: 'h1.product-title' }, { id: 'w-og', kind: 'markup', source: 'meta', key: 'og:title' }]),
+        field('f-price', 'price', [{ id: 'w-price', kind: 'markup', source: 'microdata', type: 'Product', key: 'offers.price' }]),
+        field('f-currency', 'currency', [{ id: 'w-cur', kind: 'markup', source: 'meta', key: 'product:price:currency' }]),
+        field('f-stock', 'availability', [{ id: 'w-stock', kind: 'markup', source: 'microdata', type: 'Product', key: 'offers.availability' }]),
+        field('f-sku', 'sku', [{ id: 'w-sku', kind: 'markup', source: 'microdata', type: 'Product', key: 'sku' }]),
+    ] } });
+    const dir = mkdtempSync(path.join(tmpdir(), 'crawler-markup-'));
+    writeFileSync(path.join(dir, 'crawler.json'), JSON.stringify({
+        workerId: 'e2e-worker', concurrency: 1, navigationTimeoutMs: 15_000, settleMs: 0,
+        retry: { maxAttempts: 1, baseDelayMs: 100, maxDelayMs: 500, maxInlineWaitMs: 5000 },
+        sites: { default: { minDelayMs: 20 } },
+        recipeStore: { url: mock.origin, token: '${STORE_TOKEN}' },
+        search: { url: es.origin, flushMs: 200 },
+    }));
+    writeFileSync(path.join(dir, 'jobs.jsonl'), JSON.stringify({ jobId: 'shirt', url: `${shop.origin}/p/shirt`, competitor: 'marked', pageType: 'product' }));
+
+    expect(await runCli(dir)).toContain('1 jobs: 1 read');
+    const scrape = es.docs.find(d => d.index === 'scrapes-marked' && d.id === 'shirt')!.doc;
+    expect(scrape).toMatchObject({ pageStatus: 'ok', attributes: { title: 'Linen overshirt', price: '79.00', currency: 'GBP', availability: 'https://schema.org/InStock', sku: 'LX-2041' }, fieldStatus: { title: 'ok', price: 'ok' } });
+    // Selector usage: the markup won; the old selector was tried and matched nothing.
+    const usage = es.docs.find(d => d.index.startsWith('selector-usage-') && d.id === 'shirt')!.doc;
+    expect(usage.ways).toEqual(expect.arrayContaining([
+        { field: 'title', wayId: 'w-og', tried: true, matched: true, won: true },
+        { field: 'title', wayId: 'w-old', tried: true, matched: false, won: false },
+        { field: 'price', wayId: 'w-price', tried: true, matched: true, won: true },
+    ]));
+    for (const s of [shop, es]) s.close();
+    mock.close();
+});
+
+test('crawler worker: reads a product once per fulfilment method, one document each', async () => {
+    test.setTimeout(120_000);
+    const RETAILER = readFileSync(path.join(ROOT, 'e2e/site/retailer.html'), 'utf8');
+    const shop = await serve((req, res) => req.url === '/robots.txt' ? html(res, 404, '') : html(res, 200, RETAILER));
+    const es = await fakeElasticsearch();
+    const mock = await serveMockBackend();
+    const sel = (selector: string) => ({ kind: 'selector', selector });
+    const act = (id: string, name: string, selector: string, extra = {}) => ({ id, name, ways: [sel(selector)], ...extra });
+    const field = (id: string, name: string, selector: string) => ({ kind: 'field', field: { id, name, type: 'text', read: 'text', ops: [], ways: [sel(selector)] } });
+    await publishRecipe(mock.backend, { competitor: 'retail', pageType: 'product', spec: {
+        kind: 'page',
+        setup: {
+            dismiss: [act('d1', 'Cookie banner', '#consent-reject'), act('d2', 'Promo', '#promo-close')],
+            steps: [act('s1', 'Open location', '#deliver-to'), act('s2', 'Type ZIP', '#zip-input', { do: 'type', value: '{zip}' }), act('s3', 'Apply', '#zip-apply'),
+                act('s4', 'Open stores', '#store-link'), act('s5', 'Choose store', '.store-list li button', { do: 'choose', value: '{store}' })],
+            check: { ways: [sel('#loc-label')], contains: '{zip}' },
+        },
+        steps: [
+            field('f-title', 'title', 'h1.product-title'),
+            // Every tile the page shows, in its order: the fields after it are read for each.
+            { kind: 'click', click: act('p-tile', 'Fulfilment', '.fulfil-tile', { do: 'choose', forEach: {} }) },
+            field('f-detail', 'detail', '#fulfil-detail'),
+            field('f-price', 'price', '#price'),
+        ],
+    } });
+    const dir = mkdtempSync(path.join(tmpdir(), 'crawler-each-'));
+    writeFileSync(path.join(dir, 'crawler.json'), JSON.stringify({
+        workerId: 'e2e-worker', concurrency: 1, navigationTimeoutMs: 15_000, settleMs: 0,
+        retry: { maxAttempts: 1, baseDelayMs: 100, maxDelayMs: 500, maxInlineWaitMs: 5000 },
+        sites: { default: { minDelayMs: 20 } },
+        recipeStore: { url: mock.origin, token: '${STORE_TOKEN}' },
+        search: { url: es.origin, flushMs: 200 },
+    }));
+    writeFileSync(path.join(dir, 'jobs.jsonl'), JSON.stringify({ jobId: 'lamp', url: `${shop.origin}/p/lamp`, competitor: 'retail', pageType: 'product', context: { zip: '10001', store: 'Chelsea' } }));
+
+    const out = await runCli(dir);
+    expect(out).toContain('1 jobs: 1 read');
+    const docs = es.docs.filter(d => d.index === 'scrapes-retail').sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    expect(docs.map(d => d.id)).toEqual([
+        'lamp~store=Chelsea,zip=10001~opt=Delivery', 'lamp~store=Chelsea,zip=10001~opt=Pickup', 'lamp~store=Chelsea,zip=10001~opt=Shipping',
+    ]);
+    const by = (v: string) => docs.find(d => d.doc.option?.value === v)!.doc;
+    expect(by('Pickup')).toMatchObject({ option: { step: 'Fulfilment', value: 'Pickup' }, context: { zip: '10001' }, attributes: { title: 'Brass desk lamp', price: '$12.99', detail: 'Pickup today at Chelsea: In stock' } });
+    expect(by('Delivery').attributes).toMatchObject({ detail: 'Delivery tomorrow to 10001', price: '$12.99' });
+    expect(by('Shipping').attributes).toMatchObject({ detail: 'Ships in 3–5 days' });
+
+    for (const s of [shop, es]) s.close();
     mock.close();
 });
 

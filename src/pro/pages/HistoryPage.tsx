@@ -5,7 +5,7 @@
  * approved version can be marked live or submitted.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, GitCompare, Pencil, RefreshCw, RotateCcw, Send, Tag, Wrench, X } from 'lucide-react';
+import { Check, ClipboardCheck, GitCompare, Pencil, RefreshCw, RotateCcw, Send, Tag, Wrench, X } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Card, Chip, Dialog, Notice, Select, Text, TextField, type ChipTone } from '../../sidepanel/ui';
 import { pro, reviewReason } from '../db';
@@ -14,6 +14,7 @@ import { readiness, type Readiness } from '../recipe/ready';
 import { SubmitDialog } from './SubmitDialog';
 import { TargetingCard } from './TargetingCard';
 import { SelectorsCard } from './SelectorsCard';
+import { ReadinessCard, readinessItems } from './ReadinessCard';
 import { targetingReasons } from '../recipe/targeting';
 import type { CrawlRecord } from '../db/crawls';
 import { backendApi } from '../backend/settings';
@@ -48,6 +49,8 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
     const [user, setUser] = useState('');
     const [reviewing, setReviewing] = useState<{ state: ReviewState; version: number } | null>(null);
     const [note, setNote] = useState('');
+    /** Who reviews: the user, unless they wrote the version; asked here, so the saved name doesn't change. */
+    const [reviewer, setReviewer] = useState('');
     const [ready, setReady] = useState<Map<number, Readiness>>(new Map());
     const [submitting, setSubmitting] = useState<Version | null>(null);
     const [crawls, setCrawls] = useState<CrawlRecord[]>([]);
@@ -118,13 +121,20 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
         await load();
     };
 
+    const startReview = (state: ReviewState, v: Version) => {
+        setReviewer(v.author === user ? '' : user);
+        setReviewing({ state, version: v.version });
+    };
+    const reviewedVersion = reviewing ? versions.find(v => v.version === reviewing.version) : undefined;
+    const reviewerProblem = !reviewer.trim() ? 'Who is reviewing?' : reviewedVersion && reviewer.trim() === reviewedVersion.author ? `${reviewedVersion.author} wrote this version: someone else reviews it.` : null;
+
     const review = async () => {
         if (!reviewing) return;
         setError(null);
         try {
             const version = versions.find(v => v.version === reviewing.version)!;
             const api = recipe.remoteId && version.submittedAt ? await backendApi() : null;
-            await recordReview(api, recipe, version, { state: reviewing.state, by: user, note });
+            await recordReview(api, recipe, version, { state: reviewing.state, by: reviewer.trim(), note });
         } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
         setReviewing(null);
         setNote('');
@@ -152,18 +162,29 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
         await load();
     };
 
+    /** Why a version can't be marked live, or null when it can. */
+    const liveBlock = (v: Version): string | null => recipe.labels.live === v.version ? 'It is live.'
+        : reviewReason(reviews.get(v.version)) ? 'someone other than its author approves it first.' : null;
+
     return (
         <div className="flex h-full flex-col">
             <ToolHeader
                 title={recipe.name}
                 subtitle={`${recipe.site} · ${recipe.kind} · ${versions.length} version${versions.length === 1 ? '' : 's'}`}
                 onBack={onBack}
-                actions={<Button size="sm" variant="primary" icon={<Pencil />} onClick={() => onNavigate('pro-editor')} disabled={!versions[0]}>Edit fields</Button>}
+                actions={<span className="flex gap-1.5">
+                    {recipe?.kind === 'page' && <Button size="sm" variant="secondary" icon={<ClipboardCheck />} onClick={() => onNavigate('pro-check')} disabled={!versions[0]}>Check</Button>}
+                    <Button size="sm" variant="primary" icon={<Pencil />} onClick={() => onNavigate('pro-editor')} disabled={!versions[0]}>Edit fields</Button>
+                </span>}
             />
             <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
                 {error && <Notice tone="danger" onClose={() => setError(null)}>{error}</Notice>}
+                {versions[0] && <ReadinessCard title={`Ready to submit v${versions[0].version}?`} items={readinessItems({
+                    recipe, version: versions[0], samples: samples.map(url => ({ url })), ...(reviews.get(versions[0].version) ? { review: reviews.get(versions[0].version)! } : {}),
+                    ...(ready.get(versions[0].version) ? { ready: ready.get(versions[0].version)! } : {}),
+                    actions: recipe.kind === 'page' ? { samples: () => onNavigate('pro-check') } : {},
+                })} />}
                 <TargetingCard recipe={recipe} samples={samples} onSaved={() => void load()} />
-                <SelectorsCard recipe={recipe} versions={versions} onSaved={() => void load()} />
 
                 {versions.length > 1 && pair && (
                     <Card className="flex flex-col gap-2" data-testid="pro-diff">
@@ -202,17 +223,20 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
                             ? <div><Chip tone="success">ready to submit</Chip></div>
                             : <Text size="caption" tone="warning" data-testid="pro-not-ready">Not ready: {ready.get(v.version)!.reasons.join(' ')}</Text>)}
                         <Text size="caption" tone="faint">{when(v.createdAt)} · {v.author}{v.parentVersion ? ` · from v${v.parentVersion}` : ''}</Text>
+                        {liveBlock(v) && recipe.labels.live !== v.version && <Text size="caption" tone="muted" data-testid="pro-live-block">Mark live: {liveBlock(v)}</Text>}
                         <div className="flex flex-wrap gap-1">
                             {versions[i + 1] && <Button size="sm" variant="ghost" icon={<GitCompare />} onClick={() => setPair({ from: v.parentVersion ?? versions[i + 1].version, to: v.version })}>Changes</Button>}
-                            {v.author !== user && reviews.get(v.version)?.state !== 'approved' && <Button size="sm" variant="ghost" icon={<Check />} onClick={() => setReviewing({ state: 'approved', version: v.version })}>Approve</Button>}
-                            {v.author !== user && reviews.get(v.version)?.state !== 'rejected' && <Button size="sm" variant="ghost" icon={<X />} onClick={() => setReviewing({ state: 'rejected', version: v.version })}>Reject</Button>}
-                            <Button size="sm" variant="ghost" icon={<Tag />} onClick={() => setLabelling({ label: 'live', version: v.version })} disabled={recipe.labels.live === v.version || !!reviewReason(reviews.get(v.version))}>Mark live</Button>
-                            <Button size="sm" variant="ghost" icon={<Tag />} onClick={() => setLabelling({ label: 'test', version: v.version })} disabled={recipe.labels.test === v.version}>Mark test</Button>
+                            {reviews.get(v.version)?.state !== 'approved' && <Button size="sm" variant="ghost" icon={<Check />} onClick={() => startReview('approved', v)}>Approve</Button>}
+                            {reviews.get(v.version)?.state !== 'rejected' && <Button size="sm" variant="ghost" icon={<X />} onClick={() => startReview('rejected', v)}>Reject</Button>}
+                            <Button size="sm" variant="ghost" icon={<Tag />} onClick={() => setLabelling({ label: 'live', version: v.version })} disabled={!!liveBlock(v)} title={liveBlock(v) ?? undefined}>Mark live</Button>
+                            <Button size="sm" variant="ghost" icon={<Tag />} onClick={() => setLabelling({ label: 'test', version: v.version })} disabled={recipe.labels.test === v.version} title={recipe.labels.test === v.version ? 'It is the test version.' : undefined}>Mark test</Button>
                             {i > 0 && <Button size="sm" variant="ghost" icon={<RotateCcw />} onClick={() => restore(v.version)}>Restore</Button>}
                             {ready.get(v.version)?.ready && <Button size="sm" variant="primary" icon={<Send />} onClick={() => setSubmitting(v)}>{v.submittedAt ? 'Crawl again' : 'Submit'}</Button>}
                         </div>
                     </div>
                 ))}
+
+                <SelectorsCard recipe={recipe} versions={versions} onSaved={() => void load()} />
 
                 {crawls.length > 0 && (
                     <section className="flex flex-col gap-1.5" data-testid="pro-crawls">
@@ -264,8 +288,10 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
                 description={reviewing?.state === 'approved' ? 'An approved version can be marked live and submitted.' : 'A rejected version cannot go live until someone approves it again.'}
                 actions={<>
                     <Button variant="ghost" onClick={() => setReviewing(null)}>Cancel</Button>
-                    <Button variant="primary" onClick={review} disabled={reviewing?.state === 'rejected' && !note.trim()}>{reviewing?.state === 'approved' ? 'Approve' : 'Reject'}</Button>
+                    <Button variant="primary" onClick={review} disabled={!!reviewerProblem || (reviewing?.state === 'rejected' && !note.trim())}>{reviewing?.state === 'approved' ? 'Approve' : 'Reject'}</Button>
                 </>}>
+                <TextField label={reviewing?.state === 'approved' ? 'Approved by' : 'Rejected by'} value={reviewer} onChange={e => setReviewer(e.target.value)}
+                    hint={reviewerProblem ?? `v${reviewing?.version} is by ${reviewedVersion?.author ?? '…'}.`} placeholder="Their name" />
                 <TextField label={reviewing?.state === 'rejected' ? 'Why' : 'Note (optional)'} value={note} onChange={e => setNote(e.target.value)} placeholder={reviewing?.state === 'rejected' ? 'Price reads the old price' : 'Checked the test grid'} autoFocus />
             </Dialog>
             <Dialog open={!!labelling} onClose={() => setLabelling(null)} size="sm"

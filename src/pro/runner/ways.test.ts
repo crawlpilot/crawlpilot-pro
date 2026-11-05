@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { readRun } from '../crawler/recipeRun';
+import { inPageRequest, readRun } from '../crawler/recipeRun';
 import { carryOver } from '../recipe/fromPublic';
 import { readiness } from '../recipe/ready';
 import type { Field, PageRecipeSpec, Way } from '../recipe/types';
 import { pageTestRequest, readPageResult } from './testPage';
+import { pageWays } from './ways';
 import { identityMismatch, resolveWays } from './ways';
 
 const field = (over: Partial<Field>): Field => ({ id: 'f', name: 'f', type: 'text', read: 'text', ways: [], ops: [], ...over });
@@ -100,5 +101,22 @@ describe('a page recipe read way by way', () => {
         expect(kept.steps[1]).toEqual(spec.steps[1]);
         const changed = carryOver(spec, { ...edited, steps: [edited.steps[0], { kind: 'field', field: field({ id: 's', name: 'SKU', ways: [sel('#new')] }) }] });
         expect(changed.steps[1]).toEqual({ kind: 'field', field: field({ id: 's', name: 'SKU', ways: [sel('#new')] }) });
+    });
+});
+
+describe('markup ways in a field read way by way', () => {
+    const markup: Way = { kind: 'markup', source: 'meta', key: 'og:title' };
+    const titled: PageRecipeSpec = { kind: 'page', steps: [{ kind: 'field', field: field({ id: 't', name: 'TITLE', ways: [markup, sel('h1', { pick: 'firstFilled' })] }) }] };
+
+    it('the page reads nothing for it; the worker reads it from the markup, in its place', () => {
+        expect(pageWays((titled.steps[0] as { field: Field }).field)[0]).toEqual({});
+        expect(inPageRequest(titled, {}).markupWays).toEqual([{ elementId: 't', index: 0, way: { source: 'meta', key: 'og:title' } }]);
+        expect(inPageRequest(spec, {}).markupWays).toBeUndefined();
+    });
+
+    it('a markup value filled into its place wins as the first way; an empty one gives way to the selector', () => {
+        const step = (hits: { values: string[] }[]) => [{ id: 't', name: 'TITLE', action: 'extract' as const, status: 'ok' as const, hits }];
+        expect(readPageResult(titled, 'u', {}, step([{ values: ['Lamp'] }, { values: ['Other'] }])).fields[0]).toMatchObject({ value: 'Lamp', way: 0, status: 'ok' });
+        expect(readPageResult(titled, 'u', {}, step([{ values: [] }, { values: ['Other'] }])).fields[0]).toMatchObject({ value: 'Other', way: 1 });
     });
 });

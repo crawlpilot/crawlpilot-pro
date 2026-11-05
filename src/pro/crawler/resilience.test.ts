@@ -296,4 +296,80 @@ describe('the browser pool', () => {
         await pool.open('a.test', {});
         expect(b.contexts).toHaveLength(2);
     });
+
+    const closedCount = (b: ReturnType<typeof fakeBrowser>) => b.contexts.filter(c => (c as unknown as { closed?: boolean }).closed).length;
+    function tracked() {
+        const b = fakeBrowser();
+        const newContext = b.browser.newContext;
+        b.browser.newContext = async () => {
+            const c = await newContext() as EventEmitter & Record<string, unknown>;
+            const close = c.close as () => Promise<void>;
+            c.close = async () => { c.closed = true; await close(); };
+            return c;
+        };
+        return b;
+    }
+
+    it('closes a context left idle, never one in use', async () => {
+        const b = tracked();
+        let t = 0;
+        const pool = new BrowserPool({ pagesPerContext: 50, idleMs: 1000, now: () => t, launch: async () => b.browser as unknown as Browser });
+        const a = await pool.open('a.test', {});
+        const held = await pool.open('b.test', {});
+        await a.release();
+        t = 5000;
+        await pool.open('c.test', {});
+        expect(b.contexts.map(c => !!(c as unknown as { closed?: boolean }).closed)).toEqual([true, false, false]);
+        // a.test comes back to a new context.
+        await pool.open('a.test', {});
+        expect(b.contexts).toHaveLength(4);
+        await held.release();
+    });
+
+    it('keeps at most maxContexts, closing the least recently used idle ones', async () => {
+        const b = tracked();
+        let t = 0;
+        const pool = new BrowserPool({ pagesPerContext: 50, maxContexts: 2, now: () => t, launch: async () => b.browser as unknown as Browser });
+        for (const host of ['a.test', 'b.test', 'c.test', 'd.test']) { t++; await (await pool.open(host, {})).release(); }
+        expect(closedCount(b)).toBe(2);
+        expect(b.contexts.slice(0, 2).every(c => (c as unknown as { closed?: boolean }).closed)).toBe(true);
+    });
+
+    it('holds a context open while robots.txt is fetched through it', async () => {
+        const b = tracked();
+        let answer!: () => void;
+        const newContext = b.browser.newContext;
+        b.browser.newContext = async () => {
+            const c = await newContext() as Record<string, unknown>;
+            c.request = { get: () => new Promise(r => { answer = () => r({ status: () => 200, ok: () => true, text: async () => 'User-agent: *' }); }) };
+            return c;
+        };
+        let t = 0;
+        const pool = new BrowserPool({ pagesPerContext: 50, idleMs: 10, now: () => t, launch: async () => b.browser as unknown as Browser });
+        await (await pool.open('a.test', {})).release();
+        const robots = pool.fetchText('https://a.test/robots.txt', {});
+        await new Promise(r => setTimeout(r, 0));
+        t = 1000;
+        await pool.open('b.test', {});
+        expect((b.contexts[0] as unknown as { closed?: boolean }).closed).toBeFalsy();
+        answer();
+        expect(await robots).toEqual({ status: 200, text: 'User-agent: *' });
+
+        // Nor is it renewed under the request when its pages are used up.
+        const b2 = tracked();
+        const newContext2 = b2.browser.newContext;
+        b2.browser.newContext = async () => {
+            const c = await newContext2() as Record<string, unknown>;
+            c.request = { get: () => new Promise(r => { answer = () => r({ status: () => 200, ok: () => true, text: async () => '' }); }) };
+            return c;
+        };
+        const pool2 = new BrowserPool({ pagesPerContext: 1, launch: async () => b2.browser as unknown as Browser });
+        const robots2 = pool2.fetchText('https://a.test/robots.txt', {});
+        await new Promise(r => setTimeout(r, 0));
+        await (await pool2.open('a.test', {})).release();
+        await pool2.open('a.test', {});
+        expect((b2.contexts[0] as unknown as { closed?: boolean }).closed).toBeFalsy();
+        answer();
+        await robots2;
+    });
 });

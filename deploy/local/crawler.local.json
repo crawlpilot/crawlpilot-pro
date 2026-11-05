@@ -1,0 +1,12 @@
+{
+  "workerId": "local",
+  "concurrency": 2,
+  "navigationTimeoutMs": 20000,
+  "settleMs": 300,
+  "retry": { "maxAttempts": 3, "baseDelayMs": 500, "maxDelayMs": 5000, "maxInlineWaitMs": 5000 },
+  "sites": {
+    "default": { "minDelayMs": 200, "concurrency": 2, "cooldownBaseMs": 5000, "cooldownMaxMs": 60000, "respectRobots": true }
+  },
+  "recipeStore": { "url": "http://127.0.0.1:8787", "token": "${STORE_TOKEN}" },
+  "search": { "url": "http://127.0.0.1:9200", "flushMs": 500 }
+}

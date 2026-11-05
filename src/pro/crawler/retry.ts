@@ -2,8 +2,8 @@
  * What to do after a failed attempt. Short waits are taken in the worker; long ones (a site cooling down,
  * a backoff past `maxInlineWaitMs`) put the job back on the queue with a delay, so a worker is never held.
  * - Not retryable (404, 410, other 4xx, TLS, robots): the job fails.
- * - No recipe: dead letter, for a person to add one.
- * - Rate limited, blocked, captcha: back on the queue for the site's cooldown, same proxy.
+ * - No recipe, or a job without the values its recipe's steps need: dead letter, for a person.
+ * - Rate limited, waiting room, blocked, captcha: back on the queue for the site's cooldown, same proxy.
  * - Proxy, connection, timeout, DNS: tried again after a backoff, on another proxy when there is one.
  * - 5xx, empty page, extraction, unknown: tried again after a backoff, same proxy.
  * - Out of attempts (this delivery's and earlier ones'): dead letter.
@@ -41,10 +41,10 @@ export function backoffMs(attempt: number, p: Pick<RetryPolicy, 'baseDelayMs' | 
  */
 export function decide(c: Classification, attempt: number, p: RetryPolicy, siteDeferMs?: number, random = Math.random): Decision {
     if (c.errorClass === 'none') return { action: 'done', outcome: 'success' };
-    if (c.errorClass === 'no_recipe') return { action: 'done', outcome: 'dead_letter' };
+    if (c.errorClass === 'no_recipe' || c.errorClass === 'missing_context') return { action: 'done', outcome: 'dead_letter' };
     if (!c.retryable) return { action: 'done', outcome: 'failed' };
     if (attempt >= p.maxAttempts) return { action: 'done', outcome: 'dead_letter' };
-    if (c.errorClass === 'rate_limited' || c.errorClass === 'blocked' || c.errorClass === 'captcha') {
+    if (c.errorClass === 'rate_limited' || c.errorClass === 'waiting_room' || c.errorClass === 'blocked' || c.errorClass === 'captcha') {
         return { action: 'defer', delayMs: Math.max(siteDeferMs ?? 0, c.retryAfterMs ?? 0, backoffMs(attempt, p, random)) };
     }
     const wait = Math.max(c.retryAfterMs ?? 0, backoffMs(attempt, p, random));

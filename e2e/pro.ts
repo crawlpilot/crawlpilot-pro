@@ -49,21 +49,6 @@ export async function proSetName(ui: Page, name: string): Promise<void> {
 
 /** The mock crawler backend (`src/pro/backend/mock.ts`) on a local port, with CORS as a real API would send. */
 export async function serveMockBackend(): Promise<{ origin: string; backend: import('../src/pro/backend/mock').MockBackend; close: () => void }> {
-    const { createServer } = await import('node:http');
-    const { createMockBackend } = await import('../src/pro/backend/mock');
-    const backend = createMockBackend();
-    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, content-type, idempotency-key', 'access-control-allow-methods': 'GET, POST' };
-    const server = createServer((req, res) => {
-        if (req.method === 'OPTIONS') { res.writeHead(204, cors).end(); return; }
-        let body = '';
-        req.on('data', chunk => { body += chunk; });
-        req.on('end', () => {
-            const headers = Object.fromEntries(Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]));
-            const out = backend.handle({ method: req.method ?? 'GET', path: req.url ?? '/', headers, body });
-            res.writeHead(out.status, { ...cors, 'content-type': 'application/json' }).end(JSON.stringify(out.body));
-        });
-    });
-    await new Promise<void>(r => server.listen(0, '127.0.0.1', () => r()));
-    const { port } = server.address() as { port: number };
-    return { origin: `http://127.0.0.1:${port}`, backend, close: () => server.close() };
+    const { startMockServer } = await import('../src/pro/backend/mockServer');
+    return startMockServer();
 }
