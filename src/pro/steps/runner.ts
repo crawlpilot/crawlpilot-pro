@@ -8,8 +8,9 @@
  * A step's target is found in the page by `inPageSteps.ts` (the extension's own resolver, visible elements
  * only), marked, and acted on by the driver.
  */
-import { fillVariables } from '../recipe/actions';
-import type { Click, SessionSetup } from '../recipe/types';
+import { fillVariables, MAX_EACH, segments } from '../recipe/actions';
+import type { Click, PageRecipeSpec, SessionSetup } from '../recipe/types';
+import type { StepResult } from '../../shared/listing/stepStats';
 import type { TargetRequest, TargetResult } from './inPageSteps';
 
 /** A step or the setup check that could not be done: the attempt fails, naming it. */
@@ -43,6 +44,8 @@ export const DEFAULT_STEP_OPTIONS: StepOptions = { timeoutMs: 10_000, optionalWa
 export interface StepDriver {
     find(request: TargetRequest): Promise<TargetResult>;
     isShown(selectors: string[]): Promise<boolean>;
+    /** The visible items' texts: what a "for each" step goes through. */
+    listItems(selectors: string[]): Promise<string[]>;
     /** Acts on the marked target; throws with a reason when it can't. Waits for a navigation it caused. */
     act(c: Click, mark: string, value: string | undefined, o: StepOptions): Promise<void>;
     /** A key to the page, with no target. */
@@ -174,4 +177,67 @@ export async function prepareSession(d: StepDriver, setup: SessionSetup, context
     }
     session.prepared = true;
     return { ran: true, ms: Date.now() - started, ways, steps };
+}
+
+/** What reading a run of fields gives: values by field id, each step's status, and selector usage. */
+export interface SegmentRead {
+    item: Record<string, unknown>;
+    steps: StepResult[];
+    ways: StepWayUse[];
+}
+
+/** A page read with its steps: the values, and one row of values per item a "for each" step went through. */
+export interface StepsRead extends SegmentRead {
+    /** The "for each" step's items, in order: each one's label and the values read for it. */
+    options?: { step: string; label: string; item: Record<string, unknown> }[];
+}
+
+/**
+ * A page recipe with Pro's steps: runs of fields read by `read` (the extractor), actions done between them, and a
+ * "for each" step's fields read once per item. Dismissals are closed before each read. Selector usage comes from
+ * the first time through.
+ */
+export async function runPageSteps(d: StepDriver, spec: PageRecipeSpec, context: Record<string, string> | undefined, o: StepOptions,
+    read: (spec: PageRecipeSpec) => Promise<SegmentRead>, dismiss?: Click[]): Promise<StepsRead> {
+    const out: StepsRead = { item: {}, steps: [], ways: [] };
+    const stepResult = (c: Click, status: 'done' | 'skipped'): StepResult => ({ id: c.id, name: c.name, action: 'click', status: status === 'done' ? 'clicked' : 'skipped' });
+    const readInto = async (s: PageRecipeSpec, into: SegmentRead) => {
+        await d.dismissNow(dismiss);
+        const r = await read(s);
+        Object.assign(into.item, r.item);
+        into.steps.push(...r.steps);
+        into.ways.push(...r.ways);
+    };
+    for (const seg of segments(spec)) {
+        if (seg.kind === 'read') await readInto(seg.spec, out);
+        else if (seg.kind === 'act') {
+            const r = await runAction(d, seg.click, context, o);
+            out.steps.push(stepResult(seg.click, r.status));
+            out.ways.push(...r.ways);
+        } else {
+            const { click } = seg;
+            const each = click.forEach!;
+            const selectors = selectorsOf(click);
+            const max = each.max ?? MAX_EACH;
+            const labels = each.values?.length ? each.values.map(v => fillVariables(v, context)) : (await d.listItems(selectors)).filter(Boolean);
+            if (!labels.length) {
+                if (click.optional) { out.steps.push(stepResult(click, 'skipped')); continue; }
+                throw new StepFailed(click.name, `Step "${click.name}" (for each): no items to choose from`);
+            }
+            out.options = [];
+            for (const [i, label] of labels.slice(0, max).entries()) {
+                // By its text when the items are named, else by place: items listed from the page keep their order.
+                const one: Click = { ...click, forEach: undefined, ...(each.values?.length ? { value: label } : { value: undefined, index: i }) };
+                const r = await runAction(d, one, context, o);
+                const row: SegmentRead = { item: {}, steps: [], ways: [] };
+                await readInto(seg.spec, row);
+                out.options.push({ step: click.name, label, item: row.item });
+                if (i === 0) {
+                    out.steps.push(stepResult(click, r.status), ...row.steps);
+                    out.ways.push(...r.ways, ...row.ways);
+                }
+            }
+        }
+    }
+    return out;
 }

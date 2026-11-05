@@ -8,8 +8,11 @@ import type { Click, PageRecipeSpec, ProSpec, SessionSetup, Step } from './types
 
 /** True when Pro's step runner runs it; false for a plain click the extractor runs. */
 export function isProAction(c: Click): boolean {
-    return (c.do !== undefined && c.do !== 'click') || !!c.optional;
+    return (c.do !== undefined && c.do !== 'click') || !!c.optional || !!c.forEach;
 }
+
+/** Items a "for each" step goes through at most, when it doesn't say. */
+export const MAX_EACH = 10;
 
 const VAR = /\{([a-zA-Z_][\w-]*)\}/g;
 
@@ -49,16 +52,31 @@ export function missingVariables(spec: ProSpec, context: Record<string, string> 
     return variablesOf(spec).filter(v => context[v] === undefined || context[v] === '');
 }
 
-/** A page recipe as runs of steps the extractor reads, and Pro's actions between them. */
-export type Segment = { kind: 'read'; spec: PageRecipeSpec } | { kind: 'act'; click: Click };
+/**
+ * A page recipe as runs of steps the extractor reads, Pro's actions between them, and a "for each" step with the
+ * steps it repeats (those after it, up to the next action).
+ */
+export type Segment =
+    | { kind: 'read'; spec: PageRecipeSpec }
+    | { kind: 'act'; click: Click }
+    | { kind: 'each'; click: Click; spec: PageRecipeSpec };
 
 export function segments(spec: PageRecipeSpec): Segment[] {
     const out: Segment[] = [];
     let run: Step[] = [];
-    const flush = () => { if (run.length) out.push({ kind: 'read', spec: { kind: 'page', steps: run } }); run = []; };
+    let each: Click | undefined;
+    const flush = () => {
+        if (each) out.push({ kind: 'each', click: each, spec: { kind: 'page', steps: run } });
+        else if (run.length) out.push({ kind: 'read', spec: { kind: 'page', steps: run } });
+        run = [];
+        each = undefined;
+    };
     for (const step of spec.steps) {
-        if (step.kind === 'click' && isProAction(step.click)) { flush(); out.push({ kind: 'act', click: step.click }); }
-        else run.push(step);
+        if (step.kind === 'click' && isProAction(step.click)) {
+            flush();
+            if (step.click.forEach) each = step.click;
+            else out.push({ kind: 'act', click: step.click });
+        } else run.push(step);
     }
     flush();
     return out;
@@ -74,6 +92,7 @@ export function describeAction(c: Click): string {
     const what = c.do ?? 'click';
     const value = c.value !== undefined ? ` ${c.value}` : c.index !== undefined ? ` #${c.index + 1}` : '';
     const extra = [c.enter ? 'then Enter' : '', c.gone ? 'to go away' : '', c.optional ? '(optional)' : ''].filter(Boolean).join(' ');
+    if (c.forEach) return `for each${c.forEach.values?.length ? `: ${c.forEach.values.join(', ')}` : ' item'}${extra ? ` ${extra}` : ''}`;
     return `${what}${value}${extra ? ` ${extra}` : ''}`;
 }
 

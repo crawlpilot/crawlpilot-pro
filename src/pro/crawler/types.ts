@@ -89,6 +89,8 @@ export interface ScrapeDoc extends RecipeRef {
     meta?: Record<string, string>;
     /** The job's context: the location (or other values) the page was read for. */
     context?: Record<string, string>;
+    /** A row of a "for each" step: the step, and the item this row's values are for ("Fulfilment": "Pickup"). */
+    option?: { step: string; value: string };
     /** A list row: its list, its place on the page, and the page. */
     listId?: string;
     row?: number;

@@ -59,7 +59,11 @@ worker does it with real browser input (`steps.ts`; design in `docs/plans/pro-da
   - `wait` for something to appear or go;
   - `scroll`.
 
-  Any step can be `optional` (skipped when its element doesn't show). The worker finds each step's element in the page
+  Any step can be `optional` (skipped when its element doesn't show).
+  A `choose` step can go through **each item** (`forEach`): every tile or option the page shows (or the ones it names,
+  up to `max`, 10 by default). The fields after it, up to the next action, are read once per item. The page then gives
+  one scrape document per item, with `option: { step, value }` and an id ending `~opt=<item>`; the page's other fields
+  are repeated in each. One such step per recipe. The worker finds each step's element in the page
   with the extension's resolver (visible elements only), then acts on it with Playwright. Plain clicks still run in
   the extractor; the other actions run between the fields around them.
 - **Session setup** (`spec.setup`): steps that set the browser session up, for example open "Deliver to", type

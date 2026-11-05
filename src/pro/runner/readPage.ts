@@ -19,6 +19,8 @@ export interface PageResult {
     fields: FieldResult[];
     clicks: { name: string; status: StepStatus }[];
     error?: string;
+    /** A "for each" step's items: each one's label and the fields read for it (`fields` holds the first's). */
+    options?: { step: string; label: string; fields: FieldResult[] }[];
     /** The session setup on this page: whether it ran, its steps, and the one that failed. */
     setup?: { ran: boolean; steps: { name: string; status: 'done' | 'skipped' }[]; failedStep?: string };
 }
@@ -35,4 +37,21 @@ export function readPageResult(spec: PageRecipeSpec, url: string, item: Record<s
         fields.push({ fieldId: field.id, name: field.name, status: status.get(field.id) ?? 'not-found', raw, ...checkField(field, raw, url) });
     }
     return { url, fields, clicks };
+}
+
+/**
+ * A page read with its steps: the fields with the first item's values, and, for a "for each" step, each item's own
+ * fields (those it repeats) with that item's values.
+ */
+export function readStepsResult(spec: PageRecipeSpec, url: string, r: { item: Record<string, unknown>; steps: StepResult[]; options?: { step: string; label: string; item: Record<string, unknown> }[] }): PageResult {
+    const first = r.options?.[0];
+    const page = readPageResult(spec, url, { ...r.item, ...first?.item }, r.steps);
+    if (!r.options) return page;
+    return {
+        ...page,
+        options: r.options.map(o => ({
+            step: o.step, label: o.label,
+            fields: readPageResult(spec, url, { ...r.item, ...o.item }, r.steps).fields.filter(f => f.fieldId in o.item),
+        })),
+    };
 }
