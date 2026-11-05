@@ -59,4 +59,22 @@ values  B0XXXXXXXX~zip=10001: {
 | `robots_disallowed` | robots.txt disallows the URL for the worker | Don't crawl it |
 | `missing_context` | A job lacks `context.zip` | Fix the jobs file |
 
+## The full Amazon and Walmart recipes
+`recipes/amazon-product.crawlpilot.json` and `recipes/walmart-product.crawlpilot.json` are the full product-page
+recipes (`recipes/README.md`): every Atlas field, page rules, value checks and the ZIP setup. Seed the store with both
+(a recipe file is read as it is):
+```bash
+MOCK_SEED=recipes/amazon-product.crawlpilot.json,recipes/walmart-product.crawlpilot.json npm run pro:mock
+```
+and add Walmart jobs next to Amazon's:
+```bash
+ITEM=17070020028   # the id at the end of a walmart.com/ip/… URL
+for zip in 10001 94105; do
+  echo "{\"jobId\":\"wm-$ITEM\",\"url\":\"https://www.walmart.com/ip/$ITEM\",\"competitor\":\"walmart\",\"pageType\":\"product\",\"context\":{\"zip\":\"$zip\"}}"
+done >> /tmp/live-check-jobs.jsonl
+```
+The same terms, pacing and stopping apply: Walmart's terms restrict automated collection too, and its "Robot or human?"
+page is a block, recorded and not answered. Fields that fail a check show as `check_failed` in the values: an INR price
+on a page served outside the US, for example.
+
 To try another site, copy the recipe file, change its `competitor`, `site` and spec, and point the jobs at it.

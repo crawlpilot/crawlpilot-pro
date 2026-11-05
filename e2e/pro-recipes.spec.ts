@@ -712,6 +712,28 @@ test('list rules: a list recipe\'s page rules are edited in Pro and saved as the
     expect(v2.spec.rules).toEqual([{ name: 'No results', status: 'not_found', when: { kind: 'regex', in: 'text', pattern: 'No lamps match', flags: 'i', op: 'gt', value: 0 } }]);
 });
 
+test('retailer recipes: the Amazon and Walmart files import with their targeting, setup, rules and checks', async ({ panel }) => {
+    const ui = panel.page;
+    await ui.setViewportSize({ width: 400, height: 1000 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html`);
+    await proClear(ui);
+    await ui.reload();
+    const files = ['amazon-product', 'walmart-product'].map(n => ({ name: `${n}.crawlpilot.json`, mimeType: 'application/json', buffer: readFileSync(`recipes/${n}.crawlpilot.json`) }));
+    await ui.getByTestId('recipe-import').setInputFiles(files);
+    await expect(ui.getByTestId('pro-import-message')).toContainText('Amazon product page: 1 version added');
+    await expect(ui.getByTestId('pro-import-message')).toContainText('Walmart product page: 1 version added');
+    const recipes = await proStore(ui, 'recipes');
+    expect(recipes.map(r => [r.competitor, r.pageType]).sort()).toEqual([['amazon', 'product'], ['walmart', 'product']]);
+
+    await ui.getByRole('button', { name: 'Edit Walmart product page' }).click();
+    await ui.getByRole('button', { name: /^Page rules/ }).click();
+    await expect(ui.getByTestId('pro-page-rule')).toHaveCount(5);
+    await expect(ui.getByTestId('pro-page-rule').nth(3).getByTestId('pro-rule-sentence')).toHaveText('When the URL has "/account/login"');
+    const sku = ui.getByTestId('pro-field').filter({ has: ui.getByText('SKU', { exact: true }) });
+    await expect(sku).toContainText('1 check');
+    await expect(ui.getByTestId('pro-editor-changes')).toHaveText('No changes yet.');
+});
+
 test('build new: picked fields come to the save step named and typed from the page, and can be changed there', async ({ panel, ext, origin }) => {
     const page = await ext.newPage();
     await page.goto(`${origin}/site/json-product.html`);

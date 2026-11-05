@@ -1,0 +1,4059 @@
+{
+  "format": 3,
+  "recipe": {
+    "name": "Amazon product page",
+    "site": "amazon.com",
+    "kind": "page",
+    "competitor": "amazon",
+    "pageType": "product",
+    "matchRules": {
+      "include": [
+        "https://www.amazon.com/*dp/*",
+        "https://www.amazon.com/gp/product/*"
+      ]
+    }
+  },
+  "labels": {
+    "latest": 1
+  },
+  "samples": [
+    {
+      "url": "https://www.amazon.com/dp/B0HJCRV1J6"
+    }
+  ],
+  "versions": [
+    {
+      "version": 1,
+      "spec": {
+        "kind": "page",
+        "steps": [
+          {
+            "kind": "field",
+            "field": {
+              "id": "buybox_winner",
+              "name": "BUYBOX_WINNER",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "BUYBOX_WINNER-0",
+                  "kind": "selector",
+                  "selector": "div.offer-display-feature-text[data-csa-c-content-id=\"desktop-merchant-info\" i] div",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-3",
+                  "kind": "selector",
+                  "selector": "#shipsFromSoldByInsideBuyBox_feature_div",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Ships from and sold by.))([^\\.]*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-4",
+                  "kind": "selector",
+                  "selector": "#buyNewInner > div:nth-child(5) > span",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Ships from and sold by.))([^\\.]*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-5",
+                  "kind": "selector",
+                  "selector": "#buybox-tabular tr:nth-child(2) .buybox-tabular-column:nth-child(2)",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-6",
+                  "kind": "selector",
+                  "selector": "#tabular-buybox-truncate-1 > span.a-truncate-cut > span.tabular-buybox-text",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-7",
+                  "kind": "selector",
+                  "selector": "#tabular-buybox-truncate-1 > span.a-truncate-full > span.tabular-buybox-text",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-9",
+                  "kind": "selector",
+                  "selector": "#freshShipsFromSoldBy_feature_div",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Sold By.))([^\\.]*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-10",
+                  "kind": "selector",
+                  "selector": "#sellerProfileTriggerId",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-11",
+                  "kind": "selector",
+                  "selector": "[id=\"fresh-merchant-info\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Sold By.))([^\\.]*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "promo_message",
+              "name": "PROMO_MESSAGE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PROMO_MESSAGE-0",
+                  "kind": "selector",
+                  "selector": "#primeEarlyAccess_feature_div > div > div > div:nth-child(2)",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PROMO_MESSAGE-1",
+                  "kind": "selector",
+                  "selector": "span[id=\"pe-text-buyboxheader\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PROMO_MESSAGE-2",
+                  "kind": "selector",
+                  "selector": "#pe-bb-header > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PROMO_MESSAGE-3",
+                  "kind": "selector",
+                  "selector": "#ourprice_shippingmessage > span",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(&\\s{0,3}))([^\\.]*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PROMO_MESSAGE-4",
+                  "kind": "selector",
+                  "selector": "div.a-section.a-spacing-small.a-spacing-top-micro span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PROMO_MESSAGE-5",
+                  "kind": "selector",
+                  "selector": "#dealBadgeSupportingText > span",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "is_price",
+              "name": "IS_PRICE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "IS_PRICE-0",
+                  "kind": "selector",
+                  "selector": "#regularBuybox:contains(Regular Price) span.a-size-base.a-color-secondary.a-text-normal",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "ret3 = string.gsub(str,\",\", \"\");ret2 = string.gsub(ret3:match\"([\\$][0-9 .]*)\", \"\\$%s+\", \"\\$\"); ret1 = string.gsub(ret2, \"%s+\\$\", \"\"); return string.gsub(ret1, \"%s+\", \".\")"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-1",
+                  "kind": "selector",
+                  "selector": "span[id^=\"priceblock_ourprice\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "ret3 = string.gsub(str,\",\", \"\");ret2 = string.gsub(ret3:match\"([\\$][0-9 .]*)\", \"\\$%s+\", \"\\$\"); ret1 = string.gsub(ret2, \"%s+\\$\", \"\"); return string.gsub(ret1, \"%s+\", \".\")"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-2",
+                  "kind": "selector",
+                  "selector": "#corePrice_feature_div [data-csa-c-buying-option-type=\"NEW\" i]  .a-price span.a-offscreen",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if str == \"\" then return nil end; if string.match(str,\"[^%w .$,]\") == nil then ret3 = string.gsub(str,\",\", \"\");ret2 = string.gsub(ret3:match\"([\\$][0-9 .]*)\", \"\\$%s+\", \"\\$\"); ret1 = string.gsub(ret2, \"%s+\\$\", \"\"); return string.gsub(ret1, \"%s+\", \".\"); else return null end"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-3",
+                  "kind": "selector",
+                  "selector": "#combinedPriceBlock > div > div > div:nth-of-type(2) > span:nth-of-type(2)",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-4",
+                  "kind": "selector",
+                  "selector": "#actualPriceValue > b",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-5",
+                  "kind": "selector",
+                  "selector": "#buyNewSection div.inlineBlock-display span.a-color-base.offer-price.a-text-normal",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-6",
+                  "kind": "selector",
+                  "selector": "#buyNewSection h5 > div > div > div > span.a-size-medium",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-8",
+                  "kind": "selector",
+                  "selector": "#olp_feature_div > div > span:nth-child(1)",
+                  "when": {
+                    "kind": "all",
+                    "of": [
+                      {
+                        "kind": "regex",
+                        "pattern": "\\d+[\\p{Z}\\s]used[\\p{Z}\\s]f?r?o?m?[\\p{Z}\\s]\\$[\\d\\.\\-,\\$\\s]*",
+                        "flags": "u",
+                        "op": "eq",
+                        "value": 0
+                      },
+                      {
+                        "kind": "regex",
+                        "pattern": "\\d+[\\p{Z}\\s]refurbished[\\p{Z}\\s]f?r?o?m?[\\p{Z}\\s]\\$[\\d\\.\\-,\\$\\s]*",
+                        "flags": "u",
+                        "op": "eq",
+                        "value": 0
+                      },
+                      {
+                        "kind": "regex",
+                        "pattern": "(Used &(.*) new(.*) \\(\\d+\\) from)|(Used(.*) \\(\\d+\\) from) |(New(.*) \\(\\d+\\) from)",
+                        "op": "eq",
+                        "value": 0
+                      }
+                    ]
+                  },
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "((?<=from )(.*)(?= \\+))|((?<=from )(.*)(?= & FREE))|((?<=from )(.*)(?=$))",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-9",
+                  "kind": "selector",
+                  "selector": "#newOfferAccordionRow span.a-size-medium.header-price",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-10",
+                  "kind": "selector",
+                  "selector": "div.top-level.selected-row td.a-text-right.dp-price-col",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if str == \"\" then return nil end; if string.match(str,\"[^%w .$,]\") == nil then ret3 = string.gsub(str,\",\", \"\");ret2 = string.gsub(ret3:match\"([\\$][0-9 .]*)\", \"\\$%s+\", \"\\$\"); ret1 = string.gsub(ret2, \"%s+\\$\", \"\"); return string.gsub(ret1, \"%s+\", \".\"); else return null end"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-11",
+                  "kind": "selector",
+                  "selector": "#buyNewSection span.a-size-medium.a-color-price.offer-price.a-text-normal",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-12",
+                  "kind": "selector",
+                  "selector": "#mediaNoAccordion > div.a-row > div.a-text-right.a-span-last > span.a-size-medium.a-color-price.header-price",
+                  "when": {
+                    "kind": "css",
+                    "selector": "#mediaNoAccordion > div.a-row div.a-column span:contains(Buy new)",
+                    "op": "gt",
+                    "value": 0
+                  },
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-13",
+                  "kind": "selector",
+                  "selector": "#mediaOlp div.a-fixed-right-grid-col.accordion-row-left-content.a-col-left span.olp-padding-right:nth-child(1)",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "((?<=New\\sfrom\\s)[0-9,.$-]+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-14",
+                  "kind": "selector",
+                  "selector": "#unqualified div.a-text-center.a-spacing-mini",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "((?<=new\\Sfrom\\S)[0-9,.$-]+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-15",
+                  "kind": "selector",
+                  "selector": "div.sc-subtotal span.a-color-price > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-16",
+                  "kind": "selector",
+                  "selector": "div#cart-subtotal span.ourprice",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-17",
+                  "kind": "selector",
+                  "selector": "span#newBuyBoxPrice",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-18",
+                  "kind": "selector",
+                  "selector": "#booksHeaderSection div [id=\"price\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-19",
+                  "kind": "selector",
+                  "selector": "#buyNew_noncbb",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-20",
+                  "kind": "selector",
+                  "selector": "span[id^=\"priceblock_\" i]",
+                  "when": {
+                    "kind": "all",
+                    "of": [
+                      {
+                        "kind": "css",
+                        "selector": "span[id^=\"priceblock_ourprice\" i]",
+                        "op": "eq",
+                        "value": 0
+                      },
+                      {
+                        "kind": "css",
+                        "selector": "#newRadioButton.a-row.a-spacing-small.newPriceDisabled",
+                        "op": "eq",
+                        "value": 0
+                      },
+                      {
+                        "kind": "css",
+                        "selector": "span[id^=\"priceblock_usedprice\" i]",
+                        "op": "eq",
+                        "value": 0
+                      }
+                    ]
+                  },
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "ret3 = string.gsub(str,\",\", \"\");ret2 = string.gsub(ret3:match\"([\\$][0-9 .]*)\", \"\\$%s+\", \"\\$\"); ret1 = string.gsub(ret2, \"%s+\\$\", \"\"); return string.gsub(ret1, \"%s+\", \".\")"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-21",
+                  "kind": "selector",
+                  "selector": "span[class*=\"qa-price-block-our-price\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.find(str, \"from\") or string.find(str, \"-\") or string.find(str,\"—\") then return null else return string.gsub(str, \"^US\", \"\") end;"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-22",
+                  "kind": "selector",
+                  "selector": "#desktop_qualifiedBuyBox #corePriceDisplay_desktop_feature_div span.priceToPay",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.find(str, \"from\") or string.find(str, \"-\") or string.find(str,\"—\") then return null else return string.gsub(str, \"^US\", \"\") end;"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-23",
+                  "kind": "selector",
+                  "selector": "div[class*=\"swatchElement selected\" i] span.slot-price > span",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.find(str, \"from\") or string.find(str, \"-\") or string.find(str,\"—\") then return null else return string.gsub(str, \"^US\", \"\") end;"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-25",
+                  "kind": "selector",
+                  "selector": "#corePrice_feature_div span.a-offscreen",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if str == \"\" then return nil end; if string.match(str,\"[^%w .$,]\") == nil then ret3 = string.gsub(str,\",\", \"\");ret2 = string.gsub(ret3:match\"([\\$][0-9 .]*)\", \"\\$%s+\", \"\\$\"); ret1 = string.gsub(ret2, \"%s+\\$\", \"\"); return string.gsub(ret1, \"%s+\", \".\"); else return null end"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "checks": [
+                {
+                  "kind": "pattern",
+                  "pattern": "^\\$\\d{1,3}(,\\d{3})*(\\.\\d{2})?$"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "ol_availability",
+              "name": "OL_AVAILABILITY",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "OL_AVAILABILITY-0",
+                  "kind": "selector",
+                  "selector": "#availability > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-1",
+                  "kind": "selector",
+                  "selector": "#availability_feature_div > div > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-2",
+                  "kind": "selector",
+                  "selector": "#handleBuy > table:nth-child(20) > tbody > tr > td > div:nth-child(2) > div > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-3",
+                  "kind": "selector",
+                  "selector": "#divsinglecolumnminwidth > table:nth-child(33) > tbody > tr:nth-child(4) > td > div.buying.mas-availability",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-4",
+                  "kind": "selector",
+                  "selector": "#handleBuy > table:nth-child(20) > tbody > tr > td > div:nth-child(2) > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-5",
+                  "kind": "selector",
+                  "selector": "#outOfStock span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-6",
+                  "kind": "selector",
+                  "selector": "#pantry-availability",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-7",
+                  "kind": "selector",
+                  "selector": "#andonCord_feature_div h4.a-alert-heading",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-8",
+                  "kind": "selector",
+                  "selector": "#dmusic_buy_box > div.a-box-inner > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-9",
+                  "kind": "selector",
+                  "selector": "div #checkoutButtonId span #checkoutButtonId-announce",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-10",
+                  "kind": "selector",
+                  "selector": "span[class*=\"qa-availability-message\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-11",
+                  "kind": "selector",
+                  "selector": "#availability-string",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-12",
+                  "kind": "selector",
+                  "selector": "#almOutOfStockBuyBox_feature_div span",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "price_promo",
+              "name": "PRICE_PROMO",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PRICE_PROMO-0",
+                  "kind": "selector",
+                  "selector": "#clickableVpcButton-announce",
+                  "when": {
+                    "kind": "css",
+                    "selector": "#unclippedCouponSns > div > span",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_PROMO-1",
+                  "kind": "selector",
+                  "selector": "#unclippedCouponSns > div > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_PROMO-2",
+                  "kind": "selector",
+                  "selector": "#deal_availability",
+                  "when": {
+                    "kind": "css",
+                    "selector": "span[id^=\"priceblock_ourprice\" i]",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "price_type_text",
+              "name": "PRICE_TYPE_TEXT",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PRICE_TYPE_TEXT-0",
+                  "kind": "selector",
+                  "selector": "#buyNewSection span.a-text-bold",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_TYPE_TEXT-1",
+                  "kind": "selector",
+                  "selector": "#olp_feature_div > div > span:nth-child(1) > a",
+                  "when": {
+                    "kind": "all",
+                    "of": [
+                      {
+                        "kind": "css",
+                        "selector": "#priceblock_ourprice",
+                        "op": "eq",
+                        "value": 0
+                      },
+                      {
+                        "kind": "css",
+                        "selector": "#priceblock_pospromoprice",
+                        "op": "eq",
+                        "value": 0
+                      }
+                    ]
+                  },
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "[a-zA-Z]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_TYPE_TEXT-2",
+                  "kind": "selector",
+                  "selector": "#newOfferAccordionRow div.a-row span.a-size-medium.header-text",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_TYPE_TEXT-3",
+                  "kind": "selector",
+                  "selector": "#unqualified > div.a-text-center.a-spacing-mini > a",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "[a-zA-Z]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_TYPE_TEXT-4",
+                  "kind": "selector",
+                  "selector": "#mediaOlp div.a-fixed-right-grid-col.accordion-row-left-content.a-col-left span:nth-child(1) > a",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "[a-zA-Z]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_TYPE_TEXT-5",
+                  "kind": "selector",
+                  "selector": "#usedBuySection span.a-text-bold",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_TYPE_TEXT-6",
+                  "kind": "selector",
+                  "selector": "#mediaNoAccordion div.a-column.a-span5 > span.a-size-medium.header-text",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_TYPE_TEXT-7",
+                  "kind": "selector",
+                  "selector": "#new-button-label",
+                  "when": {
+                    "kind": "css",
+                    "selector": "#newRadioButton.a-row.a-spacing-small.newPriceDisabled",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_TYPE_TEXT-8",
+                  "kind": "selector",
+                  "selector": "#used-button-label",
+                  "when": {
+                    "kind": "css",
+                    "selector": "#newRadioButton.a-row.a-spacing-small.newPriceDisabled",
+                    "op": "gt",
+                    "value": 0
+                  },
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "product_title",
+              "name": "PRODUCT_TITLE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PRODUCT_TITLE-0",
+                  "kind": "selector",
+                  "selector": "span#productTitle",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_TITLE-1",
+                  "kind": "selector",
+                  "selector": "span[class*=\"qa-title-text\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_TITLE-2",
+                  "kind": "selector",
+                  "selector": "h1#title",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_TITLE-3",
+                  "kind": "selector",
+                  "selector": "#dmusicProductTitle_feature_div",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_TITLE-4",
+                  "kind": "selector",
+                  "selector": "head > title",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "required": true
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "buyability",
+              "name": "BUYABILITY",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "BUYABILITY-0",
+                  "kind": "selector",
+                  "selector": "input[id^=\"add-to-cart-button\" i]",
+                  "read": "attr",
+                  "attr": "id",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-1",
+                  "kind": "selector",
+                  "selector": "#outOfStock > div > div > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-2",
+                  "kind": "selector",
+                  "selector": "#dsv-buy-box-button-buy-and-download-button > input[type=\"image\" i]",
+                  "read": "attr",
+                  "attr": "src",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-3",
+                  "kind": "selector",
+                  "selector": "#bb_atc_button",
+                  "read": "attr",
+                  "attr": "id",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-4",
+                  "kind": "selector",
+                  "selector": "#buybox-see-all-buying-choices-announce",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-5",
+                  "kind": "selector",
+                  "selector": "#almIneligibleBuyBox_feature_div > div > div > div.a-section.a-spacing-small.a-spacing-top-small.a-text-left > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-6",
+                  "kind": "selector",
+                  "selector": "#dmusic_buy_box div.a-section.a-spacing-none.a-padding-none.DigitalBuyButtonSection.DigitalBuyButtonBuyBoxSection span a",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-7",
+                  "kind": "selector",
+                  "selector": "#buyNow span span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-8",
+                  "kind": "selector",
+                  "selector": "span[id=\"buybox-see-all-buying-choices\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "buybox_flfl_by",
+              "name": "BUYBOX_FLFL_BY",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "BUYBOX_FLFL_BY-0",
+                  "kind": "selector",
+                  "selector": "div.offer-display-feature-text[data-csa-c-content-id=\"desktop-fulfiller-info\" i] div span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-3",
+                  "kind": "selector",
+                  "selector": "#buybox-tabular tr:nth-child(1) .buybox-tabular-column:nth-child(2) > span >span.a-truncate-cut",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Ships from))([^\\.]*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-4",
+                  "kind": "selector",
+                  "selector": "#tabular-buybox-truncate-0 > span.a-truncate-cut > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-5",
+                  "kind": "selector",
+                  "selector": "#tabular-buybox-truncate-0 > span.a-truncate-full > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-7",
+                  "kind": "selector",
+                  "selector": "div.feature_ShipsFromSoldBy.celwidget > div > span:nth-child(2)",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-8",
+                  "kind": "selector",
+                  "selector": "#freshShipsFromSoldBy_feature_div",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Ships from ))(.*)(?=( sold by .*))",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-10",
+                  "kind": "selector",
+                  "selector": "#SSOFpopoverLink_ubb",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Fulfilled by ))(.*)([^\\.])",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-11",
+                  "kind": "selector",
+                  "selector": "[id=\"fresh-merchant-info\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Ships from ))(.*)(?=( sold by .*))",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-12",
+                  "kind": "selector",
+                  "selector": "#merchantInfoFeature_feature_div > div.offer-display-feature-text   > div.offer-display-feature-text > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-13",
+                  "kind": "selector",
+                  "selector": "#merchantInfoFeature_feature_div > div.offer-display-feature-text   > div.offer-display-feature-text  #sellerProfileTriggerId",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "sku",
+              "name": "SKU",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "kind": "selector",
+                  "selector": "#ASIN",
+                  "read": "attr",
+                  "attr": "value",
+                  "id": "amazon-w1",
+                  "addedIn": 1
+                },
+                {
+                  "kind": "selector",
+                  "selector": "[data-csa-c-content-id=\"title\"]",
+                  "read": "attr",
+                  "attr": "data-csa-c-asin",
+                  "id": "amazon-w2",
+                  "addedIn": 1
+                },
+                {
+                  "id": "SKU-0",
+                  "kind": "selector",
+                  "selector": "#addToCart input[name=\"ASIN\" i]",
+                  "read": "attr",
+                  "attr": "value",
+                  "addedIn": 1
+                },
+                {
+                  "id": "SKU-1",
+                  "kind": "selector",
+                  "selector": "div#almIneligibleBuyBox_feature_div",
+                  "read": "attr",
+                  "attr": "data-csa-c-asin",
+                  "addedIn": 1
+                },
+                {
+                  "id": "SKU-2",
+                  "kind": "selector",
+                  "selector": "#almOutOfStockBuyBox_feature_div",
+                  "read": "attr",
+                  "attr": "data-csa-c-asin",
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "required": true,
+              "checks": [
+                {
+                  "kind": "pattern",
+                  "pattern": "^[A-Z0-9]{10}$"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "hidden_price_string",
+              "name": "HIDDEN_PRICE_STRING",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "HIDDEN_PRICE_STRING-0",
+                  "kind": "selector",
+                  "selector": "#price a.a-link-normal.a-text-bold",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "HIDDEN_PRICE_STRING-1",
+                  "kind": "selector",
+                  "selector": "#price td.a-span12.a-color-base.a-size-base",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "was_price",
+              "name": "WAS_PRICE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "WAS_PRICE-1",
+                  "kind": "selector",
+                  "selector": "#listPriceValue",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "^\\$\\d+(\\.\\d+)?$",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "WAS_PRICE-2",
+                  "kind": "selector",
+                  "selector": "#corePriceDisplay_desktop_feature_div > div.a-section.a-spacing-small.aok-align-center .basisPrice:contains(List Price) .a-price .a-offscreen",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "^\\$\\d+(\\.\\d+)?$",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "WAS_PRICE-3",
+                  "kind": "selector",
+                  "selector": "#corePriceDisplay_desktop_feature_div .apex-basisprice-feature .apex-basisprice-value .a-offscreen",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "^\\$\\d+(\\.\\d+)?$",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "checks": [
+                {
+                  "kind": "pattern",
+                  "pattern": "^\\$\\d{1,3}(,\\d{3})*(\\.\\d{2})?$"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "deal_price",
+              "name": "DEAL_PRICE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "DEAL_PRICE-1",
+                  "kind": "selector",
+                  "selector": "#primeSavingsUpsellAccordionRow .a-price.reinventPriceAccordionT2 .a-offscreen",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "DEAL_PRICE-2",
+                  "kind": "selector",
+                  "selector": "#corePrice_feature_div  div[data-csa-c-buying-option-type=\"LIGHTNING_DEAL\" i] span.a-price.a-text-normal.aok-align-center.reinventPriceAccordionT2 > span.a-offscreen",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "checks": [
+                {
+                  "kind": "pattern",
+                  "pattern": "^\\$\\d{1,3}(,\\d{3})*(\\.\\d{2})?$"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "no_buybox_error",
+              "name": "NO_BUYBOX_ERROR",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "NO_BUYBOX_ERROR-0",
+                  "kind": "selector",
+                  "selector": "#unqualifiedBuyBox",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "exclusive_message",
+              "name": "EXCLUSIVE_MESSAGE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "EXCLUSIVE_MESSAGE-1",
+                  "kind": "selector",
+                  "selector": "div#pantryPrimeExclusiveMessage_feature_div  div.a-section span.a-text-bold",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "special_offers",
+              "name": "SPECIAL_OFFERS",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SPECIAL_OFFERS-1",
+                  "kind": "selector",
+                  "selector": "div.content",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "pdp_you_save_price",
+              "name": "PDP_YOU_SAVE_PRICE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PDP_YOU_SAVE_PRICE-1",
+                  "kind": "selector",
+                  "selector": "tr#regularprice_savings td.a-span12.a-color-price.a-size-base",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "sales_rank",
+              "name": "SALES_RANK",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SALES_RANK-1",
+                  "kind": "selector",
+                  "selector": "#SalesRank",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "SALES_RANK-2",
+                  "kind": "selector",
+                  "selector": "#zeitgeistBadge_feature_div > div.badge-wrapper > a",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "SALES_RANK-3",
+                  "kind": "selector",
+                  "selector": "th:contains(Best Sellers Rank) ~ td",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "product_description",
+              "name": "PRODUCT_DESCRIPTION",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PRODUCT_DESCRIPTION-1",
+                  "kind": "selector",
+                  "selector": "#productDescription",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "page_number",
+              "name": "PAGE_NUMBER",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PAGE_NUMBER-1",
+                  "kind": "selector",
+                  "selector": "#zg-center-div > div.a-row.a-spacing-top-mini > div > ul > li.a-normal > a",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "reviews",
+              "name": "REVIEWS",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "REVIEWS-1",
+                  "kind": "selector",
+                  "selector": "#acrCustomerReviewText",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(\\d+\\,\\d+)|(\\d+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "checks": [
+                {
+                  "kind": "pattern",
+                  "pattern": "^\\d{1,3}(,?\\d{3})*$"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "breadcrumb",
+              "name": "BREADCRUMB",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "BREADCRUMB-0",
+                  "kind": "selector",
+                  "selector": "#wayfinding-breadcrumbs_feature_div",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "join",
+                      "sep": " > "
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "bestseller",
+              "name": "BESTSELLER",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "BESTSELLER-1",
+                  "kind": "selector",
+                  "selector": "#zeitgeistBadge_feature_div > div.badge-wrapper > a.badge-link",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "variations_label",
+              "name": "VARIATIONS_LABEL",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "VARIATIONS_LABEL-1",
+                  "kind": "selector",
+                  "selector": "div[id^=\"variation_\" i] label",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "occupancy_inbox",
+              "name": "OCCUPANCY_INBOX",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "OCCUPANCY_INBOX-1",
+                  "kind": "selector",
+                  "selector": "td.a-size-base.a-text-right.a-align-center b",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "brand",
+              "name": "BRAND",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "BRAND-1",
+                  "kind": "selector",
+                  "selector": "#brand",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BRAND-2",
+                  "kind": "selector",
+                  "selector": "div#brandBarLogoWrapper img",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BRAND-3",
+                  "kind": "selector",
+                  "selector": "tr.po-brand > td.a-span9",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BRAND-4",
+                  "kind": "selector",
+                  "selector": "#bylineInfo",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Visit the ))(.*)([^\\.Store])",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BRAND-5",
+                  "kind": "selector",
+                  "selector": "#bylineInfo",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Brand: ))(.*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BRAND-6",
+                  "kind": "selector",
+                  "selector": "div[cel_widget_id=\"ByLine\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(by ))(.*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "product_specification",
+              "name": "PRODUCT_SPECIFICATION",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PRODUCT_SPECIFICATION-1",
+                  "kind": "selector",
+                  "selector": "#detailBullets_feature_div > ul >li",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "join",
+                      "sep": " > "
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_SPECIFICATION-2",
+                  "kind": "selector",
+                  "selector": "#productDetails_techSpec_section_1 > tbody > tr , #productDetails_detailBullets_sections1 > tbody > tr",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "^(?!.*\\bratings\\b).*",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    },
+                    {
+                      "op": "join",
+                      "sep": " > "
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "specifications",
+              "name": "SPECIFICATIONS",
+              "type": "object",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SPECIFICATIONS-1",
+                  "kind": "selector",
+                  "selector": "#detailBullets_feature_div .a-list-item",
+                  "read": "pairs",
+                  "pairs": {
+                    "key": ".a-text-bold",
+                    "value": "span:nth-child(2)"
+                  },
+                  "addedIn": 1
+                },
+                {
+                  "id": "SPECIFICATIONS-2",
+                  "kind": "selector",
+                  "selector": "[id=\"detailBullets_feature_div\" i] [class=\"a-list-item\" i]",
+                  "read": "pairs",
+                  "pairs": {
+                    "key": "th",
+                    "value": "td"
+                  },
+                  "addedIn": 1
+                },
+                {
+                  "id": "SPECIFICATIONS-3",
+                  "kind": "selector",
+                  "selector": "#productDetails_detailBullets_sections1 > tbody > tr",
+                  "read": "pairs",
+                  "pairs": {
+                    "key": "th",
+                    "value": "td"
+                  },
+                  "addedIn": 1
+                },
+                {
+                  "id": "SPECIFICATIONS-4",
+                  "kind": "selector",
+                  "selector": "#productOverview_feature_div .a-normal > tbody > tr",
+                  "read": "pairs",
+                  "pairs": {
+                    "key": ".a-text-bold",
+                    "value": ".po-break-word"
+                  },
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "specifications_additional",
+              "name": "SPECIFICATIONS_ADDITIONAL",
+              "type": "object",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SPECIFICATIONS_ADDITIONAL-1",
+                  "kind": "selector",
+                  "selector": "[class=\"a-fixed-left-grid product-facts-detail\" i]",
+                  "read": "pairs",
+                  "pairs": {
+                    "key": "[class=\"a-fixed-left-grid-col a-col-left\" i]",
+                    "value": "[class=\"a-fixed-left-grid-col a-col-right\" i]"
+                  },
+                  "addedIn": 1
+                },
+                {
+                  "id": "SPECIFICATIONS_ADDITIONAL-2",
+                  "kind": "selector",
+                  "selector": "[class=\"a-fixed-left-grid product-facts-detail\" i]",
+                  "read": "pairs",
+                  "pairs": {
+                    "key": ".a-col-left",
+                    "value": ".a-col-right"
+                  },
+                  "addedIn": 1
+                },
+                {
+                  "id": "SPECIFICATIONS_ADDITIONAL-3",
+                  "kind": "selector",
+                  "selector": "[data-a-expander-name=\"product_overview\" i] [role=\"listitem\" i]",
+                  "read": "pairs",
+                  "pairs": {
+                    "key": "[class=\"a-size-base a-text-bold\" i]",
+                    "value": "[class=\"a-size-base po-break-word\" i]"
+                  },
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "rating",
+              "name": "RATING",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "RATING-1",
+                  "kind": "selector",
+                  "selector": "#acrPopover",
+                  "read": "attr",
+                  "attr": "title",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(\\d\\.\\d)|(\\d)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "checks": [
+                {
+                  "kind": "range",
+                  "min": 0,
+                  "max": 5
+                }
+              ]
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "shipped_sold",
+              "name": "SHIPPED_SOLD",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SHIPPED_SOLD-1",
+                  "kind": "selector",
+                  "selector": "div.feature div.a-section.a-spacing-mini",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "isbn_10",
+              "name": "ISBN-10",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "ISBN-10-1",
+                  "kind": "selector",
+                  "selector": "ol.a-carousel",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if str.match(str,\"ISBN[-][1][0]%s[0-9]+\") then str = string.match(str,\"ISBN[-][1][0]%s[0-9]+\");num = string.sub(str,9); return num; else return nil end"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "ISBN-10-2",
+                  "kind": "selector",
+                  "selector": "#detailBullets_feature_div",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "return string.match(str,\"ISBN%-10%W*([0-9Xx%-]+)\") or nil"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "ISBN-10-3",
+                  "kind": "selector",
+                  "selector": "#productDetails_detailBullets_sections1",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.match(str,\"ISBN[-]?%d[0]%s:%s[0-9]+\") then str = string.match(str,\"ISBN[-]?%d[0]%s:%s[0-9]+\");num = string.sub(str,10); return num; else return nil end"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "isbn_13",
+              "name": "ISBN-13",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "ISBN-13",
+                  "kind": "selector",
+                  "selector": "ol.a-carousel",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if str.match(str,\"ISBN[-][1][3]%s[0-9]+\") then str = string.match(str,\"ISBN[-][1][3]%s[0-9]+[-]*[0-9]*\");num = string.sub(str,9); return num; else return nil end"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "amazon-w3",
+                  "kind": "selector",
+                  "selector": "#detailBullets_feature_div",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?=(ISBN-13.))*\\s\\d+[-]\\d{10}",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "title",
+              "name": "TITLE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "TITLE",
+                  "kind": "selector",
+                  "selector": "#title",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "book_format",
+              "name": "BOOK_FORMAT",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "BOOK_FORMAT",
+                  "kind": "selector",
+                  "selector": "div#detailBullets_feature_div > ul > li:nth-child(3)",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.match(str, \"Hardcover\") or string.match(str, \"Paperback\") or string.match(str, \"Board Book\") or string.match(str, \"Board book\") then return string.sub(str, 0, string.find(str, \" :\")-1) else return nil end"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "amazon-w4",
+                  "kind": "selector",
+                  "selector": "#tmmSwatches li span a[href=\"javascript:void(0)\" i] span:first-of-type",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "str = string.match(str,\"%a+\");if string.match(str, \"Hardcover\") or string.match(str, \"Paperback\") or string.match(str, \"Board Book\") or string.match(str, \"Board book\") then return string.sub(str, 0, string.find(str, \" :\")-1) else return nil end"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "amazon-w5",
+                  "kind": "selector",
+                  "selector": "#title > span:nth-child(2)",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "str = string.match(str,\"%a+\");if string.match(str, \"Hardcover\") or string.match(str, \"Paperback\") or string.match(str, \"Board Book\") or string.match(str, \"Board book\") then return string.match(str,\"%a+\") else return nil end"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "buy_used",
+              "name": "BUY_USED",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "BUY_USED-1",
+                  "kind": "selector",
+                  "selector": "#usedBuySection div span",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "subtitle",
+              "name": "SUBTITLE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SUBTITLE-1",
+                  "kind": "selector",
+                  "selector": "#productSubtitle",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "SUBTITLE-2",
+                  "kind": "selector",
+                  "selector": "#bylineInfo",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "SUBTITLE-3",
+                  "kind": "selector",
+                  "selector": "#mediaInformation_feature_div",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "variant_flag",
+              "name": "VARIANT_FLAG",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "VARIANT_FLAG-1",
+                  "kind": "selector",
+                  "selector": "div[id^=\"variation_\" i] ul li",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if str then return \"Y\" else return \"N\" end"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "variations_list",
+              "name": "VARIATIONS_LIST",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "VARIATIONS_LIST-1",
+                  "kind": "selector",
+                  "selector": "div[id^=\"variation_\" i] ul li",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "join",
+                      "sep": " > "
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "model_number",
+              "name": "MODEL_NUMBER",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "MODEL_NUMBER-1",
+                  "kind": "selector",
+                  "selector": "#productDetails_techSpec_section_1",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Item model number ))(\\S+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "MODEL_NUMBER-2",
+                  "kind": "selector",
+                  "selector": "#product-specification-table",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Item model number ))(\\S+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "MODEL_NUMBER-3",
+                  "kind": "selector",
+                  "selector": "#productDetails_detailBullets_sections1",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Item model number ))(\\S+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "MODEL_NUMBER-4",
+                  "kind": "selector",
+                  "selector": "div[id^=\"productDetails_expanderTables\" i] table >tbody",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=(Model Number ))(\\S+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "selected_color",
+              "name": "SELECTED_COLOR",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SELECTED_COLOR-1",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*color name\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-2",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*color\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-3",
+                  "kind": "selector",
+                  "selector": "#detailBullets_feature_div >ul > li",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*color name\\s\\u200F\\s:\\s\\u200E)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-4",
+                  "kind": "selector",
+                  "selector": "#detailBullets_feature_div >ul > li",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*color\\s\\u200F\\s:\\s\\u200E)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-5",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_techSpec_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*color name\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-6",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_techSpec_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*color\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-7",
+                  "kind": "selector",
+                  "selector": "#poExpander > div.a-expander-content.a-expander-partial-collapse-content > div > table > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*color name\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-8",
+                  "kind": "selector",
+                  "selector": "#poExpander > div.a-expander-content.a-expander-partial-collapse-content > div > table > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*color\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-9",
+                  "kind": "selector",
+                  "selector": "#productOverview_feature_div > div > table > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*color name\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-10",
+                  "kind": "selector",
+                  "selector": "#productOverview_feature_div > div > table > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "((?<=^color.*\\}\\)\\);\\s)[^>]+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-11",
+                  "kind": "selector",
+                  "selector": "#productOverview_feature_div > div > table > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*color\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-12",
+                  "kind": "selector",
+                  "selector": "div[id^=\"productDetails_expanderTables\" i] table >tbody >tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*color:\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-13",
+                  "kind": "selector",
+                  "selector": "#dropdown_selected_color_name > span > span > span",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-14",
+                  "kind": "selector",
+                  "selector": "span[id=\"inline-twister-expanded-dimension-text-color_name\" i]",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "product_weight",
+              "name": "PRODUCT_WEIGHT",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PRODUCT_WEIGHT-1",
+                  "kind": "selector",
+                  "selector": "#glance_icons_div > table > tbody > tr > td",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*Item Weight\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_WEIGHT-2",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*item weight\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_WEIGHT-3",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_techSpec_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*item weight\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_WEIGHT-4",
+                  "kind": "selector",
+                  "selector": "#detailBullets_feature_div >ul > li",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*item weight\\s\\u200F\\s:\\s\\u200E)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_WEIGHT-5",
+                  "kind": "selector",
+                  "selector": "#detailBullets_feature_div >ul > li",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*item weight\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_WEIGHT-6",
+                  "kind": "selector",
+                  "selector": "#productOverview_feature_div  tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*item weight\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_WEIGHT-7",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_techSpec_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*Package Weight\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "product_dimensions",
+              "name": "PRODUCT_DIMENSIONS",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PRODUCT_DIMENSIONS-1",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_techSpec_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*Item Package Dimensions L x W x H\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_DIMENSIONS-2",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_techSpec_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*product dimensions\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_DIMENSIONS-3",
+                  "kind": "selector",
+                  "selector": "#detailBullets_feature_div >ul > li",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*product dimensions\\s\\u200F\\s:\\s\\u200E)[^;]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_DIMENSIONS-4",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_techSpec_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*product dimensions\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_DIMENSIONS-5",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_techSpec_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*package dimensions\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_DIMENSIONS-6",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_techSpec_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*product dimensions\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_DIMENSIONS-7",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*product dimensions\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_DIMENSIONS-8",
+                  "kind": "selector",
+                  "selector": "#detailBullets_feature_div >ul > li",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*dimensions\\s\\u200F\\s:\\s\\u200E)[^;]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_DIMENSIONS-9",
+                  "kind": "selector",
+                  "selector": "#productOverview_feature_div  div table > tbody >tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*product dimensions\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_DIMENSIONS-10",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*package dimensions\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "material",
+              "name": "MATERIAL",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "MATERIAL-1",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*material type\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "MATERIAL-2",
+                  "kind": "selector",
+                  "selector": "#poExpander > div.a-expander-content.a-expander-partial-collapse-content > div > table > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*Material\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "MATERIAL-3",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*body material\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "MATERIAL-4",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*outer material\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "MATERIAL-5",
+                  "kind": "selector",
+                  "selector": "#productFactsDesktopExpander > div.a-expander-content.a-expander-partial-collapse-content > div",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*Fabric type\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "MATERIAL-6",
+                  "kind": "selector",
+                  "selector": "#glance_icons_div > table > tbody > tr > td",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*material\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "MATERIAL-7",
+                  "kind": "selector",
+                  "selector": "#productOverview_feature_div  tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "((?<=^material.*\\}\\)\\);\\s)[^>]+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "MATERIAL-8",
+                  "kind": "selector",
+                  "selector": "#productOverview_feature_div  tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*material\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "MATERIAL-9",
+                  "kind": "selector",
+                  "selector": "#productFactsDesktopExpander > div.a-expander-content.a-expander-partial-collapse-content > ul > li > div",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*Fabric type\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "upc",
+              "name": "UPC",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "UPC-1",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*UPC\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "UPC-2",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_techSpec_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if str:match(\"^[Uu][Pp][Cc]%s+\") then return str:gsub(\"^[Uu][Pp][Cc]%s*\",\"\"); else return nil; end"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "UPC-3",
+                  "kind": "selector",
+                  "selector": "#detailBullets_feature_div >ul > li",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*upc\\s*:\\s*)[^;]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "gtin",
+              "name": "GTIN",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "GTIN-1",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*Global Trade Identification Number\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "GTIN-2",
+                  "kind": "selector",
+                  "selector": "#poExpander > div.a-expander-content.a-expander-partial-collapse-content > div > table > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*Global Trade Identification Number\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "GTIN-3",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_techSpec_section_1\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*Global Trade Identification Number\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "GTIN-4",
+                  "kind": "selector",
+                  "selector": "#productOverview_feature_div [class=\"a-spacing-small po-gtin\" i] .po-break-word",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "about_item",
+              "name": "ABOUT_ITEM",
+              "type": "list",
+              "read": "text_array",
+              "ways": [
+                {
+                  "id": "ABOUT_ITEM-1",
+                  "kind": "selector",
+                  "selector": "[id=\"feature-bullets\" i] > ul > li > span",
+                  "read": "text",
+                  "pick": "all",
+                  "addedIn": 1
+                },
+                {
+                  "id": "ABOUT_ITEM-2",
+                  "kind": "selector",
+                  "selector": "[id=\"productFactsDesktopExpander\" i] [class=\"a-list-item a-size-base a-color-base\" i]",
+                  "read": "text",
+                  "pick": "all",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "product_id",
+              "name": "PRODUCT_ID",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PRODUCT_ID-1",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*ASIN\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_ID-2",
+                  "kind": "selector",
+                  "selector": "#detailBullets_feature_div > ul > li",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*ASIN\\s\\u200F\\s:\\s\\u200E)[^;]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_ID-3",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_techSpec_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*ASIN\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_ID-4",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*ASIN\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_ID-5",
+                  "kind": "selector",
+                  "selector": "div[id^=\"productDetails_expanderTables\" i] table >tbody >tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*ASIN\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "selected_size",
+              "name": "SELECTED_SIZE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SELECTED_SIZE-1",
+                  "kind": "selector",
+                  "selector": "#variation_size_name > div",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^Size:\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_SIZE-2",
+                  "kind": "selector",
+                  "selector": "#productDetails_techSpec_section_1 > tbody > tr , #productDetails_detailBullets_sections1 > tbody > tr",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^Size\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_SIZE-3",
+                  "kind": "selector",
+                  "selector": "span#inline-twister-expanded-dimension-text-size_name",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_SIZE-4",
+                  "kind": "selector",
+                  "selector": "span[id=\"inline-twister-expanded-dimension-text-size_name\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "unit_count",
+              "name": "UNIT_COUNT",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "UNIT_COUNT-1",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*unit count\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "UNIT_COUNT-2",
+                  "kind": "selector",
+                  "selector": "#detailBullets_feature_div > ul > li",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*unit count\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "UNIT_COUNT-3",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_techSpec_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*unit count\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "UNIT_COUNT-4",
+                  "kind": "selector",
+                  "selector": "table[id^=\"productDetails_detailBullets_section\" i] > tbody > tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*unit count\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "UNIT_COUNT-5",
+                  "kind": "selector",
+                  "selector": "div[id^=\"productDetails_expanderTables\" i] table >tbody >tr",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*unit count\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "text_on_swatch",
+              "name": "TEXT_ON_SWATCH",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "TEXT_ON_SWATCH-1",
+                  "kind": "selector",
+                  "selector": "li.swatchElement.selected span span span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "TEXT_ON_SWATCH-2",
+                  "kind": "selector",
+                  "selector": "div.a-section.a-spacing-base.variation-dropdown span  span span.a-dropdown-prompt",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "TEXT_ON_SWATCH-3",
+                  "kind": "selector",
+                  "selector": "span.a-declarative span.a-button.a-button-selected.a-button-thumbnail.a-button-toggle",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "unit_price_raw_text",
+              "name": "UNIT_PRICE_RAW_TEXT",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "UNIT_PRICE_RAW_TEXT-0",
+                  "kind": "selector",
+                  "selector": "#corePriceDisplay_desktop_feature_div > div.a-section.a-spacing-none.aok-align-center.aok-relative>span.aok-relative >span.pricePerUnit",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "UNIT_PRICE_RAW_TEXT-1",
+                  "kind": "selector",
+                  "selector": "div.a-section.a-spacing-micro >span.aok-relative > span.a-size-mini.aok-offscreen",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "unit_price",
+              "name": "UNIT_PRICE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "UNIT_PRICE-1",
+                  "kind": "selector",
+                  "selector": "div.a-section.a-spacing-micro >span.aok-relative > span.a-size-mini.aok-offscreen",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(\\d+\\.\\d+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "UNIT_PRICE-2",
+                  "kind": "selector",
+                  "selector": "div.a-section.a-spacing-none.aok-align-center.aok-relative>span.aok-relative > span.a-size-mini.aok-offscreen",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(\\d+\\.\\d+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "is_price_string",
+              "name": "IS_PRICE_STRING",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "IS_PRICE_STRING-0",
+                  "kind": "selector",
+                  "selector": "div[data-csa-c-slot-id=\"apex_dp_offer_display\" i] div div span span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE_STRING-1",
+                  "kind": "selector",
+                  "selector": "span[class=\"a-price aok-align-center reinventPricePriceToPayMargin priceToPay\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "secondary_sku",
+              "name": "SECONDARY_SKU",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SECONDARY_SKU-0",
+                  "kind": "selector",
+                  "selector": "form#addToCart.a-content > input#customId",
+                  "read": "attr",
+                  "attr": "value",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "image_url",
+              "name": "IMAGE_URL",
+              "type": "list",
+              "read": "text_array",
+              "ways": [
+                {
+                  "id": "IMAGE_URL-0",
+                  "kind": "selector",
+                  "selector": "div#altImages > ul> li[data-csa-c-type=\"uxElement\" i] > span > span > span > span > img",
+                  "read": "attr",
+                  "attr": "src",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.match(str,\"%.jpg$\") then return str else return null;end;"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IMAGE_URL-1",
+                  "kind": "selector",
+                  "selector": "div#imgTagWrapperId > img",
+                  "read": "attr",
+                  "attr": "src",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.match(str,\"%.jpg$\") then return str else return null;end;"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "shipping_charge",
+              "name": "SHIPPING_CHARGE",
+              "type": "list",
+              "read": "text_array",
+              "ways": [
+                {
+                  "id": "SHIPPING_CHARGE-0",
+                  "kind": "selector",
+                  "selector": "#mir-layout-DELIVERY_BLOCK-slot-PRIMARY_DELIVERY_MESSAGE_LARGE span",
+                  "read": "attr",
+                  "attr": "data-csa-c-delivery-price",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.match(str,\"$[0-9]\") then return str else return null end"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "shipping_message",
+              "name": "SHIPPING_MESSAGE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SHIPPING_MESSAGE-0",
+                  "kind": "selector",
+                  "selector": "#mir-layout-DELIVERY_BLOCK-slot-PRIMARY_DELIVERY_MESSAGE_LARGE",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "zipcode",
+              "name": "ZIPCODE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "ZIPCODE-0",
+                  "kind": "selector",
+                  "selector": "#contextualIngressPtLabel_deliveryShortLine",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "return string.gsub(str,\"%D\", \"\");"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "ZIPCODE-1",
+                  "kind": "selector",
+                  "selector": "span#glow-ingress-line1",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "return string.gsub(str,\"%D\", \"\");"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "fastest_shipping_message",
+              "name": "FASTEST_SHIPPING_MESSAGE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "FASTEST_SHIPPING_MESSAGE-0",
+                  "kind": "selector",
+                  "selector": "#mir-layout-DELIVERY_BLOCK-slot-SECONDARY_DELIVERY_MESSAGE_LARGE",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "category",
+              "name": "CATEGORY",
+              "type": "object",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "CATEGORY-0",
+                  "kind": "selector",
+                  "selector": "#wayfinding-breadcrumbs_feature_div >ul > li > span.a-list-item > a",
+                  "read": "pairs",
+                  "attr": "href",
+                  "pairs": {},
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "packaging_text",
+              "name": "PACKAGING_TEXT",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PACKAGING_TEXT-0",
+                  "kind": "selector",
+                  "selector": "#dynamicPackageInfoFeature_feature_div",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          }
+        ],
+        "rules": [
+          {
+            "name": "404",
+            "status": "not_found",
+            "when": {
+              "kind": "any",
+              "of": [
+                {
+                  "kind": "regex",
+                  "pattern": "The Web address you entered is not a functioning page on our site",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "css",
+                  "selector": "img[alt=\"Sorry! We couldn't find that page. Try searching or go to Amazon's home page.\" i]",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "<title>Page Not Found</title>",
+                  "op": "gt",
+                  "value": 0
+                }
+              ]
+            }
+          },
+          {
+            "name": "ANONYMITY_ERROR_PAGE",
+            "status": "blocked",
+            "when": {
+              "kind": "any",
+              "of": [
+                {
+                  "kind": "all",
+                  "of": [
+                    {
+                      "kind": "regex",
+                      "pattern": "Continued access by an unauthorized AI agent violates",
+                      "op": "gt",
+                      "value": 0
+                    },
+                    {
+                      "kind": "regex",
+                      "pattern": "id=\"(?:dp-container|productTitle)\"",
+                      "op": "eq",
+                      "value": 0
+                    }
+                  ]
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "Type the characters you see in this image:",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "<title>Sorry! Something went wrong!</title>",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "Click the button below to continue shopping",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "please click the .{1,8}Continue shopping.{1,8} button below",
+                  "op": "gt",
+                  "value": 0
+                }
+              ]
+            }
+          },
+          {
+            "name": "503",
+            "status": "error",
+            "when": {
+              "kind": "any",
+              "of": [
+                {
+                  "kind": "regex",
+                  "pattern": "This site can’t be reached",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "css",
+                  "selector": "#dp-container > div > div.a-box.a-alert.a-alert-error > div > div.a-alert-content",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "503 - Service Unavailable Error",
+                  "op": "gt",
+                  "value": 0
+                }
+              ]
+            }
+          },
+          {
+            "name": "405",
+            "status": "blocked",
+            "when": {
+              "kind": "regex",
+              "pattern": "Enter mobile number or email",
+              "op": "gt",
+              "value": 0
+            }
+          },
+          {
+            "name": "CAPTCHA_TEXT_BOX",
+            "status": "blocked",
+            "when": {
+              "kind": "css",
+              "selector": "#captchacharacters",
+              "op": "gt",
+              "value": 0
+            }
+          },
+          {
+            "name": "CAPTCHA_IMAGE",
+            "status": "blocked",
+            "when": {
+              "kind": "css",
+              "selector": "body div.a-container div.a-row div.a-section form > div.a-row div > div > div.a-row.a-text-center > img",
+              "op": "gt",
+              "value": 0
+            }
+          },
+          {
+            "name": "Sign-in redirect",
+            "status": "blocked",
+            "when": {
+              "kind": "regex",
+              "in": "url",
+              "pattern": "/ap/signin",
+              "flags": "i",
+              "op": "gt",
+              "value": 0
+            }
+          },
+          {
+            "name": "Robot check",
+            "status": "blocked",
+            "when": {
+              "kind": "regex",
+              "in": "text",
+              "pattern": "Sorry, we just need to make sure you're not a robot|Enter the characters you see below",
+              "flags": "i",
+              "op": "gt",
+              "value": 0
+            }
+          }
+        ],
+        "identity": {
+          "field": "SKU",
+          "url": [
+            "((?<=dp/)\\w*)|((?<=prd-)\\w+(?=/)|(?<=product/)\\w+(?=/)|(?<=product/)\\w+(?=\\?))"
+          ]
+        },
+        "setup": {
+          "dismiss": [
+            {
+              "id": "d-location-toaster",
+              "name": "Location prompt",
+              "ways": [
+                {
+                  "kind": "selector",
+                  "selector": ".glow-toaster-button-dismiss input",
+                  "id": "amazon-w14",
+                  "addedIn": 1
+                },
+                {
+                  "kind": "selector",
+                  "selector": "input[data-action-type='DISMISS']",
+                  "id": "amazon-w15",
+                  "addedIn": 1
+                }
+              ]
+            },
+            {
+              "id": "d-cookies",
+              "name": "Cookie banner",
+              "ways": [
+                {
+                  "kind": "selector",
+                  "selector": "#sp-cc-rejectall-link",
+                  "id": "amazon-w16",
+                  "addedIn": 1
+                }
+              ]
+            }
+          ],
+          "steps": [
+            {
+              "id": "s-open",
+              "name": "Open Deliver to",
+              "ways": [
+                {
+                  "kind": "selector",
+                  "selector": "#nav-global-location-popover-link",
+                  "id": "amazon-w6",
+                  "addedIn": 1
+                },
+                {
+                  "kind": "selector",
+                  "selector": "#glow-ingress-block",
+                  "id": "amazon-w7",
+                  "addedIn": 1
+                }
+              ]
+            },
+            {
+              "id": "s-zip",
+              "name": "Type ZIP",
+              "ways": [
+                {
+                  "kind": "selector",
+                  "selector": "#GLUXZipUpdateInput",
+                  "id": "amazon-w8",
+                  "addedIn": 1
+                }
+              ],
+              "do": "type",
+              "value": "{zip}"
+            },
+            {
+              "id": "s-apply",
+              "name": "Apply",
+              "ways": [
+                {
+                  "kind": "selector",
+                  "selector": "#GLUXZipUpdate input",
+                  "id": "amazon-w9",
+                  "addedIn": 1
+                },
+                {
+                  "kind": "selector",
+                  "selector": "#GLUXZipUpdate",
+                  "id": "amazon-w10",
+                  "addedIn": 1
+                }
+              ]
+            },
+            {
+              "id": "s-done",
+              "name": "Continue",
+              "ways": [
+                {
+                  "kind": "selector",
+                  "selector": "#GLUXConfirmClose",
+                  "id": "amazon-w11",
+                  "addedIn": 1
+                },
+                {
+                  "kind": "selector",
+                  "selector": "button[name='glowDoneButton']",
+                  "id": "amazon-w12",
+                  "addedIn": 1
+                },
+                {
+                  "kind": "selector",
+                  "selector": ".a-popover-footer input.a-button-input",
+                  "id": "amazon-w13",
+                  "addedIn": 1
+                }
+              ],
+              "optional": true
+            }
+          ],
+          "check": {
+            "contains": "{zip}",
+            "ways": [
+              {
+                "kind": "selector",
+                "selector": "#glow-ingress-line2",
+                "id": "amazon-w17",
+                "addedIn": 1
+              },
+              {
+                "kind": "selector",
+                "selector": "#nav-global-location-popover-link",
+                "id": "amazon-w18",
+                "addedIn": 1
+              }
+            ]
+          }
+        }
+      },
+      "settings": {},
+      "pages": {
+        "kind": "urls",
+        "urls": [
+          "https://www.amazon.com/dp/B0HJCRV1J6"
+        ]
+      },
+      "output": {},
+      "digest": "4fcbb9cfc55ffe6d884e0d3d3e732f4bb0758605da20e3921702f3ee3476684e",
+      "outputDigest": "e06464a5f8f2a0f060a10c043f1038c32431cb1c9afcd8e08d175b0c182573ee",
+      "origin": "imported",
+      "note": "From the amazon Atlas export, with what Pro adds.\nAdded: the delivery ZIP ({zip}) set before reading, checked in the header on every page\nAdded: SKU read from the hidden ASIN input and the title widget first (the add-to-cart form is missing when there is no buy box)\nAdded: page rules: a sign-in redirect, robot-check wording\nAdded: checks: SKU is an ASIN, prices in US dollars, rating 0–5, review count\nAdded: PRODUCT_TITLE and SKU required\nNot carried over: PDP: attribute type HL is not supported; left out.\nNot carried over: Elements SEARCH_BOX, REGULAR_PRICE_SELECTOR, SEARCH_BUTTON, URL_SECONDARY_SKU, SKU_ELEMENT: page actions and search results are not part of a page recipe; left out.",
+      "author": "recipes",
+      "createdAt": "1970-01-01T00:00:00.000Z"
+    }
+  ]
+}

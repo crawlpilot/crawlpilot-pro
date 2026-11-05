@@ -62,6 +62,24 @@ export function seedDemo(backend: MockBackend, token = 'dev-token'): Promise<{ r
     return seedRecipe(backend, { name: 'Demo lamps', site: '127.0.0.1', competitor: 'demo', pageType: 'product', spec: DEMO_SPEC }, token);
 }
 
+/**
+ * A seed from a file: a `SeedRecipe`, or a recipe file (`.crawlpilot.json`, format 3) whose labelled `live`, else
+ * latest, version is seeded with its targeting (`recipes/amazon-product.crawlpilot.json`).
+ */
+export function seedOf(json: unknown): SeedRecipe {
+    const x = json as { format?: number; recipe?: Record<string, unknown>; labels?: Record<string, number>; versions?: { version: number; spec: SeedRecipe['spec'] }[] };
+    if (x.format !== 3) return json as SeedRecipe;
+    const r = x.recipe ?? {};
+    const versions = x.versions ?? [];
+    const pick = x.labels?.live ?? x.labels?.latest;
+    const v = versions.find(y => y.version === pick) ?? versions[versions.length - 1];
+    if (!v || typeof r.competitor !== 'string' || typeof r.pageType !== 'string') throw new Error('The recipe file needs a version, a competitor and a page type.');
+    return {
+        name: String(r.name), site: String(r.site), competitor: r.competitor, pageType: r.pageType, spec: v.spec,
+        ...(r.matchRules ? { matchRules: r.matchRules as SeedRecipe['matchRules'] } : {}),
+    };
+}
+
 /** Publishes a recipe as Pro would: upload, approval by a second person, `live`. */
 export async function seedRecipe(backend: MockBackend, seed: SeedRecipe, token = 'dev-token'): Promise<{ recipeId: string; digest: string }> {
     const { spec } = seed;

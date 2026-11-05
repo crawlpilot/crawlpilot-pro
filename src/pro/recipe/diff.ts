@@ -105,10 +105,13 @@ function waysDetails(a: Way[], b: Way[]): string[] {
     ];
     const kept = as.filter(w => bs.includes(w));
     if (out.length === 0 && json(kept) !== json(bs.filter(w => as.includes(w)))) out.push('ways reordered');
-    // Page data cleanup or shape lives inside the binding: same label, different binding.
+    // Page data cleanup or shape lives inside the binding: same label, different binding. Ways with the same label
+    // (one selector, two cleanups) pair up in order: the second with the second.
+    const nth = (labels: string[], i: number) => labels.slice(0, i).filter(l => l === labels[i]).length;
     a.forEach((w, i) => {
-        const other = b.find(x => wayLabel(x) === as[i]);
-        if (other && waysJson(other) !== waysJson(w)) out.push(`way changed: ${as[i]}`);
+        const k = nth(as, i);
+        const j = bs.findIndex((l, jj) => l === as[i] && nth(bs, jj) === k);
+        if (j >= 0 && waysJson(b[j]) !== waysJson(w)) out.push(`way changed: ${as[i]}`);
     });
     return out;
 }
