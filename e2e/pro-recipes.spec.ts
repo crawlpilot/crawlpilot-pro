@@ -777,6 +777,14 @@ test('build new: picked fields come to the save step named and typed from the pa
     await expect(ui.getByText('Two fields have the same name.')).toBeVisible();
     await expect(ui.getByRole('button', { name: 'Save version' })).toBeDisabled();
     await fields.nth(0).getByLabel('Field 1', { exact: true }).fill('product_name');
+    // Cleanup, Pro's steps included: a Lua script, shown on the value just picked.
+    const cleanup = fields.nth(0).getByTestId('pro-save-cleanup');
+    await cleanup.getByRole('button', { name: /^Cleanup · none/ }).click();
+    await cleanup.getByLabel('Add a step').selectOption('lua');
+    await cleanup.getByLabel(/^Lua: the value is str/).fill('return string.upper(str)');
+    await expect(cleanup.getByTestId('pro-cleaned-value')).toHaveText('On the picked value → LINEN OVERSHIRT');
+    await expect(cleanup).toContainText('Cleanup · 1 step → LINEN OVERSHIRT');
+    if (process.env.UX_SHOTS) await fields.nth(0).screenshot({ path: `${process.env.UX_SHOTS}/pro-save-cleanup.png` });
     await expect(ui.getByTestId('pro-save-version')).toContainText('For acme · product');
     await expect(ui.getByLabel('Recipe name')).toHaveValue('acme product');
     await ui.getByRole('button', { name: 'Save version' }).click();
@@ -786,6 +794,8 @@ test('build new: picked fields come to the save step named and typed from the pa
     expect((await proStore(ui, 'samples')).map((x: any) => x.url)).toEqual([page.url()]);
     const [v1] = await proStore(ui, 'versions');
     expect(v1.spec.steps.map((s: any) => [s.field.name, s.field.type])).toEqual([['product_name', 'text'], ['price', 'money']]);
+    expect(v1.spec.steps[0].field.ops).toEqual([{ op: 'lua', code: 'return string.upper(str)' }]);
+    expect(v1.spec.steps[1].field.ops).toEqual([]);
     await ui.close();
     await page.close();
 });

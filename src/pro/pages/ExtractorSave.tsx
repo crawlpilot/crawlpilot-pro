@@ -12,14 +12,18 @@ interface Common {
     onDone: () => void;
 }
 
-/** Each picked field with a proposed name and output type (`recipe/naming.ts`); a field picked again keeps its own. */
+/**
+ * Each picked field with a proposed name and output type (`recipe/naming.ts`) and its cleanup; a field picked again
+ * keeps its own.
+ */
 function namedFields(edit: ProEdit, elements: RunElement[], settings: RunSettings): NamedField[] {
     const { spec } = pageDraftSpec(edit, elements, settings);
     const typeOf = new Map(spec.steps.flatMap(s => s.kind === 'field' ? [[s.field.id, s.field.type] as const] : []));
+    const opsOf = new Map(spec.steps.flatMap(s => s.kind === 'field' ? [[s.field.id, s.field.ops] as const] : []));
     const picked = elements.filter(e => e.action !== 'click');
     const proposals = proposeFields(picked.map(e => ({ name: e.name, type: e.type, selectors: e.selectors, ...(e.data ? { data: e.data } : {}), ...(e.shape ? { shape: e.shape } : {}), value: e.value })),
         picked.map(e => typeOf.get(e.id) ?? 'text'));
-    return picked.map((e, i) => ({ id: e.id, value: e.value, ...proposals[i] }));
+    return picked.map((e, i) => ({ id: e.id, value: e.value, ops: opsOf.get(e.id) ?? [], ...proposals[i] }));
 }
 
 export function PageSave({ edit, elements, urls, settings, ...rest }: Common & { elements: RunElement[]; urls: string[]; settings: RunSettings }) {

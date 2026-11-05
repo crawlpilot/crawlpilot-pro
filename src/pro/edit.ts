@@ -10,6 +10,7 @@ import { pro } from './db';
 import { carryOver, fromListSpec, fromPageSpec, toListSpec, toPageSpec } from './recipe/fromPublic';
 import type { FieldType, PageRecipeSpec, PageSource, ProRecipe, RecipeKind, RunSettings, Version, VersionDraft } from './recipe/types';
 import { keepFromBase, keepListExtras } from './recipe/repick';
+import type { ProOp } from './recipe/ops';
 import { currentUser } from './identity';
 
 /** A recipe being built (no version yet) or edited (from `version`). */
@@ -104,17 +105,19 @@ export function pageDraftSpec(edit: ProEdit, elements: RunElement[], settings: R
         ...kept,
         steps: kept.steps.map(st => {
             const n = st.kind === 'field' ? named.get(st.field.id) : undefined;
-            return n && st.kind === 'field' ? { kind: 'field', field: { ...st.field, name: n.name.trim() || st.field.name, type: n.type } } : st;
+            return n && st.kind === 'field' ? { kind: 'field', field: { ...st.field, name: n.name.trim() || st.field.name, type: n.type, ...(n.ops ? { ops: n.ops } : {}) } } : st;
         }),
     };
     return { spec, settings: picked.settings };
 }
 
-/** A field's name and output type as set in the save step. */
+/** A field's name, output type and cleanup as set in the save step. */
 export interface FieldNaming {
     id: string;
     name: string;
     type: FieldType;
+    /** Its cleanup steps (a field picked again starts with its own); none given keeps what it has. */
+    ops?: ProOp[];
 }
 
 export function savePageVersion(edit: ProEdit, input: { name: string; elements: RunElement[]; urls: string[]; settings: RunSettings; note: string; fields?: FieldNaming[] }) {

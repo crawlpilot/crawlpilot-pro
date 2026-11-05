@@ -1,14 +1,17 @@
 /**
  * An extractor's last step in a recipe session: save the picks as a version, with a note, instead of
- * running them. A new recipe also gets its name here. A save from a stale version or with no change is
+ * running them. Each picked field gets its name, output type and, folded, its cleanup (`Cleanup`: every Pro step,
+ * Lua included, shown on the value just picked). A new recipe also gets its name here. A save from a stale version or with no change is
  * refused and said so; nothing is overwritten.
  */
 import { useState } from 'react';
 import { ArrowLeft, BookOpen, ClipboardCheck, Save } from 'lucide-react';
 import { openNext } from '../nav';
-import { Button, Card, Notice, Select, Text, TextArea, TextField } from '../../sidepanel/ui';
+import { Button, Card, Disclosure, Notice, Select, Text, TextArea, TextField } from '../../sidepanel/ui';
 import type { ProEdit } from '../edit';
 import type { FieldType, ProRecipe, Version } from '../recipe/types';
+import { applyProOps, type ProOp } from '../recipe/ops';
+import { Cleanup } from './Cleanup';
 
 interface Props {
     edit: ProEdit;
@@ -27,13 +30,15 @@ interface Props {
 
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-/** A field in the save step: its name and output type, the value it read, and where the name came from. */
+/** A field in the save step: its name, output type and cleanup, the value it read, and where the name came from. */
 export interface NamedField {
     id: string;
     name: string;
     type: FieldType;
     why: string;
     value?: unknown;
+    /** Cleanup steps, Pro's included (a Lua script): run on the value before it is typed. */
+    ops?: ProOp[];
 }
 
 const TYPES: FieldType[] = ['text', 'number', 'integer', 'money', 'date', 'url', 'boolean', 'enum', 'list', 'object', 'table'];
@@ -100,6 +105,12 @@ export function SaveVersionStep({ edit, site, summary, canSave, fields: proposed
                             <Text size="caption" tone="faint" className="break-all">
                                 {preview(f.value) ? `${preview(f.value)} · ` : ''}{f.why === 'given' ? 'as named' : `named from ${f.why}`}
                             </Text>
+                            <div data-testid="pro-save-cleanup"><Disclosure variant="plain"
+                                summary={`Cleanup · ${f.ops?.length ? `${f.ops.length} step${f.ops.length === 1 ? '' : 's'}${preview(f.value) ? ` → ${preview(applyProOps(f.value, f.ops))}` : ''}` : 'none'}`}>
+                                <div className="pt-1.5">
+                                    <Cleanup ops={f.ops ?? []} value={f.value} onChange={ops => setFields(fields.map(x => x.id === f.id ? { ...x, ops } : x))} />
+                                </div>
+                            </Disclosure></div>
                         </div>
                     ))}
                     {nameProblem && <Text size="caption" tone="danger">{nameProblem}</Text>}
