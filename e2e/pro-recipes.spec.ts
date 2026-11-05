@@ -547,13 +547,38 @@ test('page rules: Check names the rule that held, and an error page is kept as a
     await ui.getByRole('button', { name: 'Edit Overshirt' }).click();
     await ui.getByRole('button', { name: /^Page rules/ }).click();
     const rules = ui.getByTestId('pro-page-rules');
-    await rules.getByRole('textbox', { name: 'New rule' }).fill('Gone');
-    await rules.getByLabel('Status of the new rule').selectOption('unavailable');
-    await rules.getByLabel('Text or selector').fill('no longer available');
-    await rules.getByRole('button', { name: 'Add', exact: true }).click();
+    await rules.getByRole('button', { name: 'Add a rule' }).click();
+    await rules.getByLabel('Name of rule 1').fill('Gone');
+    await rules.getByLabel('Status of Gone').selectOption('unavailable');
+    // The new rule opens on one test of the visible text.
+    await expect(rules.getByLabel('Condition 1 looks at')).toHaveValue('text');
+    await rules.getByLabel('Condition 1 looks for').fill('no longer available');
+    await expect(rules.getByTestId('pro-condition-sentence')).toHaveText('Holds when the visible text has "no longer available".');
+    // A second test, the group made "none of these", then back to one test: the sentence follows.
+    await rules.getByRole('button', { name: 'Condition', exact: true }).click();
+    await rules.getByLabel('Condition 2 looks at').selectOption('css');
+    await rules.getByLabel('Condition 2 looks for').fill('p.price');
+    await rules.getByLabel('Holds when').selectOption('none');
+    await expect(rules.getByTestId('pro-condition-sentence')).toHaveText('Holds when none of: the visible text has "no longer available"; "p.price" is on the page.');
+    if (process.env.UX_SHOTS) await rules.screenshot({ path: `${process.env.UX_SHOTS}/pro-page-rules.png` });
+    await rules.getByRole('button', { name: 'Remove condition 2' }).click();
+    await rules.getByLabel('Holds when').selectOption('all');
+    await rules.getByRole('button', { name: 'Done' }).click();
+    await expect(rules.getByTestId('pro-rule-sentence')).toHaveText('When the visible text has "no longer available"');
+    // A way tried only when the page shows a price.
+    const price = ui.getByTestId('pro-field').nth(1);
+    await price.getByRole('button').first().click();
+    await price.getByRole('button', { name: /^Ways and cleanup/ }).click();
+    await price.getByRole('button', { name: 'Options of way 1' }).click();
+    await price.getByRole('button', { name: 'Only try it when…' }).click();
+    await price.getByLabel('Condition 1 looks for').fill('$');
+    await expect(price.getByTestId('pro-condition-sentence')).toHaveText('Holds when the visible text has "$".');
     await ui.getByLabel('What changed').fill('gone rule');
     await ui.getByRole('button', { name: 'Save version 2' }).click();
     await expect(ui.getByTestId('pro-version')).toHaveCount(2);
+    const [v2] = (await proStore(ui, 'versions')).filter(v => v.version === 2);
+    expect(v2.spec.rules).toEqual([{ name: 'Gone', status: 'unavailable', when: { kind: 'regex', in: 'text', pattern: 'no longer available', flags: 'i', op: 'gt', value: 0 } }]);
+    expect(v2.spec.steps[1].field.ways[0].when).toEqual({ kind: 'regex', in: 'text', pattern: '\\$', flags: 'i', op: 'gt', value: 0 });
 
     // On a gone product, Check says which rule held instead of "0 of 0 fields".
     await page.goto(`${origin}/site/gone-product.html`);

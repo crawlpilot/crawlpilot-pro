@@ -55,13 +55,14 @@ export function wayLabel(w: Way): string {
     return `${b.kind === 'ld' ? `JSON-LD${b.type ? ` ${b.type}` : ''}` : b.label}${path ? ` · ${path}` : ''}`;
 }
 
-const OP_SIGN = { eq: '=', gt: '>', lt: '<' } as const;
+const OP_SIGN = { eq: '=', gt: '>', lt: '<', gte: '≥', lte: '≤', ne: '≠' } as const;
+const IN_LABEL = { html: '', text: 'text ', url: 'url ', title: 'title ' } as const;
 
-/** A condition in one line: `#captcha > 0`, `/Sold out/ = 0`, joined with AND / OR. */
+/** A condition in one line: `#captcha > 0`, `text /Sold out/i = 0`, joined with AND / OR; NOR as `NOT (… OR …)`. */
 export function conditionLabel(c: Condition): string {
     switch (c.kind) {
         case 'css': return `${c.selector} ${OP_SIGN[c.op]} ${c.value}`;
-        case 'regex': return `/${c.pattern}/${c.flags ?? ''} ${OP_SIGN[c.op]} ${c.value}`;
+        case 'regex': return `${IN_LABEL[c.in ?? 'html']}/${c.pattern}/${c.flags ?? ''} ${OP_SIGN[c.op]} ${c.value}`;
         case 'not': return `NOT (${conditionLabel(c.of)})`;
         default: {
             if (!c.of.length) return c.kind === 'all' ? 'always' : 'never';

@@ -4,6 +4,7 @@
  */
 import type { Click, Field, FieldType, Identity, PageRecipeSpec, SessionSetup, Step, Way } from './types';
 import type { PageRule } from '../../shared/types/ways';
+import { conditionProblems } from './conditions';
 import type { ProOp } from './ops';
 
 const mapField = (spec: PageRecipeSpec, id: string, f: (field: Field) => Field): PageRecipeSpec => ({
@@ -97,6 +98,11 @@ export function problems(spec: PageRecipeSpec): string[] {
     if (spec.setup?.check && !spec.setup.check.contains.trim()) out.push('The setup check needs the text it must contain.');
     if (spec.setup?.check && spec.setup.check.ways.length === 0) out.push('The setup check has no element to read.');
     if (spec.rules?.some(r => !r.name.trim())) out.push('Every page rule needs a name.');
+    const ruleNames = (spec.rules ?? []).map(r => r.name.trim()).filter(Boolean);
+    const sameRule = [...new Set(ruleNames.filter((n, i) => ruleNames.indexOf(n) !== i))];
+    if (sameRule.length) out.push(`Two page rules are named ${sameRule.map(n => `"${n}"`).join(', ')}.`);
+    for (const r of spec.rules ?? []) out.push(...conditionProblems(r.when, `Rule "${r.name}"`));
+    for (const f of fields) f.ways.forEach((w, i) => { if (w.when) out.push(...conditionProblems(w.when, `"${f.name}" way ${i + 1}`)); });
     const identity = spec.identity;
     if (identity) {
         if (!names.includes(identity.field)) out.push(`The identity check reads "${identity.field}", which is not a field.`);

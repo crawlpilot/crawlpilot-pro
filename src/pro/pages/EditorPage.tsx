@@ -6,7 +6,7 @@
  * Picking new fields on the page stays in the Page Extractor (Re-pick).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, Fingerprint, FlaskConical, Layers, Plus, Save, ShieldAlert, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, Fingerprint, FlaskConical, Layers, Plus, Save, ShieldAlert, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Chip, Disclosure, IconButton, Notice, Select, Switch, Text, TextArea, TextField } from '../../sidepanel/ui';
 import { pro } from '../db';
@@ -18,13 +18,15 @@ import { passed } from '../db/tests';
 import { summarize, testOnTab, type FieldResult, type PageResult } from '../runner/testPage';
 import { testOnPages, type PagesProgress } from '../runner/testPages';
 import { TestGrid } from './TestGrid';
+import { ConditionEditor } from './ConditionEditor';
+import { describe, newLeaf } from '../recipe/conditions';
 import { expectations, RULE_STATUS_LABELS } from '../runner/outcome';
 import { ContractPanel } from './ContractPanel';
 import { BeforeReading, newStep, PageAction, usePicker } from './StepsCard';
 import { Ways } from './Ways';
 import { MarkupSource } from './MarkupSource';
 import { readiness } from '../recipe/ready';
-import { conditionLabel, diffVersions } from '../recipe/diff';
+import { diffVersions } from '../recipe/diff';
 import * as edits from '../recipe/editSpec';
 import { applyProOps, NEW_OP, opSummary, PRO_OP_LABELS, type ProOp } from '../recipe/ops';
 import type { Field, FieldType, Identity, OutputSpec, PageRecipeSpec, ProRecipe, Sample, Version, Way, WayPick } from '../recipe/types';
@@ -125,10 +127,15 @@ function WayEditor({ way, onChange }: { way: Way; onChange: (w: Way) => void }) 
             </>}
             {!(way.kind === 'selector' && (way.read === 'pairs' || way.read === 'count')) &&
                 <Select<WayPick> size="sm" label="Keeps" value={way.pick ?? 'first'} options={PICKS} onChange={pick => set({ pick })} />}
-            {way.when && <div className="flex items-start gap-1.5">
-                <Text size="caption" mono className="min-w-0 flex-1 break-all">Only when {conditionLabel(way.when)}</Text>
-                <Button size="sm" variant="ghost" onClick={() => set({ when: undefined })}>Always try it</Button>
-            </div>}
+            {way.when
+                ? <div className="flex flex-col gap-1.5" data-testid="pro-way-when">
+                    <div className="flex items-center gap-1.5">
+                        <Text size="caption" weight="semibold" tone="muted" className="flex-1">Only tried when…</Text>
+                        <Button size="sm" variant="ghost" onClick={() => set({ when: undefined })}>Always try it</Button>
+                    </div>
+                    <ConditionEditor value={way.when} where="This way" onChange={when => set({ when })} />
+                </div>
+                : <div><Button size="sm" variant="ghost" icon={<Plus />} onClick={() => set({ when: newLeaf() })}>Only try it when…</Button></div>}
             <Cleanup ops={way.ops ?? []} onChange={ops => set({ ops })} title="This way's cleanup, before the field's" empty="None." />
         </div>
     );
@@ -142,47 +149,56 @@ const patchPairs = (pairs: { key?: string; value?: string } | undefined, key: 'k
 
 const STATUS_LABELS = RULE_STATUS_LABELS;
 const STATUSES = (Object.keys(STATUS_LABELS) as RuleStatus[]).map(value => ({ value, label: STATUS_LABELS[value] }));
-const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-/** Page rules: checked in order before any field; the first that holds says what the page is. */
+/**
+ * Page rules: checked in order before any field; the first that holds says what the page is (a 404, out of stock, a
+ * captcha) and nothing is read. Each has a name, a status and a condition (`ConditionEditor`): tests on the visible
+ * text, elements, the URL, the title or the HTML, grouped as all / any / none of them.
+ */
 function PageRules({ rules, onChange }: { rules: PageRule[]; onChange: (rules: PageRule[]) => void }) {
-    const [name, setName] = useState('');
-    const [status, setStatus] = useState<RuleStatus>('not_found');
-    const [by, setBy] = useState<'css' | 'text'>('text');
-    const [what, setWhat] = useState('');
+    const [open, setOpen] = useState<number | null>(null);
+    const set = (i: number, r: PageRule) => onChange(rules.map((x, j) => j === i ? r : x));
+    const move = (i: number, d: number) => {
+        const next = [...rules];
+        [next[i], next[i + d]] = [next[i + d], next[i]];
+        onChange(next);
+        setOpen(o => o === i ? i + d : o === i + d ? i : o);
+    };
     const add = () => {
-        const when: PageRule['when'] = by === 'css'
-            ? { kind: 'css', selector: what.trim(), op: 'gt', value: 0 }
-            : { kind: 'regex', pattern: escapeRegex(what.trim()), flags: 'i', op: 'gt', value: 0 };
-        onChange([...rules, { name: name.trim(), status, when }]);
-        setName(''); setWhat('');
+        let n = rules.length + 1;
+        while (rules.some(r => r.name === `Rule ${n}`)) n++;
+        onChange([...rules, { name: `Rule ${n}`, status: 'not_found', when: newLeaf() }]);
+        setOpen(rules.length);
     };
     return (
         <div className="flex flex-col gap-2 pt-2" data-testid="pro-page-rules">
-            <Text size="caption" tone="faint">Checked before any field is read: the first that holds marks the page and nothing is read.</Text>
+            <Text size="caption" tone="faint">Checked in order before any field is read: the first that holds marks the page and nothing is read.</Text>
             {rules.map((r, i) => (
-                <div key={i} className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5">
-                        <Text size="small" weight="semibold" className="min-w-0 flex-1 truncate">{r.name}</Text>
-                        <Select<RuleStatus> size="sm" aria-label={`Status of ${r.name}`} value={r.status} options={STATUSES}
-                            onChange={s => onChange(rules.map((x, j) => j === i ? { ...x, status: s } : x))} />
-                        <IconButton size="sm" label={`Remove rule ${r.name}`} onClick={() => onChange(rules.filter((_, j) => j !== i))}><Trash2 /></IconButton>
+                <div key={i} className="flex flex-col gap-1.5 rounded-xl border border-line p-2" data-testid="pro-page-rule">
+                    <div className="flex items-end gap-1.5">
+                        <TextField size="sm" className="min-w-0 flex-1" aria-label={`Name of rule ${i + 1}`} value={r.name}
+                            onChange={e => set(i, { ...r, name: e.target.value })} />
+                        <Select<RuleStatus> size="sm" aria-label={`Status of ${r.name || `rule ${i + 1}`}`} value={r.status} options={STATUSES}
+                            onChange={st => set(i, { ...r, status: st })} />
                     </div>
-                    <Text size="caption" mono tone="muted" className="break-all" lines={3}>{conditionLabel(r.when)}</Text>
+                    <div className="flex items-center gap-1">
+                        {open === i ? <span className="flex-1" /> : (
+                            <Text size="caption" tone="muted" className="min-w-0 flex-1 break-words" lines={2} data-testid="pro-rule-sentence">
+                                When {describe(r.when)}
+                            </Text>
+                        )}
+                        <IconButton size="sm" label={`Check ${r.name || `rule ${i + 1}`} earlier`} onClick={() => move(i, -1)} disabled={i === 0}><ArrowUp /></IconButton>
+                        <IconButton size="sm" label={`Check ${r.name || `rule ${i + 1}`} later`} onClick={() => move(i, 1)} disabled={i === rules.length - 1}><ArrowDown /></IconButton>
+                        <IconButton size="sm" label={`Remove rule ${r.name || i + 1}`} onClick={() => { onChange(rules.filter((_, j) => j !== i)); setOpen(null); }}><Trash2 /></IconButton>
+                    </div>
+                    {open === i
+                        ? <>
+                            <ConditionEditor value={r.when} where={`Rule "${r.name}"`} onChange={when => set(i, { ...r, when })} />
+                            <div><Button size="sm" variant="ghost" onClick={() => setOpen(null)}>Done</Button></div>
+                        </>
+                        : <div><Button size="sm" variant="ghost" icon={<SlidersHorizontal />} onClick={() => setOpen(i)}>Edit condition</Button></div>}
                 </div>
             ))}
-            <form className="flex flex-col gap-1.5" onSubmit={e => { e.preventDefault(); add(); }}>
-                <div className="flex items-end gap-1.5">
-                    <TextField size="sm" className="flex-1" label="New rule" placeholder="Name (404, captcha…)" value={name} onChange={e => setName(e.target.value)} />
-                    <Select<RuleStatus> size="sm" aria-label="Status of the new rule" value={status} options={STATUSES} onChange={setStatus} />
-                </div>
-                <div className="flex items-end gap-1.5">
-                    <Select<'css' | 'text'> size="sm" aria-label="Holds when" value={by} onChange={setBy}
-                        options={[{ value: 'text', label: 'The page has the text' }, { value: 'css', label: 'Something matches' }]} />
-                    <TextField size="sm" className="flex-1" aria-label="Text or selector" placeholder={by === 'css' ? '#captcha' : 'Page not found'} value={what} onChange={e => setWhat(e.target.value)} />
-                    <Button size="sm" variant="ghost" type="submit" disabled={!name.trim() || !what.trim()}>Add</Button>
-                </div>
-            </form>
+            <div><Button size="sm" variant="secondary" icon={<Plus />} onClick={add}>Add a rule</Button></div>
         </div>
     );
 }

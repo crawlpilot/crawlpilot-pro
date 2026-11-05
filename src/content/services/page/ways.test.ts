@@ -45,6 +45,23 @@ describe('selectAll', () => {
 });
 
 describe('PageProbe', () => {
+    it('counts a regex in the visible text, the URL or the title, and compares at least, at most and not equal', () => {
+        page();
+        document.title = 'Lamp · Shop';
+        const probe = new PageProbe();
+        expect(probe.holds({ kind: 'regex', in: 'text', pattern: 'List Price', op: 'eq', value: 1 })).toBe(true);
+        expect(probe.holds({ kind: 'regex', in: 'html', pattern: 'class="price"', op: 'gte', value: 1 })).toBe(true);
+        expect(probe.holds({ kind: 'regex', in: 'text', pattern: 'class="price"', op: 'gte', value: 1 })).toBe(false);
+        expect(probe.holds({ kind: 'regex', in: 'url', pattern: '^http', op: 'eq', value: 1 })).toBe(true);
+        expect(probe.holds({ kind: 'regex', in: 'title', pattern: 'lamp', flags: 'i', op: 'gte', value: 1 })).toBe(true);
+        expect(probe.holds({ kind: 'css', selector: '#crumbs li', op: 'lte', value: 2 })).toBe(true);
+        expect(probe.holds({ kind: 'css', selector: '#crumbs li', op: 'ne', value: 2 })).toBe(false);
+        // None of these (NOR): neither a captcha nor a 404 text.
+        expect(probe.holds({ kind: 'not', of: { kind: 'any', of: [
+            { kind: 'css', selector: '#captcha', op: 'gt', value: 0 }, { kind: 'regex', in: 'text', pattern: 'Not Found', op: 'gt', value: 0 },
+        ] } })).toBe(true);
+    });
+
     beforeEach(page);
 
     it('counts selector and HTML regex matches, and combines them', () => {

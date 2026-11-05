@@ -7,13 +7,20 @@
  */
 import type { DataBinding } from './database';
 
-export type CountOp = 'eq' | 'gt' | 'lt';
+/** How a count compares: equal, greater, less, at least, at most, not equal. */
+export type CountOp = 'eq' | 'gt' | 'lt' | 'gte' | 'lte' | 'ne';
 
-/** Something true or false about the page, from counts: of a selector's matches, or of a regex's in the HTML. */
+/** Where a regex condition counts its matches. */
+export type RegexIn = 'html' | 'text' | 'url' | 'title';
+
+/** Something true or false about the page, from counts: of a selector's matches, or of a regex's. */
 export type Condition =
     | { kind: 'css'; selector: string; op: CountOp; value: number }
-    /** Counted in the page's HTML (`<html>…</html>`). */
-    | { kind: 'regex'; pattern: string; flags?: string; op: CountOp; value: number }
+    /**
+     * Counted in the page's HTML source (`<html>…</html>`, scripts and attributes included: the default, as Atlas
+     * counts), its visible text, its URL, or its title.
+     */
+    | { kind: 'regex'; pattern: string; flags?: string; in?: RegexIn; op: CountOp; value: number }
     /** Every one holds (none: true), or at least one does (none: false). */
     | { kind: 'all' | 'any'; of: Condition[] }
     | { kind: 'not'; of: Condition };
