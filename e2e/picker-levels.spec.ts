@@ -277,3 +277,30 @@ test('Adjust, then Deselect: the selection is dropped and unlocked, and what is 
     expect((await panel.next('ELEMENT_SELECTED')).value).not.toContain('$24.99');
     await page.close();
 });
+
+test('a bullet of a list: the whole list is offered first, and saved as a list; V still takes the one bullet', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/bullets.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.clear();
+    await panel.toTab(tabId, 'START_PICKER', { mode: 'detail', action: 'extract' });
+    await hover(page, 'li:nth-child(2)');
+    await expect(tooltip(page)).toContainText('Texts · 6 (the whole list)');
+    await outlined(page, 'ul');
+    await expect(page.getByTestId('element-picker-bar')).toContainText('Read as');
+    await page.keyboard.press('Enter');
+    const list = await panel.next('ELEMENT_SELECTED');
+    expect(list).toMatchObject({ extractionType: 'text_array', count: 6 });
+    expect(JSON.parse(list.value)).toHaveLength(6);
+    expect(list.selectors[0]).toMatch(/ul/);
+
+    // V: the one bullet's text.
+    await panel.clear();
+    await panel.toTab(tabId, 'START_PICKER', { mode: 'detail', action: 'extract' });
+    await hover(page, 'li:nth-child(2)');
+    await page.keyboard.press('v');
+    await expect(tooltip(page)).toContainText('Text · “Black nickel-finish handles');
+    await page.keyboard.press('Enter');
+    expect(await panel.next('ELEMENT_SELECTED')).toMatchObject({ extractionType: 'text', value: expect.stringMatching(/^Black nickel-finish handles/) });
+    await page.close();
+});

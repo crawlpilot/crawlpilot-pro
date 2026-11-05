@@ -32,6 +32,15 @@ function valueLabel(c: ClassificationResult): string {
 
 const ARRAY_NAMES = { image_array: 'Images', link_array: 'Links', text_array: 'Texts' } as const;
 
+/**
+ * A list of plain bullets: two or more items, each one piece of text (at most one part of it in an element of its
+ * own). Rows split into parts (a name and a value: "Height | 45 cm") are not bullets: one of them is a row.
+ */
+function isBulletList(list: Element): boolean {
+    const items = Array.from(list.children).filter(c => c.tagName === 'LI');
+    return items.length >= 2 && items.every(li => Array.from(li.children).filter(c => (c.textContent || '').trim()).length <= 1);
+}
+
 export class DetailSelectionStrategy implements ISelectionStrategy {
     private extractor: DataExtractor;
 
@@ -49,10 +58,18 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
     /**
      * The ways a click can read `element` (docs/plans/picker-level-control-plan.md §3.3), suggested
      * first in the order the detectors always ran: a list or table inside it, an array of like
-     * children, its image or link, the items like it around it, its text.
+     * children, its image or link, the items like it around it, its text. One item of a `ul` / `ol`
+     * of texts (a product's bullets) is offered as its whole list first: pointing at a bullet usually
+     * means the bullets, and the one item's text is still a reading away (V).
      */
     readings(element: HTMLElement): Reading[] {
         const out: Reading[] = [];
+        const parent = element.parentElement;
+        if (element.tagName === 'LI' && parent && (parent.tagName === 'UL' || parent.tagName === 'OL') && isBulletList(parent)) {
+            const whole = this.detectHomogeneousArray(parent);
+            // Bullets of text only: one link of a menu, or one thumbnail, is still picked as itself first.
+            if (whole?.arrayType === 'text_array') out.push({ kind: 'array', label: `${ARRAY_NAMES[whole.arrayType]} · ${whole.count} (the whole list)`, outline: parent });
+        }
         const inside = findListInside(element);
         if (inside.isContainer && inside.container) {
             const n = inside.childCount || inside.siblings.length;
@@ -72,8 +89,10 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
     }
 
     handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void, reading?: Reading): void {
-        const target = element;
-        const kind = (reading ?? this.readings(element)[0]).kind;
+        const chosen = reading ?? this.readings(element)[0];
+        const kind = chosen.kind;
+        // A bullet read as its whole list: the list is what is saved, found by its own chain.
+        const target = kind === 'array' && chosen.outline ? chosen.outline : element;
         const none = { isContainer: false, siblings: [], container: null, childCount: 0 };
 
         // What the user chose to save, read that way: the click never re-decides it.
