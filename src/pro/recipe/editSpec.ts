@@ -113,6 +113,9 @@ export const updateClick = (spec: PageRecipeSpec, id: string, f: (c: Click) => C
 
 /** A new action step, at the end of the page's steps (moved into place from there). */
 export const addAction = (spec: PageRecipeSpec, click: Click): PageRecipeSpec => ({ ...spec, steps: [...spec.steps, { kind: 'click', click }] });
+/** A step inserted at `index` (before the step there): a click that reveals the field it goes before. */
+export const insertAction = (spec: PageRecipeSpec, index: number, click: Click): PageRecipeSpec =>
+    ({ ...spec, steps: [...spec.steps.slice(0, index), { kind: 'click', click }, ...spec.steps.slice(index)] });
 
 /** The session setup, changed; an empty one is dropped, so a recipe without it keeps its digest. */
 export function editSetup(spec: PageRecipeSpec, f: (s: SessionSetup) => SessionSetup): PageRecipeSpec {
