@@ -128,4 +128,11 @@ be, and to propose a simpler flow. Findings are numbered and referenced in the p
    - Public hooks: an optional label for the fields step's Next button, and the step skip in `PageExtractorPage`
      (12 lines).
    - The List Extractor keeps its pages step for now, because its start page is part of the recipe.
-4. **Field editor folded down, recipe screen reordered, approving as someone else** (10–13).
+4. **Field editor folded down, recipe screen reordered, approving as someone else** (10–13). **Done:**
+   - Field cards show name, type, required and the tested value; ways, markup and cleanup sit under *Ways and
+     cleanup*.
+   - The recipe screen opens with *Ready to submit vN?*, the same checklist as Check (`ReadinessCard.tsx`). The
+     selector list moves below the versions.
+   - A version that can't be marked live says why.
+   - Approve and Reject ask who is reviewing, prefilled with the user unless they wrote the version, and the saved
+     name doesn't change. Review names are self-declared until sign-in exists.

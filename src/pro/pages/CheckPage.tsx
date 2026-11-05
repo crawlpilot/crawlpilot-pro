@@ -12,12 +12,10 @@ import { ClipboardCheck, Eye, EyeOff, FlaskConical, Layers, Pencil, Plus } from 
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Card, Chip, Notice, Text, TextField } from '../../sidepanel/ui';
 import { usePageTab } from '../../sidepanel/hooks/usePageTab';
-import { pro, reviewReason } from '../db';
+import { pro } from '../db';
 import { passed } from '../db/tests';
 import { openedRecipe } from '../nav';
 import { variablesOf } from '../recipe/actions';
-import { readiness } from '../recipe/ready';
-import { targetingReasons } from '../recipe/targeting';
 import type { Field, PageRecipeSpec, ProRecipe, Review, Sample, Version } from '../recipe/types';
 import { shownValue, sourceOf, verdictOf, type Verdict } from '../runner/present';
 import { testOnTab, type FieldResult, type PageResult } from '../runner/testPage';
@@ -25,6 +23,7 @@ import { testOnPages, type PagesProgress } from '../runner/testPages';
 import { call } from '../runner/tabSteps';
 import type { ShownField } from '../steps/showFields';
 import { TestGrid } from './TestGrid';
+import { ReadinessCard, readinessItems, type ReadinessItem } from './ReadinessCard';
 
 interface Props {
     onBack: () => void;
@@ -150,14 +149,10 @@ export default function CheckPage({ onBack, onNavigate }: Props) {
     const thisPage = result ? (result.error ? { ok: false, text: `This page could not be checked: ${result.error}` }
         : { ok: result.fields.every(f => f.ok) && result.fields.some(f => f.filled), text: `${result.fields.filter(f => f.filled).length} of ${result.fields.length} fields found on this page${result.fields.some(f => !f.ok) ? `; ${result.fields.filter(f => !f.ok).length} with a problem` : ''}` })
         : { ok: false, text: 'Not checked on this page yet' };
-    const sampleReady = readiness(pages ?? undefined, version);
-    const targeting = targetingReasons(recipe, samples.map(s => s.url));
-    const reviewed = reviewReason(review);
-    const checklist: { ok: boolean; text: string; action?: { label: string; go: () => void } }[] = [
+    const checklist: ReadinessItem[] = [
         thisPage,
-        { ok: sampleReady.ready, text: sampleReady.ready ? 'Checked on sample pages' : sampleReady.reasons.join(' ') },
-        { ok: targeting.length === 0, text: targeting.length ? targeting.join(' ') : `For ${recipe.competitor} · ${recipe.pageType}`, ...(targeting.length ? { action: { label: 'Set targeting', go: () => onNavigate('pro-history') } } : {}) },
-        { ok: !reviewed, text: reviewed ?? `Approved by ${review!.by}`, ...(reviewed ? { action: { label: 'Review', go: () => onNavigate('pro-history') } } : {}) },
+        ...readinessItems({ recipe, version, samples, ...(review ? { review } : {}), ...(pages ? { pages } : {}),
+            actions: { targeting: () => onNavigate('pro-history'), review: () => onNavigate('pro-history') } }),
     ];
 
     return (
@@ -215,16 +210,7 @@ export default function CheckPage({ onBack, onNavigate }: Props) {
                     {pages && <TestGrid results={pages} fields={fields.map(f => ({ id: f.id, name: f.name }))} />}
                 </Card>
 
-                <Card className="flex flex-col gap-1.5" data-testid="pro-check-ready">
-                    <Text weight="semibold">Ready to submit?</Text>
-                    {checklist.map((c, i) => (
-                        <div key={i} className="flex items-start gap-2" data-testid="pro-check-item">
-                            <Chip tone={c.ok ? 'success' : 'warning'}>{c.ok ? '✓' : '·'}</Chip>
-                            <Text size="caption" className="min-w-0 flex-1">{c.text}</Text>
-                            {c.action && <Button size="sm" variant="ghost" onClick={c.action.go}>{c.action.label}</Button>}
-                        </div>
-                    ))}
-                </Card>
+                <ReadinessCard items={checklist} />
             </div>
         </div>
     );

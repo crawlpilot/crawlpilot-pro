@@ -121,8 +121,8 @@ With the backend running (with or without the seed):
    for** (for example `http://127.0.0.1:8000/site/product.html*`) when several recipes share them. These are the
    match rules: globs where `*` is any run of characters, and the glob must match the whole URL. Then **Check** your
    sample pages.
-5. **Submit** uploads the version. A version can't go live until someone else approves it. Change **Your name** in
-   **Backend** to another name, open **History**, **Approve** the version, then **Mark live**.
+5. **Approve** the version on the recipe screen, naming someone other than its author in the dialog. Then **Submit**
+   it: the version goes to the backend and becomes live there. Names are self-declared until sign-in exists.
 6. Crawl it: copy `deploy/local/jobs.sample.jsonl`, set `"competitor": "demo2"`, and run the crawl (section 4) again with your file.
 
 For a page that needs choices first (a delivery ZIP code, a store, a cookie banner), open **Before reading** in the
