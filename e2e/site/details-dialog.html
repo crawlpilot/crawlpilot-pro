@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Wool coat · COS-style details</title>
+<style>body{font:14px sans-serif;margin:24px} dialog{min-width:320px}</style></head>
+<body>
+<h1>Double-faced wool coat</h1>
+<p class="price">$390</p>
+<button id="details" type="button">Product details</button>
+<dialog id="sheet"></dialog>
+<script>
+// COS-style: "Product details" opens a dialog whose content is rendered on open; inside it, the Care tab
+// renders its own panel only when chosen.
+const sheet = document.getElementById('sheet');
+document.getElementById('details').addEventListener('click', () => setTimeout(() => {
+  sheet.innerHTML = `<h2>Details</h2>
+    <dl><dt>Composition</dt><dd class="composition">90% wool, 10% cashmere</dd><dt>Fit</dt><dd class="fit">Relaxed</dd></dl>
+    <div role="tablist"><button role="tab" id="tab-details" aria-selected="true">Details</button><button role="tab" id="tab-care" aria-selected="false">Care</button></div>
+    <section id="care-panel"></section>
+    <button id="close" type="button">Close</button>`;
+  sheet.showModal();
+  document.getElementById('tab-care').addEventListener('click', () => setTimeout(() => {
+    document.getElementById('care-panel').innerHTML = '<p class="care">Dry clean only</p><p class="made-in">Made in Portugal</p>';
+  }, 100));
+}, 100));
+</script>
+</body></html>

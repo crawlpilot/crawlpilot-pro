@@ -778,6 +778,54 @@ test('reveal steps: a field behind two clicks gets them with "Add a click before
     await page.close();
 });
 
+test('reveal steps in a dialog: one click opens it for some fields, a click inside it reveals the rest (COS)', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/details-dialog.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1100 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    const el = (id: string, selector: string) => ({ id, name: id, action: 'extract', type: 'text', selectors: [selector] });
+    const file = { name: 'Coat', site: '127.0.0.1', built_on: page.url(), spec: { kind: 'page', settings: {}, elements: [
+        el('title', 'h1'), el('price', 'p.price'), el('composition', 'dd.composition'), el('fit', 'dd.fit'), el('care', 'p.care'), el('made_in', 'p.made-in'),
+    ] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'c.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await ui.getByRole('button', { name: 'Edit Coat' }).click();
+
+    // The first field in the dialog gets the click that opens it; the first field behind the Care tab gets that click.
+    const field = (name: string) => ui.getByTestId('pro-field').filter({ has: ui.getByText(name, { exact: true }) });
+    for (const [name, selector] of [['composition', '#details'], ['care', '#tab-care']] as const) {
+        await field(name).getByRole('button').first().click();
+        await field(name).getByRole('button', { name: 'Add a click before it' }).click();
+        const step = ui.getByTestId('pro-page-action').filter({ has: ui.locator(`input[value="Reveal ${name}"]`) });
+        await step.getByLabel('Add a selector').fill(selector);
+        await step.getByRole('button', { name: 'Add', exact: true }).click();
+    }
+
+    await ui.getByRole('button', { name: 'Test on this page' }).click();
+    await expect(ui.getByTestId('pro-test-summary')).toContainText('6 of 6 fields found');
+    await ui.getByLabel('What changed').fill('details dialog and its care tab');
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    const [v2] = (await proStore(ui, 'versions')).filter(v => v.version === 2);
+    expect(v2.spec.steps.map((st: any) => st.kind === 'field' ? st.field.name : `click ${st.click.ways[0]?.selector}`))
+        .toEqual(['title', 'price', 'click #details', 'composition', 'fit', 'click #tab-care', 'care', 'made_in']);
+
+    // Check reads it the same way: every field, the dialog's and the tab's included.
+    await ui.getByRole('banner').getByRole('button', { name: 'Check', exact: true }).click();
+    await page.reload();
+    await ui.getByRole('button', { name: 'Check this page' }).click();
+    const row = (name: string) => ui.getByTestId('pro-check-row').filter({ has: ui.getByText(name, { exact: true }) });
+    await expect(row('composition')).toContainText('90% wool, 10% cashmere');
+    await expect(row('fit')).toContainText('Relaxed');
+    await expect(row('care')).toContainText('Dry clean only');
+    await expect(row('made_in')).toContainText('Made in Portugal');
+    await ui.close();
+    await page.close();
+});
+
 test('build new: picked fields come to the save step named and typed from the page, and can be changed there', async ({ panel, ext, origin }) => {
     const page = await ext.newPage();
     await page.goto(`${origin}/site/json-product.html`);
