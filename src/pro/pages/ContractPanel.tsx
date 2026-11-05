@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { Button, Chip, Notice, Select, Text, TextArea } from '../../sidepanel/ui';
 import { checkAgainstContract, contractFromSchema, KNOWN_CONTRACTS } from '../recipe/contract';
 import type { PageResult } from '../runner/testPage';
-import type { Field, OutputSpec } from '../recipe/types';
+import type { Field, OutputSpec, PageRecipeSpec } from '../recipe/types';
 
 interface Props {
     output: OutputSpec;
@@ -15,12 +15,14 @@ interface Props {
     fields: Field[];
     /** The newest test on sample pages of this spec, for fill. */
     results?: PageResult[];
+    /** The recipe's transform: when there is one, its output is what is checked, by the contract's names. */
+    transform?: PageRecipeSpec['transform'];
 }
 
 const NONE = '';
 const PASTE = '__paste__';
 
-export function ContractPanel({ output, onChange, fields, results }: Props) {
+export function ContractPanel({ output, onChange, fields, results, transform }: Props) {
     const [pasting, setPasting] = useState(false);
     const [schema, setSchema] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export function ContractPanel({ output, onChange, fields, results }: Props) {
         }
     };
 
-    const check = contract ? checkAgainstContract(contract, fields, results ?? [], output.mapping) : null;
+    const check = contract ? checkAgainstContract(contract, fields, results ?? [], output.mapping, transform) : null;
     const setMapping = (name: string, field: string) =>
         onChange({ ...output, mapping: { ...output.mapping, [name]: field || null } });
 
@@ -66,6 +68,9 @@ export function ContractPanel({ output, onChange, fields, results }: Props) {
                     {error && <Notice tone="danger">{error}</Notice>}
                     <div><Button size="sm" variant="secondary" onClick={usePasted} disabled={!schema.trim()}>Use this schema</Button></div>
                 </div>
+            )}
+            {contract && check?.on === 'transform' && (
+                <Text size="caption" tone="faint">The transform's output is checked: each contract field is its key of that name. Map them in the transform.</Text>
             )}
             {contract && check && (
                 <table className="w-full border-collapse text-caption">
@@ -86,9 +91,11 @@ export function ContractPanel({ output, onChange, fields, results }: Props) {
                                         <span className="flex flex-wrap items-center gap-1">{f.name}{f.required && <Chip tone={missing ? 'danger' : 'warning'}>required</Chip>}</span>
                                     </td>
                                     <td className="py-1 pr-2">
-                                        <Select size="sm" aria-label={`Field for ${f.name}`} value={check.mapping[f.name] ?? ''}
-                                            options={[{ value: '', label: '—' }, ...fields.map(x => ({ value: x.name, label: x.name }))]}
-                                            onChange={v => setMapping(f.name, v)} />
+                                        {check.on === 'transform'
+                                            ? <Text size="caption" tone={check.mapping[f.name] ? 'muted' : 'faint'}>{check.mapping[f.name] ? 'output' : results ? 'not in the output' : '—'}</Text>
+                                            : <Select size="sm" aria-label={`Field for ${f.name}`} value={check.mapping[f.name] ?? ''}
+                                                options={[{ value: '', label: '—' }, ...fields.map(x => ({ value: x.name, label: x.name }))]}
+                                                onChange={v => setMapping(f.name, v)} />}
                                     </td>
                                     {results && (
                                         <td className={`py-1 text-right ${under ? 'font-semibold text-danger' : 'text-ink-2'}`}>

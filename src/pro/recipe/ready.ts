@@ -55,7 +55,7 @@ export function readiness(results: PageResult[] | undefined, version?: { spec: P
     }
     if (version?.output.contract && version.spec.kind === 'page') {
         const fields = version.spec.steps.flatMap(s => s.kind === 'field' ? [s.field] : []);
-        reasons.push(...contractReasons(checkAgainstContract(version.output.contract, fields, results, version.output.mapping)));
+        reasons.push(...contractReasons(checkAgainstContract(version.output.contract, fields, results, version.output.mapping, version.spec.transform)));
     }
     return { ready: reasons.length === 0, reasons };
 }

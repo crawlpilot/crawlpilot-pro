@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PageResult } from '../runner/testPage';
-import { checkAgainstContract, contractFromSchema, contractReasons, resolveContract } from './contract';
+import { checkAgainstContract, contractFromSchema, contractReasons, flattenRecord, resolveContract } from './contract';
 import type { Field } from './types';
 
 const field = (name: string, type: Field['type'] = 'text'): Field => ({ id: name, name, type, read: 'text', ways: [], ops: [] });
@@ -44,5 +44,27 @@ describe('contracts', () => {
         const check = checkAgainstContract(contract, [field('maker')], [page({ maker: 'Northpeak' })], { brand: 'maker' });
         expect(check.report.ok).toBe(true);
         expect(contractReasons(check)).toEqual([]);
+    });
+
+    it('offers the retail product schema', () => {
+        expect(resolveContract('retail.product@1')?.fields.filter(f => f.required).map(f => f.name)).toEqual(['product_id', 'title']);
+    });
+
+    it('with a transform, checks its output by the contract\'s names, nested ones dotted', () => {
+        const contract = contractFromSchema('{"type":"object","required":["title","offer.price"],"properties":{"title":{"type":"string"},"offer.price":{"type":"number"},"brand":{"type":"string"}}}', 'c', 'C');
+        expect(flattenRecord({ title: 'A', offer: { price: 3 }, tags: ['x'] })).toEqual({ title: 'A', 'offer.price': 3, tags: ['x'] });
+        const transform = { jolt: [{ operation: 'shift' as const, spec: { name: 'title', cost: 'offer.price' } }] };
+        const done = (record: unknown): PageResult => ({ ...page({ name: 'A', cost: 3 }), record });
+        // The fields are named otherwise: only the output counts.
+        const check = checkAgainstContract(contract, [field('name'), field('cost')], [done({ title: 'A', offer: { price: 3 } }), done({ title: 'B' }), { ...page({}), recordError: 'bad' }], undefined, transform);
+        expect(check.on).toBe('transform');
+        expect(check.mapping).toEqual({ title: 'title', 'offer.price': 'offer.price', brand: null });
+        expect(check.report.coverage).toMatchObject({ title: 2 / 3, 'offer.price': 1 / 3 });
+        expect(contractReasons(check)).toEqual([
+            'Contract: "title" is filled on 67% of pages; it needs 95%.',
+            'Contract: "offer.price" is filled on 33% of pages; it needs 95%.',
+        ]);
+        expect(contractReasons(checkAgainstContract(contract, [], [done({ title: 'A' })], undefined, transform)))
+            .toContain('Contract: the transform\'s output has no "offer.price", which is required.');
     });
 });

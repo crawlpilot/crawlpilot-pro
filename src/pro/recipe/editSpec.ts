@@ -7,6 +7,7 @@ import type { PageRule } from '../../shared/types/ways';
 import { conditionProblems } from './conditions';
 import { checkProblems } from './valueChecks';
 import { joltProblems, type JoltOperation } from './jolt';
+import { mappingProblems, type MappingRow } from './mapping';
 import type { ProOp } from './ops';
 
 const mapField = (spec: PageRecipeSpec, id: string, f: (field: Field) => Field): PageRecipeSpec => ({
@@ -60,10 +61,10 @@ export const setWay = (spec: PageRecipeSpec, id: string, index: number, way: Way
 /** A new field, after the recipe's other steps. */
 export const addField = (spec: PageRecipeSpec, field: Field): PageRecipeSpec => ({ ...spec, steps: [...spec.steps, { kind: 'field', field }] });
 
-/** The JOLT chain the page's record goes through; none drops it. */
-export function setTransform(spec: PageRecipeSpec, jolt: JoltOperation[] | undefined): PageRecipeSpec {
+/** The JOLT chain the page's record goes through, with the mapping rows it was compiled from; none drops it. */
+export function setTransform(spec: PageRecipeSpec, jolt: JoltOperation[] | undefined, mapping?: MappingRow[]): PageRecipeSpec {
     const { transform: _, ...rest } = spec;
-    return jolt?.length ? { ...rest, transform: { jolt } } : rest;
+    return jolt?.length ? { ...rest, transform: { jolt, ...(mapping ? { mapping } : {}) } } : rest;
 }
 
 /** A list recipe's page rules; none drops the key. */
@@ -152,6 +153,7 @@ export function problems(spec: PageRecipeSpec): string[] {
     if (spec.setup?.check && spec.setup.check.ways.length === 0) out.push('The setup check has no element to read.');
     out.push(...rulesProblems(spec.rules ?? []));
     if (spec.transform) out.push(...joltProblems(spec.transform.jolt).map(p => `Transform: ${p}`));
+    if (spec.transform?.mapping) out.push(...mappingProblems(spec.transform.mapping).map(p => `Transform: ${p}`));
     for (const f of fields) out.push(...checkProblems(f, names));
     for (const f of fields) f.ways.forEach((w, i) => { if (w.when) out.push(...conditionProblems(w.when, `"${f.name}" way ${i + 1}`)); });
     const identity = spec.identity;
