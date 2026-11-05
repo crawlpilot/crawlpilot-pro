@@ -93,6 +93,27 @@ describe('readAtlasExport', () => {
         expect(way('ASSERT1', [{ ...asserts[0], assrtValue: 'abc' }]).when).toEqual({ kind: 'any', of: [] });
     });
 
+    it('reads NOT and ! before AND, NOR as NOT (… OR …), and the "or equal" and "not" counts', () => {
+        const asserts = [
+            { assrtId: 1, type: 'CSS_SLCTR_CNT', assrt: '#a', assrtFnct: 'GREATER_THAN', assrtValue: '0' },
+            { assrtId: 2, type: 'CSS_SLCTR_CNT', assrt: '#b', assrtFnct: 'greater than or equal to', assrtValue: '2' },
+            { assrtId: 3, type: 'CSS_SLCTR_CNT', assrt: '#c', assrtFnct: 'NOT_EQUAL_TO', assrtValue: '1' },
+        ];
+        const way = (assrtXprn: string) =>
+            fieldsOf(specOf(exportOf([{ name: 'X', type: 'A', templates: [template({ extractMethod: 'b', assrtXprn, asserts })] }])))[0].ways[0];
+        const a1 = { kind: 'css', selector: '#a', op: 'gt', value: 0 };
+        const a2 = { kind: 'css', selector: '#b', op: 'gte', value: 2 };
+        const a3 = { kind: 'css', selector: '#c', op: 'ne', value: 1 };
+        expect(way('ASSERT1 AND NOT ASSERT2').when).toEqual({ kind: 'all', of: [a1, { kind: 'not', of: a2 }] });
+        expect(way('!ASSERT1 || ASSERT3').when).toEqual({ kind: 'any', of: [{ kind: 'not', of: a1 }, a3] });
+        expect(way('!(ASSERT1 && ASSERT2)').when).toEqual({ kind: 'not', of: { kind: 'all', of: [a1, a2] } });
+        expect(way('ASSERT1 NOR ASSERT2 NOR ASSERT3').when).toEqual({ kind: 'not', of: { kind: 'any', of: [a1, a2, a3] } });
+        // OR and NOR mixed without brackets: not guessed, and said so.
+        const mixed = readAtlasExport(exportOf([{ name: 'X', type: 'A', templates: [template({ extractMethod: 'b', assrtXprn: 'ASSERT1 OR ASSERT2 NOR ASSERT3', asserts })] }]));
+        expect((mixed.versions[0].spec as PageRecipeSpec).steps[0]).toMatchObject({ field: { ways: [{ when: { kind: 'any', of: [] } }] } });
+        expect(mixed.notes?.join(' ')).toContain('is not understood; it never holds');
+    });
+
     it('leaves out what it cannot carry over, and says so', () => {
         const r = readAtlasExport(exportOf([
             { name: 'PDP', type: 'HL', templates: [template({ extractMethod: 'a' })] },

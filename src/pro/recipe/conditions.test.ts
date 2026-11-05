@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Condition } from '../../shared/types/ways';
-import { conditionProblems, countOf, describe as sentence, emptyGroups, escapeRegex, fromGroup, groupOf, literalOf, newLeaf, withCount, withTarget, type Leaf } from './conditions';
+import { conditionProblems, countOf, neverHolds, describe as sentence, emptyGroups, escapeRegex, fromGroup, groupOf, literalOf, newLeaf, withCount, withTarget, type Leaf } from './conditions';
 
 const text = (t: string): Leaf => ({ kind: 'regex', in: 'text', pattern: escapeRegex(t), flags: 'i', op: 'gt', value: 0 });
 const css = (selector: string): Leaf => ({ kind: 'css', selector, op: 'gt', value: 0 });
@@ -54,5 +54,10 @@ describe('conditions as people build them', () => {
         expect(conditionProblems({ kind: 'any', of: [] }, 'r')).toEqual([]);
         expect(emptyGroups({ kind: 'any', of: [] })).toEqual(['never']);
         expect(emptyGroups(fromGroup('none', []))).toEqual(['always']);
+        const never: Condition = { kind: 'any', of: [] };
+        expect(neverHolds(never)).toBe(true);
+        expect(neverHolds({ kind: 'all', of: [text('A'), never] })).toBe(true);
+        expect(neverHolds({ kind: 'any', of: [text('A'), never] })).toBe(false);
+        expect(neverHolds({ kind: 'not', of: never })).toBe(false);
     });
 });

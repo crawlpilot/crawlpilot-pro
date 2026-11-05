@@ -658,6 +658,36 @@ test('value checks: a price above its range is a problem on Check, and the diff 
     await page.close();
 });
 
+test('atlas import: a condition it cannot carry over is listed at once and marked "never holds" in the editor', async ({ panel }) => {
+    const ui = panel.page;
+    await ui.setViewportSize({ width: 400, height: 1000 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html`);
+    await proClear(ui);
+    await ui.reload();
+    const tpl = (t: Record<string, unknown>) => ({ extractMethodType: 'CSS_SLCTR', specialFormatting: '.*', asserts: [], assrtXprn: null, ...t });
+    const atlas = { responseObj: { competitorShortName: 'SHOP', elements: [],
+        attributes: [{ name: 'TITLE', type: 'A', templates: [tpl({ extractMethod: 'h1' })] }],
+        errorPages: [
+            { name: '404', templates: [tpl({ asserts: [{ assrtId: 1, type: 'REGEX_CNT', assrt: 'Not Found', assrtFnct: 'GREATER_THAN', assrtValue: '0' }], assrtXprn: 'NOT ASSERT1' })] },
+            { name: 'CAPTCHA', templates: [tpl({ asserts: [{ assrtId: 1, type: 'CSS_SLCTR_CNT', assrt: '#captcha', assrtFnct: 'ROUGHLY', assrtValue: '1' }], assrtXprn: 'ASSERT1' })] },
+        ] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'shop.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(atlas)) });
+    const message = ui.getByTestId('pro-import-message');
+    await expect(message).toContainText('1 condition that never holds');
+    await expect(ui.getByTestId('pro-import-notes')).toContainText('assert function "ROUGHLY" is unknown; it never holds.');
+
+    await ui.getByRole('button', { name: /^Edit / }).first().click();
+    await ui.getByRole('button', { name: /^Page rules/ }).click();
+    const rules = ui.getByTestId('pro-page-rule');
+    await expect(rules).toHaveCount(2);
+    // NOT carried over as "none of these"; the unknown function as a rule that never holds.
+    await expect(rules.nth(0).getByTestId('pro-rule-sentence')).toHaveText('When none of: the HTML source has "Not Found"');
+    await expect(rules.nth(0)).not.toContainText('never holds');
+    await expect(rules.nth(1)).toContainText('never holds');
+    await rules.nth(1).getByRole('button', { name: 'Edit condition' }).click();
+    await expect(rules.nth(1).getByTestId('pro-condition-empty')).toContainText('An empty group never holds');
+});
+
 test('build new: picked fields come to the save step named and typed from the page, and can be changed there', async ({ panel, ext, origin }) => {
     const page = await ext.newPage();
     await page.goto(`${origin}/site/json-product.html`);

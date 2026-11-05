@@ -20,7 +20,7 @@ import { testOnPages, type PagesProgress } from '../runner/testPages';
 import { TestGrid } from './TestGrid';
 import { ConditionEditor } from './ConditionEditor';
 import { ValueChecks } from './ValueChecks';
-import { describe, newLeaf } from '../recipe/conditions';
+import { describe, neverHolds, newLeaf } from '../recipe/conditions';
 import { expectations, RULE_STATUS_LABELS } from '../runner/outcome';
 import { ContractPanel } from './ContractPanel';
 import { BeforeReading, newStep, PageAction, usePicker } from './StepsCard';
@@ -181,6 +181,9 @@ function PageRules({ rules, onChange }: { rules: PageRule[]; onChange: (rules: P
                         <Select<RuleStatus> size="sm" aria-label={`Status of ${r.name || `rule ${i + 1}`}`} value={r.status} options={STATUSES}
                             onChange={st => set(i, { ...r, status: st })} />
                     </div>
+                    {neverHolds(r.when) && (
+                        <div><Chip tone="danger" title="Its condition can never hold: a part could not be carried over, or was left empty.">never holds</Chip></div>
+                    )}
                     <div className="flex items-center gap-1">
                         {open === i ? <span className="flex-1" /> : (
                             <Text size="caption" tone="muted" className="min-w-0 flex-1 break-words" lines={2} data-testid="pro-rule-sentence">

@@ -110,6 +110,16 @@ export function emptyGroups(c: Condition): ('always' | 'never')[] {
     return [];
 }
 
+/**
+ * Whether the condition can never hold, whatever the page: an empty "any" (how an import keeps a condition it could
+ * not carry over), or an "all" with such a part. A NOT is taken as able to hold.
+ */
+export function neverHolds(c: Condition): boolean {
+    if (c.kind === 'any') return c.of.every(neverHolds);
+    if (c.kind === 'all') return c.of.some(neverHolds);
+    return false;
+}
+
 /** What a condition lacks: text or a selector to look for, a regex that compiles, items in a group. */
 export function conditionProblems(c: Condition, where: string): string[] {
     // An empty group is allowed: "never" is how an import keeps a condition it could not carry over (`emptyGroups`).

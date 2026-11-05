@@ -67,7 +67,18 @@ const FIELD: Record<string, { type: FieldType; pick?: Way['pick']; join?: boolea
     M: { type: 'object' },
 };
 
-const COUNT_OP: Record<string, CountOp> = { EQUAL_TO: 'eq', GREATER_THAN: 'gt', LESS_THAN: 'lt' };
+/**
+ * Atlas's assert functions. The exports seen use EQUAL_TO, GREATER_THAN and LESS_THAN; the "or equal" and "not"
+ * forms and the symbols are read too, so a template that uses them is not switched off.
+ */
+const COUNT_OP: Record<string, CountOp> = {
+    EQUAL_TO: 'eq', EQUALS: 'eq', EQUAL: 'eq', '=': 'eq', '==': 'eq',
+    GREATER_THAN: 'gt', '>': 'gt',
+    LESS_THAN: 'lt', '<': 'lt',
+    GREATER_THAN_OR_EQUAL_TO: 'gte', GREATER_THAN_OR_EQUAL: 'gte', GREATER_THAN_EQUAL_TO: 'gte', '>=': 'gte',
+    LESS_THAN_OR_EQUAL_TO: 'lte', LESS_THAN_OR_EQUAL: 'lte', LESS_THAN_EQUAL_TO: 'lte', '<=': 'lte',
+    NOT_EQUAL_TO: 'ne', NOT_EQUAL: 'ne', NOT_EQUALS: 'ne', '!=': 'ne', '<>': 'ne',
+};
 
 /** Jsoup selector features a browser doesn't have; `:contains` is read in the page (`content/services/page/ways.ts`). */
 const JSOUP_ONLY = /:(containsOwn|containsData|matches|matchesOwn|eq|lt|gt)\(/i;
@@ -121,7 +132,7 @@ type Notes = string[];
 
 function assertCondition(a: AtlasAssert, where: string, notes: Notes): Condition {
     const never: Condition = { kind: 'any', of: [] };
-    const op = COUNT_OP[(a.assrtFnct ?? '').toUpperCase()];
+    const op = COUNT_OP[(a.assrtFnct ?? '').trim().toUpperCase().replace(/\s+/g, '_')];
     const value = Number(a.assrtValue);
     if (!op) { notes.push(`${where}: assert function "${a.assrtFnct}" is unknown; it never holds.`); return never; }
     if (a.assrtValue === undefined || a.assrtValue.trim() === '' || !Number.isFinite(value)) {
@@ -140,7 +151,8 @@ function assertCondition(a: AtlasAssert, where: string, notes: Notes): Condition
 
 /**
  * The template's asserts as one condition, or none (no asserts: always tried). Atlas evaluates the
- * expression as JavaScript, so AND binds tighter than OR; without an expression only the first assert counts.
+ * expression as JavaScript, so NOT (`!`) binds tightest, then AND (`&&`), then OR (`||`); `A NOR B` is
+ * NOT (A OR B). Without an expression only the first assert counts.
  */
 function conditionOf(t: AtlasTemplate, where: string, notes: Notes): Condition | undefined {
     const asserts = t.asserts ?? [];
@@ -152,11 +164,12 @@ function conditionOf(t: AtlasTemplate, where: string, notes: Notes): Condition |
         if (asserts.length > 1) notes.push(`${where}: ${asserts.length} asserts and no expression; only ASSERT${first.assrtId} counts, as in Atlas.`);
         return assertCondition(first, where, notes);
     }
-    const tokens = expr.toUpperCase().match(/ASSERT\d+|AND|OR|&&|\|\||\(|\)|\S+/g) ?? [];
+    const tokens = expr.toUpperCase().match(/ASSERT\d+|\bNOR\b|\bNOT\b|\bAND\b|\bOR\b|&&|\|\||!(?!=)|\(|\)|\S+/g) ?? [];
     let at = 0;
     const fail = (): Condition => { notes.push(`${where}: assert expression "${expr}" is not understood; it never holds.`); at = tokens.length; return { kind: 'any', of: [] }; };
     const primary = (): Condition => {
         const tok = tokens[at++];
+        if (tok === 'NOT' || tok === '!') return { kind: 'not', of: primary() };
         if (tok === '(') {
             const c = or();
             if (tokens[at++] !== ')') return fail();
@@ -175,8 +188,17 @@ function conditionOf(t: AtlasTemplate, where: string, notes: Notes): Condition |
     };
     const or = (): Condition => {
         const of = [and()];
-        while (tokens[at] === 'OR' || tokens[at] === '||') { at++; of.push(and()); }
-        return of.length === 1 ? of[0] : { kind: 'any', of };
+        let joiner: 'OR' | 'NOR' | undefined;
+        while (tokens[at] === 'OR' || tokens[at] === '||' || tokens[at] === 'NOR') {
+            const j = tokens[at] === 'NOR' ? 'NOR' : 'OR';
+            // OR and NOR mixed without brackets has no one reading: not guessed.
+            if (joiner && joiner !== j) return fail();
+            joiner = j;
+            at++;
+            of.push(and());
+        }
+        if (of.length === 1) return of[0];
+        return joiner === 'NOR' ? { kind: 'not', of: { kind: 'any', of } } : { kind: 'any', of };
     };
     const c = or();
     return at < tokens.length ? fail() : c;

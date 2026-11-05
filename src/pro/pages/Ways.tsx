@@ -6,6 +6,7 @@
 import { useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, SlidersHorizontal, Trash2 } from 'lucide-react';
 import { Button, Chip, IconButton, Text, TextField } from '../../sidepanel/ui';
+import { neverHolds } from '../recipe/conditions';
 import { conditionLabel, wayLabel } from '../recipe/diff';
 import type { Way } from '../recipe/types';
 
@@ -35,7 +36,9 @@ export function Ways({ ways, onMove, onRemove, onAdd, options, title = 'Ways to 
                         <Chip tone={w.kind === 'selector' ? 'neutral' : 'info'}>{w.kind === 'data' ? 'Page data' : w.kind === 'markup' ? 'Markup' : 'Selector'}</Chip>
                         <Text size="caption" mono className="min-w-0 flex-1 break-all">{wayLabel(w)}</Text>
                         {wayNotes(w).map(n => <Chip key={n} tone="outline">{n}</Chip>)}
-                        {w.when && <Chip tone="warning" title={conditionLabel(w.when)}>if…</Chip>}
+                        {w.when && (neverHolds(w.when)
+                            ? <Chip tone="danger" title={`Never tried: ${conditionLabel(w.when)}`}>never tried</Chip>
+                            : <Chip tone="warning" title={conditionLabel(w.when)}>if…</Chip>)}
                         {options && <IconButton size="sm" label={`Options of way ${i + 1}`} onClick={() => setOpen(open === i ? null : i)}><SlidersHorizontal /></IconButton>}
                         {w.kind === 'selector' && <>
                             <IconButton size="sm" label="Try it earlier" onClick={() => onMove(i, -1)} disabled={i <= firstSelector}><ArrowUp /></IconButton>
