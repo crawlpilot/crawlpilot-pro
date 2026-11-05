@@ -54,6 +54,7 @@ export const TEMPLATES: Record<string, { patterns: string[]; mappings: object }>
                 // Values differ by recipe (a price is text in one, money in another): kept, not indexed.
                 attributes: { type: 'object', enabled: false },
                 fieldStatus: { type: 'object' }, meta: { type: 'object' }, context: { type: 'object' },
+                option: { properties: { step: keyword, value: keyword } },
             },
         },
     },

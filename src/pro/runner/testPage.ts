@@ -10,11 +10,11 @@ import { sendToTab } from '../../shared/messages';
 
 export { readPageResult, type FieldResult, type PageResult } from './readPage';
 import type { StepResult } from '../../shared/listing/stepStats';
-import { hasProActions, MissingVariable, segments } from '../recipe/actions';
+import { hasProActions, MissingVariable } from '../recipe/actions';
 import { toPageSpec } from '../recipe/fromPublic';
 import type { PageRecipeSpec, RunSettings, SessionSetup } from '../recipe/types';
-import { DEFAULT_STEP_OPTIONS, prepareSession, runAction, StepFailed } from '../steps/runner';
-import { readPageResult, type PageResult } from './readPage';
+import { DEFAULT_STEP_OPTIONS, prepareSession, runAction, runPageSteps, StepFailed } from '../steps/runner';
+import { readPageResult, readStepsResult, type PageResult } from './readPage';
 import { call as callInTab, dismissInTab, tabDriver } from './tabSteps';
 
 /** A setup with something to do. */
@@ -84,20 +84,8 @@ export async function testOnTab(tabId: number, url: string, spec: PageRecipeSpec
             const run = await prepareSession(driver, setup, context, { prepared: !!setup.check }, TAB_STEP_OPTIONS);
             ran = { ran: run.ran, steps: run.steps };
         }
-        const item: Record<string, unknown> = {};
-        const steps: StepResult[] = [];
-        for (const seg of segments(spec)) {
-            if (seg.kind === 'read') {
-                await dismissInTab(tabId, setup?.dismiss);
-                const r = await readOnTab(tabId, seg.spec, settings, url);
-                Object.assign(item, r.item);
-                steps.push(...r.steps);
-            } else {
-                const r = await runAction(driver, seg.click, context, TAB_STEP_OPTIONS);
-                steps.push({ id: seg.click.id, name: seg.click.name, action: 'click', status: r.status === 'done' ? 'clicked' : 'skipped' });
-            }
-        }
-        return { ...readPageResult(spec, url, item, steps), ...(ran ? { setup: ran } : {}) };
+        const read = await runPageSteps(driver, spec, context, TAB_STEP_OPTIONS, async s => ({ ...await readOnTab(tabId, s, settings, url), ways: [] }), setup?.dismiss);
+        return { ...readStepsResult(spec, url, read), ...(ran ? { setup: ran } : {}) };
     } catch (e) {
         const error = e instanceof MissingVariable ? `Give a test value for {${e.name}} first.` : e instanceof Error ? e.message : String(e);
         return { url, fields: [], clicks: [], error, ...(e instanceof StepFailed ? { setup: { ran: true, steps: ran?.steps ?? [], failedStep: e.step } } : ran ? { setup: ran } : {}) };

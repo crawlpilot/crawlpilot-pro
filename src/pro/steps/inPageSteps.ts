@@ -61,6 +61,15 @@ export function markTarget({ selectors, choose, mark }: TargetRequest): TargetRe
     return { found: false, used: -1, matches };
 }
 
+/** The visible items the first matching selector finds, by their text: what a "for each" step goes through. */
+export function listItems(selectors: string[]): string[] {
+    for (const sel of selectors) {
+        const items = resolveItems([sel], document).result.filter(visible);
+        if (items.length) return items.map(textOf);
+    }
+    return [];
+}
+
 /** Whether any selector matches a visible element: for waiting on something to appear or go. */
 export function isShown(selectors: string[]): boolean {
     return selectors.some(sel => resolveItems([sel], document).result.some(visible));

@@ -262,6 +262,16 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                         {summarize(test.result).total - summarize(test.result).ok ? `${summarize(test.result).total - summarize(test.result).ok} with a problem. ` : ''}
                         {stale ? 'You changed the recipe since this test.' : ''}
                     </Notice></div>)}
+                {test?.result.options && (
+                    <div className="flex flex-col gap-1 rounded-xl bg-ink/4 px-2.5 py-2" data-testid="pro-test-options">
+                        <Text size="caption" tone="muted">One row per item of "{test.result.options[0]?.step}"</Text>
+                        {test.result.options.map(o => (
+                            <Text key={o.label} size="caption" mono className="break-all" data-testid="pro-test-option">
+                                {o.label}: {o.fields.map(f => `${f.name} = ${preview(f.value)}`).join('; ') || '—'}
+                            </Text>
+                        ))}
+                    </div>
+                )}
                 <div data-testid="pro-samples"><Disclosure icon={<Layers />} defaultOpen
                     summary={`Sample pages (${samples.length})`}
                     meta={ready && <Chip tone={ready.ready ? 'success' : 'warning'}>{ready.ready ? 'ready' : 'not ready'}</Chip>}>

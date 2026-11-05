@@ -276,7 +276,7 @@ async function withTimeout<T>(work: Promise<T>, ms: number, what: string): Promi
 }
 
 /** Calls one of the in-page functions, putting the script in first when the page does not have it (a new page, or one a click navigated). */
-export async function callInPage<T>(page: Page, script: string, fn: 'run' | 'readLists' | 'clickNext' | 'scrollToEnd' | 'markTarget' | 'isShown', args: unknown[]): Promise<T> {
+export async function callInPage<T>(page: Page, script: string, fn: 'run' | 'readLists' | 'clickNext' | 'scrollToEnd' | 'markTarget' | 'isShown' | 'listItems', args: unknown[]): Promise<T> {
     const loaded = await page.evaluate(() => typeof (globalThis as { crawlpilot?: unknown }).crawlpilot === 'object');
     if (!loaded) await page.evaluate(script);
     const call = ({ name, a }: { name: string; a: unknown[] }) =>

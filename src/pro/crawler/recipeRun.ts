@@ -7,7 +7,8 @@
 import { toPageSpec } from '../recipe/fromPublic';
 import { setupOwners } from '../recipe/actions';
 import type { ListRecipeSpec, PageRecipeSpec, ProSpec, RunSettings, SessionSetup, Way } from '../recipe/types';
-import { readPageResult } from '../runner/readPage';
+import { readStepsResult, type FieldResult } from '../runner/readPage';
+import type { StepsRead } from '../steps/runner';
 import { CrawlError } from './classify';
 import type { InPageRequest, InPageResult, ListPageResult, WayProbe } from './inPage';
 import type { CrawlJob, RecipeRef, ScrapeDoc, SelectorUsageDoc } from './types';
@@ -36,17 +37,28 @@ export interface RunRead {
     ways: SelectorUsageDoc['ways'];
     filled: number;
     total: number;
+    /** A "for each" step's items: one row each, the page's other fields repeated in every row. */
+    rows?: { option: { step: string; value: string }; attributes: ScrapeDoc['attributes']; fieldStatus: ScrapeDoc['fieldStatus'] }[];
 }
 
 /** `setup`: the version's session setup, whose ways' usage comes with the result. */
-export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult, setup?: SessionSetup): RunRead {
-    const page = readPageResult(spec, url, result.item, result.steps);
-    const attributes: RunRead['attributes'] = {};
-    const fieldStatus: RunRead['fieldStatus'] = {};
-    for (const f of page.fields) {
-        attributes[f.name] = f.value;
-        fieldStatus[f.name] = !f.filled ? 'empty' : f.ok ? 'ok' : 'check_failed';
-    }
+export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult & Pick<StepsRead, 'options'>, setup?: SessionSetup): RunRead {
+    const page = readStepsResult(spec, url, result);
+    const named = (fields: FieldResult[]) => {
+        const attributes: RunRead['attributes'] = {};
+        const fieldStatus: RunRead['fieldStatus'] = {};
+        for (const f of fields) {
+            attributes[f.name] = f.value;
+            fieldStatus[f.name] = !f.filled ? 'empty' : f.ok ? 'ok' : 'check_failed';
+        }
+        return { attributes, fieldStatus };
+    };
+    const { attributes, fieldStatus } = named(page.fields);
+    // Each item's row: the page's fields, with that item's values for the fields it repeats.
+    const rows = page.options?.map(o => {
+        const own = named(o.fields);
+        return { option: { step: o.step, value: o.label }, attributes: { ...attributes, ...own.attributes }, fieldStatus: { ...fieldStatus, ...own.fieldStatus } };
+    });
     const owner = new Map([
         ...spec.steps.flatMap(s => s.kind === 'field'
             ? s.field.ways.map((w, i) => [wayId(w, s.field.id, i), s.field.name] as const)
@@ -58,6 +70,7 @@ export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult,
         ways: result.ways.map(w => ({ field: owner.get(w.wayId) ?? '', ...w })),
         filled: page.fields.filter(f => f.filled).length,
         total: page.fields.length,
+        ...(rows ? { rows } : {}),
     };
 }
 

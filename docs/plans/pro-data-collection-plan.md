@@ -227,7 +227,11 @@ Building the worker side showed that fewer seams are needed than first planned:
   - the editor: *Before reading* (setup steps, check, dismissals, test values, Try setup) and *Add a step* among
     the fields, each element picked on the page or typed;
   - Test on this page and Test on sample pages run the setup (only when its check isn't met) and the steps.
-- **Step 3, later:** one row per fulfilment method (with C2), a step recorder, and trusted input through the debugger.
+- **Step 3, in progress:**
+  - **One row per item, done:** a `choose` step can go through each item (`forEach`: every tile the page shows, or
+    the ones named, up to a maximum). The fields after it are read once per item, and the worker writes one
+    document per item (`option`, id ending `~opt=<item>`). Variants by clicking (C2) can use the same step.
+  - **Still to do:** a step recorder, and trusted input in Pro through the debugger.
 
 ### Done when
 The e2e site gets a retailer page that behaves like the real ones:

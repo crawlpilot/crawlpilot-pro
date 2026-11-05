@@ -80,6 +80,8 @@ export function problems(spec: PageRecipeSpec): string[] {
     if (dupes.length) out.push(`Two fields are named ${dupes.map(d => `"${d}"`).join(', ')}.`);
     for (const f of fields) if (f.ways.length === 0) out.push(`"${f.name || 'A field'}" has no way to find it.`);
     for (const s of spec.steps) if (s.kind === 'click') out.push(...actionProblems(s.click));
+    const repeating = spec.steps.filter(s => s.kind === 'click' && s.click.forEach);
+    if (repeating.length > 1) out.push('Only one step can go through each item.');
     for (const c of spec.setup?.steps ?? []) out.push(...actionProblems(c, 'Setup step'));
     for (const c of spec.setup?.dismiss ?? []) if (c.ways.length === 0) out.push(`Dismiss "${c.name}" has nothing to click.`);
     if (spec.setup?.check && !spec.setup.check.contains.trim()) out.push('The setup check needs the text it must contain.');
@@ -94,6 +96,7 @@ export function actionProblems(c: Click, label = 'Step'): string[] {
     const out: string[] = [];
     if (c.ways.length === 0 && what !== 'scroll' && what !== 'press') out.push(what === 'click' ? `Click "${c.name}" has nothing to click.` : `${name} has no element to act on.`);
     if ((what === 'type' || what === 'select' || what === 'press') && !c.value?.trim()) out.push(`${name} needs a value to ${what}.`);
-    if (what === 'choose' && !c.value?.trim() && c.index === undefined) out.push(`${name} needs the text to choose, or which item.`);
+    if (what === 'choose' && !c.forEach && !c.value?.trim() && c.index === undefined) out.push(`${name} needs the text to choose, or which item.`);
+    if (c.forEach && what !== 'choose') out.push(`${name} goes through each item, so it must choose from a list.`);
     return out;
 }

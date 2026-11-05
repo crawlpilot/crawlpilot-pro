@@ -6,7 +6,7 @@
  * key events. These are not trusted browser events: a site that ignores them can't be driven from here (the
  * worker, with Playwright, can).
  */
-import { isShown, MARK, markTarget } from './inPageSteps';
+import { isShown, listItems, MARK, markTarget } from './inPageSteps';
 import { listMarkup, readMarkupFields } from '../markup/markup';
 
 export interface ActRequest {
@@ -75,4 +75,4 @@ function scrollToEnd() {
     window.scrollTo(0, document.documentElement.scrollHeight);
 }
 
-(globalThis as unknown as { crawlpilotSteps: object }).crawlpilotSteps = { markTarget, isShown, act, pressKey, scrollToEnd, readMarkupFields, listMarkup };
+(globalThis as unknown as { crawlpilotSteps: object }).crawlpilotSteps = { markTarget, isShown, listItems, act, pressKey, scrollToEnd, readMarkupFields, listMarkup };

@@ -357,6 +357,15 @@ test('steps before reading: a ZIP set through the page\'s dialog, checked, pop-u
     await expect(card('price').getByTestId('pro-field-result')).toContainText('$12.99');
     await expect(card('delivery').getByTestId('pro-field-result')).toContainText('Delivery tomorrow to 10001');
 
+    // The same step for each tile instead: one row per item.
+    await tile.getByLabel('For each item: one row per item').check();
+    await tile.getByLabel('Only these items, in order').fill('Pickup, Delivery');
+    await ui.getByRole('button', { name: /^Test on this page/ }).click();
+    const rows = ui.getByTestId('pro-test-option');
+    await expect(rows).toHaveCount(2, { timeout: 30_000 });
+    await expect(rows.nth(0)).toContainText('Pickup: delivery = Choose a store for pickup');
+    await expect(rows.nth(1)).toContainText('Delivery: delivery = Delivery tomorrow to 10001');
+
     // Saved: the setup and the step are part of the version, their ways with ids.
     await expect(ui.getByTestId('pro-editor-changes')).toContainText('session setup');
     await ui.getByLabel('What changed').fill('ZIP code first');
@@ -367,7 +376,7 @@ test('steps before reading: a ZIP set through the page\'s dialog, checked, pop-u
     expect(v2.spec.setup.check).toMatchObject({ contains: '{zip}' });
     expect(v2.spec.setup.dismiss).toHaveLength(2);
     expect(v2.spec.setup.steps[1].ways[0].id).toEqual(expect.any(String));
-    expect(v2.spec.steps.map((s: any) => s.kind === 'field' ? s.field.name : `${s.click.do}:${s.click.value}`)).toEqual(['title', 'price', 'choose:Delivery', 'delivery']);
+    expect(v2.spec.steps.map((s: any) => s.kind === 'field' ? s.field.name : `${s.click.do} each:${s.click.forEach?.values}`)).toEqual(['title', 'price', 'choose each:Pickup,Delivery', 'delivery']);
     await ui.close();
     await page.close();
 });

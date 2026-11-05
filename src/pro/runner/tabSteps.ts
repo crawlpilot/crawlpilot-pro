@@ -70,6 +70,7 @@ export function tabDriver(tabId: number, dismiss?: Parameters<StepDriver['dismis
     return {
         find: (request: TargetRequest) => call<TargetResult>(tabId, 'markTarget', [request]),
         isShown: selectors => call<boolean>(tabId, 'isShown', [selectors]),
+        listItems: selectors => call<string[]>(tabId, 'listItems', [selectors]),
         async act(c, mark, value, o: StepOptions) {
             // Dismissals first: a pop-up over the target would take the click.
             await dismissInTab(tabId, dismiss);

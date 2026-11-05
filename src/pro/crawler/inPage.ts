@@ -17,7 +17,7 @@ import { readWhenReady, type ReaderColumn } from '../../content/services/extract
 import { resolveContainer, resolveItems, resolveOne } from '../../shared/selectors/resolve';
 import type { StepResult } from '../../shared/listing/stepStats';
 import type { Chain, DataBinding, ListTarget } from '../../shared/types/database';
-import { isShown, markTarget } from '../steps/inPageSteps';
+import { isShown, listItems, markTarget } from '../steps/inPageSteps';
 import { readMarkupFields } from '../markup/markup';
 import type { MarkupWay } from '../recipe/types';
 
@@ -146,4 +146,4 @@ export async function scrollToEnd(max: number, settleMs: number): Promise<number
     return max;
 }
 
-(globalThis as unknown as { crawlpilot: object }).crawlpilot = { run, readLists, clickNext, scrollToEnd, markTarget, isShown };
+(globalThis as unknown as { crawlpilot: object }).crawlpilot = { run, readLists, clickNext, scrollToEnd, markTarget, isShown, listItems };
