@@ -8,7 +8,8 @@ import { listRunInput, listSpec, pageSpec, type RunElement } from '../shared/rec
 import type { ListPick, PaginationMode } from '../shared/types/extraction';
 import { pro } from './db';
 import { fromListSpec, fromPageSpec, toListSpec, toPageSpec } from './recipe/fromPublic';
-import type { PageSource, ProRecipe, RecipeKind, RunSettings, Version, VersionDraft } from './recipe/types';
+import type { FieldType, PageRecipeSpec, PageSource, ProRecipe, RecipeKind, RunSettings, Version, VersionDraft } from './recipe/types';
+import { keepFromBase } from './recipe/repick';
 import { currentUser } from './identity';
 
 /** A recipe being built (no version yet) or edited (from `version`). */
@@ -68,8 +69,34 @@ async function saveDraft(edit: ProEdit, name: string, draft: VersionDraft, note:
     return { recipe: (await pro.recipes.get(recipe.id))!, version };
 }
 
-export function savePageVersion(edit: ProEdit, input: { name: string; elements: RunElement[]; urls: string[]; settings: RunSettings; note: string }) {
-    const { spec, settings } = fromPageSpec(pageSpec(input.elements, input.settings));
+/**
+ * The page recipe the extractor's picks make: what Pro added to the base version kept (`recipe/repick.ts`), then the
+ * names and types given in the save step (`fields`, by field id).
+ */
+export function pageDraftSpec(edit: ProEdit, elements: RunElement[], settings: RunSettings, fields: FieldNaming[] = []) {
+    const picked = fromPageSpec(pageSpec(elements, settings));
+    const base = edit.version?.spec.kind === 'page' ? edit.version.spec : undefined;
+    const kept = keepFromBase(picked.spec, base);
+    const named = new Map(fields.map(f => [f.id, f]));
+    const spec: PageRecipeSpec = {
+        ...kept,
+        steps: kept.steps.map(st => {
+            const n = st.kind === 'field' ? named.get(st.field.id) : undefined;
+            return n && st.kind === 'field' ? { kind: 'field', field: { ...st.field, name: n.name.trim() || st.field.name, type: n.type } } : st;
+        }),
+    };
+    return { spec, settings: picked.settings };
+}
+
+/** A field's name and output type as set in the save step. */
+export interface FieldNaming {
+    id: string;
+    name: string;
+    type: FieldType;
+}
+
+export function savePageVersion(edit: ProEdit, input: { name: string; elements: RunElement[]; urls: string[]; settings: RunSettings; note: string; fields?: FieldNaming[] }) {
+    const { spec, settings } = pageDraftSpec(edit, input.elements, input.settings, input.fields);
     const draft: VersionDraft = { spec, settings, pages: { kind: 'urls', urls: input.urls }, output: edit.version?.output ?? {} };
     return saveDraft(edit, input.name, draft, input.note);
 }

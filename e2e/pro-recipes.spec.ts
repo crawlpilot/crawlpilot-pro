@@ -377,6 +377,22 @@ test('steps before reading: a ZIP set through the page\'s dialog, checked, pop-u
     expect(v2.spec.setup.dismiss).toHaveLength(2);
     expect(v2.spec.setup.steps[1].ways[0].id).toEqual(expect.any(String));
     expect(v2.spec.steps.map((s: any) => s.kind === 'field' ? s.field.name : `${s.click.do} each:${s.click.forEach?.values}`)).toEqual(['title', 'price', 'choose each:Pickup,Delivery', 'delivery']);
+
+    // Picked again in the Page Extractor, and saved with a field renamed: the setup and the step stay as they were.
+    await ui.getByRole('button', { name: 'Edit fields' }).click();
+    await ui.getByRole('banner').getByRole('button', { name: 'Re-pick on page' }).click();
+    await ui.getByRole('button', { name: 'Next: pages' }).click();
+    await ui.getByRole('button', { name: 'Next: 1 page' }).click();
+    const saveFields = ui.getByTestId('pro-save-field');
+    await expect(saveFields).toHaveCount(3);
+    await saveFields.nth(2).getByLabel('Field 3', { exact: true }).fill('delivery_message');
+    await ui.getByLabel('What changed').fill('renamed');
+    await ui.getByRole('button', { name: 'Save version' }).click();
+    await expect(ui.getByText(/Saved .* v3/)).toBeVisible();
+    const [v3] = (await proStore(ui, 'versions')).filter(v => v.version === 3);
+    expect(v3.spec.setup.steps.map((s: any) => s.name)).toEqual(['Open location', 'Type ZIP', 'Apply']);
+    expect(v3.spec.setup.dismiss).toHaveLength(2);
+    expect(v3.spec.steps.map((s: any) => s.kind === 'field' ? s.field.name : `${s.click.do} each:${s.click.forEach?.values}`)).toEqual(['title', 'price', 'choose each:Pickup,Delivery', 'delivery_message']);
     await ui.close();
     await page.close();
 });
@@ -493,6 +509,56 @@ test('check: one row per field with its typed value, outlined on the page, and w
     await ui.getByRole('button', { name: 'Check this page' }).click();
     await expect(ui.getByTestId('pro-check-row')).toHaveCount(2);
     await expect(ui.getByTestId('pro-check-item').first()).toContainText('2 of 2 fields found on this page');
+    await ui.close();
+    await page.close();
+});
+
+test('build new: picked fields come to the save step named and typed from the page, and can be changed there', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1000 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    await ui.getByRole('button', { name: 'Build new' }).click();
+    await ui.getByRole('button', { name: /^Page recipe/ }).click();
+    const pickOn = async (target: string) => {
+        const box = (await page.locator(target).first().boundingBox())!;
+        await page.mouse.move(box.x + 4, box.y + 4);
+        await page.mouse.move(box.x + 6, box.y + 6);
+        await page.waitForTimeout(150);
+        await page.mouse.click(box.x + 6, box.y + 6);
+    };
+    await ui.getByText('Pick data fields').click();
+    await pickOn('h1');
+    await expect(ui.getByText('1 field')).toBeVisible();
+    await ui.getByRole('button', { name: 'Add field' }).click();
+    await pickOn('p.price');
+    await expect(ui.getByText('2 fields')).toBeVisible();
+    await ui.getByRole('button', { name: 'Next: pages' }).click();
+    await ui.getByRole('button', { name: 'Next: 1 page' }).click();
+
+    // Not h1 and p: what the page says they are, and the type the crawler will output.
+    const fields = ui.getByTestId('pro-save-field');
+    await expect(fields).toHaveCount(2);
+    await expect(fields.nth(0).getByLabel('Field 1', { exact: true })).toHaveValue('title');
+    await expect(fields.nth(0)).toContainText('named from the page\'s data: name');
+    await expect(fields.nth(1).getByLabel('Field 2', { exact: true })).toHaveValue('price');
+    await expect(fields.nth(1).getByLabel('Type of field 2')).toHaveValue('money');
+    if (process.env.UX_SHOTS) await ui.screenshot({ path: `${process.env.UX_SHOTS}/pro-save-fields.png` });
+
+    // Changed here, before version 1 exists; two of a name can't be saved.
+    await fields.nth(0).getByLabel('Field 1', { exact: true }).fill('price');
+    await expect(ui.getByText('Two fields have the same name.')).toBeVisible();
+    await expect(ui.getByRole('button', { name: 'Save version' })).toBeDisabled();
+    await fields.nth(0).getByLabel('Field 1', { exact: true }).fill('product_name');
+    await ui.getByRole('button', { name: 'Save version' }).click();
+    await expect(ui.getByRole('button', { name: 'Check it on this page' })).toBeVisible();
+    const [v1] = await proStore(ui, 'versions');
+    expect(v1.spec.steps.map((s: any) => [s.field.name, s.field.type])).toEqual([['product_name', 'text'], ['price', 'money']]);
     await ui.close();
     await page.close();
 });
