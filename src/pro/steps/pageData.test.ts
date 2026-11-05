@@ -66,3 +66,11 @@ describe('Walmart\'s specifications, held in its page data', () => {
         expect(page.record).toEqual({ fuel: 'Propane', burners: '4' });
     }, 60_000);
 });
+
+describe('a new field\'s type', () => {
+    it('is a number only for counts and prices: ids and codes stay text, leading zeros kept', async () => {
+        const { looksLikeNumber } = await import('../pages/PageDataSource');
+        expect(['194', '4.2', '6968', '-3', '0.5'].map(looksLikeNumber)).toEqual([true, true, true, true, true]);
+        expect(['17070020028', '044376300333', '00123', '12345678'].map(looksLikeNumber)).toEqual([false, false, false, false]);
+    });
+});

@@ -12,6 +12,12 @@ import type { Field, FieldType, Way } from '../recipe/types';
 import type { PageDataEntry } from '../steps/pageData';
 import { call } from '../runner/tabSteps';
 
+/**
+ * A number to count or price with, not an id or a code: a short whole number or a decimal, with no leading zero.
+ * `17070020028` (an item id) and `044376300333` (a UPC) stay text, so nothing is lost or rounded.
+ */
+export const looksLikeNumber = (v: string) => /^-?\d+(\.\d+)?$/.test(v) && !/^-?0\d/.test(v) && (v.includes('.') || v.replace('-', '').length <= 7);
+
 /** A new field from a page-data value: named from its last key, typed from its value. */
 export function newFieldOf(e: PageDataEntry, taken: string[], id: string): Field {
     const key = [...e.binding.path].reverse().find((s): s is string => typeof s === 'string') ?? e.binding.label;
@@ -22,7 +28,7 @@ export function newFieldOf(e: PageDataEntry, taken: string[], id: string): Field
     if (as === 'rows') return { id, name, type: 'table', read: 'table', ways: [dataWay(e.binding)], ops: [] };
     if (as === 'object') return { id, name, type: 'object', read: 'text', ways: [dataWay(e.binding)], ops: [] };
     const list = as === 'list';
-    const type: FieldType = list ? 'list' : /^-?\d+(\.\d+)?$/.test(e.value) ? 'number' : /^https?:\/\//.test(e.value) ? 'url' : 'text';
+    const type: FieldType = list ? 'list' : looksLikeNumber(e.value) ? 'number' : /^https?:\/\//.test(e.value) ? 'url' : 'text';
     return { id, name, type, read: list ? 'text_array' : 'text', ways: [dataWay(e.binding)], ops: [] };
 }
 
