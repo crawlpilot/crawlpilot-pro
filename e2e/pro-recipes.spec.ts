@@ -734,7 +734,7 @@ test('retailer recipes: the Amazon and Walmart files import with their targeting
     await expect(ui.getByTestId('pro-editor-changes')).toHaveText('No changes yet.');
 });
 
-test('build new: a product\'s bullets picked by pointing at one come as a list field', async ({ panel, ext, origin }) => {
+test('build new: a product\'s bullets, widened from one to all of them, come as a list field', async ({ panel, ext, origin }) => {
     const page = await ext.newPage();
     await page.goto(`${origin}/site/bullets.html`);
     const tabId = await panel.tabId(page.url());
@@ -753,7 +753,10 @@ test('build new: a product\'s bullets picked by pointing at one come as a list f
     await page.mouse.move(box.x + 4, box.y + 4);
     await page.mouse.move(box.x + 6, box.y + 6);
     await page.waitForTimeout(150);
-    await page.mouse.click(box.x + 6, box.y + 6);
+    // One step wider than the bullet: the six.
+    await page.keyboard.press('ArrowUp');
+    await page.waitForTimeout(150);
+    await page.keyboard.press('Enter');
     await expect(ui.getByText('1 field')).toBeVisible();
     await ui.getByRole('button', { name: 'Next: save' }).click();
     const field = ui.getByTestId('pro-save-field').first();

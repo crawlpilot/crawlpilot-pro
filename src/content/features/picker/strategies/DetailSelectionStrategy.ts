@@ -32,23 +32,23 @@ function valueLabel(c: ClassificationResult): string {
 
 const ARRAY_NAMES = { image_array: 'Images', link_array: 'Links', text_array: 'Texts' } as const;
 
-/** The elements under `el` (itself included) that hold text of their own: the parts its text is split into. */
-function textParts(el: Element): number {
-    let n = 0;
-    for (const node of [el, ...Array.from(el.querySelectorAll('*'))]) {
-        if (Array.from(node.childNodes).some(c => c.nodeType === Node.TEXT_NODE && (c.textContent || '').trim())) n++;
-    }
-    return n;
-}
+const WRAPPER_SKIP = new Set(['SCRIPT', 'STYLE', 'BR', 'HR', 'TEMPLATE']);
 
 /**
- * A list of plain bullets: two or more items, each one piece of text. Items split into parts, a name and a value
- * however deep ("Height | 45 cm", Amazon's `<span><span>Brand :</span><span>Lenovo</span></span>`), are spec rows:
- * one of them is a row, and all of them a table.
+ * What a wrapper stands for: down through elements that hold nothing but one element child (no text of their own),
+ * as `span > div > ul` around a product's bullets. The outline is the same box, so the selection is read as what it
+ * shows: the list, not a wrapper with one child. An element with text or more children of its own is itself.
  */
-function isBulletList(list: Element): boolean {
-    const items = Array.from(list.children).filter(c => c.tagName === 'LI');
-    return items.length >= 2 && items.every(li => textParts(li) <= 1);
+export function unwrap(el: HTMLElement): HTMLElement {
+    let cur = el;
+    for (let depth = 0; depth < 8; depth++) {
+        const kids = Array.from(cur.children).filter(c => !WRAPPER_SKIP.has(c.tagName));
+        if (kids.length !== 1) break;
+        const ownText = Array.from(cur.childNodes).some(n => n.nodeType === Node.TEXT_NODE && (n.textContent || '').trim());
+        if (ownText) break;
+        cur = kids[0] as HTMLElement;
+    }
+    return cur;
 }
 
 export class DetailSelectionStrategy implements ISelectionStrategy {
@@ -68,26 +68,20 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
     /**
      * The ways a click can read `element` (docs/plans/picker-level-control-plan.md §3.3), suggested
      * first in the order the detectors always ran: a list or table inside it, an array of like
-     * children, its image or link, the items like it around it, its text. One item of a `ul` / `ol`
-     * of texts (a product's bullets) is offered as its whole list first: pointing at a bullet usually
-     * means the bullets, and the one item's text is still a reading away (V).
+     * children, its image or link, the items like it around it, its text.
      */
     readings(element: HTMLElement): Reading[] {
         const out: Reading[] = [];
-        const parent = element.parentElement;
-        // Never over a table of rows: the items like it read as name / value pairs keep that reading first.
-        if (element.tagName === 'LI' && parent && (parent.tagName === 'UL' || parent.tagName === 'OL') && isBulletList(parent) && !this.classifyAsSiblingTable(element)) {
-            const whole = this.detectHomogeneousArray(parent);
-            // Bullets of text only: one link of a menu, or one thumbnail, is still picked as itself first.
-            if (whole?.arrayType === 'text_array') out.push({ kind: 'array', label: `${ARRAY_NAMES[whole.arrayType]} · ${whole.count} (the whole list)`, outline: parent });
-        }
-        const inside = findListInside(element);
+        // A wrapper is read as what it wraps (`unwrap`): the list or array is found, and saved, on that element.
+        const core = unwrap(element);
+        const at = core === element ? {} : { outline: core };
+        const inside = findListInside(core);
         if (inside.isContainer && inside.container) {
             const n = inside.childCount || inside.siblings.length;
-            out.push({ kind: 'list', label: `${inside.containerType === 'table' ? 'Table' : 'List'} · ${n} items`, outlines: inside.siblings });
+            out.push({ kind: 'list', label: `${inside.containerType === 'table' ? 'Table' : 'List'} · ${n} items`, outlines: inside.siblings, ...at });
         } else {
-            const array = this.detectHomogeneousArray(element);
-            if (array) out.push({ kind: 'array', label: `${ARRAY_NAMES[array.arrayType]} · ${array.count}` });
+            const array = this.detectHomogeneousArray(core);
+            if (array) out.push({ kind: 'array', label: `${ARRAY_NAMES[array.arrayType]} · ${array.count}`, ...at });
         }
         const strong = this.classifyAsDirectTag(element) ?? this.classifyAsWrapperContent(element);
         const value: Reading = { kind: 'value', label: valueLabel(strong ?? this.classifyAsText(element)) };
@@ -102,8 +96,8 @@ export class DetailSelectionStrategy implements ISelectionStrategy {
     handleClick(element: HTMLElement, picker: VisualElementPicker, report: (selected: ElementSelected) => void, reading?: Reading): void {
         const chosen = reading ?? this.readings(element)[0];
         const kind = chosen.kind;
-        // A bullet read as its whole list: the list is what is saved, found by its own chain.
-        const target = kind === 'array' && chosen.outline ? chosen.outline : element;
+        // A list or array read through a wrapper is saved on the element that holds it (the `ul`, not its `span`).
+        const target = (kind === 'list' || kind === 'array') && chosen.outline ? chosen.outline : element;
         const none = { isContainer: false, siblings: [], container: null, childCount: 0 };
 
         // What the user chose to save, read that way: the click never re-decides it.
