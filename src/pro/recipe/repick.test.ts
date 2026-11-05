@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { keepFromBase } from './repick';
-import type { PageRecipeSpec } from './types';
+import { keepFromBase, keepListExtras } from './repick';
+import type { ListRecipeSpec, PageRecipeSpec } from './types';
 
 const sel = (selector: string) => ({ kind: 'selector' as const, selector });
 const base: PageRecipeSpec = {
@@ -34,5 +34,25 @@ describe('a recipe picked again', () => {
     it('is the pick itself for a new recipe', () => {
         const picked: PageRecipeSpec = { kind: 'page', steps: [] };
         expect(keepFromBase(picked, undefined)).toBe(picked);
+    });
+});
+
+describe('a list recipe picked again', () => {
+    const picked: ListRecipeSpec = { kind: 'list', lists: [], pagination: { mode: 'auto' } };
+    const details = { urlColumn: 'link', spec: { kind: 'page' as const, steps: [] } };
+    const base: ListRecipeSpec = {
+        ...picked, details,
+        setup: { steps: [] },
+        rules: [{ name: 'No results', status: 'not_found', when: { kind: 'regex', in: 'text', pattern: 'No results', op: 'gt', value: 0 } }],
+    };
+
+    it('keeps the page rules, the session setup and the details page of the version it started from', () => {
+        expect(keepListExtras(picked, base)).toEqual(base);
+        expect(keepListExtras(picked, undefined)).toBe(picked);
+    });
+
+    it('a details page in the pick wins over the base\'s', () => {
+        const own = { urlColumn: 'url', spec: { kind: 'page' as const, steps: [] } };
+        expect(keepListExtras({ ...picked, details: own }, base).details).toBe(own);
     });
 });

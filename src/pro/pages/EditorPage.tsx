@@ -6,7 +6,7 @@
  * Picking new fields on the page stays in the Page Extractor (Re-pick).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, Fingerprint, FlaskConical, Layers, Plus, Save, ShieldAlert, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crosshair, ExternalLink, FileCheck, Fingerprint, FlaskConical, Layers, Plus, Save, ShieldAlert, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import ToolHeader from '../../sidepanel/components/ui/ToolHeader';
 import { Button, Chip, Disclosure, IconButton, Notice, Select, Switch, Text, TextArea, TextField } from '../../sidepanel/ui';
 import { pro } from '../db';
@@ -18,15 +18,19 @@ import { passed } from '../db/tests';
 import { summarize, testOnTab, type FieldResult, type PageResult } from '../runner/testPage';
 import { testOnPages, type PagesProgress } from '../runner/testPages';
 import { TestGrid } from './TestGrid';
+import { ConditionEditor } from './ConditionEditor';
+import { ValueChecks } from './ValueChecks';
+import { describe, neverHolds, newLeaf } from '../recipe/conditions';
+import { expectations, RULE_STATUS_LABELS } from '../runner/outcome';
 import { ContractPanel } from './ContractPanel';
 import { BeforeReading, newStep, PageAction, usePicker } from './StepsCard';
 import { Ways } from './Ways';
 import { MarkupSource } from './MarkupSource';
 import { readiness } from '../recipe/ready';
-import { conditionLabel, diffVersions } from '../recipe/diff';
+import { diffVersions } from '../recipe/diff';
 import * as edits from '../recipe/editSpec';
 import { applyProOps, NEW_OP, opSummary, PRO_OP_LABELS, type ProOp } from '../recipe/ops';
-import type { Field, FieldType, Identity, OutputSpec, PageRecipeSpec, ProRecipe, Sample, Version, Way, WayPick } from '../recipe/types';
+import type { Field, FieldType, Identity, OutputSpec, PageRecipeSpec, ProRecipe, Sample, Version, Way, WayPick, ListRecipeSpec } from '../recipe/types';
 import type { PageRule, RuleStatus, WayRead } from '../../shared/types/ways';
 
 interface Props {
@@ -124,10 +128,15 @@ function WayEditor({ way, onChange }: { way: Way; onChange: (w: Way) => void }) 
             </>}
             {!(way.kind === 'selector' && (way.read === 'pairs' || way.read === 'count')) &&
                 <Select<WayPick> size="sm" label="Keeps" value={way.pick ?? 'first'} options={PICKS} onChange={pick => set({ pick })} />}
-            {way.when && <div className="flex items-start gap-1.5">
-                <Text size="caption" mono className="min-w-0 flex-1 break-all">Only when {conditionLabel(way.when)}</Text>
-                <Button size="sm" variant="ghost" onClick={() => set({ when: undefined })}>Always try it</Button>
-            </div>}
+            {way.when
+                ? <div className="flex flex-col gap-1.5" data-testid="pro-way-when">
+                    <div className="flex items-center gap-1.5">
+                        <Text size="caption" weight="semibold" tone="muted" className="flex-1">Only tried when…</Text>
+                        <Button size="sm" variant="ghost" onClick={() => set({ when: undefined })}>Always try it</Button>
+                    </div>
+                    <ConditionEditor value={way.when} where="This way" onChange={when => set({ when })} />
+                </div>
+                : <div><Button size="sm" variant="ghost" icon={<Plus />} onClick={() => set({ when: newLeaf() })}>Only try it when…</Button></div>}
             <Cleanup ops={way.ops ?? []} onChange={ops => set({ ops })} title="This way's cleanup, before the field's" empty="None." />
         </div>
     );
@@ -139,49 +148,61 @@ const patchPairs = (pairs: { key?: string; value?: string } | undefined, key: 'k
     return next;
 };
 
-const STATUS_LABELS: Record<RuleStatus, string> = { not_found: 'Not found', unavailable: 'Unavailable', blocked: 'Blocked', error: 'Error page' };
+const STATUS_LABELS = RULE_STATUS_LABELS;
 const STATUSES = (Object.keys(STATUS_LABELS) as RuleStatus[]).map(value => ({ value, label: STATUS_LABELS[value] }));
-const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-/** Page rules: checked in order before any field; the first that holds says what the page is. */
+/**
+ * Page rules: checked in order before any field; the first that holds says what the page is (a 404, out of stock, a
+ * captcha) and nothing is read. Each has a name, a status and a condition (`ConditionEditor`): tests on the visible
+ * text, elements, the URL, the title or the HTML, grouped as all / any / none of them.
+ */
 function PageRules({ rules, onChange }: { rules: PageRule[]; onChange: (rules: PageRule[]) => void }) {
-    const [name, setName] = useState('');
-    const [status, setStatus] = useState<RuleStatus>('not_found');
-    const [by, setBy] = useState<'css' | 'text'>('text');
-    const [what, setWhat] = useState('');
+    const [open, setOpen] = useState<number | null>(null);
+    const set = (i: number, r: PageRule) => onChange(rules.map((x, j) => j === i ? r : x));
+    const move = (i: number, d: number) => {
+        const next = [...rules];
+        [next[i], next[i + d]] = [next[i + d], next[i]];
+        onChange(next);
+        setOpen(o => o === i ? i + d : o === i + d ? i : o);
+    };
     const add = () => {
-        const when: PageRule['when'] = by === 'css'
-            ? { kind: 'css', selector: what.trim(), op: 'gt', value: 0 }
-            : { kind: 'regex', pattern: escapeRegex(what.trim()), flags: 'i', op: 'gt', value: 0 };
-        onChange([...rules, { name: name.trim(), status, when }]);
-        setName(''); setWhat('');
+        let n = rules.length + 1;
+        while (rules.some(r => r.name === `Rule ${n}`)) n++;
+        onChange([...rules, { name: `Rule ${n}`, status: 'not_found', when: newLeaf() }]);
+        setOpen(rules.length);
     };
     return (
         <div className="flex flex-col gap-2 pt-2" data-testid="pro-page-rules">
-            <Text size="caption" tone="faint">Checked before any field is read: the first that holds marks the page and nothing is read.</Text>
+            <Text size="caption" tone="faint">Checked in order before any field is read: the first that holds marks the page and nothing is read.</Text>
             {rules.map((r, i) => (
-                <div key={i} className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5">
-                        <Text size="small" weight="semibold" className="min-w-0 flex-1 truncate">{r.name}</Text>
-                        <Select<RuleStatus> size="sm" aria-label={`Status of ${r.name}`} value={r.status} options={STATUSES}
-                            onChange={s => onChange(rules.map((x, j) => j === i ? { ...x, status: s } : x))} />
-                        <IconButton size="sm" label={`Remove rule ${r.name}`} onClick={() => onChange(rules.filter((_, j) => j !== i))}><Trash2 /></IconButton>
+                <div key={i} className="flex flex-col gap-1.5 rounded-xl border border-line p-2" data-testid="pro-page-rule">
+                    <div className="flex items-end gap-1.5">
+                        <TextField size="sm" className="min-w-0 flex-1" aria-label={`Name of rule ${i + 1}`} value={r.name}
+                            onChange={e => set(i, { ...r, name: e.target.value })} />
+                        <Select<RuleStatus> size="sm" aria-label={`Status of ${r.name || `rule ${i + 1}`}`} value={r.status} options={STATUSES}
+                            onChange={st => set(i, { ...r, status: st })} />
                     </div>
-                    <Text size="caption" mono tone="muted" className="break-all" lines={3}>{conditionLabel(r.when)}</Text>
+                    {neverHolds(r.when) && (
+                        <div><Chip tone="danger" title="Its condition can never hold: a part could not be carried over, or was left empty.">never holds</Chip></div>
+                    )}
+                    <div className="flex items-center gap-1">
+                        {open === i ? <span className="flex-1" /> : (
+                            <Text size="caption" tone="muted" className="min-w-0 flex-1 break-words" lines={2} data-testid="pro-rule-sentence">
+                                When {describe(r.when)}
+                            </Text>
+                        )}
+                        <IconButton size="sm" label={`Check ${r.name || `rule ${i + 1}`} earlier`} onClick={() => move(i, -1)} disabled={i === 0}><ArrowUp /></IconButton>
+                        <IconButton size="sm" label={`Check ${r.name || `rule ${i + 1}`} later`} onClick={() => move(i, 1)} disabled={i === rules.length - 1}><ArrowDown /></IconButton>
+                        <IconButton size="sm" label={`Remove rule ${r.name || i + 1}`} onClick={() => { onChange(rules.filter((_, j) => j !== i)); setOpen(null); }}><Trash2 /></IconButton>
+                    </div>
+                    {open === i
+                        ? <>
+                            <ConditionEditor value={r.when} where={`Rule "${r.name}"`} onChange={when => set(i, { ...r, when })} />
+                            <div><Button size="sm" variant="ghost" onClick={() => setOpen(null)}>Done</Button></div>
+                        </>
+                        : <div><Button size="sm" variant="ghost" icon={<SlidersHorizontal />} onClick={() => setOpen(i)}>Edit condition</Button></div>}
                 </div>
             ))}
-            <form className="flex flex-col gap-1.5" onSubmit={e => { e.preventDefault(); add(); }}>
-                <div className="flex items-end gap-1.5">
-                    <TextField size="sm" className="flex-1" label="New rule" placeholder="Name (404, captcha…)" value={name} onChange={e => setName(e.target.value)} />
-                    <Select<RuleStatus> size="sm" aria-label="Status of the new rule" value={status} options={STATUSES} onChange={setStatus} />
-                </div>
-                <div className="flex items-end gap-1.5">
-                    <Select<'css' | 'text'> size="sm" aria-label="Holds when" value={by} onChange={setBy}
-                        options={[{ value: 'text', label: 'The page has the text' }, { value: 'css', label: 'Something matches' }]} />
-                    <TextField size="sm" className="flex-1" aria-label="Text or selector" placeholder={by === 'css' ? '#captcha' : 'Page not found'} value={what} onChange={e => setWhat(e.target.value)} />
-                    <Button size="sm" variant="ghost" type="submit" disabled={!name.trim() || !what.trim()}>Add</Button>
-                </div>
-            </form>
+            <div><Button size="sm" variant="secondary" icon={<Plus />} onClick={add}>Add a rule</Button></div>
         </div>
     );
 }
@@ -217,6 +238,8 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     const [output, setOutput] = useState<OutputSpec>({});
     const [note, setNote] = useState('');
     const [saving, setSaving] = useState(false);
+    /** A list recipe: its rows are picked again in the List Extractor; here, its page rules. */
+    const [listSpec, setListSpec] = useState<ListRecipeSpec | null>(null);
     const [error, setError] = useState<string | null>(null);
     const page = usePageTab();
     const [test, setTest] = useState<{ result: PageResult; spec: string } | null>(null);
@@ -236,6 +259,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
             setRecipe(r ?? null);
             setBase(v ?? null);
             if (v?.spec.kind === 'page') setSpec(v.spec);
+            if (v?.spec.kind === 'list') setListSpec(v.spec);
             if (v) setOutput(v.output);
             if (r) setSamples(await pro.samples.list(r.id));
             if (r) {
@@ -279,6 +303,12 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         await pro.samples.add(recipe.id, [url]);
         setSamples(await pro.samples.list(recipe.id));
     };
+    /** The page rule a sample should hit, or none: a page to read. */
+    const expectSample = async (url: string, rule: string | undefined) => {
+        if (!recipe) return;
+        await pro.samples.expectRule(recipe.id, url, rule);
+        setSamples(await pro.samples.list(recipe.id));
+    };
     const removeSample = async (url: string) => {
         if (!recipe) return;
         await pro.samples.remove(recipe.id, url);
@@ -292,10 +322,10 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         const results = await testOnPages(samples.slice(0, TEST_PAGES).map(x => x.url), tested, base.settings, setProgress, undefined, context);
         setProgress(null);
         setPagesTest({ results, spec: JSON.stringify(tested) });
-        await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(tested), kind: 'pages', results, passed: passed(results), at: Date.now() });
+        await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(tested), kind: 'pages', results, passed: passed(results, samples), at: Date.now() });
     };
     const pagesStale = !!pagesTest && pagesTest.spec !== JSON.stringify(spec);
-    const ready = pagesTest && !pagesStale && spec ? readiness(pagesTest.results, { spec, output }) : null;
+    const ready = pagesTest && !pagesStale && spec ? readiness(pagesTest.results, { spec, output }, samples) : null;
 
     const results = new Map((test?.result.fields ?? []).map(f => [f.fieldId, f]));
     const stale = !!test && test.spec !== JSON.stringify(spec);
@@ -320,9 +350,36 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     );
     if (!recipe || !base) return <div className="flex h-full flex-col">{header}</div>;
     if (!spec) {
+        if (!listSpec) return <div className="flex h-full flex-col">{header}</div>;
+        const listChanges = diffVersions(base, { ...base, spec: listSpec, version: base.version + 1 }).changes;
+        const listBlockers = edits.listProblems(listSpec);
+        const saveList = async () => {
+            setSaving(true);
+            setError(null);
+            try {
+                await saveSpecVersion(recipe, base, listSpec, output, note, 'edited');
+                onNavigate('pro-history');
+            } catch (e) {
+                setError(e instanceof Error ? e.message : String(e));
+            } finally {
+                setSaving(false);
+            }
+        };
         return (
             <div className="flex h-full flex-col">{header}
-                <div className="p-4"><Notice tone="info" action={<Button size="sm" onClick={repick}>Re-pick on page</Button>}>A list recipe's fields are edited by picking the list again.</Notice></div>
+                <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-4">
+                    <Notice tone="info" action={<Button size="sm" onClick={repick}>Re-pick on page</Button>}>A list recipe's rows are edited by picking the list again. Its page rules are here.</Notice>
+                    <Disclosure icon={<ShieldAlert />} defaultOpen summary={`Page rules (${listSpec.rules?.length ?? 0})`}>
+                        <PageRules rules={listSpec.rules ?? []} onChange={rules => setListSpec(edits.setListRules(listSpec, rules))} />
+                    </Disclosure>
+                </div>
+                <div className="flex flex-col gap-2 border-t border-line bg-bg p-4">
+                    {listBlockers.length > 0 && <Notice tone="warning">{listBlockers.join(' ')}</Notice>}
+                    {error && <Notice tone="danger">{error}</Notice>}
+                    <Text size="caption" tone="muted" data-testid="pro-editor-changes">{listChanges.length === 0 ? 'No changes yet.' : `${listChanges.length} change${listChanges.length === 1 ? '' : 's'}: ${listChanges.map(c => c.subject).join(', ')}`}</Text>
+                    <TextArea label="What changed" rows={2} value={note} onChange={e => setNote(e.target.value)} />
+                    <Button variant="primary" icon={<Save />} loading={saving} disabled={listChanges.length === 0 || listBlockers.length > 0} onClick={saveList}>Save version {base.version + 1}</Button>
+                </div>
             </div>
         );
     }
@@ -330,7 +387,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     const fieldCard = (field: Field, i: number) => (
         <div key={field.id} data-testid="pro-field"><Disclosure defaultOpen={repairing.has(field.name)} className={repairing.has(field.name) ? 'border-danger!' : undefined}
             summary={<span className="flex min-w-0 items-center gap-1.5"><span className="truncate font-semibold">{field.name || 'unnamed'}</span><Chip>{field.type}</Chip>{field.required && <Chip tone="warning">required</Chip>}<ResultChip result={results.get(field.id)} /></span>}
-            meta={<Text size="caption" tone="faint">{field.ways.length} way{field.ways.length === 1 ? '' : 's'}{field.ops.length ? ` · ${field.ops.length} cleanup` : ''}</Text>}>
+            meta={<Text size="caption" tone="faint">{field.ways.length} way{field.ways.length === 1 ? '' : 's'}{field.ops.length ? ` · ${field.ops.length} cleanup` : ''}{field.checks?.length ? ` · ${field.checks.length} check${field.checks.length === 1 ? '' : 's'}` : ''}</Text>}>
             <div className="flex flex-col gap-3 pt-2">
                 {results.get(field.id) && (
                     <div className="flex flex-col gap-0.5 rounded-xl bg-ink/4 px-2.5 py-2" data-testid="pro-field-result">
@@ -349,6 +406,13 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     <IconButton size="sm" label="Move down" onClick={() => setSpec(edits.moveStep(spec, i, 1))} disabled={i === spec.steps.length - 1}><ArrowDown /></IconButton>
                     <IconButton size="sm" label={`Remove field ${field.name}`} onClick={() => setSpec(edits.removeStep(spec, i))}><Trash2 /></IconButton>
                 </div>
+                <div data-testid="pro-field-checks"><Disclosure variant="plain" defaultOpen={!!field.checks?.length && repairing.has(field.name)}
+                    summary={`Value checks · ${field.checks?.length ?? 0}`}>
+                    <div className="pt-2">
+                        <ValueChecks checks={field.checks ?? []} onChange={checks => setSpec(edits.setChecks(spec, field.id, checks))}
+                            others={spec.steps.flatMap(st => st.kind === 'field' && st.field.id !== field.id && st.field.name.trim() ? [st.field.name] : [])} />
+                    </div>
+                </Disclosure></div>
                 {/* What most edits don't need, folded: how it is found, and its cleanup. */}
                 <div data-testid="pro-field-advanced"><Disclosure variant="plain" defaultOpen={repairing.has(field.name)}
                     summary={`Ways and cleanup · ${field.ways.length} way${field.ways.length === 1 ? '' : 's'}${field.ops.length ? `, ${field.ops.length} cleanup step${field.ops.length === 1 ? '' : 's'}` : ''}`}>
@@ -388,6 +452,12 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     : test.result.rule
                     ? <div data-testid="pro-test-summary"><Notice tone="warning" title={`Page rule "${test.result.rule.name}" holds: ${STATUS_LABELS[test.result.rule.status]}`}>
                         No field was read. {stale ? 'You changed the recipe since this test.' : ''}
+                        {samples.find(x => x.url === test.result.url)?.expectRule !== test.result.rule.name && (
+                            <div className="pt-1.5"><Button size="sm" variant="secondary" onClick={() => void (async () => {
+                                if (!samples.some(x => x.url === test.result.url)) await addSample(test.result.url);
+                                await expectSample(test.result.url, test.result.rule!.name);
+                            })()}>Keep as a sample that should hit "{test.result.rule.name}"</Button></div>
+                        )}
                     </Notice></div>
                     : <div data-testid="pro-test-summary"><Notice tone={passed([test.result]) && !test.result.mismatch ? 'success' : 'warning'}
                         title={`On ${new URL(test.result.url).host}: ${summarize(test.result).filled} of ${summarize(test.result).total} fields found`}>
@@ -411,11 +481,19 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     meta={ready && <Chip tone={ready.ready ? 'success' : 'warning'}>{ready.ready ? 'ready' : 'not ready'}</Chip>}>
                     <div className="flex flex-col gap-2 pt-2">
                         {samples.map((x, i) => (
-                            <div key={x.url} className="flex items-center gap-1.5">
+                            <div key={x.url} className="flex items-center gap-1.5" data-testid="pro-sample">
                                 <Text size="caption" mono className="min-w-0 flex-1 truncate" title={x.url}>{i + 1}. {shortUrl(x.url)}</Text>
+                                {(spec.rules?.length || x.expectRule) ? (
+                                    <Select<string> size="sm" aria-label={`Sample ${i + 1} should be`} value={x.expectRule ?? ''}
+                                        options={[{ value: '', label: 'A page to read' },
+                                            ...(spec.rules ?? []).map(r => ({ value: r.name, label: `Hits "${r.name}"` })),
+                                            ...(x.expectRule && !spec.rules?.some(r => r.name === x.expectRule) ? [{ value: x.expectRule, label: `Hits "${x.expectRule}" (gone)` }] : [])]}
+                                        onChange={rule => void expectSample(x.url, rule || undefined)} />
+                                ) : null}
                                 <IconButton size="sm" label={`Remove sample ${i + 1}`} onClick={() => removeSample(x.url)}><X /></IconButton>
                             </div>
                         ))}
+                        {spec.rules?.length ? <Text size="caption" tone="faint">An error page kept to test a page rule passes when that rule holds; it needs 3 other pages to read.</Text> : null}
                         <div className="flex flex-wrap gap-1.5">
                             <Button size="sm" variant="ghost" icon={<Plus />} onClick={() => addSample(page.url)}
                                 disabled={!page.web || samples.some(x => x.url === page.url)}>Add this page</Button>
@@ -426,7 +504,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                         </div>
                         {progress && <Text size="caption" tone="muted">Testing page {progress.done + 1} of {progress.total}…</Text>}
                         {pagesStale && <Text size="caption" tone="warning">You changed the recipe since this test.</Text>}
-                        {pagesTest && <TestGrid results={pagesTest.results}
+                        {pagesTest && <TestGrid results={pagesTest.results} expect={expectations(samples)}
                             fields={spec.steps.flatMap(st => st.kind === 'field' ? [{ id: st.field.id, name: st.field.name }] : [])} />}
                         {ready && (ready.ready
                             ? <Text size="caption" tone="success" data-testid="pro-readiness">Ready to submit{changes.length ? ' once saved' : ''}.</Text>

@@ -1,9 +1,11 @@
 /**
  * One field's value on one page, as the backend will see it: the raw value read, its cleanup steps run,
- * then checked against the field's type and whether it is required (`docs/design/LLD.md` §7.3).
+ * then checked against the field's type, whether it is required (`docs/design/LLD.md` §7.3), and its value
+ * checks (`recipe/valueChecks.ts`; a comparison with another field waits for the page, `readPage.ts`).
  */
 import { parseAs, type FieldType as ChainType } from '../../shared/transforms/chain';
 import { applyProOps } from '../recipe/ops';
+import { failsCheck } from '../recipe/valueChecks';
 import type { Field } from '../recipe/types';
 
 export interface FieldCheck {
@@ -38,7 +40,14 @@ export function checkField(field: Field, raw: unknown, baseUrl?: string): FieldC
     if (isEmpty(cleaned)) {
         return { value: null, cleaned: null, filled: false, ok: !field.required, ...(field.required ? { problem: 'required, but empty' } : {}) };
     }
-    return { cleaned, ...typed(field, cleaned, baseUrl) };
+    const result = typed(field, cleaned, baseUrl);
+    if (result.ok) {
+        for (const c of field.checks ?? []) {
+            const problem = failsCheck(c, result.value, cleaned);
+            if (problem) return { cleaned, ...result, ok: false, problem };
+        }
+    }
+    return { cleaned, ...result };
 }
 
 function typed(field: Field, cleaned: unknown, baseUrl?: string): Omit<FieldCheck, 'cleaned'> {

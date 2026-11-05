@@ -11,6 +11,7 @@
  * Nothing here talks to the extension: it is plain DOM code.
  */
 import { extractPage } from '../../content/services/page/extractPage';
+import { firstRule, PageProbe } from '../../content/services/page/ways';
 import { readBinding } from '../../content/services/page/dataBinding';
 import type { ElementDefinition, ExtractionConfig } from '../../content/services/page/types';
 import { readWhenReady, type ReaderColumn } from '../../content/services/extraction/fields';
@@ -102,6 +103,8 @@ export interface ListPageRequest {
     /** The Next / Load more control, when the list has one. */
     next?: Chain;
     settleMs: number;
+    /** The recipe's page rules: the first that holds says what the page is, and no row is read. */
+    pageRules?: PageRule[];
 }
 
 export interface ListPageResult {
@@ -111,6 +114,8 @@ export interface ListPageResult {
     nextHref?: string;
     /** A Next control that can be clicked (present and not disabled). */
     hasNext: boolean;
+    /** A page rule held: nothing was read. */
+    rule?: Pick<PageRule, 'name' | 'status'>;
 }
 
 const wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
@@ -119,7 +124,9 @@ function disabled(el: Element): boolean {
     return el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true' || /\bdisabled\b/i.test(el.getAttribute('class') ?? '');
 }
 
-export async function readLists({ lists, next, settleMs }: ListPageRequest): Promise<ListPageResult> {
+export async function readLists({ lists, next, settleMs, pageRules }: ListPageRequest): Promise<ListPageResult> {
+    const rule = pageRules?.length ? firstRule(pageRules, new PageProbe()) : null;
+    if (rule) return { lists: lists.map(l => ({ id: l.id, rows: [] })), hasNext: false, rule };
     const out: ListPageResult['lists'] = [];
     for (const list of lists) {
         const container = resolveContainer(list.container, list.items).result;

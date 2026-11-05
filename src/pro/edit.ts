@@ -9,7 +9,7 @@ import type { ListPick, PaginationMode } from '../shared/types/extraction';
 import { pro } from './db';
 import { carryOver, fromListSpec, fromPageSpec, toListSpec, toPageSpec } from './recipe/fromPublic';
 import type { FieldType, PageRecipeSpec, PageSource, ProRecipe, RecipeKind, RunSettings, Version, VersionDraft } from './recipe/types';
-import { keepFromBase } from './recipe/repick';
+import { keepFromBase, keepListExtras } from './recipe/repick';
 import { currentUser } from './identity';
 
 /** A recipe being built (no version yet) or edited (from `version`). */
@@ -125,7 +125,9 @@ export function savePageVersion(edit: ProEdit, input: { name: string; elements: 
 
 export function saveListVersion(edit: ProEdit, input: { name: string; picks: ListPick[]; mode: PaginationMode; next: string[]; url?: string; note: string }) {
     const speed = edit.version?.settings.paginationSpeed as 'fast' | 'normal' | 'slow' | undefined;
-    const { spec, settings } = fromListSpec(listSpec(input.picks, { mode: input.mode, next: input.next, ...(speed ? { speed } : {}) }));
+    const picked = fromListSpec(listSpec(input.picks, { mode: input.mode, next: input.next, ...(speed ? { speed } : {}) }));
+    const settings = picked.settings;
+    const spec = keepListExtras(picked.spec, edit.version?.spec.kind === 'list' ? edit.version.spec : undefined);
     const pages: PageSource = input.url ? { kind: 'start', url: input.url } : { kind: 'urls', urls: [] };
     const draft: VersionDraft = { spec, settings: { ...edit.version?.settings, ...settings }, pages, output: edit.version?.output ?? {} };
     return saveDraft(edit, input.name, draft, input.note);

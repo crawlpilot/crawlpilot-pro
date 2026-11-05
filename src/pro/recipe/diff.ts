@@ -4,7 +4,10 @@
  * and pages, and whether the output consumers see changed.
  */
 import { canonicalString } from './canonical';
-import type { Click, Field, ListRecipeSpec, PageRecipeSpec, PageSource, SessionSetup, Version, Way } from './types';
+import type { Click, Field, ListRecipeSpec, PageRecipeSpec, PageSource, SessionSetup, Version, Way, ValueCheck } from './types';
+import type { PageRule } from '../../shared/types/ways';
+import { describe } from './conditions';
+import { describeCheck } from './valueChecks';
 import { describeAction } from './actions';
 import type { Column, ListTarget } from '../../shared/types/database';
 import type { Condition } from '../../shared/types/ways';
@@ -33,6 +36,27 @@ const waysJson = (v: unknown) => canonicalString(v ?? null);
 /** A click or action step by what it does and to what, not by its id or name. */
 const clickJson = ({ id: _id, name: _name, ...rest }: Click) => canonicalString(rest);
 
+/** Page rules, by name: added, removed, their status or condition changed, and their order. */
+function rulesChanges(a: PageRule[] = [], b: PageRule[] = [], prefix = ''): Change[] {
+    const out: Change[] = [];
+    const before = new Map(a.map(r => [r.name, r]));
+    const after = new Map(b.map(r => [r.name, r]));
+    for (const r of b) {
+        const was = before.get(r.name);
+        if (!was) { out.push({ kind: 'added', subject: `${prefix}page rule ${r.name}`, details: [`${r.status}: when ${describe(r.when)}`] }); continue; }
+        const details = [
+            ...(was.status !== r.status ? [`status ${was.status} → ${r.status}`] : []),
+            ...(json(was.when) !== json(r.when) ? [`when ${describe(r.when)}`] : []),
+        ];
+        if (details.length) out.push({ kind: 'changed', subject: `${prefix}page rule ${r.name}`, details });
+    }
+    for (const r of a) if (!after.has(r.name)) out.push({ kind: 'removed', subject: `${prefix}page rule ${r.name}`, details: [] });
+    const kept = a.map(r => r.name).filter(n => after.has(n));
+    const order = b.map(r => r.name).filter(n => before.has(n));
+    if (json(kept) !== json(order)) out.push({ kind: 'moved', subject: `${prefix}page rules`, details: [`order: ${order.join(', ')}`] });
+    return out;
+}
+
 /** The session setup: its steps in order, by what they do, and its check. */
 function setupChanges(a: SessionSetup | undefined, b: SessionSetup | undefined): Change[] {
     if (!a && !b) return [];
@@ -55,13 +79,14 @@ export function wayLabel(w: Way): string {
     return `${b.kind === 'ld' ? `JSON-LD${b.type ? ` ${b.type}` : ''}` : b.label}${path ? ` · ${path}` : ''}`;
 }
 
-const OP_SIGN = { eq: '=', gt: '>', lt: '<' } as const;
+const OP_SIGN = { eq: '=', gt: '>', lt: '<', gte: '≥', lte: '≤', ne: '≠' } as const;
+const IN_LABEL = { html: '', text: 'text ', url: 'url ', title: 'title ' } as const;
 
-/** A condition in one line: `#captcha > 0`, `/Sold out/ = 0`, joined with AND / OR. */
+/** A condition in one line: `#captcha > 0`, `text /Sold out/i = 0`, joined with AND / OR; NOR as `NOT (… OR …)`. */
 export function conditionLabel(c: Condition): string {
     switch (c.kind) {
         case 'css': return `${c.selector} ${OP_SIGN[c.op]} ${c.value}`;
-        case 'regex': return `/${c.pattern}/${c.flags ?? ''} ${OP_SIGN[c.op]} ${c.value}`;
+        case 'regex': return `${IN_LABEL[c.in ?? 'html']}/${c.pattern}/${c.flags ?? ''} ${OP_SIGN[c.op]} ${c.value}`;
         case 'not': return `NOT (${conditionLabel(c.of)})`;
         default: {
             if (!c.of.length) return c.kind === 'all' ? 'always' : 'never';
@@ -117,7 +142,14 @@ function fieldDetails(x: Field, y: Field): string[] {
         ...waysDetails(x.ways, y.ways),
         ...(json(x.ops) !== json(y.ops) ? [`cleanup ${x.ops.map(o => o.op).join(', ') || 'none'} → ${y.ops.map(o => o.op).join(', ') || 'none'}`] : []),
         ...(json(x.columns) !== json(y.columns) ? ['its columns changed'] : []),
+        ...checksDetails(x.checks ?? [], y.checks ?? []),
     ];
+}
+
+/** Value checks added and removed, by what they say. */
+function checksDetails(a: ValueCheck[], b: ValueCheck[]): string[] {
+    const as = a.map(describeCheck), bs = b.map(describeCheck);
+    return [...bs.filter(c => !as.includes(c)).map(c => `check added: ${c}`), ...as.filter(c => !bs.includes(c)).map(c => `check removed: ${c}`)];
 }
 
 function pageChanges(a: PageRecipeSpec, b: PageRecipeSpec, prefix = ''): Change[] {
@@ -145,15 +177,7 @@ function pageChanges(a: PageRecipeSpec, b: PageRecipeSpec, prefix = ''): Change[
     const common = (x: string[], y: string[]) => x.filter(k => y.includes(k));
     if (json(common(oa, ob)) !== json(common(ob, oa))) changes.push({ kind: 'moved', subject: `${prefix}steps`, details: ['the run order changed'] });
 
-    const rulesA = (a.rules ?? []).map(r => json(r)), rulesB = (b.rules ?? []).map(r => json(r));
-    if (json(rulesA) !== json(rulesB)) {
-        const names = (rules: typeof a.rules, other: string[]) => (rules ?? []).filter(r => !other.includes(json(r))).map(r => r.name);
-        const added = names(b.rules, rulesA), removed = names(a.rules, rulesB);
-        changes.push({ kind: 'changed', subject: `${prefix}page rules`, details: [
-            ...added.map(n => `rule added or changed: ${n}`), ...removed.map(n => `rule removed or changed: ${n}`),
-            ...(added.length + removed.length === 0 ? ['rules reordered'] : []),
-        ] });
-    }
+    changes.push(...rulesChanges(a.rules, b.rules, prefix));
     if (json(a.identity) !== json(b.identity)) {
         const say = (s: PageRecipeSpec) => s.identity ? `${s.identity.field} (${s.identity.url.length} URL pattern${s.identity.url.length === 1 ? '' : 's'})` : 'none';
         const from = say(a), to = say(b);
@@ -227,7 +251,7 @@ export function diffVersions(a: Version, b: Version): VersionDiff {
     const spec: Change[] = a.spec.kind !== b.spec.kind ? [{ kind: 'changed', subject: 'kind', details: [`${a.spec.kind} → ${b.spec.kind}`] }]
         : a.spec.kind === 'page' ? pageChanges(a.spec, b.spec as PageRecipeSpec)
         : listChanges(a.spec, b.spec as ListRecipeSpec);
-    spec.unshift(...setupChanges(a.spec.setup, b.spec.setup));
+    spec.unshift(...setupChanges(a.spec.setup, b.spec.setup), ...(a.spec.kind === 'list' && b.spec.kind === 'list' ? rulesChanges(a.spec.rules, b.spec.rules) : []));
     return {
         from: a.version,
         to: b.version,

@@ -8,7 +8,7 @@
  * The picked selectors and page data replace the base's. Fields and steps new in this pick come as picked; fields
  * the pick dropped are gone.
  */
-import type { PageRecipeSpec, Step } from './types';
+import type { ListRecipeSpec, PageRecipeSpec, Step } from './types';
 
 export function keepFromBase(picked: PageRecipeSpec, base: PageRecipeSpec | undefined): PageRecipeSpec {
     if (!base) return picked;
@@ -26,4 +26,19 @@ export function keepFromBase(picked: PageRecipeSpec, base: PageRecipeSpec | unde
         return was ? { kind: 'click', click: { ...was, name: s.click.name, ways: s.click.ways } } : s;
     });
     return { ...picked, steps, ...(base.setup ? { setup: base.setup } : {}) };
+}
+
+/**
+ * A list recipe picked again in the List Extractor, saved over the version it was opened from: the extractor holds
+ * the lists and pagination; the page rules, the session setup and the details page (when the pick has none) are
+ * kept from the base version.
+ */
+export function keepListExtras(picked: ListRecipeSpec, base: ListRecipeSpec | undefined): ListRecipeSpec {
+    if (!base) return picked;
+    return {
+        ...picked,
+        ...(base.rules ? { rules: base.rules } : {}),
+        ...(base.setup ? { setup: base.setup } : {}),
+        ...(!picked.details && base.details ? { details: base.details } : {}),
+    };
 }

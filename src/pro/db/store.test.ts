@@ -124,6 +124,19 @@ describe('reviews', () => {
     });
 });
 
+describe('samples', () => {
+    it('keep the page rule they should hit, set and cleared', async () => {
+        const recipe = await pro.recipes.create({ name: 'ZARA', site: 'zara.com', kind: 'page' });
+        await pro.samples.add(recipe.id, ['https://z.test/a', 'https://z.test/404'], { 'https://z.test/404': '404' });
+        expect((await pro.samples.list(recipe.id)).map(s => s.expectRule)).toEqual([undefined, '404']);
+        await pro.samples.expectRule(recipe.id, 'https://z.test/a', 'captcha');
+        await pro.samples.expectRule(recipe.id, 'https://z.test/404', undefined);
+        const [a, b] = await pro.samples.list(recipe.id);
+        expect([a.expectRule, b.expectRule]).toEqual(['captcha', undefined]);
+        expect(b).not.toHaveProperty('expectRule');
+    });
+});
+
 describe('import', () => {
     it('brings in both samples as version 1 with their sample pages', async () => {
         for (const file of [uniqlo, zara]) {

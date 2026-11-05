@@ -40,6 +40,8 @@ export interface ImportedRecipe {
     targeting: Targeting;
     versions: (VersionDraft & { note: string; digest?: string })[];
     samples: string[];
+    /** The page rule a sample should hit, by URL (format 3). */
+    sampleRules?: Record<string, string>;
     /** An Atlas export's parts that could not be carried over (also in the version's note). */
     notes?: string[];
 }
@@ -99,7 +101,13 @@ function readVersioned(json: Json): ImportedRecipe {
     const samples = Array.isArray(json.samples)
         ? json.samples.flatMap(s => isObject(s) && typeof s.url === 'string' ? [s.url] : [])
         : [];
-    return { name: text(recipe, 'name', '$.recipe'), site: text(recipe, 'site', '$.recipe'), kind, targeting: readTargeting(recipe), versions, samples };
+    const sampleRules = Object.fromEntries(Array.isArray(json.samples)
+        ? json.samples.flatMap(s => isObject(s) && typeof s.url === 'string' && typeof s.expectRule === 'string' && s.expectRule ? [[s.url, s.expectRule]] : [])
+        : []);
+    return {
+        name: text(recipe, 'name', '$.recipe'), site: text(recipe, 'site', '$.recipe'), kind, targeting: readTargeting(recipe), versions, samples,
+        ...(Object.keys(sampleRules).length ? { sampleRules } : {}),
+    };
 }
 
 function readTargeting(recipe: Json): Targeting {
@@ -133,7 +141,7 @@ export function writeRecipeFile(recipe: ProRecipe, versions: Version[], samples:
             ...(recipe.matchRules ? { matchRules: recipe.matchRules } : {}),
         },
         labels,
-        samples: samples.map(s => ({ url: s.url, ...(s.canary ? { canary: true } : {}) })),
+        samples: samples.map(s => ({ url: s.url, ...(s.canary ? { canary: true } : {}), ...(s.expectRule ? { expectRule: s.expectRule } : {}) })),
         versions: [...versions].sort((a, b) => a.version - b.version).map(({ recipeId: _, ...v }) => ({
             ...v, createdAt: new Date(v.createdAt).toISOString(),
             ...(v.submittedAt ? { submittedAt: new Date(v.submittedAt).toISOString() } : {}),

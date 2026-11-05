@@ -69,7 +69,7 @@ describe('diffVersions, page recipes', () => {
         const rule = { name: '404', status: 'not_found' as const, when: { kind: 'css' as const, selector: '.gone', op: 'gt' as const, value: 0 } };
         const b: PageRecipeSpec = { ...structuredClone(base), rules: [rule], identity: { field: 'title', url: ['\\d+'] } };
         const d = diffVersions(await version(1, base), await version(2, b));
-        expect(d.changes).toContainEqual({ kind: 'changed', subject: 'page rules', details: ['rule added or changed: 404'] });
+        expect(d.changes).toContainEqual({ kind: 'added', subject: 'page rule 404', details: ['not_found: when ".gone" is on the page'] });
         expect(d.changes).toContainEqual({ kind: 'changed', subject: 'identity check', details: ['none → title (1 URL pattern)'] });
         const c = { ...b, identity: { field: 'title', url: ['\\w+'] } };
         expect(diffVersions(await version(2, b), await version(3, c)).changes).toEqual([{ kind: 'changed', subject: 'identity check', details: ['its URL patterns changed'] }]);
@@ -112,5 +112,29 @@ describe('diff and way ids', () => {
         const spec = fromPageSpec(zara.spec as unknown as PageSpec).spec;
         const withIds = assignWayIds(spec, 1);
         expect(diffVersions(await version(1, withIds), await version(2, spec)).changes).toEqual([]);
+    });
+});
+
+describe('page rules and the identity check in a diff', () => {
+    const rule = (name: string, pattern: string, status: 'not_found' | 'blocked' = 'not_found') =>
+        ({ name, status, when: { kind: 'regex' as const, in: 'text' as const, pattern, flags: 'i', op: 'gt' as const, value: 0 } });
+    const page = (over: Partial<PageRecipeSpec>): PageRecipeSpec => ({ kind: 'page', steps: [], ...over });
+
+    it('names rules added, removed, changed and moved', async () => {
+        const a = await version(1, page({ rules: [rule('404', 'Not found'), rule('Captcha', 'robot')] }));
+        const b = await version(2, page({ rules: [rule('Captcha', 'robot', 'blocked'), rule('Gone', 'no longer')] }));
+        expect(diffVersions(a, b).changes).toEqual([
+            { kind: 'changed', subject: 'page rule Captcha', details: ['status not_found → blocked'] },
+            { kind: 'added', subject: 'page rule Gone', details: ['not_found: when the visible text has "no longer"'] },
+            { kind: 'removed', subject: 'page rule 404', details: [] },
+        ]);
+        const c = await version(3, page({ rules: [rule('Gone', 'no longer'), rule('Captcha', 'robot', 'blocked')] }));
+        expect(diffVersions(b, c).changes).toEqual([{ kind: 'moved', subject: 'page rules', details: ['order: Gone, Captcha'] }]);
+    });
+
+    it('names a list\'s rules too', async () => {
+        const list = { kind: 'list' as const, lists: [], pagination: { mode: 'auto' as const } };
+        const l1 = await version(1, list), l2 = await version(2, { ...list, rules: [rule('No results', 'No results')] });
+        expect(diffVersions(l1, l2).changes.map(c => c.subject)).toEqual(['page rule No results']);
     });
 });

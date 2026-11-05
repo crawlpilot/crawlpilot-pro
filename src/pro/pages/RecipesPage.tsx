@@ -35,7 +35,7 @@ const fileName = (r: ProRecipe) => `${r.name.replace(/[^\w.-]+/g, '-').replace(/
 
 export default function RecipesPage({ onNavigate }: Props) {
     const [recipes, setRecipes] = useState<ProRecipe[] | null>(null);
-    const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
+    const [message, setMessage] = useState<{ tone: 'success' | 'warning' | 'danger'; text: string; details?: string[] } | null>(null);
     const [choosing, setChoosing] = useState(false);
     const [backend, setBackend] = useState(false);
     const input = useRef<HTMLInputElement>(null);
@@ -53,13 +53,17 @@ export default function RecipesPage({ onNavigate }: Props) {
 
     const importTexts = async (texts: string[]) => {
         const done: string[] = [];
+        const details: string[] = [];
         try {
             for (const text of texts) {
                 const { recipe, added, notes } = await pro.importRecipeFile(text, await currentUser());
-                const left = notes.length ? ` (${notes.length} part${notes.length > 1 ? 's' : ''} not imported: see the version's note)` : '';
+                // What could not be carried over, conditions switched off first: they change what the recipe reads.
+                const never = notes.filter(n => /never holds/.test(n));
+                const left = notes.length ? ` (${notes.length} part${notes.length > 1 ? 's' : ''} not carried over${never.length ? `, ${never.length} condition${never.length > 1 ? 's' : ''} that never hold${never.length > 1 ? '' : 's'}` : ''})` : '';
                 done.push(added ? `${recipe.name}: ${added} version${added > 1 ? 's' : ''} added${left}` : `${recipe.name}: already up to date`);
+                if (added) details.push(...never, ...notes.filter(n => !never.includes(n)));
             }
-            setMessage({ tone: 'success', text: done.join(' · ') });
+            setMessage({ tone: details.length ? 'warning' : 'success', text: done.join(' · '), ...(details.length ? { details } : {}) });
         } catch (e) {
             setMessage({ tone: 'danger', text: e instanceof Error ? e.message : String(e) });
         }
@@ -107,7 +111,15 @@ export default function RecipesPage({ onNavigate }: Props) {
             <NewRecipeDialog open={choosing} onClose={() => setChoosing(false)} onStart={buildNew} />
             <input ref={input} type="file" accept=".json,application/json" multiple hidden data-testid="recipe-import" onChange={e => onFiles(e.target.files)} />
             <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto p-4">
-                {message && <Notice tone={message.tone} onClose={() => setMessage(null)}>{message.text}</Notice>}
+                {message && <div data-testid="pro-import-message"><Notice tone={message.tone} onClose={() => setMessage(null)}>
+                    {message.text}
+                    {message.details && (
+                        <ul className="mt-1 list-disc pl-4" data-testid="pro-import-notes">
+                            {message.details.slice(0, 8).map(d => <li key={d}>{d}</li>)}
+                            {message.details.length > 8 && <li>…and {message.details.length - 8} more, in the version's note.</li>}
+                        </ul>
+                    )}
+                </Notice></div>}
                 {recipes?.length === 0 && (
                     <EmptyState icon={<BookOpen />} title="No recipes yet"
                         action={<Button variant="primary" onClick={() => importTexts([JSON.stringify(uniqlo), JSON.stringify(zara)])}>Add the UNIQLO and ZARA samples</Button>}>

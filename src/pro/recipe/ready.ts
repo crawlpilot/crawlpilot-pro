@@ -4,6 +4,7 @@
  * output contract, if there is one, is met on those pages.
  * Each reason it is not ready is one line.
  */
+import { expectations, pageOutcome } from '../runner/outcome';
 import type { PageResult } from '../runner/testPage';
 import { checkAgainstContract, contractReasons } from './contract';
 import type { OutputSpec, ProSpec } from './types';
@@ -15,17 +16,31 @@ export interface Readiness {
     reasons: string[];
 }
 
-/** `results`: the newest multi-page test of the spec, if there is one. */
-export function readiness(results: PageResult[] | undefined, version?: { spec: ProSpec; output: OutputSpec }): Readiness {
+/**
+ * `results`: the newest multi-page test of the spec, if there is one. `samples`: what each sample expects; one kept
+ * to hit a page rule passes when that rule holds, and is not one of the pages read (it needs 3 others).
+ */
+export function readiness(results: PageResult[] | undefined, version?: { spec: ProSpec; output: OutputSpec }, samples?: { url: string; expectRule?: string }[]): Readiness {
     if (!results) return { ready: false, reasons: ['Not tested on sample pages yet.'] };
     const reasons: string[] = [];
+    const expect = expectations(samples);
+    const ruleNames = new Set(version?.spec.kind === 'page' ? (version.spec.rules ?? []).map(r => r.name) : []);
+    for (const name of new Set(expect.values())) {
+        if (version && !ruleNames.has(name)) reasons.push(`A sample should hit page rule "${name}", which the recipe no longer has.`);
+    }
+    const ruleSamples = results.filter(r => expect.has(r.url));
+    for (const r of ruleSamples) {
+        const o = pageOutcome(r, expect.get(r.url));
+        if (!o.ok && ruleNames.has(expect.get(r.url)!)) reasons.push(`${shortUrl(r.url)}: ${o.title}.`);
+    }
+    results = results.filter(r => !expect.has(r.url));
     const pages = results.length;
     if (pages < MIN_TEST_PAGES) reasons.push(`Tested on ${pages} page${pages === 1 ? '' : 's'}; it needs ${MIN_TEST_PAGES}.`);
     const unread = results.filter(r => r.error).length;
     if (unread) reasons.push(`${unread} page${unread === 1 ? '' : 's'} could not be read.`);
     const ruled = new Map<string, number>();
     for (const r of results) if (r.rule) ruled.set(r.rule.name, (ruled.get(r.rule.name) ?? 0) + 1);
-    for (const [name, n] of ruled) reasons.push(`Page rule "${name}" held on ${n} page${n === 1 ? '' : 's'}: not a page to read.`);
+    for (const [name, n] of ruled) reasons.push(`Page rule "${name}" held on ${n} page${n === 1 ? '' : 's'}: not a page to read. If ${n === 1 ? 'it is' : 'they are'} kept to test the rule, mark ${n === 1 ? 'it' : 'them'} so.`);
     const mismatched = results.filter(r => r.mismatch).length;
     if (mismatched) reasons.push(`${mismatched} page${mismatched === 1 ? ' is' : 's are'} another product than ${mismatched === 1 ? 'its' : 'their'} URL names.`);
     const problems = new Map<string, Map<string, number>>();
@@ -44,3 +59,5 @@ export function readiness(results: PageResult[] | undefined, version?: { spec: P
     }
     return { ready: reasons.length === 0, reasons };
 }
+
+const shortUrl = (url: string) => { try { const u = new URL(url); return u.host + u.pathname; } catch { return url; } };

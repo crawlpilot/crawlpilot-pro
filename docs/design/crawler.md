@@ -50,7 +50,8 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
 Out of attempts (`retry.maxAttempts`, counted over every delivery of the job), a retryable job is dead-lettered.
 
 **Recipe verdicts** (`recipeRun.ts`). A 2xx page can still be classed by its recipe (`LLD.md` §2.3): the first page rule
-that holds classes it before any field is read (`not_found` → `not_found`, `unavailable` → `unavailable`, `blocked` →
+that holds classes it before any field is read (or, for a list recipe, any row: an empty search, a captcha; a rule that
+holds on a later page of a list stops the paging and keeps the rows so far) (`not_found` → `not_found`, `unavailable` → `unavailable`, `blocked` →
 `blocked`, with the rule's name as the block signal, `error` → `server_error`), and a failed identity check classes it
 `mismatch`. Each then follows its row above. The scrape document carries the status and the rule or mismatch as its
 error message but no attributes, and no way usage is recorded for the page.

@@ -23,7 +23,7 @@ import { siteProfile, type CrawlerConfig } from './config';
 import { extract, readListPages, visit, type ListRead, type PageSource, type Visit } from './browser';
 import type { SiteGovernor } from './governor';
 import { ProxyPool, type ProxyConfig } from './proxies';
-import { followUps, inPageRequest, partOf, readListRows, readRun, type RunRead } from './recipeRun';
+import { followUps, inPageRequest, partOf, readListRows, readRun, ruleVerdict, type RunRead } from './recipeRun';
 import { decide } from './retry';
 import type { RobotsCache } from './robots';
 import type { PageBaselines } from './baseline';
@@ -301,9 +301,10 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
                                 read = readRun(part.page, v.finalUrl ?? job.url, { ...result, ways: [...setupWays, ...result.ways] }, recipe.spec.setup);
                             } else listRead = await readListPages(page, d.script, part.list, { maxPages: config.maxListPages, settleMs: config.settleMs, timeoutMs: LIST_TIMEOUT_MS });
                             // The recipe's page rules and identity check class the page: a block page is a block, a gone product is not found.
-                            if (read?.verdict) {
-                                c = classOf(read.verdict.errorClass, read.verdict.errorClass === 'blocked' ? { blockSignal: read.verdict.message } : {});
-                                errorMessage = read.verdict.message;
+                            const verdict = read?.verdict ?? (listRead?.rule ? ruleVerdict(listRead.rule) : undefined);
+                            if (verdict) {
+                                c = classOf(verdict.errorClass, verdict.errorClass === 'blocked' ? { blockSignal: verdict.message } : {});
+                                errorMessage = verdict.message;
                             }
                         } catch (e) {
                             errorMessage = e instanceof Error ? e.message : String(e);
@@ -409,7 +410,10 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
                 attributes: {}, fieldStatus: {}, ...(job.meta ? { meta: job.meta } : {}), ...(job.context ? { context: job.context } : {}),
                 ...(job.parent ? { parent: job.parent } : {}), ...extra,
             });
-            if (listRead && 'list' in part) {
+            if (listRead?.rule) {
+                // A list page a rule held on is written with its status only, as a page's is.
+                confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape({}), docId));
+            } else if (listRead && 'list' in part) {
                 for (const r of readListRows(part.list, listRead.lists).rows) {
                     confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape({ attributes: r.attributes, fieldStatus: r.fieldStatus, listId: r.listId, row: r.index, page: job.page ?? 1 }), `${docId}~${r.listId}~${r.index}`));
                 }

@@ -521,6 +521,7 @@ test('crawler worker: reads list recipes, follows Next links and details pages a
         if (url === '/robots.txt') return html(res, 404, '');
         if (url === '/list/1') return html(res, 200, page('Lamps', [1, 2, 3].map(card).join(''), '<a class="next" href="/list/2">Next</a>'));
         if (url === '/list/2') return html(res, 200, page('Lamps, page 2', [4, 5].map(card).join(''), '<a class="next disabled">Next</a>'));
+        if (url === '/search?q=unicorn') return html(res, 200, page('Search', '', '<p class="empty">No lamps match your search.</p>'));
         const item = /^\/item\/(\d+)$/.exec(url);
         if (item) return html(res, 200, PRODUCT(`Lamp ${item[1]} detail`));
         // Load more: two cards, then two more per click, until the button is spent.
@@ -546,6 +547,9 @@ test('crawler worker: reads list recipes, follows Next links and details pages a
     const mock = await serveMockBackend();
     const paged = await publishRecipe(mock.backend, { competitor: 'lampco', pageType: 'listing', spec: { kind: 'list', lists, pagination: { mode: 'pagination', next: ['a.next'] }, details } });
     await publishRecipe(mock.backend, { competitor: 'moreco', pageType: 'listing', spec: { kind: 'list', lists, pagination: { mode: 'loadMore', next: ['button.more'] } } });
+    // A list with a page rule: an empty search is not found, not a list with no rows.
+    await publishRecipe(mock.backend, { competitor: 'searchco', pageType: 'listing', spec: { kind: 'list', lists, pagination: { mode: 'auto' },
+        rules: [{ name: 'No results', status: 'not_found', when: { kind: 'regex', in: 'text', pattern: 'No lamps match', flags: 'i', op: 'gt', value: 0 } }] } });
 
     const dir = mkdtempSync(path.join(tmpdir(), 'crawler-lists-'));
     writeFileSync(path.join(dir, 'crawler.json'), JSON.stringify({
@@ -557,10 +561,11 @@ test('crawler worker: reads list recipes, follows Next links and details pages a
     writeFileSync(path.join(dir, 'jobs.jsonl'), [
         JSON.stringify({ jobId: 'j-list', url: `${shop.origin}/list/1`, competitor: 'lampco', pageType: 'listing', runId: 'run-2' }),
         JSON.stringify({ jobId: 'j-more', url: `${shop.origin}/more`, competitor: 'moreco', pageType: 'listing' }),
+        JSON.stringify({ jobId: 'j-empty', url: `${shop.origin}/search?q=unicorn`, competitor: 'searchco', pageType: 'listing' }),
     ].join('\n'));
     const out = await runCli(dir);
-    // Two jobs in the file; they led to page 2 and five details pages: 8 pages read.
-    expect(out).toContain('2 jobs: 8 read, 0 failed, 0 dead-lettered');
+    // Three jobs in the file; two led to page 2 and five details pages: 8 pages read. The empty search failed.
+    expect(out).toContain('3 jobs: 8 read, 1 failed, 0 dead-lettered');
 
     const scrapes = (index: string) => new Map(es.docs.filter(d => d.index === index).map(d => [d.id!, d.doc]));
     const lampco = scrapes('scrapes-lampco');
@@ -578,6 +583,10 @@ test('crawler worker: reads list recipes, follows Next links and details pages a
     const moreco = scrapes('scrapes-moreco');
     expect([...moreco.values()].map(d => d.attributes.title)).toEqual(['Lamp 1', 'Lamp 2', 'Lamp 3', 'Lamp 4', 'Lamp 5', 'Lamp 6']);
     expect(events.find(e => e.jobId === 'j-more')).toMatchObject({ rows: 6, listPages: 3, followUps: 0 });
+
+    // The empty search: classed by the list's page rule, written with its status only.
+    expect(scrapes('scrapes-searchco').get('j-empty')).toMatchObject({ pageStatus: 'not_found', attributes: {} });
+    expect(events.find(e => e.jobId === 'j-empty')).toMatchObject({ outcome: 'failed', errorClass: 'not_found' });
 
     for (const s of [shop, es]) s.close();
     mock.close();

@@ -6,7 +6,7 @@
  * Conditions and page rules count selector matches, or regex matches in the page's HTML.
  */
 import { looksLikeXPath, resolveItems } from '../../../shared/selectors/resolve';
-import type { Condition, CountOp, PageRule, PageWay, WayHit } from '../../../shared/types/ways';
+import type { Condition, CountOp, PageRule, PageWay, RegexIn, WayHit } from '../../../shared/types/ways';
 import { readBinding } from './dataBinding';
 
 /** Matches read per way, and characters per value: a way that matches the whole page stays small. */
@@ -122,30 +122,53 @@ function attrOf(el: Element, name: string): string {
 
 const cut = (s: string) => s.length > MAX_CHARS ? s.slice(0, MAX_CHARS) : s;
 
-const compare = (n: number, op: CountOp, value: number) => op === 'eq' ? n === value : op === 'gt' ? n > value : n < value;
+const compare = (n: number, op: CountOp, value: number) => {
+    switch (op) {
+        case 'eq': return n === value;
+        case 'gt': return n > value;
+        case 'lt': return n < value;
+        case 'gte': return n >= value;
+        case 'lte': return n <= value;
+        case 'ne': return n !== value;
+    }
+};
 
 /** One page's conditions, each counted once: many ways ask the same thing. */
 export class PageProbe {
-    private html: string | undefined;
+    private sources = new Map<RegexIn, string>();
     private counts = new Map<string, number>();
 
     private count(c: Extract<Condition, { kind: 'css' | 'regex' }>): number {
-        const key = c.kind === 'css' ? `css ${c.selector}` : `re ${c.flags ?? ''} ${c.pattern}`;
+        const key = c.kind === 'css' ? `css ${c.selector}` : `re ${c.in ?? 'html'} ${c.flags ?? ''} ${c.pattern}`;
         let n = this.counts.get(key);
         if (n === undefined) {
-            n = c.kind === 'css' ? selectAll(c.selector).length : this.matches(c.pattern, c.flags ?? '');
+            n = c.kind === 'css' ? selectAll(c.selector).length : this.matches(c.pattern, c.flags ?? '', c.in ?? 'html');
             this.counts.set(key, n);
         }
         return n;
     }
 
-    /** How many times the regex matches the page's HTML; NaN when it doesn't compile (no comparison holds). */
-    private matches(pattern: string, flags: string): number {
+    /** What a regex condition reads: the HTML source, the text a visitor sees, the URL, or the title. */
+    private source(where: RegexIn): string {
+        let s = this.sources.get(where);
+        if (s === undefined) {
+            // What a visitor reads: rendered text, so no scripts, hidden parts or markup (`innerText`; jsdom has only `textContent`).
+            s = where === 'text' ? (document.body?.innerText ?? document.body?.textContent ?? '')
+                : where === 'url' ? location.href
+                : where === 'title' ? document.title
+                : document.documentElement.outerHTML;
+            this.sources.set(where, s);
+        }
+        return s;
+    }
+
+    /** How many times the regex matches; NaN when it doesn't compile (no comparison holds). */
+    private matches(pattern: string, flags: string, where: RegexIn): number {
         let re: RegExp;
         try { re = new RegExp(pattern, `${flags.replace(/[gy]/g, '')}g`); } catch { return NaN; }
-        this.html ??= document.documentElement.outerHTML;
+        const text = this.source(where);
         let n = 0;
-        for (let m = re.exec(this.html); m && n < 100_000; m = re.exec(this.html)) {
+        for (let m = re.exec(text); m && n < 100_000; m = re.exec(text)) {
             n++;
             if (m[0] === '') re.lastIndex++;
         }

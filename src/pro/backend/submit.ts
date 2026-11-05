@@ -18,7 +18,7 @@ export async function submitVersion(api: BackendApi, recipe: ProRecipe, version:
     const run = await pro.tests.latest(recipe.id, version.digest, 'pages');
     const samples = await pro.samples.list(recipe.id);
     const review = (await pro.reviews.states(recipe.id)).get(version.version);
-    const reasons = [...readiness(run?.results, version).reasons, ...targetingReasons(recipe, samples.map(s => s.url)), ...[reviewReason(review)].filter((r): r is string => !!r)];
+    const reasons = [...readiness(run?.results, version, samples).reasons, ...targetingReasons(recipe, samples.map(s => s.url)), ...[reviewReason(review)].filter((r): r is string => !!r)];
     if (reasons.length) throw new BackendError('invalid', `Not ready to submit. ${reasons.join(' ')}`);
 
     let remoteId = recipe.remoteId;

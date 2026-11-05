@@ -7,6 +7,7 @@ import type { PageRule, WayHit } from '../../shared/types/ways';
 import { readsByWay, toPageSpec } from '../recipe/fromPublic';
 import type { PageRecipeSpec, RunSettings } from '../recipe/types';
 import { checkField, type FieldCheck } from './check';
+import { failsCompare } from '../recipe/valueChecks';
 import { identityMismatch, pageWays, resolveWays } from './ways';
 
 export interface FieldResult extends FieldCheck {
@@ -68,8 +69,26 @@ export function readPageResult(spec: PageRecipeSpec, url: string, item: Record<s
         const raw = item[field.id] ?? null;
         fields.push({ fieldId: field.id, name: field.name, status: byId.get(field.id)?.status ?? 'not-found', raw, ...checkField(field, raw, url) });
     }
+    compareFields(spec, fields);
     const mismatch = spec.identity ? identityMismatch(spec.identity, url, fields.find(f => f.name === spec.identity!.field)?.cleaned) : undefined;
     return { url, fields, clicks, ...(mismatch ? { mismatch } : {}) };
+}
+
+/** Each field's comparisons with another field on the page, once all are read: a failed one is the field's problem. */
+function compareFields(spec: PageRecipeSpec, fields: FieldResult[]) {
+    const byName = new Map(fields.map(f => [f.name, f]));
+    for (const step of spec.steps) {
+        if (step.kind !== 'field' || !step.field.checks?.some(c => c.kind === 'compare')) continue;
+        const r = fields.find(f => f.fieldId === step.field.id);
+        if (!r?.ok || !r.filled) continue;
+        for (const c of step.field.checks) {
+            if (c.kind !== 'compare') continue;
+            const other = byName.get(c.field);
+            if (!other?.filled || !other.ok) continue;
+            const problem = failsCompare(c, r.value, other.value);
+            if (problem) { r.ok = false; r.problem = problem; break; }
+        }
+    }
 }
 
 /**

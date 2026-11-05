@@ -1,5 +1,5 @@
 /** Pro's store: recipes, versions, labels and samples, plus importing a recipe file into them. */
-import { addSamples, createRecipe, getRecipe, labelLog, listRecipes, listSamples, moveLabel, removeSample, renameRecipe, setRemoteId, setTargeting } from './recipes';
+import { addSamples, createRecipe, expectRule, getRecipe, labelLog, listRecipes, listSamples, moveLabel, removeSample, renameRecipe, setRemoteId, setTargeting } from './recipes';
 import { listCrawls, saveCrawl } from './crawls';
 import { getVersion, listVersions, markSubmitted, restoreVersion, saveVersion } from './versions';
 import { latestTest, saveTest } from './tests';
@@ -36,14 +36,14 @@ async function importRecipeFile(raw: string, author: string): Promise<{ recipe: 
         latest = saved.version;
         added++;
     }
-    if (file.samples.length > 0) await addSamples(recipe.id, file.samples);
+    if (file.samples.length > 0) await addSamples(recipe.id, file.samples, file.sampleRules);
     return { recipe: (await getRecipe(recipe.id))!, added, notes: file.notes ?? [] };
 }
 
 export const pro = {
     recipes: { create: createRecipe, get: getRecipe, list: listRecipes, rename: renameRecipe, moveLabel, labelLog, setRemoteId, setTargeting },
     versions: { save: saveVersion, get: getVersion, list: listVersions, restore: restoreVersion, markSubmitted },
-    samples: { add: addSamples, list: listSamples, remove: removeSample },
+    samples: { add: addSamples, list: listSamples, remove: removeSample, expectRule },
     tests: { save: saveTest, latest: latestTest },
     crawls: { save: saveCrawl, list: listCrawls },
     reviews: { review: reviewVersion, list: listReviews, states: reviewStates },

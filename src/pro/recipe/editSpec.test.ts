@@ -70,3 +70,13 @@ describe('editing a page recipe', () => {
         expect(problems(setRules(spec, [{ name: ' ', status: 'error', when: { kind: 'any', of: [] } }]))).toEqual(['Every page rule needs a name.']);
     });
 });
+
+describe('a list recipe\'s page rules', () => {
+    it('are set, dropped when none, and checked like a page recipe\'s', async () => {
+        const { listProblems, setListRules } = await import('./editSpec');
+        const list = { kind: 'list' as const, lists: [], pagination: { mode: 'auto' as const } };
+        const ruled = setListRules(list, [{ name: 'Empty', status: 'not_found', when: { kind: 'regex', in: 'text', pattern: '', op: 'gt', value: 0 } }, { name: 'Empty', status: 'blocked', when: { kind: 'css', selector: '#c', op: 'gt', value: 0 } }]);
+        expect(listProblems(ruled)).toEqual(['Two page rules are named "Empty".', 'Rule "Empty": a condition has nothing to look for.']);
+        expect(setListRules(ruled, [])).toEqual(list);
+    });
+});

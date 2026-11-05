@@ -78,7 +78,7 @@ export default function HistoryPage({ onBack, onNavigate }: Props) {
         setLog(moves);
         await showCrawls(await pro.crawls.list(recipeId));
         // Each version is ready by the newest multi-page test of its spec.
-        setReady(new Map(await Promise.all(vs.map(async v => [v.version, readiness((await pro.tests.latest(recipeId, v.digest, 'pages'))?.results, v)] as const))));
+        setReady(new Map(await Promise.all(vs.map(async v => [v.version, readiness((await pro.tests.latest(recipeId, v.digest, 'pages'))?.results, v, ss)] as const))));
         // What the newest version changed, until another pair is chosen.
         setPair(p => p ?? (vs.length > 1 ? { from: vs[1].version, to: vs[0].version } : null));
     }, [recipeId]);

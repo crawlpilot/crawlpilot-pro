@@ -163,7 +163,7 @@ test('build new: a list picked on the page saves as version 1, then opens again 
 
     await ui.getByRole('button', { name: 'Back to recipes' }).click();
     await ui.getByRole('button', { name: 'Edit Local list' }).click();
-    await expect(ui.getByText("A list recipe's fields are edited by picking the list again.")).toBeVisible();
+    await expect(ui.getByText("A list recipe's rows are edited by picking the list again.")).toBeVisible();
     await ui.getByRole('banner').getByRole('button', { name: 'Re-pick on page' }).click();
     await expect(ui.getByRole('button', { name: 'Title' })).toBeVisible();
     await ui.getByRole('button', { name: 'Change pages & settings' }).click();
@@ -525,6 +525,191 @@ test('check: one row per field with its typed value, outlined on the page, and w
     await expect(ui.getByTestId('pro-check-item').first()).toContainText('2 of 2 fields found on this page');
     await ui.close();
     await page.close();
+});
+
+test('page rules: Check names the rule that held, and an error page is kept as a sample that should hit it', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1100 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    const file = { name: 'Overshirt', site: '127.0.0.1', built_on: page.url(), spec: { kind: 'page', settings: {}, elements: [
+        { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] },
+        { id: 'b', name: 'price', action: 'extract', type: 'text', selectors: ['p.price'], shape: 'price' },
+    ] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'o.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+
+    // A rule for a product that is gone, added in the editor.
+    await ui.getByRole('button', { name: 'Edit Overshirt' }).click();
+    await ui.getByRole('button', { name: /^Page rules/ }).click();
+    const rules = ui.getByTestId('pro-page-rules');
+    await rules.getByRole('button', { name: 'Add a rule' }).click();
+    await rules.getByLabel('Name of rule 1').fill('Gone');
+    await rules.getByLabel('Status of Gone').selectOption('unavailable');
+    // The new rule opens on one test of the visible text.
+    await expect(rules.getByLabel('Condition 1 looks at')).toHaveValue('text');
+    await rules.getByLabel('Condition 1 looks for').fill('no longer available');
+    await expect(rules.getByTestId('pro-condition-sentence')).toHaveText('Holds when the visible text has "no longer available".');
+    // A second test, the group made "none of these", then back to one test: the sentence follows.
+    await rules.getByRole('button', { name: 'Condition', exact: true }).click();
+    await rules.getByLabel('Condition 2 looks at').selectOption('css');
+    await rules.getByLabel('Condition 2 looks for').fill('p.price');
+    await rules.getByLabel('Holds when').selectOption('none');
+    await expect(rules.getByTestId('pro-condition-sentence')).toHaveText('Holds when none of: the visible text has "no longer available"; "p.price" is on the page.');
+    if (process.env.UX_SHOTS) await rules.screenshot({ path: `${process.env.UX_SHOTS}/pro-page-rules.png` });
+    await rules.getByRole('button', { name: 'Remove condition 2' }).click();
+    await rules.getByLabel('Holds when').selectOption('all');
+    await rules.getByRole('button', { name: 'Done' }).click();
+    await expect(rules.getByTestId('pro-rule-sentence')).toHaveText('When the visible text has "no longer available"');
+    // A way tried only when the page shows a price.
+    const price = ui.getByTestId('pro-field').nth(1);
+    await price.getByRole('button').first().click();
+    await price.getByRole('button', { name: /^Ways and cleanup/ }).click();
+    await price.getByRole('button', { name: 'Options of way 1' }).click();
+    await price.getByRole('button', { name: 'Only try it when…' }).click();
+    await price.getByLabel('Condition 1 looks for').fill('$');
+    await expect(price.getByTestId('pro-condition-sentence')).toHaveText('Holds when the visible text has "$".');
+    await ui.getByLabel('What changed').fill('gone rule');
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    await expect(ui.getByTestId('pro-version')).toHaveCount(2);
+    const [v2] = (await proStore(ui, 'versions')).filter(v => v.version === 2);
+    expect(v2.spec.rules).toEqual([{ name: 'Gone', status: 'unavailable', when: { kind: 'regex', in: 'text', pattern: 'no longer available', flags: 'i', op: 'gt', value: 0 } }]);
+    expect(v2.spec.steps[1].field.ways[0].when).toEqual({ kind: 'regex', in: 'text', pattern: '\\$', flags: 'i', op: 'gt', value: 0 });
+
+    // On a gone product, Check says which rule held instead of "0 of 0 fields".
+    await page.goto(`${origin}/site/gone-product.html`);
+    await ui.getByRole('banner').getByRole('button', { name: 'Check', exact: true }).click();
+    await ui.getByRole('button', { name: 'Check this page' }).click();
+    const outcome = ui.getByTestId('pro-check-outcome');
+    await expect(outcome).toContainText('Page rule "Gone" held: Unavailable');
+    await expect(outcome).toContainText('the recipe says this is not a page to read');
+    await expect(ui.getByTestId('pro-check-table')).toHaveCount(0);
+    const items = ui.getByTestId('pro-check-item');
+    await expect(items.nth(0)).toContainText('Page rule "Gone" held');
+
+    // Kept as a sample that should hit it: now as it should be.
+    await outcome.getByRole('button', { name: 'Keep as a sample that should hit "Gone"' }).click();
+    await expect(outcome).toContainText('As this sample expects');
+    await expect(ui.getByTestId('pro-check-kept')).toContainText('should hit "Gone"');
+    expect((await proStore(ui, 'samples')).find(s => s.url === page.url())).toMatchObject({ expectRule: 'Gone' });
+
+    // On the samples: the gone page passes by its rule and is not one of the pages read.
+    await ui.getByRole('button', { name: 'Check 2 sample pages' }).click();
+    const outcomes = ui.getByTestId('pro-grid-outcome');
+    await expect(outcomes).toHaveCount(1, { timeout: 30_000 });
+    await expect(outcomes.first()).toContainText('gone-product.html: Page rule "Gone" held: Unavailable. As this sample expects.');
+    await expect(items.nth(1)).toContainText('Tested on 1 page; it needs 3.');
+    await expect(items.nth(1)).not.toContainText('Gone');
+    if (process.env.UX_SHOTS) await ui.screenshot({ path: `${process.env.UX_SHOTS}/pro-check-rule.png` });
+
+    // In the editor, the sample says what it should be, and can go back to a page to read.
+    await ui.getByRole('button', { name: 'Edit fields' }).click();
+    await expect(ui.getByLabel('Sample 2 should be')).toHaveValue('Gone');
+    await ui.getByLabel('Sample 2 should be').selectOption('');
+    await expect.poll(async () => (await proStore(ui, 'samples')).find(s => s.url === page.url())?.expectRule).toBeUndefined();
+    await ui.close();
+    await page.close();
+});
+
+test('value checks: a price above its range is a problem on Check, and the diff names the check', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1100 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    const file = { name: 'Overshirt', site: '127.0.0.1', built_on: page.url(), spec: { kind: 'page', settings: {}, elements: [
+        { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] },
+        { id: 'b', name: 'price', action: 'extract', type: 'text', selectors: ['p.price'], shape: 'price' },
+    ] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'o.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+
+    await ui.getByRole('button', { name: 'Edit Overshirt' }).click();
+    const price = ui.getByTestId('pro-field').nth(1);
+    await price.getByRole('button').first().click();
+    await price.getByLabel('Type').selectOption('money');
+    await price.getByRole('button', { name: /^Value checks/ }).click();
+    await price.getByLabel('Add a check').selectOption('range');
+    await price.getByLabel('Check 1 at least').fill('1');
+    await price.getByLabel('Check 1 at most').fill('50');
+    await expect(price.getByTestId('pro-value-check-sentence')).toHaveText('Must be between 1 and 50');
+    // A comparison offers the other fields.
+    await price.getByLabel('Add a check').selectOption('compare');
+    await expect(price.getByLabel('Check 2 other field')).toHaveValue('title');
+    await price.getByRole('button', { name: 'Remove check 2' }).click();
+    if (process.env.UX_SHOTS) await price.screenshot({ path: `${process.env.UX_SHOTS}/pro-value-checks.png` });
+    await ui.getByLabel('What changed').fill('price range');
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    await expect(ui.getByTestId('pro-diff')).toContainText('check added: between 1 and 50');
+
+    await ui.getByRole('banner').getByRole('button', { name: 'Check', exact: true }).click();
+    await ui.getByRole('button', { name: 'Check this page' }).click();
+    const row = ui.getByTestId('pro-check-row').filter({ has: ui.getByText('price', { exact: true }) });
+    await expect(row).toContainText('✗ above 50');
+    await expect(ui.getByTestId('pro-check-item').first()).toContainText('1 with a problem');
+    await ui.close();
+    await page.close();
+});
+
+test('atlas import: a condition it cannot carry over is listed at once and marked "never holds" in the editor', async ({ panel }) => {
+    const ui = panel.page;
+    await ui.setViewportSize({ width: 400, height: 1000 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html`);
+    await proClear(ui);
+    await ui.reload();
+    const tpl = (t: Record<string, unknown>) => ({ extractMethodType: 'CSS_SLCTR', specialFormatting: '.*', asserts: [], assrtXprn: null, ...t });
+    const atlas = { responseObj: { competitorShortName: 'SHOP', elements: [],
+        attributes: [{ name: 'TITLE', type: 'A', templates: [tpl({ extractMethod: 'h1' })] }],
+        errorPages: [
+            { name: '404', templates: [tpl({ asserts: [{ assrtId: 1, type: 'REGEX_CNT', assrt: 'Not Found', assrtFnct: 'GREATER_THAN', assrtValue: '0' }], assrtXprn: 'NOT ASSERT1' })] },
+            { name: 'CAPTCHA', templates: [tpl({ asserts: [{ assrtId: 1, type: 'CSS_SLCTR_CNT', assrt: '#captcha', assrtFnct: 'ROUGHLY', assrtValue: '1' }], assrtXprn: 'ASSERT1' })] },
+        ] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'shop.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(atlas)) });
+    const message = ui.getByTestId('pro-import-message');
+    await expect(message).toContainText('1 condition that never holds');
+    await expect(ui.getByTestId('pro-import-notes')).toContainText('assert function "ROUGHLY" is unknown; it never holds.');
+
+    await ui.getByRole('button', { name: /^Edit / }).first().click();
+    await ui.getByRole('button', { name: /^Page rules/ }).click();
+    const rules = ui.getByTestId('pro-page-rule');
+    await expect(rules).toHaveCount(2);
+    // NOT carried over as "none of these"; the unknown function as a rule that never holds.
+    await expect(rules.nth(0).getByTestId('pro-rule-sentence')).toHaveText('When none of: the HTML source has "Not Found"');
+    await expect(rules.nth(0)).not.toContainText('never holds');
+    await expect(rules.nth(1)).toContainText('never holds');
+    await rules.nth(1).getByRole('button', { name: 'Edit condition' }).click();
+    await expect(rules.nth(1).getByTestId('pro-condition-empty')).toContainText('An empty group never holds');
+});
+
+test('list rules: a list recipe\'s page rules are edited in Pro and saved as the next version', async ({ panel }) => {
+    const ui = panel.page;
+    await ui.setViewportSize({ width: 400, height: 1000 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html`);
+    await proClear(ui);
+    await ui.reload();
+    const file = { name: 'Lamp search', site: 'shop.test', built_on: 'https://shop.test/search?q=lamp', spec: { kind: 'list', pagination: { mode: 'auto' },
+        lists: [{ id: 'L', container: ['#results'], items: ['li'], mode: 'list', fields: [{ id: 't', name: 'title', type: 'text', selector: 'h3' }] }] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'list.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+
+    await ui.getByRole('button', { name: 'Edit Lamp search' }).click();
+    await expect(ui.getByText('A list recipe\'s rows are edited by picking the list again.')).toBeVisible();
+    const rules = ui.getByTestId('pro-page-rules');
+    await rules.getByRole('button', { name: 'Add a rule' }).click();
+    await rules.getByLabel('Name of rule 1').fill('No results');
+    await rules.getByLabel('Condition 1 looks for').fill('No lamps match');
+    await expect(ui.getByTestId('pro-editor-changes')).toHaveText('1 change: page rule No results');
+    await ui.getByLabel('What changed').fill('empty search');
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    await expect(ui.getByTestId('pro-diff')).toContainText('page rule No results');
+    const [v2] = (await proStore(ui, 'versions')).filter(v => v.version === 2);
+    expect(v2.spec.rules).toEqual([{ name: 'No results', status: 'not_found', when: { kind: 'regex', in: 'text', pattern: 'No lamps match', flags: 'i', op: 'gt', value: 0 } }]);
 });
 
 test('build new: picked fields come to the save step named and typed from the page, and can be changed there', async ({ panel, ext, origin }) => {
