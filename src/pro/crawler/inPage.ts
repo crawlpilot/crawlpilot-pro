@@ -18,12 +18,16 @@ import { resolveContainer, resolveItems, resolveOne } from '../../shared/selecto
 import type { StepResult } from '../../shared/listing/stepStats';
 import type { Chain, DataBinding, ListTarget } from '../../shared/types/database';
 import { isShown, listItems, markTarget } from '../steps/inPageSteps';
+import { readMarkupFields } from '../markup/markup';
+import type { MarkupWay } from '../recipe/types';
 
 /** One field's or click's ways, by id, in the order the extractor tries them. */
 export interface WayProbe {
     elementId: string;
     data?: { wayId: string; binding: DataBinding };
     selectors: { wayId: string; selector: string }[];
+    /** The page's markup (`../markup/markup.ts`), read before the others: a value there is the field's. */
+    markup?: { wayId: string; way: Pick<MarkupWay, 'source' | 'key' | 'type'> }[];
 }
 
 export interface InPageRequest {
@@ -62,9 +66,20 @@ export async function run({ elements, config, probes }: InPageRequest): Promise<
             ways.push({ wayId: probe.data.wayId, tried, matched: tried && filled(readBinding(probe.data.binding)), won: step === 'data' });
         }
         const used = step && USED_SELECTOR.has(step) ? resolveOne(probe.selectors.map(s => s.selector)).used : -1;
-        probe.selectors.forEach((s, i) => {
-            ways.push({ wayId: s.wayId, tried, matched: tried && resolveOne([s.selector]).result !== null, won: i === used });
-        });
+        const own: WayUse[] = probe.selectors.map((s, i) => ({ wayId: s.wayId, tried, matched: tried && resolveOne([s.selector]).result !== null, won: i === used }));
+        if (probe.data) own.unshift({ wayId: probe.data.wayId, tried, matched: tried && filled(readBinding(probe.data.binding)), won: step === 'data' });
+        if (probe.markup?.length) {
+            // Markup first: a value there is the field's, and none of its other ways won.
+            const hit = readMarkupFields([{ id: probe.elementId, ways: probe.markup.map(m => m.way) }])[probe.elementId];
+            if (hit) {
+                item[probe.elementId] = hit.value;
+                const s = steps.find(x => x.id === probe.elementId);
+                if (s) s.status = 'data';
+                own.forEach(w => { w.won = false; });
+            }
+            own.unshift(...probe.markup.map((m, i) => ({ wayId: m.wayId, tried: true, matched: hit ? hit.matches[i] : false, won: hit?.used === i })));
+        }
+        ways.push(...own);
     }
     return { item, steps, ways };
 }

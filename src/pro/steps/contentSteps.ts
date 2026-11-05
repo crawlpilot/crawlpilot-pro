@@ -1,5 +1,5 @@
 /**
- * Pro's step runner in the user's tab (`docs/plans/pro-data-collection-plan.md`, C1): injected by Pro
+ * Pro's step runner in the user's tab, and the page's markup read for Pro's tests (`../markup/markup.ts`) (`docs/plans/pro-data-collection-plan.md`, C1): injected by Pro
  * (`src/pro/runner/tabSteps.ts`) only when a recipe has steps to run. It finds targets as the worker does
  * (`inPageSteps.ts`) and acts on them with the events a page's framework listens to: pointer and mouse events
  * and a click; the native value setter plus `input` and `change` for typing (so React and Vue see the value);
@@ -7,6 +7,7 @@
  * worker, with Playwright, can).
  */
 import { isShown, listItems, MARK, markTarget } from './inPageSteps';
+import { listMarkup, readMarkupFields } from '../markup/markup';
 
 export interface ActRequest {
     mark: string;
@@ -74,4 +75,4 @@ function scrollToEnd() {
     window.scrollTo(0, document.documentElement.scrollHeight);
 }
 
-(globalThis as unknown as { crawlpilotSteps: object }).crawlpilotSteps = { markTarget, isShown, listItems, act, pressKey, scrollToEnd };
+(globalThis as unknown as { crawlpilotSteps: object }).crawlpilotSteps = { markTarget, isShown, listItems, act, pressKey, scrollToEnd, readMarkupFields, listMarkup };

@@ -2,7 +2,7 @@
  * Edits to a page recipe's spec, each returning a new spec (the editor keeps the old one for undo-free
  * compare). Page data stays the first way: the extractor reads it before any selector.
  */
-import type { Click, Field, FieldType, PageRecipeSpec, SessionSetup, Step } from './types';
+import type { Click, Field, FieldType, PageRecipeSpec, SessionSetup, Step, Way } from './types';
 import type { ProOp } from './ops';
 
 const mapField = (spec: PageRecipeSpec, id: string, f: (field: Field) => Field): PageRecipeSpec => ({
@@ -39,6 +39,10 @@ export const addSelector = (spec: PageRecipeSpec, id: string, selector: string) 
     if (!s || f.ways.some(w => w.kind === 'selector' && w.selector === s)) return f;
     return { ...f, ways: [...f.ways, { kind: 'selector', selector: s }] };
 });
+
+/** A way read before the others (the page's markup), unless the field has it already. */
+export const addWayFirst = (spec: PageRecipeSpec, id: string, way: Way) => mapField(spec, id, f =>
+    f.ways.some(w => JSON.stringify({ ...w, id: undefined, addedIn: undefined }) === JSON.stringify({ ...way, id: undefined, addedIn: undefined })) ? f : { ...f, ways: [way, ...f.ways] });
 
 /** A page step that acts (a click or another action), changed. */
 export const updateClick = (spec: PageRecipeSpec, id: string, f: (c: Click) => Click): PageRecipeSpec => ({

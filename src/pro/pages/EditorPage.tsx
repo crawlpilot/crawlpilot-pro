@@ -20,6 +20,7 @@ import { TestGrid } from './TestGrid';
 import { ContractPanel } from './ContractPanel';
 import { BeforeReading, newStep, PageAction, usePicker } from './StepsCard';
 import { Ways } from './Ways';
+import { MarkupSource } from './MarkupSource';
 import { readiness } from '../recipe/ready';
 import { diffVersions } from '../recipe/diff';
 import * as edits from '../recipe/editSpec';
@@ -230,6 +231,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     onMove={(w, d) => setSpec(edits.moveWay(spec, field.id, w, d))}
                     onRemove={w => setSpec(edits.removeWay(spec, field.id, w))}
                     onAdd={s => setSpec(edits.addSelector(spec, field.id, s))} />
+                <MarkupSource onAdd={way => setSpec(edits.addWayFirst(spec, field.id, way))} />
                 <Cleanup field={field} onChange={ops => setSpec(edits.setOps(spec, field.id, ops))} />
             </div>
         </Disclosure></div>

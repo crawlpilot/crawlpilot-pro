@@ -38,7 +38,7 @@ async function ensure(tabId: number): Promise<void> {
 }
 
 /** Calls the step script; a page that navigated in between is waited for and the script injected again. */
-async function call<T>(tabId: number, name: string, args: unknown[]): Promise<T> {
+export async function call<T>(tabId: number, name: string, args: unknown[]): Promise<T> {
     for (let tries = 0; ; tries++) {
         try {
             await ensure(tabId);

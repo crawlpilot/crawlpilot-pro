@@ -366,6 +366,45 @@ test('crawler worker: sets the location and store a retailer page needs, chooses
     mock.close();
 });
 
+test('crawler worker: reads fields from the page\'s meta tags and microdata when selectors find nothing', async () => {
+    test.setTimeout(90_000);
+    const PAGE = readFileSync(path.join(ROOT, 'e2e/site/microdata-product.html'), 'utf8');
+    const shop = await serve((req, res) => req.url === '/robots.txt' ? html(res, 404, '') : html(res, 200, PAGE));
+    const es = await fakeElasticsearch();
+    const mock = await serveMockBackend();
+    const field = (id: string, name: string, ways: object[]) => ({ kind: 'field', field: { id, name, type: 'text', read: 'text', ops: [], ways } });
+    await publishRecipe(mock.backend, { competitor: 'marked', pageType: 'product', spec: { kind: 'page', steps: [
+        // The old layout's selectors first in the list, the markup read before them anyway.
+        field('f-title', 'title', [{ id: 'w-old', kind: 'selector', selector: 'h1.product-title' }, { id: 'w-og', kind: 'markup', source: 'meta', key: 'og:title' }]),
+        field('f-price', 'price', [{ id: 'w-price', kind: 'markup', source: 'microdata', type: 'Product', key: 'offers.price' }]),
+        field('f-currency', 'currency', [{ id: 'w-cur', kind: 'markup', source: 'meta', key: 'product:price:currency' }]),
+        field('f-stock', 'availability', [{ id: 'w-stock', kind: 'markup', source: 'microdata', type: 'Product', key: 'offers.availability' }]),
+        field('f-sku', 'sku', [{ id: 'w-sku', kind: 'markup', source: 'microdata', type: 'Product', key: 'sku' }]),
+    ] } });
+    const dir = mkdtempSync(path.join(tmpdir(), 'crawler-markup-'));
+    writeFileSync(path.join(dir, 'crawler.json'), JSON.stringify({
+        workerId: 'e2e-worker', concurrency: 1, navigationTimeoutMs: 15_000, settleMs: 0,
+        retry: { maxAttempts: 1, baseDelayMs: 100, maxDelayMs: 500, maxInlineWaitMs: 5000 },
+        sites: { default: { minDelayMs: 20 } },
+        recipeStore: { url: mock.origin, token: '${STORE_TOKEN}' },
+        search: { url: es.origin, flushMs: 200 },
+    }));
+    writeFileSync(path.join(dir, 'jobs.jsonl'), JSON.stringify({ jobId: 'shirt', url: `${shop.origin}/p/shirt`, competitor: 'marked', pageType: 'product' }));
+
+    expect(await runCli(dir)).toContain('1 jobs: 1 read');
+    const scrape = es.docs.find(d => d.index === 'scrapes-marked' && d.id === 'shirt')!.doc;
+    expect(scrape).toMatchObject({ pageStatus: 'ok', attributes: { title: 'Linen overshirt', price: '79.00', currency: 'GBP', availability: 'https://schema.org/InStock', sku: 'LX-2041' }, fieldStatus: { title: 'ok', price: 'ok' } });
+    // Selector usage: the markup won; the old selector was tried and matched nothing.
+    const usage = es.docs.find(d => d.index.startsWith('selector-usage-') && d.id === 'shirt')!.doc;
+    expect(usage.ways).toEqual(expect.arrayContaining([
+        { field: 'title', wayId: 'w-og', tried: true, matched: true, won: true },
+        { field: 'title', wayId: 'w-old', tried: true, matched: false, won: false },
+        { field: 'price', wayId: 'w-price', tried: true, matched: true, won: true },
+    ]));
+    for (const s of [shop, es]) s.close();
+    mock.close();
+});
+
 test('crawler worker: reads a product once per fulfilment method, one document each', async () => {
     test.setTimeout(120_000);
     const RETAILER = readFileSync(path.join(ROOT, 'e2e/site/retailer.html'), 'utf8');

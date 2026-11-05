@@ -25,6 +25,7 @@ export function inPageRequest(spec: PageRecipeSpec, settings: RunSettings): InPa
             elementId: id,
             ...(dataWay?.kind === 'data' ? { data: { wayId: wayId(dataWay, id, data), binding: dataWay.binding } } : {}),
             selectors: ways.flatMap((w, i) => w.kind === 'selector' ? [{ wayId: wayId(w, id, i), selector: w.selector }] : []),
+            ...(ways.some(w => w.kind === 'markup') ? { markup: ways.flatMap((w, i) => w.kind === 'markup' ? [{ wayId: wayId(w, id, i), way: { source: w.source, key: w.key, ...(w.type ? { type: w.type } : {}) } }] : []) } : {}),
         };
     });
     return { elements, config: { ...settings, listOutput: 'nested' }, probes };

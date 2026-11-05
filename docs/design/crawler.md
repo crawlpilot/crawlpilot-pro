@@ -47,6 +47,16 @@ selector usage and request telemetry to Elasticsearch. Code: `src/pro/crawler/`.
 
 Out of attempts (`retry.maxAttempts`, counted over every delivery of the job), a retryable job is dead-lettered.
 
+## Fields from the page's markup
+A field's ways can include the page's **markup**:
+- a meta tag, by property or name: `og:title`, `product:price:amount`, `product:price:currency`, Twitter cards;
+- a microdata prop, by the item's type and a dotted path through nested items: `Product` · `offers.price`.
+
+Sites keep these for search engines and link previews, so they rarely change with a redesign. Markup ways are read
+before the field's other ways (`src/pro/markup/markup.ts`, in the in-page script), and a value there is the field's.
+Selector usage counts them like any way. In Pro, *From the page's markup* lists what the open page has, values
+included.
+
 ## Session setup and action steps
 Retailer pages often show price, stock and fulfilment only after the visitor has chosen something: a delivery ZIP code
 (Amazon's "Deliver to"), a store (Walmart, Home Depot, UK grocers), Pickup or Delivery. Recipes say how, and the
