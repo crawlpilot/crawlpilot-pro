@@ -231,3 +231,49 @@ test('Adjust a picked list: opens on its section; ↓ takes one card\'s swatches
     expect((await panel.next('ELEMENT_SELECTED')).count).toBe(4);
     await page.close();
 });
+
+test('Adjust, then Deselect: the selection is dropped and unlocked, and what is pointed at next is picked afresh', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/sections-nested.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.clear();
+    await panel.toTab(tabId, 'START_PICKER', { mode: 'list', action: 'extract' });
+    await hover(page, '#sw3 li:nth-child(2)');
+    await page.keyboard.press('Enter');
+    const grid = await panel.next('ELEMENT_SELECTED');
+
+    await panel.clear();
+    expect((await panel.toTab(tabId, 'START_PICKER', { mode: 'list', action: 'extract', adjust: { chain: grid.container, items: grid.items } })).success).toBe(true);
+    await outlined(page, '#grid');
+    const bar = page.getByTestId('element-picker-bar');
+    await expect(bar).toContainText('Locked');
+    // Deselect on the page's bar: no outline, no section outlines, unlocked, and the side panel told.
+    await bar.getByRole('button', { name: /Deselect/ }).click();
+    await expect(page.getByTestId('element-picker-highlight')).toBeHidden();
+    expect(await page.evaluate(() => Array.from(document.documentElement.children).filter(e => (e as HTMLElement).style?.border?.includes('dashed')).length)).toBe(0);
+    await expect(bar).not.toContainText('Locked');
+    await expect(bar).not.toContainText('Deselect');
+    // The side panel is told there is no selection (after the states the adjust sent before it).
+    await expect.poll(async () => (await panel.received('PICKER_STATE')).at(-1)).toBeNull();
+    // The selection follows the mouse again, read afresh where it points (a card's swatch offers the results first),
+    // and a click picks it.
+    await hover(page, '#sw1 li:nth-child(2)');
+    await expect(tooltip(page)).toContainText('Results · 6 items');
+    await expect(bar).not.toContainText('Locked');
+    await page.keyboard.press('ArrowDown');
+    await outlined(page, '#sw1');
+    await page.keyboard.press('Enter');
+    expect((await panel.next('ELEMENT_SELECTED')).count).toBe(4);
+
+    // A picked field: ⌫ deselects it the same way, and the next click picks what is under the mouse.
+    await page.goto(`${origin}/site/picker-levels.html`);
+    await panel.clear();
+    expect((await panel.toTab(tabId, 'START_PICKER', { mode: 'detail', action: 'extract', adjust: { chain: ['#price'], type: 'text' } })).success).toBe(true);
+    await outlined(page, '#price');
+    await page.keyboard.press('Backspace');
+    await hover(page, '#elsewhere');
+    await outlined(page, '#elsewhere');
+    await page.keyboard.press('Enter');
+    expect((await panel.next('ELEMENT_SELECTED')).value).not.toContain('$24.99');
+    await page.close();
+});
