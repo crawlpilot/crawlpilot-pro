@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import zara from '../../shared/samples/recipes/zara-product.json';
 import type { PageSpec } from '../../shared/types/database';
 import { fromPageSpec } from './fromPublic';
-import { addSelector, moveStep, moveWay, problems, removeStep, removeWay, renameField, setFieldType, setOps, setRequired } from './editSpec';
+import { addSelector, moveStep, moveWay, problems, removeStep, removeWay, renameField, setFieldType, setIdentity, setOps, setRequired, setRules, setWay } from './editSpec';
 import type { Field, PageRecipeSpec } from './types';
 
 const spec = fromPageSpec(zara.spec as unknown as PageSpec).spec;
@@ -50,5 +50,23 @@ describe('editing a page recipe', () => {
         s = origin.ways.reduce(acc => removeWay(acc, origin.id, 0), s);
         expect(problems(s)).toEqual(['Every field needs a name.', 'Two fields are named "size".', '"origin" has no way to find it.']);
         expect(problems({ kind: 'page', steps: [] })).toEqual(['The recipe has no fields.']);
+    });
+
+    it('sets a way, the page rules and the identity check, and drops them when emptied', () => {
+        const title = field(spec, 'title');
+        const s = setWay(spec, title.id, 0, { ...title.ways[0], pick: 'all' });
+        expect(field(s, 'title').ways[0]).toMatchObject({ pick: 'all' });
+        const rule = { name: '404', status: 'not_found' as const, when: { kind: 'css' as const, selector: '.gone', op: 'gt' as const, value: 0 } };
+        expect(setRules(spec, [rule]).rules).toEqual([rule]);
+        expect(setRules(setRules(spec, [rule]), [])).not.toHaveProperty('rules');
+        expect(setIdentity(setIdentity(spec, { field: 'title', url: ['\\d+'] }), undefined)).not.toHaveProperty('identity');
+    });
+
+    it('refuses an identity check on no field, without patterns or with a broken one, and a rule without a name', () => {
+        expect(problems(setIdentity(spec, { field: 'sku', url: [] }))).toEqual([
+            'The identity check reads "sku", which is not a field.', 'The identity check has no URL pattern.',
+        ]);
+        expect(problems(setIdentity(spec, { field: 'title', url: ['a(b'] }))).toEqual(['URL pattern a(b is not a valid regex.']);
+        expect(problems(setRules(spec, [{ name: ' ', status: 'error', when: { kind: 'any', of: [] } }]))).toEqual(['Every page rule needs a name.']);
     });
 });

@@ -46,6 +46,7 @@ Rules:
 - Only `fromPublic.ts` reads `PageSpec`, `ListSpec` and `PageElement`, so upstream type changes break in one file.
 
 ## 2. Data model
+### 2.1 Types
 ```ts
 // src/pro/recipe/types.ts
 export type RecipeKind = 'page' | 'list';
@@ -121,7 +122,8 @@ export interface PageResult { url: string; record: Record<string, unknown>; step
 export interface FieldTrace { fieldId: string; status: 'ok' | 'data' | 'healed' | 'empty' | 'failed'; wonBy?: number; raw?: unknown; value?: unknown; failedChecks?: string[] }
 ```
 
-Mapping from public types (in `fromPublic.ts`):
+### 2.2 Mapping from public types
+In `fromPublic.ts`:
 - `PageElement` with `action: 'extract'` becomes a `Field`. Its `data` becomes a `{kind:'data'}` way, which comes first, and each `selectors[i]` becomes a `{kind:'selector'}` way (CSS or XPath).
   - `data.ops` stay inside the binding: they clean only the page-data value. The field's own `ops` start empty and apply to the value whichever way found it.
   - `type` becomes `read` (what the element reader reads), so the round trip is exact. The output `type` is a first guess from `read`, `data.as` and `shape`.
@@ -130,6 +132,15 @@ Mapping from public types (in `fromPublic.ts`):
 - `ListSpec` maps to a list `ProSpec`. Its `details.page` becomes a separate page recipe linked by name (D20).
 
 `toPublic` does the reverse, so that tests can call the upstream `extractPage` unchanged.
+
+### 2.3 Ways read way by way, page rules and identity
+What Atlas templates do and a plain selector way doesn't (`recipe/types.ts` `WayOptions`, `shared/types/ways.ts`):
+- **A way's options.** `when`: a condition about the page (`css` or `regex` match counts compared `eq`/`gt`/`lt`, combined with `all`/`any`/`not`); the way is tried only when it holds. `pick`: `first` (default), `firstFilled` (the first match that cleans to a value) or `all` (every match, a list). `ops`: the way's own cleanup, before the field's; a way that cleans to nothing gives way to the next. A selector way can also say what it reads: `text`, `attr` (with `attr`, `abs:` for an absolute URL), `html`, `count` (how many match) or `pairs` (each match's name and value, from `pairs.key` / `pairs.value` selectors inside it, the value from `attr` if set): an object.
+- **Read way by way.** A field with any of these on any way (`readsByWay`) is not read by the public element reader. The page reads each way's raw values (`content/services/page/ways.ts`, `readWays`: Jsoup-like text, comma groups in page order, `:contains`, at most 200 matches) and returns them as the step's `hits`; Pro decides the winner (`runner/ways.ts`, `resolveWays`: bidi marks stripped, pick, the way's ops). Conditions are counted once per page (`PageProbe`). Such a field is never healed.
+- **Ops** `join` (a list into one text) and `lua` (a script run by fengari on the recipe side, never in the page: base, string, table and math only, no `load`/`require`/`string.rep`, an instruction budget; `str` is the value, the first value returned is kept, `nil` is no value).
+- **Page rules** (`spec.rules`): checked in order before any field is read; the first that holds names the page `not_found`, `unavailable`, `blocked` or `error`, and nothing is read. A test shows it, readiness counts it as a reason, and the crawler classifies the page by it (`crawler.md`, Statuses).
+- **Identity** (`spec.identity`): regexes on the URL give the id the page should have; a page whose field (by name) has another value is another product (`mismatch`), a readiness reason and a crawler status.
+- **Editing keeps them.** Re-picking a field keeps its rich ways while its selectors and data are unchanged (`carryOver`); rules and identity are kept on every save.
 
 ## 3. Storage: IndexedDB `crawlpilot-pro`
 The database is separate from upstream's `crawl-pilot`.
@@ -213,6 +224,15 @@ The output is `{ fields: { added, removed, renamed, changed: {name, parts[]}[] }
 - **Import format 1** (the public samples): `spec` (a public `PageSpec`) goes through `fromPublic`; `built_on` and `checked_on` become samples; `contract` becomes `output.contract`. The result is version 1 with `origin: 'imported'`.
 - **Validation:** a hand-written type guard in `file.ts`, with readable errors that give the JSON path. There is no schema library.
 
+### 6.1 Atlas template exports
+Import also takes an Atlas template export (`recipe/atlas/import.ts`): the template API's `{ "responseObj": … }`, or the `"responseObj": {…}` fragment Atlas copies. It becomes a new page recipe, "`<competitor>` product (Atlas)", with competitor and page type `product` set, as version 1.
+- **Attributes** are fields and their templates ways, in order (ids from `uniqueTemplateId`). `CSS_SLCTR` reads text, `CSS_SLCTR_ATTR` the `keyElement` attribute, `CSS_SLCTR_CNT` a count. `A` is the first match, `AFL` `firstFilled`, `AL` every match joined with " > ", `ALO` a list, `TD` `pairs` (`primaryExtractMethod` / `secondaryExtractMethod`), `M` `pairs` keyed by text.
+- **`specialFormatting`**: a regex becomes `regex` (flags `is`, group 0) + `trim`, translated from Java (`atlas/regex.ts`: inline flags, `\p{…}` with the `u` flag, `\A`/`\z`, atomic groups); `luaj:` becomes `lua`; `.*` nothing.
+- **Selectors** are Jsoup's: attribute values are quoted and compared without case (`[k="v" i]`), and an apostrophe inside single quotes stays part of the value.
+- **Asserts** become the way's `when`: `ASSERTn` with AND before OR, as Atlas evaluates them; no expression means the first assert. `REGEX_CNT` counts in the page's HTML, without flags.
+- **Error pages** become page rules (404/410 not found, anonymity and 403/405 blocked, the rest error), and `CAPTCHA_*` elements blocked rules. The `URL_SKU` element, a regex on the URL, becomes the identity check on `SKU`.
+- **Left out, and said so** in the version's note and the import message: `HL` links to inner pages, JSON paths, regexes JavaScript can't run, page actions (search box, buttons), and a `URL_SKU` that reads search results. Sanitized AMZ and WMART exports are the golden tests (`atlas/fixtures`).
+
 ## 7. Tests and checks
 ### 7.1 Test on this page
 1. `toPublic(version)` gives elements and config.
@@ -289,7 +309,7 @@ Every hook is a few lines and is listed in `docs/UPSTREAM.md`.
 ## 10. UI
 Screens are routes in the side panel, built from the upstream UI kit (`src/sidepanel/ui`) and its tokens.
 - **Recipes (home):** a search box, filters (site, label, health), and a row per recipe showing name, site icon, `live vN` / `latest vN` badges, last test, and health. Actions: Open, New from this page, Import.
-- **Editor** (`pages/EditorPage.tsx`, built): a page recipe's latest version without the page. Each field: name, type, required, move, remove; its selectors moved, removed or added (page data stays first); cleanup steps (`recipe/ops.ts`, own editor rather than `ColumnCleanDialog`, which needs table values) tried on a typed value. A sticky bar lists the changes (the version diff) and saves the next version. Re-pick on page opens the extractor. List recipes are edited by re-picking. Still to come: flash and test each way on the page, autosave.
+- **Editor** (`pages/EditorPage.tsx`, built): a page recipe's latest version without the page. Each field: name, type, required, move, remove; its selectors moved, removed or added (page data stays first); cleanup steps (`recipe/ops.ts`, own editor rather than `ColumnCleanDialog`, which needs table values) tried on a typed value. Each way's options (§2.3: what it reads, which matches it keeps, its own cleanup; its condition shown and removable). Page rules (listed, status changed, removed, or added as "the page has the text" / "something matches") and the identity check (field and URL patterns). A test shows a page rule that held, another product, and which way won each field. A sticky bar lists the changes (the version diff) and saves the next version. Re-pick on page opens the extractor. List recipes are edited by re-picking. Still to come: flash and test each way on the page, autosave.
 - **History:** versions newest first with notes and labels; select two to compare with the diff; Restore; Move label (with a reason).
 - **Test panel:** This page / N pages, a grid of fields × pages, and a trace for each cell.
 - **Submit dialog:** version, pages, schedule, the gate's reasons, Confirm.

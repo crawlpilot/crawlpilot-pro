@@ -1,6 +1,6 @@
 /**
  * An Atlas template export (`responseObj`: attributes, error pages, elements, as the template API serves
- * them) as a Pro page recipe (`docs/design/LLD.md` §6.3). Each attribute is a field, each of its templates a
+ * them) as a Pro page recipe (`docs/design/LLD.md` §6.1). Each attribute is a field, each of its templates a
  * way, in Atlas's order:
  * - `CSS_SLCTR` reads the match's text (as Jsoup does), `CSS_SLCTR_ATTR` its `keyElement` attribute,
  *   `CSS_SLCTR_CNT` how many there are;

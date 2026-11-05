@@ -34,6 +34,8 @@ Keep this list short, and check these files first when a merge conflicts.
 - `src/sidepanel/components/ui/Header.tsx`: a Recipes button.
 - `src/sidepanel/pages/PageExtractorPage.tsx`, `ListExtractorPage.tsx`: a recipe session from Recipes (`takeProEdit`) loads the version being edited, and the last step is Save version (`PageSave`, `ListSave`) instead of a run. The List Extractor hides its one-click run in a session. Opened from Home, both run as in public.
 - `e2e/home.spec.ts`, `e2e/i18n.spec.ts`, `e2e/migration.spec.ts`: open `?view=home`. `e2e/extension.spec.ts`: the panel opens on Recipes.
+- `src/shared/transforms/chain.ts`: the `regex` op takes optional `flags` (default `i`, as before).
+- `src/content/services/page/extractPage.ts`: `config.pageRules` are checked first (a rule that holds returns no item and the rule); an element with `ways` is read way by way into its step's `hits` instead of by the element reader. Both read through Pro-owned files that upstream doesn't have: `src/content/services/page/ways.ts` and `src/shared/types/ways.ts`.
 
 When upstream changes one of these files, keep the Pro side and take the rest of upstream's change.
 
