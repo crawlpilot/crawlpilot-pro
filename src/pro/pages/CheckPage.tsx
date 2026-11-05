@@ -206,6 +206,14 @@ export default function CheckPage({ onBack, onNavigate }: Props) {
                                 onFocus={() => { if (page.tab?.id) void call(page.tab.id, 'focusField', [f.name]).catch(() => {}); }} />)}
                         </div>
                     )}
+                    {result && !result.error && !result.rule && (result.record !== undefined || result.recordError) && (
+                        <div className="flex flex-col gap-1 rounded-xl bg-ink/4 px-2.5 py-2" data-testid="pro-check-record">
+                            <Text size="caption" tone="muted">The record, after the transform</Text>
+                            {result.recordError
+                                ? <Text size="caption" tone="danger">The transform failed: {result.recordError}</Text>
+                                : <pre className="max-h-72 overflow-auto font-mono text-caption whitespace-pre-wrap break-all">{JSON.stringify(result.record, null, 2)}</pre>}
+                        </div>
+                    )}
                     {result?.options && (
                         <div className="flex flex-col gap-1 rounded-xl bg-ink/4 px-2.5 py-2" data-testid="pro-check-options">
                             <Text size="caption" tone="muted">One row per item of "{result.options[0]?.step}"</Text>

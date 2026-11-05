@@ -88,6 +88,10 @@ export interface ScrapeDoc extends RecipeRef {
     pageStatus: PageStatus;
     /** Field name → cleaned, typed value. */
     attributes: Record<string, unknown>;
+    /** The attributes turned into the wanted schema by the recipe's JOLT transform, when it has one. */
+    record?: unknown;
+    /** Why the transform failed on this page (`record` is then missing; `attributes` are as read). */
+    recordError?: string;
     fieldStatus: Record<string, 'ok' | 'empty' | 'check_failed'>;
     meta?: Record<string, string>;
     /** The job's context: the location (or other values) the page was read for. */

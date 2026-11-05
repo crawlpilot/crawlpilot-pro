@@ -96,6 +96,13 @@ describe('on the saved product pages', { timeout: 60_000 }, () => {
         expect(field('RATING')).toMatchObject({ value: '4.2', ok: true });
         expect(field('REVIEWS')).toMatchObject({ value: '6968', ok: true });
         expect(field('MODEL_NUMBER').value).toBe('EX5704430716002');
+        // The highlights' ul li, every item, as a list.
+        const about = field('ABOUT_ITEM');
+        expect(about.ok).toBe(true);
+        expect(about.value).toHaveLength(6);
+        expect((about.value as string[])[0]).toMatch(/^Porcelain-enameled steel lid/);
+        // Its shipping tiles show no charge ("Free"): the Lua returns nil for each, so the list is empty, not blanks.
+        expect(field('SHIPPING_CHARGE')).toMatchObject({ filled: false });
         expect(page.fields.filter(f => !f.ok).map(f => `${f.name}: ${f.problem}`)).toEqual([]);
     });
 

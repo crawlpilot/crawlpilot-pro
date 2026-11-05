@@ -277,3 +277,74 @@ test('Adjust, then Deselect: the selection is dropped and unlocked, and what is 
     expect((await panel.next('ELEMENT_SELECTED')).value).not.toContain('$24.99');
     await page.close();
 });
+
+test('bullets: one bullet is that bullet; widened to the list (through its wrappers), it is read and saved as a list', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/bullets.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.clear();
+    await panel.toTab(tabId, 'START_PICKER', { mode: 'detail', action: 'extract' });
+    // What is pointed at is what is selected: the one bullet.
+    await hover(page, '#top-highlights-module li:nth-child(2)');
+    await expect(tooltip(page)).toContainText('Text · “Black nickel-finish handles');
+    await outlined(page, '#top-highlights-module li:nth-child(2)');
+    await page.keyboard.press('Enter');
+    expect(await panel.next('ELEMENT_SELECTED')).toMatchObject({ extractionType: 'text', value: expect.stringMatching(/^Black nickel-finish handles/) });
+
+    // One step wider outlines the six (the list's wrappers have its box): read as the list, saved from the ul.
+    await panel.clear();
+    await panel.toTab(tabId, 'START_PICKER', { mode: 'detail', action: 'extract' });
+    await hover(page, '#top-highlights-module li:nth-child(2)');
+    await page.keyboard.press('ArrowUp');
+    await outlined(page, '#top-highlights-module ul');
+    await expect(tooltip(page)).toContainText('Texts · 6');
+    await page.keyboard.press('Enter');
+    const list = await panel.next('ELEMENT_SELECTED');
+    expect(list).toMatchObject({ extractionType: 'text_array', count: 6 });
+    expect(JSON.parse(list.value)).toHaveLength(6);
+    expect(list.selectors[0]).toMatch(/ul/);
+    await page.close();
+});
+
+test('bullets on the saved Walmart page: widened once from a bullet, the six are saved as a list', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`${origin}/corpus/pdp-walmart`);
+    const tabId = await panel.tabId(page.url());
+    await panel.clear();
+    await panel.toTab(tabId, 'START_PICKER', { mode: 'detail', action: 'extract' });
+    const li = page.locator('#top-highlights-module ul li').nth(1);
+    await li.scrollIntoViewIfNeeded();
+    const box = (await li.boundingBox())!;
+    await page.mouse.move(box.x + 10, box.y + 5);
+    await page.mouse.move(box.x + 12, box.y + 6);
+    await page.waitForTimeout(200);
+    await expect(tooltip(page)).toContainText('Text ·');
+    await page.keyboard.press('ArrowUp');
+    await expect(tooltip(page)).toContainText('Texts · 6');
+    await page.keyboard.press('Enter');
+    const list = await panel.next('ELEMENT_SELECTED');
+    expect(list).toMatchObject({ extractionType: 'text_array', count: 6 });
+    expect(list.selectors[0]).toMatch(/ul$/);
+    await page.close();
+});
+
+test('spec rows and tables are read as before: no whole-list default on name / value rows, the table still a table', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/bullets.html`);
+    const tabId = await panel.tabId(page.url());
+    const readings = async (target: string) => {
+        await panel.clear();
+        await panel.toTab(tabId, 'START_PICKER', { mode: 'detail', action: 'extract', adjust: { chain: [target] } });
+        await page.waitForTimeout(250);
+        return (await page.getByTestId('element-picker-bar').innerText()).replace(/\s+/g, ' ');
+    };
+    // Amazon-style detail bullets: li > span > (name, value). One row is one row, not the whole list.
+    expect(await readings('#detailBullets_feature_div li:nth-child(2)')).not.toContain('the whole list');
+    expect(await readings('#detailBullets_feature_div ul')).toContain('Texts · 4');
+    // An HTML spec table: a row is offered with every row like it, the table as a table.
+    expect(await readings('#specs tr:nth-child(2)')).toContain('Items like this · 3');
+    expect(await readings('#specs')).toContain('Table · 3 items');
+    await page.keyboard.press('Escape');
+    await page.close();
+});

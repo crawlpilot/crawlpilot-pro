@@ -1712,6 +1712,13 @@
               "read": "text_array",
               "ways": [
                 {
+                  "kind": "selector",
+                  "selector": "#top-highlights-module ul li",
+                  "pick": "all",
+                  "id": "walmart-w9",
+                  "addedIn": 1
+                },
+                {
                   "id": "ABOUT_ITEM-1",
                   "kind": "selector",
                   "selector": "#product-description-atf > div > ul > li",
@@ -1747,7 +1754,7 @@
                     ],
                     "as": "text"
                   },
-                  "id": "walmart-w9",
+                  "id": "walmart-w10",
                   "addedIn": 1
                 },
                 {
@@ -1928,7 +1935,7 @@
                   "addedIn": 1
                 },
                 {
-                  "id": "walmart-w10",
+                  "id": "walmart-w11",
                   "kind": "selector",
                   "selector": "div.collapsable-content-container table",
                   "read": "text",
@@ -1941,7 +1948,7 @@
                   "addedIn": 1
                 },
                 {
-                  "id": "walmart-w11",
+                  "id": "walmart-w12",
                   "kind": "selector",
                   "selector": "div.nt1",
                   "read": "text",
@@ -1959,7 +1966,7 @@
                   "addedIn": 1
                 },
                 {
-                  "id": "walmart-w12",
+                  "id": "walmart-w13",
                   "kind": "selector",
                   "selector": "section[data-testid=\"product-description\" i]  div.mb3",
                   "read": "text",
@@ -2002,7 +2009,7 @@
                   "addedIn": 1
                 },
                 {
-                  "id": "walmart-w13",
+                  "id": "walmart-w14",
                   "kind": "selector",
                   "selector": "div.collapsable-content-container table",
                   "read": "text",
@@ -2015,7 +2022,7 @@
                   "addedIn": 1
                 },
                 {
-                  "id": "walmart-w14",
+                  "id": "walmart-w15",
                   "kind": "selector",
                   "selector": "div.nt1",
                   "read": "text",
@@ -2033,7 +2040,7 @@
                   "addedIn": 1
                 },
                 {
-                  "id": "walmart-w15",
+                  "id": "walmart-w16",
                   "kind": "selector",
                   "selector": "section[data-testid=\"product-description\" i]  div.mb3",
                   "read": "text",
@@ -2173,7 +2180,7 @@
                     ],
                     "as": "text"
                   },
-                  "id": "walmart-w16",
+                  "id": "walmart-w17",
                   "addedIn": 1
                 },
                 {
@@ -3012,13 +3019,13 @@
                 {
                   "kind": "selector",
                   "selector": "[aria-label$=\"Change shipping address\"]",
-                  "id": "walmart-w17",
+                  "id": "walmart-w18",
                   "addedIn": 1
                 },
                 {
                   "kind": "selector",
                   "selector": "button:contains(Ships to)",
-                  "id": "walmart-w18",
+                  "id": "walmart-w19",
                   "addedIn": 1
                 }
               ]
@@ -3030,19 +3037,19 @@
                 {
                   "kind": "selector",
                   "selector": "input[autocomplete=\"postal-code\"]",
-                  "id": "walmart-w19",
-                  "addedIn": 1
-                },
-                {
-                  "kind": "selector",
-                  "selector": "input[name*=\"zip\" i]",
                   "id": "walmart-w20",
                   "addedIn": 1
                 },
                 {
                   "kind": "selector",
-                  "selector": "input[aria-label*=\"ZIP\" i]",
+                  "selector": "input[name*=\"zip\" i]",
                   "id": "walmart-w21",
+                  "addedIn": 1
+                },
+                {
+                  "kind": "selector",
+                  "selector": "input[aria-label*=\"ZIP\" i]",
+                  "id": "walmart-w22",
                   "addedIn": 1
                 }
               ],
@@ -3056,13 +3063,13 @@
                 {
                   "kind": "selector",
                   "selector": "[role=\"dialog\"] button:contains(Save)",
-                  "id": "walmart-w22",
+                  "id": "walmart-w23",
                   "addedIn": 1
                 },
                 {
                   "kind": "selector",
                   "selector": "button[type=\"submit\"]:contains(Save)",
-                  "id": "walmart-w23",
+                  "id": "walmart-w24",
                   "addedIn": 1
                 }
               ]
@@ -3074,13 +3081,13 @@
               {
                 "kind": "selector",
                 "selector": "div[data-testid=\"fulfillment-zone-2\"]",
-                "id": "walmart-w24",
+                "id": "walmart-w25",
                 "addedIn": 1
               },
               {
                 "kind": "selector",
                 "selector": "[aria-label$=\"Change shipping address\"]",
-                "id": "walmart-w25",
+                "id": "walmart-w26",
                 "addedIn": 1
               }
             ]
@@ -3101,10 +3108,10 @@
         ]
       },
       "output": {},
-      "digest": "8f4632ceb25d6a55cefade981a9c633fc9ecc9b904717d075614b951f88834ba",
+      "digest": "136c6d152674bf133c00ee170acc6d4e34ba677c7b55942374eb0b23b6caaca3",
       "outputDigest": "8302aa40d4ddd47b70285163b1e7a26ffafac707ac2348dfb33511075d8bbad1",
       "origin": "imported",
-      "note": "From the walmart Atlas export, with what Pro adds.\nAdded: the shipping ZIP ({zip}) set before reading, checked on every page (the dialog's selectors are not on the saved page: test them live)\nAdded: the page's data (__NEXT_DATA__) read first for the title, SKU, brand, UPC, model, price, was price, rating, reviews and description\nAdded: the identity check: SKU against the id in the /ip/ URL\nAdded: page rules: a sign-in redirect, robot-check wording\nAdded: checks: SKU and UPC are numbers, prices in US dollars, rating 0–5, review count\nAdded: PRODUCT_TITLE and SKU required\nNot carried over: Elements SEARCH_BOX, SEARCH_BUTTON, URL_SKU: page actions and search results are not part of a page recipe; left out.",
+      "note": "From the walmart Atlas export, with what Pro adds.\nAdded: the shipping ZIP ({zip}) set before reading, checked on every page (the dialog's selectors are not on the saved page: test them live)\nAdded: the page's data (__NEXT_DATA__) read first for the title, SKU, brand, UPC, model, price, was price, rating, reviews and description\nAdded: ABOUT_ITEM read from the highlights list (#top-highlights-module ul li), every item, first\nAdded: the identity check: SKU against the id in the /ip/ URL\nAdded: page rules: a sign-in redirect, robot-check wording\nAdded: checks: SKU and UPC are numbers, prices in US dollars, rating 0–5, review count\nAdded: PRODUCT_TITLE and SKU required\nNot carried over: Elements SEARCH_BOX, SEARCH_BUTTON, URL_SKU: page actions and search results are not part of a page recipe; left out.",
       "author": "recipes",
       "createdAt": "1970-01-01T00:00:00.000Z"
     }
