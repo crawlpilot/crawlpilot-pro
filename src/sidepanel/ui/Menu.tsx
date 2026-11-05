@@ -25,6 +25,20 @@ export function placePopover(anchor: DOMRect, w: number, h: number, align: 'star
     };
 }
 
+/** Whether some of the element is still visible inside the scroll areas around it and the window. */
+export function inSight(el: Element): boolean {
+    const r = el.getBoundingClientRect();
+    let top = 0, bottom = window.innerHeight, left = 0, right = window.innerWidth;
+    for (let p = el.parentElement; p; p = p.parentElement) {
+        const o = getComputedStyle(p);
+        if (!/(auto|scroll|hidden)/.test(o.overflowY + o.overflowX)) continue;
+        const b = p.getBoundingClientRect();
+        top = Math.max(top, b.top); bottom = Math.min(bottom, b.bottom);
+        left = Math.max(left, b.left); right = Math.min(right, b.right);
+    }
+    return r.bottom > top && r.top < bottom && r.right > left && r.left < right;
+}
+
 function items(root: HTMLElement | null): HTMLElement[] {
     return root ? [...root.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])')] : [];
 }
@@ -47,7 +61,13 @@ export function Menu({ anchor, onClose, align = 'start', className, children }: 
             const t = e.target as Node;
             if (!ref.current?.contains(t) && !anchor?.contains(t)) onClose();
         };
-        const onScroll = (e: Event) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
+        // A scroll moves the anchor: the menu follows it, and closes once the anchor is out of sight. (Focusing a
+        // button that is partly scrolled off makes the browser scroll it in, right as the menu opens.)
+        const onScroll = (e: Event) => {
+            if (!anchor || (e.target instanceof Node && ref.current?.contains(e.target))) return;
+            if (!inSight(anchor)) { onClose(); return; }
+            if (ref.current) setPos(placePopover(anchor.getBoundingClientRect(), ref.current.offsetWidth, ref.current.offsetHeight, align));
+        };
         document.addEventListener('mousedown', onDown);
         window.addEventListener('scroll', onScroll, true);
         window.addEventListener('resize', onClose);
@@ -56,7 +76,7 @@ export function Menu({ anchor, onClose, align = 'start', className, children }: 
             window.removeEventListener('scroll', onScroll, true);
             window.removeEventListener('resize', onClose);
         };
-    }, [open, anchor, onClose]);
+    }, [open, anchor, align, onClose]);
 
     const onKey = (e: KeyboardEvent) => {
         const list = items(ref.current);

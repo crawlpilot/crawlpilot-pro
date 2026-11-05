@@ -110,4 +110,18 @@ describe('Menu', () => {
         act(() => { document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
         expect(onClose).toHaveBeenCalled();
     });
+
+    it('stays open when a scroll leaves its button in sight, and closes when the button scrolls away', () => {
+        const anchor = document.createElement('button');
+        document.body.append(anchor);
+        let rect = { top: 100, bottom: 130, left: 10, right: 50, width: 40, height: 30, x: 10, y: 100 };
+        anchor.getBoundingClientRect = () => ({ ...rect, toJSON: () => rect }) as DOMRect;
+        const onClose = vi.fn();
+        render(<Menu anchor={anchor} onClose={onClose}><MenuItem onClick={() => undefined}>One</MenuItem></Menu>);
+        act(() => { document.dispatchEvent(new Event('scroll', { bubbles: true })); });
+        expect(onClose).not.toHaveBeenCalled();
+        rect = { ...rect, top: -200, bottom: -170, y: -200 };
+        act(() => { document.dispatchEvent(new Event('scroll', { bubbles: true })); });
+        expect(onClose).toHaveBeenCalled();
+    });
 });
