@@ -19,6 +19,7 @@ import { summarize, testOnTab, type FieldResult, type PageResult } from '../runn
 import { testOnPages, type PagesProgress } from '../runner/testPages';
 import { TestGrid } from './TestGrid';
 import { ConditionEditor } from './ConditionEditor';
+import { ValueChecks } from './ValueChecks';
 import { describe, newLeaf } from '../recipe/conditions';
 import { expectations, RULE_STATUS_LABELS } from '../runner/outcome';
 import { ContractPanel } from './ContractPanel';
@@ -353,7 +354,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     const fieldCard = (field: Field, i: number) => (
         <div key={field.id} data-testid="pro-field"><Disclosure defaultOpen={repairing.has(field.name)} className={repairing.has(field.name) ? 'border-danger!' : undefined}
             summary={<span className="flex min-w-0 items-center gap-1.5"><span className="truncate font-semibold">{field.name || 'unnamed'}</span><Chip>{field.type}</Chip>{field.required && <Chip tone="warning">required</Chip>}<ResultChip result={results.get(field.id)} /></span>}
-            meta={<Text size="caption" tone="faint">{field.ways.length} way{field.ways.length === 1 ? '' : 's'}{field.ops.length ? ` · ${field.ops.length} cleanup` : ''}</Text>}>
+            meta={<Text size="caption" tone="faint">{field.ways.length} way{field.ways.length === 1 ? '' : 's'}{field.ops.length ? ` · ${field.ops.length} cleanup` : ''}{field.checks?.length ? ` · ${field.checks.length} check${field.checks.length === 1 ? '' : 's'}` : ''}</Text>}>
             <div className="flex flex-col gap-3 pt-2">
                 {results.get(field.id) && (
                     <div className="flex flex-col gap-0.5 rounded-xl bg-ink/4 px-2.5 py-2" data-testid="pro-field-result">
@@ -372,6 +373,13 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     <IconButton size="sm" label="Move down" onClick={() => setSpec(edits.moveStep(spec, i, 1))} disabled={i === spec.steps.length - 1}><ArrowDown /></IconButton>
                     <IconButton size="sm" label={`Remove field ${field.name}`} onClick={() => setSpec(edits.removeStep(spec, i))}><Trash2 /></IconButton>
                 </div>
+                <div data-testid="pro-field-checks"><Disclosure variant="plain" defaultOpen={!!field.checks?.length && repairing.has(field.name)}
+                    summary={`Value checks · ${field.checks?.length ?? 0}`}>
+                    <div className="pt-2">
+                        <ValueChecks checks={field.checks ?? []} onChange={checks => setSpec(edits.setChecks(spec, field.id, checks))}
+                            others={spec.steps.flatMap(st => st.kind === 'field' && st.field.id !== field.id && st.field.name.trim() ? [st.field.name] : [])} />
+                    </div>
+                </Disclosure></div>
                 {/* What most edits don't need, folded: how it is found, and its cleanup. */}
                 <div data-testid="pro-field-advanced"><Disclosure variant="plain" defaultOpen={repairing.has(field.name)}
                     summary={`Ways and cleanup · ${field.ways.length} way${field.ways.length === 1 ? '' : 's'}${field.ops.length ? `, ${field.ops.length} cleanup step${field.ops.length === 1 ? '' : 's'}` : ''}`}>

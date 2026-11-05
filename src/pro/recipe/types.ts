@@ -112,7 +112,27 @@ export interface Field {
     columns?: Column[];
     /** The kind of value picked; a healed match must be the same kind. */
     shape?: Shape;
+    /** What a found value must be, beyond its type (`valueChecks.ts`): a value that fails one is a problem. */
+    checks?: ValueCheck[];
 }
+
+/**
+ * A check on a field's value once cleaned and typed (`docs/plans/pro-rules-assertions-plan.md`, R4): it matches (or
+ * doesn't match) a pattern, lies in a range, is one of a list, has a length, or compares with another field's value
+ * on the same page (sale price ≤ list price). Checked on filled values; an empty one is `required`'s business.
+ */
+export type ValueCheck =
+    | { kind: 'pattern'; pattern: string; flags?: string; not?: boolean }
+    /** The typed number: a money amount, a count. */
+    | { kind: 'range'; min?: number; max?: number }
+    /** Case and spaces aside. */
+    | { kind: 'oneOf'; values: string[] }
+    /** Characters of text, or items of a list. */
+    | { kind: 'length'; min?: number; max?: number }
+    /** With another field (by name) on the same page, when that one is filled. */
+    | { kind: 'compare'; op: CompareOp; field: string };
+
+export type CompareOp = 'lt' | 'lte' | 'eq' | 'ne' | 'gte' | 'gt';
 
 /** What an action step does to its target (`docs/plans/pro-data-collection-plan.md`, C1). */
 export type ActionKind = 'click' | 'type' | 'choose' | 'select' | 'press' | 'wait' | 'scroll';

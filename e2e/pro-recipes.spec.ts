@@ -615,6 +615,49 @@ test('page rules: Check names the rule that held, and an error page is kept as a
     await page.close();
 });
 
+test('value checks: a price above its range is a problem on Check, and the diff names the check', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1100 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    const file = { name: 'Overshirt', site: '127.0.0.1', built_on: page.url(), spec: { kind: 'page', settings: {}, elements: [
+        { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] },
+        { id: 'b', name: 'price', action: 'extract', type: 'text', selectors: ['p.price'], shape: 'price' },
+    ] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'o.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+
+    await ui.getByRole('button', { name: 'Edit Overshirt' }).click();
+    const price = ui.getByTestId('pro-field').nth(1);
+    await price.getByRole('button').first().click();
+    await price.getByLabel('Type').selectOption('money');
+    await price.getByRole('button', { name: /^Value checks/ }).click();
+    await price.getByLabel('Add a check').selectOption('range');
+    await price.getByLabel('Check 1 at least').fill('1');
+    await price.getByLabel('Check 1 at most').fill('50');
+    await expect(price.getByTestId('pro-value-check-sentence')).toHaveText('Must be between 1 and 50');
+    // A comparison offers the other fields.
+    await price.getByLabel('Add a check').selectOption('compare');
+    await expect(price.getByLabel('Check 2 other field')).toHaveValue('title');
+    await price.getByRole('button', { name: 'Remove check 2' }).click();
+    if (process.env.UX_SHOTS) await price.screenshot({ path: `${process.env.UX_SHOTS}/pro-value-checks.png` });
+    await ui.getByLabel('What changed').fill('price range');
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    await expect(ui.getByTestId('pro-diff')).toContainText('check added: between 1 and 50');
+
+    await ui.getByRole('banner').getByRole('button', { name: 'Check', exact: true }).click();
+    await ui.getByRole('button', { name: 'Check this page' }).click();
+    const row = ui.getByTestId('pro-check-row').filter({ has: ui.getByText('price', { exact: true }) });
+    await expect(row).toContainText('✗ above 50');
+    await expect(ui.getByTestId('pro-check-item').first()).toContainText('1 with a problem');
+    await ui.close();
+    await page.close();
+});
+
 test('build new: picked fields come to the save step named and typed from the page, and can be changed there', async ({ panel, ext, origin }) => {
     const page = await ext.newPage();
     await page.goto(`${origin}/site/json-product.html`);

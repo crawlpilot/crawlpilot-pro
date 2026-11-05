@@ -2,9 +2,10 @@
  * Edits to a page recipe's spec, each returning a new spec (the editor keeps the old one for undo-free
  * compare). Page data stays the first way: the extractor reads it before any selector.
  */
-import type { Click, Field, FieldType, Identity, PageRecipeSpec, SessionSetup, Step, Way } from './types';
+import type { Click, Field, FieldType, Identity, PageRecipeSpec, SessionSetup, Step, ValueCheck, Way } from './types';
 import type { PageRule } from '../../shared/types/ways';
 import { conditionProblems } from './conditions';
+import { checkProblems } from './valueChecks';
 import type { ProOp } from './ops';
 
 const mapField = (spec: PageRecipeSpec, id: string, f: (field: Field) => Field): PageRecipeSpec => ({
@@ -19,7 +20,25 @@ const move = <T,>(list: T[], from: number, to: number): T[] => {
     return next;
 };
 
-export const renameField = (spec: PageRecipeSpec, id: string, name: string) => mapField(spec, id, f => ({ ...f, name }));
+/** Renames a field; other fields' comparisons with it and the identity check follow the new name. */
+export function renameField(spec: PageRecipeSpec, id: string, name: string): PageRecipeSpec {
+    const old = spec.steps.find(s => s.kind === 'field' && s.field.id === id);
+    const was = old?.kind === 'field' ? old.field.name : undefined;
+    const renamed = mapField(spec, id, f => ({ ...f, name }));
+    if (was === undefined || was === name) return renamed;
+    return {
+        ...renamed,
+        steps: renamed.steps.map(s => s.kind === 'field' && s.field.checks?.some(c => c.kind === 'compare' && c.field === was)
+            ? { kind: 'field', field: { ...s.field, checks: s.field.checks.map(c => c.kind === 'compare' && c.field === was ? { ...c, field: name } : c) } }
+            : s),
+        ...(renamed.identity?.field === was ? { identity: { ...renamed.identity, field: name } } : {}),
+    };
+}
+/** A field's value checks; none drops the key, so the digest stays as it was. */
+export const setChecks = (spec: PageRecipeSpec, id: string, checks: ValueCheck[]) => mapField(spec, id, f => {
+    const { checks: _, ...rest } = f;
+    return checks.length ? { ...rest, checks } : rest;
+});
 export const setFieldType = (spec: PageRecipeSpec, id: string, type: FieldType) => mapField(spec, id, f => ({ ...f, type }));
 export const setRequired = (spec: PageRecipeSpec, id: string, required: boolean) =>
     mapField(spec, id, ({ required: _, ...f }) => required ? { ...f, required: true } : f);
@@ -102,6 +121,7 @@ export function problems(spec: PageRecipeSpec): string[] {
     const sameRule = [...new Set(ruleNames.filter((n, i) => ruleNames.indexOf(n) !== i))];
     if (sameRule.length) out.push(`Two page rules are named ${sameRule.map(n => `"${n}"`).join(', ')}.`);
     for (const r of spec.rules ?? []) out.push(...conditionProblems(r.when, `Rule "${r.name}"`));
+    for (const f of fields) out.push(...checkProblems(f, names));
     for (const f of fields) f.ways.forEach((w, i) => { if (w.when) out.push(...conditionProblems(w.when, `"${f.name}" way ${i + 1}`)); });
     const identity = spec.identity;
     if (identity) {

@@ -4,7 +4,8 @@
  * and pages, and whether the output consumers see changed.
  */
 import { canonicalString } from './canonical';
-import type { Click, Field, ListRecipeSpec, PageRecipeSpec, PageSource, SessionSetup, Version, Way } from './types';
+import type { Click, Field, ListRecipeSpec, PageRecipeSpec, PageSource, SessionSetup, Version, Way, ValueCheck } from './types';
+import { describeCheck } from './valueChecks';
 import { describeAction } from './actions';
 import type { Column, ListTarget } from '../../shared/types/database';
 import type { Condition } from '../../shared/types/ways';
@@ -118,7 +119,14 @@ function fieldDetails(x: Field, y: Field): string[] {
         ...waysDetails(x.ways, y.ways),
         ...(json(x.ops) !== json(y.ops) ? [`cleanup ${x.ops.map(o => o.op).join(', ') || 'none'} → ${y.ops.map(o => o.op).join(', ') || 'none'}`] : []),
         ...(json(x.columns) !== json(y.columns) ? ['its columns changed'] : []),
+        ...checksDetails(x.checks ?? [], y.checks ?? []),
     ];
+}
+
+/** Value checks added and removed, by what they say. */
+function checksDetails(a: ValueCheck[], b: ValueCheck[]): string[] {
+    const as = a.map(describeCheck), bs = b.map(describeCheck);
+    return [...bs.filter(c => !as.includes(c)).map(c => `check added: ${c}`), ...as.filter(c => !bs.includes(c)).map(c => `check removed: ${c}`)];
 }
 
 function pageChanges(a: PageRecipeSpec, b: PageRecipeSpec, prefix = ''): Change[] {
