@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { applyProOps } from '../ops';
 import type { Field, PageRecipeSpec } from '../types';
-import { cssOf, isAtlasExport, readAtlasExport } from './import';
+import { bySeq, cssOf, isAtlasExport, readAtlasExport } from './import';
 import { javaRegex } from './regex';
 
 const fixture = (name: string) => readFileSync(`src/pro/recipe/atlas/fixtures/${name}.json`, 'utf8');
@@ -91,6 +91,14 @@ describe('readAtlasExport', () => {
         expect(way(null).when).toEqual(a1);
         expect(way('ASSERT9').when).toEqual({ kind: 'any', of: [] });
         expect(way('ASSERT1', [{ ...asserts[0], assrtValue: 'abc' }]).when).toEqual({ kind: 'any', of: [] });
+    });
+
+    it('tries templates by seq, ties and missing seqs in the export\'s order', () => {
+        expect(bySeq([{ seq: 4 }, { seq: 1 }, { seq: 2 }, { seq: 4 }, {}, { seq: null }, { seq: 3 }]).map(x => x.i)).toEqual([1, 2, 6, 0, 3, 4, 5]);
+        const ways = fieldsOf(specOf(exportOf([{ name: 'X', type: 'A', templates: [
+            template({ extractMethod: '.b', seq: 2, uniqueTemplateId: 'X-0' }), template({ extractMethod: '.a', seq: 1, uniqueTemplateId: 'X-1' }),
+        ] }])))[0].ways;
+        expect(ways.map(w => [w.id, w.kind === 'selector' && w.selector])).toEqual([['X-1', '.a'], ['X-0', '.b']]);
     });
 
     it('reads NOT and ! before AND, NOR as NOT (… OR …), and the "or equal" and "not" counts', () => {

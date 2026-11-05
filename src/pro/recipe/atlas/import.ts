@@ -2,6 +2,7 @@
  * An Atlas template export (`responseObj`: attributes, error pages, elements, as the template API serves
  * them) as a Pro page recipe (`docs/design/LLD.md` §6.1). Each attribute is a field, each of its templates a
  * way, in Atlas's order:
+ * - templates are tried by their `seq` (ties in the export's order);
  * - `CSS_SLCTR` reads the match's text (as Jsoup does), `CSS_SLCTR_ATTR` its `keyElement` attribute,
  *   `CSS_SLCTR_CNT` how many there are;
  * - `A` takes the first match, `AFL` the first that cleans to something, `AL` all of them joined with " > ",
@@ -36,6 +37,8 @@ interface AtlasTemplate {
     asserts?: AtlasAssert[];
     primaryExtractMethod?: string;
     secondaryExtractMethod?: string;
+    /** The order Atlas tries the attribute's templates in. */
+    seq?: number | null;
 }
 
 interface AtlasAttribute {
@@ -215,6 +218,16 @@ function opsOf(sf: string | null | undefined, where: string, notes: Notes): ProO
     return [{ op: 'regex', pattern: re.pattern, flags: re.flags, group: 0 }, { op: 'trim' }];
 }
 
+/**
+ * An attribute's templates in the order Atlas tries them: by `seq`, the export's order breaking ties (two templates
+ * with one `seq`) and placing templates without one after those with one. Each keeps its export position, which
+ * names it when it has no `uniqueTemplateId`.
+ */
+export function bySeq(templates: AtlasTemplate[]): { t: AtlasTemplate; i: number }[] {
+    const key = (t: AtlasTemplate) => typeof t.seq === 'number' && Number.isFinite(t.seq) ? t.seq : Infinity;
+    return templates.map((t, i) => ({ t, i })).sort((a, b) => key(a.t) - key(b.t) || a.i - b.i);
+}
+
 function wayOf(attr: AtlasAttribute, t: AtlasTemplate, index: number, notes: Notes): Way | null {
     const id = t.uniqueTemplateId || `${attr.name}-${index}`;
     const where = `${attr.name} / ${id}`;
@@ -256,7 +269,7 @@ function fieldsOf(x: AtlasExport, notes: Notes): Field[] {
     for (const attr of x.attributes ?? []) {
         const kind = FIELD[attr.type];
         if (!kind) { notes.push(`${attr.name}: attribute type ${attr.type} is not supported; left out.`); continue; }
-        const ways = (attr.templates ?? []).flatMap((t, i) => wayOf(attr, t, i, notes) ?? []);
+        const ways = bySeq(attr.templates ?? []).flatMap(({ t, i }) => wayOf(attr, t, i, notes) ?? []);
         if (!ways.length) { notes.push(`${attr.name}: none of its templates could be imported; left out.`); continue; }
         let id = slug(attr.name);
         for (let n = 2; ids.has(id); n++) id = `${slug(attr.name)}_${n}`;

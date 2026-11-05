@@ -138,3 +138,15 @@ describe('page rules and the identity check in a diff', () => {
         expect(diffVersions(l1, l2).changes.map(c => c.subject)).toEqual(['page rule No results']);
     });
 });
+
+describe('ways with the same selector', () => {
+    it('pair up in order: an unchanged recipe has no changes, a changed second one is named', async () => {
+        const way = (pattern: string) => ({ kind: 'selector' as const, selector: '.seller', ops: [{ op: 'regex' as const, pattern, flags: 'i', group: 0 }] });
+        const field = (ways: ReturnType<typeof way>[]): Field => ({ id: 'f', name: 'seller', type: 'text', read: 'text', ops: [], ways });
+        const spec = (ways: ReturnType<typeof way>[]): PageRecipeSpec => ({ kind: 'page', steps: [{ kind: 'field', field: field(ways) }] });
+        const a = await version(1, spec([way('sold by (.*)'), way('fulfilled by (.*)')]));
+        expect(diffVersions(a, { ...a, version: 2 }).changes).toEqual([]);
+        const b = await version(2, spec([way('sold by (.*)'), way('shipped by (.*)')]));
+        expect(diffVersions(a, b).changes).toEqual([{ kind: 'changed', subject: 'field seller', details: ['way changed: .seller'] }]);
+    });
+});

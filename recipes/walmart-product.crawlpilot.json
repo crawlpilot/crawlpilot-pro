@@ -1,0 +1,3112 @@
+{
+  "format": 3,
+  "recipe": {
+    "name": "Walmart product page",
+    "site": "walmart.com",
+    "kind": "page",
+    "competitor": "walmart",
+    "pageType": "product",
+    "matchRules": {
+      "include": [
+        "https://www.walmart.com/ip/*"
+      ]
+    }
+  },
+  "labels": {
+    "latest": 1
+  },
+  "samples": [
+    {
+      "url": "https://www.walmart.com/ip/EG-4-BURNER-GRILL/17070020028"
+    }
+  ],
+  "versions": [
+    {
+      "version": 1,
+      "spec": {
+        "kind": "page",
+        "steps": [
+          {
+            "kind": "field",
+            "field": {
+              "id": "buybox_winner",
+              "name": "BUYBOX_WINNER",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "BUYBOX_WINNER-0",
+                  "kind": "selector",
+                  "selector": "div.js-product-primary-seller.product-controls.product-buying-table-row-alt > div > div.top-row > span.primary-seller.copy-mini b",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-1",
+                  "kind": "selector",
+                  "selector": "#BUY_OPT_HEADER > h2",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-2",
+                  "kind": "selector",
+                  "selector": "div.js-seller-fulfillment-section-container > div.seller-info",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-3",
+                  "kind": "selector",
+                  "selector": "div.seller-fulfillment-section > div.seller-info > span[class^=\"seller-\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-4",
+                  "kind": "selector",
+                  "selector": "div.prod-Bot.prod-PositionedRelative span.product-seller span.font-bold",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-5",
+                  "kind": "selector",
+                  "selector": "div.Grid.Grid--gutters div.prod-Bot.prod-PositionedRelative a.font-bold.prod-SoldShipByMsg",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-6",
+                  "kind": "selector",
+                  "selector": "div.Grid.Grid--gutters div.prod-Bot.prod-PositionedRelative a.font-bold",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-7",
+                  "kind": "selector",
+                  "selector": "div.prod-SellerFulfillmentSection a.font-bold.prod-SoldShipByMsg",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-8",
+                  "kind": "selector",
+                  "selector": "div.prod-SellerFulfillmentSection a.font-bold",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-9",
+                  "kind": "selector",
+                  "selector": "a.seller-name",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-10",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i] span.lh-title div",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=([Ss]old and [Ss]hipped by ))(.*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-11",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i] span.lh-title",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=([Ss]old and [Ss]hipped by ))(.*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-12",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i] span.lh-title span:nth-child(1)",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=([Ss]old by ))(.*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-13",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sold-and-shipped-by\" i] span.lh-title span",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=([Ss]old and [Ss]hipped by ))(.*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_WINNER-14",
+                  "kind": "selector",
+                  "selector": "span[data-testid=\"product-seller-info\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=([Ss]old by ))(.*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "promo_message",
+              "name": "PROMO_MESSAGE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PROMO_MESSAGE-0",
+                  "kind": "selector",
+                  "selector": "[data-testid=\"module-2-badges\" i] [data-testid=\"badgeTagComponent\" i] span",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "join",
+                      "sep": " > "
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PROMO_MESSAGE-1",
+                  "kind": "selector",
+                  "selector": "[data-testid=\"ItemPageBadgeModule2\" i] [data-testid=\"badgeTagComponent\" i]",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "join",
+                      "sep": " > "
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "is_price",
+              "name": "IS_PRICE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "kind": "data",
+                  "binding": {
+                    "kind": "json",
+                    "label": "__NEXT_DATA__",
+                    "nth": 0,
+                    "path": [
+                      "props",
+                      "pageProps",
+                      "initialData",
+                      "data",
+                      "product",
+                      "priceInfo",
+                      "currentPrice",
+                      "priceString"
+                    ],
+                    "as": "text"
+                  },
+                  "id": "walmart-w1",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-0",
+                  "kind": "selector",
+                  "selector": "div.product-buying-table-row.js-product-offers-row.product-buying-table-row-hero-price > div > div div.js-price-display.price.price-display",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-1",
+                  "kind": "selector",
+                  "selector": "div.js-choice-fixed-bot-container > div > div > div.content > div.hero-price-section.clearfix > div.price-display",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-2",
+                  "kind": "selector",
+                  "selector": "[class^=\"onlinePrice\" i] > div.PricingInfo.clearfix .clearfix.camelPrice",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-3",
+                  "kind": "selector",
+                  "selector": "div.product-buying-table-row.js-product-offers-row.product-buying-table-row-hero-price > div > div.js-product-price.product-price.clearfix > div.price-add-to-cart",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-4",
+                  "kind": "selector",
+                  "selector": "[class^=\"onlinePrice\" i] > div.PricingInfo > div > span.camelPrice > span#SWFromPrice",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-5",
+                  "kind": "selector",
+                  "selector": "div[itemprop=\"price\" i].js-price-display.Price.Price--stylized.Price--large.hide-content.display-inline-m.price-display",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-6",
+                  "kind": "selector",
+                  "selector": "div.cart-header div.cart-header-info-price span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-7",
+                  "kind": "selector",
+                  "selector": "div.prod-BOTContainer div.prod-PriceHero span.hide-content.display-inline-block-m span.display-inline-block.arrange-fit.Price.Price--stylized.u-textColor",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-8",
+                  "kind": "selector",
+                  "selector": "div.prod-PriceHero span.display-inline-block.arrange-fit.Price.Price--stylized.u-textGray span.Price-group",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-9",
+                  "kind": "selector",
+                  "selector": "span.PriceRange.prod-PriceHero",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-10",
+                  "kind": "selector",
+                  "selector": "div.prod-rightContainer div.prod-PriceHero span.display-inline-block.arrange-fit.Price span.Price-group",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-11",
+                  "kind": "selector",
+                  "selector": "div.prod-rightContainer div.prod-PriceHero.Price-Hero-Enhanced",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-12",
+                  "kind": "selector",
+                  "selector": "div.prod-PriceHero span.hide-content.display-inline-block-m span.price-group",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "ret1 = string.gsub(str, \"\\$%s+\", \"\\$\"); return string.gsub(ret1, \"%s+\", \".\")"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-13",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i]  span[itemprop=\"price\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(\\$\\d+(,\\d+)*(\\.)?\\d+)|(\\$\\d+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-14",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"add-to-cart-section\" i] span[itemprop=\"price\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(\\$\\d+(,\\d+)*(\\.)?\\d+)|(\\$\\d+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-15",
+                  "kind": "selector",
+                  "selector": "span[data-testid=\"price-wrap\" i] > span[class=\"inline-flex flex-column\" i] > span[itemprop=\"price\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(\\$\\d+(,\\d+)*(\\.)?\\d+)|(\\$\\d+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-16",
+                  "kind": "selector",
+                  "selector": "span[class=\"inline-flex flex-column\" i] > span[itemprop=\"price\" i]",
+                  "when": {
+                    "kind": "css",
+                    "selector": "span[class=\"inline-flex flex-column\" i] > span[itemprop=\"price\" i] > span > span.f2",
+                    "op": "gt",
+                    "value": 1
+                  },
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.find(str, \"%.\") then str1 = str else str1 = string.gsub(str, '()', {[string.len(str)-1]='.'}) end;str2 = string.gsub(str1, \"[^0-9.$]\",\"\"); if string.find(str, \"%d\") then return str2 else return nil end;"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE-17",
+                  "kind": "selector",
+                  "selector": "div.nowrap.items-center.inline-flex.h1 > span.mr2.f6.gray.mr1.strike",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "checks": [
+                {
+                  "kind": "pattern",
+                  "pattern": "^\\$\\d{1,3}(,\\d{3})*(\\.\\d{2})?$"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "ol_availability",
+              "name": "OL_AVAILABILITY",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "OL_AVAILABILITY-0",
+                  "kind": "selector",
+                  "selector": "div.product-buying-table-row.js-product-offers-row.product-buying-table-row-hero-price > div > div.js-product-price.product-price.clearfix > div.price-display-oos > p",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-1",
+                  "kind": "selector",
+                  "selector": "div.product-buying-table-row.js-product-offers-row.product-buying-table-row-hero-price > div > div.js-product-price.product-price.clearfix > div.price-out-of-stock",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-2",
+                  "kind": "selector",
+                  "selector": "p#WMNotAvailableLine:not([style^=\"display:none\" i]) > span.NotAvailable.BodyXLBoldGrey",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-3",
+                  "kind": "selector",
+                  "selector": "[id^=\"MP_SELLER_NA_MSG_\" i].NotAvailable.BodyXLBoldGrey:not([style^=\"display: none\" i])",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-4",
+                  "kind": "selector",
+                  "selector": "[id^=\"MP_SELLER_OOS_MSG_\" i]:not([style^=\"display: none\" i]) > span.OutOnline.BodyMBoldGrey",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-5",
+                  "kind": "selector",
+                  "selector": "#WM_ROW > td.cellTL > div:nth-child(3) > span.OutOnline.BodyLBoldGrey",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-6",
+                  "kind": "selector",
+                  "selector": "div.product-buying-table-row.js-product-offers-row.product-buying-table-row-alt.product-buying-table-row-hero-price.bot-carousel-padding > div > div:nth-child(2) > div > div.price-display-oos > p",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-7",
+                  "kind": "selector",
+                  "selector": "div.seller-fulfillment-section span.soi-pipe",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-8",
+                  "kind": "selector",
+                  "selector": "span.prod-seller-in-store",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-9",
+                  "kind": "selector",
+                  "selector": "div > div.product-buying-table-row.js-product-offers-row.product-buying-table-row-alt.product-buying-table-row-hero-price > div > div:nth-child(n) > div > div.price-info > div > div",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-10",
+                  "kind": "selector",
+                  "selector": "body > div.page-wrapper.js-page-wrapper div.product-primary.js-product-primary.ResponsiveContainer > div:nth-child(n) div:nth-child(n) > div div.heading-d",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-11",
+                  "kind": "selector",
+                  "selector": "body section.center div.js-product-page.product-page div.product-buying-table-row.js-product-offers-row.product-buying-table-row-alt.product-buying-table-row-hero-price span.heading-b.js-offer-invalid",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-12",
+                  "kind": "selector",
+                  "selector": "div.Grid div.Grid-col div[itemprop=\"offers\" i] div.js-product-price.product-price.clearfix p.price-out-of-stock.js-submap-price-out-of-stock",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-13",
+                  "kind": "selector",
+                  "selector": "div.Grid div.Grid-col div[itemprop=\"offers\" i] div.js-product-price.product-price.clearfix p.price-oos",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-14",
+                  "kind": "selector",
+                  "selector": "div.Grid div.Grid-col div[itemprop=\"offers\" i] div.js-product-price.product-price.clearfix span.heading-b.soi-na-offer1",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-15",
+                  "kind": "selector",
+                  "selector": "div.buying-options-unavailable.js-buying-options-unavailable div.heading-e",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-16",
+                  "kind": "selector",
+                  "selector": "#WMInStockAvailabilityLine > span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-17",
+                  "kind": "selector",
+                  "selector": "div.prod-ProductOffer.prod-PositionedRelative.Grid.prod-ProductOfferWrapper div.copy-mini.font-semibold.prod-PaddingTop--xxs.prod-ProductOffer-urgencyMsg",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-18",
+                  "kind": "selector",
+                  "selector": "div.prod-BorderedContainer.prod-OfferFulfillment span.display-inline-block-xs.prod-ShowRightBorder--xs.prod-MarginRight--xs.prod-PaddingRight--xs.copy-small.prod-OfferFulfillment-freeShipping",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-19",
+                  "kind": "selector",
+                  "selector": "div.prod-Bot.prod-PositionedRelative div.font-semibold.prod-Bot-partial-head",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-20",
+                  "kind": "selector",
+                  "selector": "div.prod-BotRow.prod-showBottomBorder div.prod-PaddingTop--xxs span.copy-mini.display-block-xs.font-bold.u-textBlack",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-21",
+                  "kind": "selector",
+                  "selector": "div.prod-ProductOffer.prod-PositionedRelative.Grid.prod-ProductOfferWrapper  h2.Price--unavailable.heading-b",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-22",
+                  "kind": "selector",
+                  "selector": "div.prod-BOTContainer div.prod-fulfillment-messaging-text div.font-semibold.prod-AccessMarketplaceShippingMessage",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-23",
+                  "kind": "selector",
+                  "selector": "span.free-shipping-msg.font-bold",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-24",
+                  "kind": "selector",
+                  "selector": "div.Grid div.prod-PaddingTop--xxs",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-25",
+                  "kind": "selector",
+                  "selector": "div.prod-fulfillment.prod-ShippingFulfillmentWrapper div.prod-fulfillment-messaging-text",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-26",
+                  "kind": "selector",
+                  "selector": "div.fulfillment-shipping-text",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-27",
+                  "kind": "selector",
+                  "selector": "h2.prod-InvalidPromptMsg.font-bold",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-28",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i] div[data-testid=\"add-to-cart-section\" i] div[class=\"b f4 gray lh-copy pt2-m flex fr-m tr\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-29",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i] div[class=\"inline\" i] span:nth-child(1)",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": ".*[^,$]",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-30",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i]  ul[data-testid=\"fulfillmentLabel-1P\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-31",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i]  div[data-testid=\"fulfillmentLabel-1P\" i] div:nth-child(1)",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-32",
+                  "kind": "selector",
+                  "selector": "label[data-testid=\"shipping-tile\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-33",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i] div[data-testid=\"add-to-cart-section\" i]  div[class=\"b gray lh-copy pt2-m flex fr-m f4\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-34",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"fulfillmentLabel-1P\" i] span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-35",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"store-only-inventory\" i] h2",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OL_AVAILABILITY-36",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"fulfillment-zone-2\" i] > div.f6.b",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "price_promo",
+              "name": "PRICE_PROMO",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PRICE_PROMO-0",
+                  "kind": "selector",
+                  "selector": "div.product-price-flag.price-flags > span.js-price-flag.flag-clearance",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_PROMO-1",
+                  "kind": "selector",
+                  "selector": "div.product-price-flag.price-flags > span.js-price-flag.flag-rollback",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_PROMO-2",
+                  "kind": "selector",
+                  "selector": "div.product-price-flag.price-flags > span.js-price-flag.flag-reduced",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_PROMO-8",
+                  "kind": "selector",
+                  "selector": "span.prod-PriceFlags.prod-PositionedAbsolute.display-inline-block-xs",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_PROMO-7",
+                  "kind": "selector",
+                  "selector": "div.prod-FlagList-container",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_PROMO-4",
+                  "kind": "selector",
+                  "selector": "span.prod-PriceFlags span.flag.flag-clearance",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_PROMO-5",
+                  "kind": "selector",
+                  "selector": "div.prod-flagList span.flag.flag-clearance",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_PROMO-6",
+                  "kind": "selector",
+                  "selector": "div.prod-flagList span.flag.flag-rollback",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_PROMO-3",
+                  "kind": "selector",
+                  "selector": "div.Grid-col.hide-content.display-block-s > span.flag.flag-rollback.flag-alt.prod-MarginBottom--xxs",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRICE_PROMO-9",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i]  p span",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "product_title",
+              "name": "PRODUCT_TITLE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "kind": "data",
+                  "binding": {
+                    "kind": "json",
+                    "label": "__NEXT_DATA__",
+                    "nth": 0,
+                    "path": [
+                      "props",
+                      "pageProps",
+                      "initialData",
+                      "data",
+                      "product",
+                      "name"
+                    ],
+                    "as": "text"
+                  },
+                  "id": "walmart-w2",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_TITLE-0",
+                  "kind": "selector",
+                  "selector": "h1.prod-ProductTitle",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_TITLE-1",
+                  "kind": "selector",
+                  "selector": "h2.prod-ProductTitle",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_TITLE-2",
+                  "kind": "selector",
+                  "selector": "div.ProductTitle div",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_TITLE-3",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i] h1[itemprop=\"name\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_TITLE-4",
+                  "kind": "selector",
+                  "selector": "#main-title",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "required": true
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "buyability",
+              "name": "BUYABILITY",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "BUYABILITY-0",
+                  "kind": "selector",
+                  "selector": "#WMItemAddToCartBtn",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-1",
+                  "kind": "selector",
+                  "selector": "div.product-controls.product-buying-table-row.module > div > div.js-product-call-to-action-summary > div > div > div:nth-child(2) > div > div > button",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-2",
+                  "kind": "selector",
+                  "selector": "div.content > div.call-to-action-button > button",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-3",
+                  "kind": "selector",
+                  "selector": "div.product-controls.product-buying-table-row.module > div > div.js-product-call-to-action-summary > div > div:nth-child(2) > div > div > button",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-4",
+                  "kind": "selector",
+                  "selector": "div.product-controls.product-buying-table-row.module > div > div > div > div > div:nth-child(2) > div > div > button",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-5",
+                  "kind": "selector",
+                  "selector": "div.prod-ProductCTAAddToCart button span:nth-child(2)",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-6",
+                  "kind": "selector",
+                  "selector": "div.prod-BOTContainer div.prod-ProductCTAAddToCart button",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-7",
+                  "kind": "selector",
+                  "selector": "div.prod-ProductPrimaryCTA button.prod-ProductCTA--primary",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-8",
+                  "kind": "selector",
+                  "selector": "button.prod-ProductCTA--primary",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-9",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i] div[data-testid=\"add-to-cart-section\" i] div.relative.dib button span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-10",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i] div[data-testid=\"add-to-cart-section\" i] button span",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYABILITY-11",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"atc-buynow-container\" i] button",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "buybox_flfl_by",
+              "name": "BUYBOX_FLFL_BY",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "BUYBOX_FLFL_BY-0",
+                  "kind": "selector",
+                  "selector": "div.seller-fulfillment-section > div.seller-info > span[class^=\"seller-\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-1",
+                  "kind": "selector",
+                  "selector": "div.prod-Bot.prod-PositionedRelative > div > div:nth-child(3) > div > a",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-2",
+                  "kind": "selector",
+                  "selector": "div.prod-SellerFulfillmentSection a.font-bold.prod-SoldShipByMsg",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-3",
+                  "kind": "selector",
+                  "selector": "div.prod-SoldShippedBySection.hf-BotRow a.seller-name",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-4",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i] span.lh-title div",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=([Ss]old and [Ss]hipped by ))(.*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-5",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i] span.lh-title",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=([Ss]old and [Ss]hipped by ))(.*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-6",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sticky-buy-box\" i] span.lh-title",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=([Ff]ulfilled by ))(.*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-7",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"sold-and-shipped-by\" i] span.lh-title span",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=([Ss]old and [Ss]hipped by ))(.*)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BUYBOX_FLFL_BY-8",
+                  "kind": "selector",
+                  "selector": "div[data-automation-id=\"Walmart-delivery\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "[^by ]*$",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "sku",
+              "name": "SKU",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "kind": "data",
+                  "binding": {
+                    "kind": "json",
+                    "label": "__NEXT_DATA__",
+                    "nth": 0,
+                    "path": [
+                      "props",
+                      "pageProps",
+                      "initialData",
+                      "data",
+                      "product",
+                      "usItemId"
+                    ],
+                    "as": "text"
+                  },
+                  "id": "walmart-w3",
+                  "addedIn": 1
+                },
+                {
+                  "id": "SKU-0",
+                  "kind": "selector",
+                  "selector": "link[rel=\"canonical\" i]",
+                  "read": "attr",
+                  "attr": "href",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "str1 = string.match(str, \"^[^?#]+\"); return string.match(str1, \"/ip/.*/([%w]+)/*$\") or string.match(str1, \"/ip/([%w]+)/*$\");"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "required": true,
+              "checks": [
+                {
+                  "kind": "pattern",
+                  "pattern": "^\\d+$"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "hidden_price_string",
+              "name": "HIDDEN_PRICE_STRING",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "HIDDEN_PRICE_STRING-0",
+                  "kind": "selector",
+                  "selector": "div.Grid div.Grid-col div[itemprop=\"offers\" i] div.js-product-price.product-price.clearfix div.submap-flyout span.submap-price.js-submap-price",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "was_price",
+              "name": "WAS_PRICE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "kind": "data",
+                  "binding": {
+                    "kind": "json",
+                    "label": "__NEXT_DATA__",
+                    "nth": 0,
+                    "path": [
+                      "props",
+                      "pageProps",
+                      "initialData",
+                      "data",
+                      "product",
+                      "priceInfo",
+                      "wasPrice",
+                      "priceString"
+                    ],
+                    "as": "text"
+                  },
+                  "id": "walmart-w4",
+                  "addedIn": 1
+                },
+                {
+                  "id": "WAS_PRICE-0",
+                  "kind": "selector",
+                  "selector": "div .buy-box-container [data-seo-id=\"strike-through-price\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "^\\$\\d+(\\.\\d+)?$",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "WAS_PRICE-14",
+                  "kind": "selector",
+                  "selector": "div.nowrap.items-center.inline-flex.h1 > span.mr2.f6.gray.mr1.strike",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "^\\$\\d+(\\.\\d+)?$",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "checks": [
+                {
+                  "kind": "pattern",
+                  "pattern": "^\\$\\d{1,3}(,\\d{3})*(\\.\\d{2})?$"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "reco_percent",
+              "name": "RECO_PERCENT",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "RECO_PERCENT-1",
+                  "kind": "selector",
+                  "selector": ".meter-bar .meter-text",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "reviews",
+              "name": "REVIEWS",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "kind": "data",
+                  "binding": {
+                    "kind": "json",
+                    "label": "__NEXT_DATA__",
+                    "nth": 0,
+                    "path": [
+                      "props",
+                      "pageProps",
+                      "initialData",
+                      "data",
+                      "product",
+                      "numberOfReviews"
+                    ],
+                    "as": "text"
+                  },
+                  "id": "walmart-w5",
+                  "addedIn": 1
+                },
+                {
+                  "id": "REVIEWS-1",
+                  "kind": "selector",
+                  "selector": "div div.product-subhead-section.product-subhead-reviews-count > a > span",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(\\d+\\,\\d+)|(\\d+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "REVIEWS-2",
+                  "kind": "selector",
+                  "selector": "div > div.Grid-col.u-size-1-2.stars.stars-large.pull-left.hide-content.display-inline-block-m > p",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(\\d+\\,\\d+)|(\\d+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "REVIEWS-3",
+                  "kind": "selector",
+                  "selector": "div[itemprop=\"aggregateRating\" i] span.stars-reviews-count-node",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(\\d+\\,\\d+)|(\\d+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "checks": [
+                {
+                  "kind": "pattern",
+                  "pattern": "^\\d{1,3}(,?\\d{3})*$"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "breadcrumb",
+              "name": "BREADCRUMB",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "BREADCRUMB-1",
+                  "kind": "selector",
+                  "selector": "div.Grid.prod-breadcrumb > div > ol",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "join",
+                      "sep": " > "
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BREADCRUMB-2",
+                  "kind": "selector",
+                  "selector": "nav > ol.breadcrumb-list",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "join",
+                      "sep": " > "
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "complete_prod_details",
+              "name": "COMPLETE_PROD_DETAILS",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "COMPLETE_PROD_DETAILS-1",
+                  "kind": "selector",
+                  "selector": "div > div.about-item-complete.js-slide-panel-content.hide-content.display-block-m > section > div > div.ellipsis-content.module, div > div.about-item-complete.js-slide-panel-content.hide-content.display-block-m > section > div, div > div.about-item-complete, div.product-short-description",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "join",
+                      "sep": " > "
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "sales_rank",
+              "name": "SALES_RANK",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SALES_RANK-1",
+                  "kind": "selector",
+                  "selector": "div.about-product-section div.item-ranks",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "upc",
+              "name": "UPC",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "kind": "data",
+                  "binding": {
+                    "kind": "json",
+                    "label": "__NEXT_DATA__",
+                    "nth": 0,
+                    "path": [
+                      "props",
+                      "pageProps",
+                      "initialData",
+                      "data",
+                      "product",
+                      "upc"
+                    ],
+                    "as": "text"
+                  },
+                  "id": "walmart-w6",
+                  "addedIn": 1
+                },
+                {
+                  "id": "UPC-1",
+                  "kind": "selector",
+                  "selector": "div.prod-ProductSecondaryInformation > span",
+                  "read": "attr",
+                  "attr": "content",
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "checks": [
+                {
+                  "kind": "pattern",
+                  "pattern": "^\\d{12,14}$"
+                }
+              ]
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "ofl_availability",
+              "name": "OFL_AVAILABILITY",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "OFL_AVAILABILITY-1",
+                  "kind": "selector",
+                  "selector": "div.seller-fulfillment-section div.seller-fulfillment-subsection.pickup-info .pickup-date-msg",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OFL_AVAILABILITY-2",
+                  "kind": "selector",
+                  "selector": "div.product-fulfillment-tabs [data-tab=\"js-tab-pickup\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "OFL_AVAILABILITY-3",
+                  "kind": "selector",
+                  "selector": "div.prod-pickupMessageSection",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "new_item",
+              "name": "NEW_ITEM",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "NEW_ITEM-1",
+                  "kind": "selector",
+                  "selector": "div.product-price-flag.price-flags > span.js-price-flag.flag.flag-new.hide-content.display-block.flag-alt",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "brand",
+              "name": "BRAND",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "kind": "data",
+                  "binding": {
+                    "kind": "json",
+                    "label": "__NEXT_DATA__",
+                    "nth": 0,
+                    "path": [
+                      "props",
+                      "pageProps",
+                      "initialData",
+                      "data",
+                      "product",
+                      "brand"
+                    ],
+                    "as": "text"
+                  },
+                  "id": "walmart-w7",
+                  "addedIn": 1
+                },
+                {
+                  "id": 1,
+                  "kind": "selector",
+                  "selector": "span[itemprop=\"brand\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": 2,
+                  "kind": "selector",
+                  "selector": "#WMItemBrandLnk",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": 3,
+                  "kind": "selector",
+                  "selector": "a[link-identifier=\"brandLink\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": 4,
+                  "kind": "selector",
+                  "selector": "div.nt1",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=Brand\\s)[\\w-]*",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": 5,
+                  "kind": "selector",
+                  "selector": "section[data-pcss-show] > div",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=Visit the)(.*?)(?=store)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": 6,
+                  "kind": "selector",
+                  "selector": "a[data-seo-id=\"brand-name\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "product_description",
+              "name": "PRODUCT_DESCRIPTION",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "kind": "data",
+                  "binding": {
+                    "kind": "json",
+                    "label": "__NEXT_DATA__",
+                    "nth": 0,
+                    "path": [
+                      "props",
+                      "pageProps",
+                      "initialData",
+                      "data",
+                      "product",
+                      "shortDescription"
+                    ],
+                    "as": "text"
+                  },
+                  "id": "walmart-w8",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_DESCRIPTION-2",
+                  "kind": "selector",
+                  "selector": ".product-about",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_DESCRIPTION-3",
+                  "kind": "selector",
+                  "selector": "#about-product-section",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_DESCRIPTION-4",
+                  "kind": "selector",
+                  "selector": "section [data-testid=\"product-description\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_DESCRIPTION-1",
+                  "kind": "selector",
+                  "selector": "div>div.about-item-complete.js-slide-panel-content.hide-content.display-block-m>.product-about",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "about_item",
+              "name": "ABOUT_ITEM",
+              "type": "list",
+              "read": "text_array",
+              "ways": [
+                {
+                  "id": "ABOUT_ITEM-1",
+                  "kind": "selector",
+                  "selector": "#product-description-atf > div > ul > li",
+                  "read": "text",
+                  "pick": "all",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "rating",
+              "name": "RATING",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "kind": "data",
+                  "binding": {
+                    "kind": "json",
+                    "label": "__NEXT_DATA__",
+                    "nth": 0,
+                    "path": [
+                      "props",
+                      "pageProps",
+                      "initialData",
+                      "data",
+                      "product",
+                      "averageRating"
+                    ],
+                    "as": "text"
+                  },
+                  "id": "walmart-w9",
+                  "addedIn": 1
+                },
+                {
+                  "id": "RATING-1",
+                  "kind": "selector",
+                  "selector": "div > div.Grid-col.u-size-1-2.stars.stars-large.pull-left.hide-content.display-inline-block-m > p",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "((\\d)|(\\d\\.\\d))(?=\\s*out)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "RATING-2",
+                  "kind": "selector",
+                  "selector": "div > div.Grid-col.u-size-1-2.stars.stars-large.pull-left.hide-content.display-inline-block-m > span.visuallyhidden",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "((\\d)|(\\d\\.\\d))(?=\\s*out)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "RATING-3",
+                  "kind": "selector",
+                  "selector": "#WMItemRevLnk > span[itemprop=\"ratingValue\" i] > span.visuallyhidden",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "((\\d)|(\\d\\.\\d))(?=\\s*out)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "RATING-4",
+                  "kind": "selector",
+                  "selector": "div.ReviewsHeader-ratingContainer span.ReviewsHeader-ratingPrefix",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": [],
+              "checks": [
+                {
+                  "kind": "range",
+                  "min": 0,
+                  "max": 5
+                }
+              ]
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "product_specification",
+              "name": "PRODUCT_SPECIFICATION",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PRODUCT_SPECIFICATION-1",
+                  "kind": "selector",
+                  "selector": "div.product-specifications",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "join",
+                      "sep": " > "
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_SPECIFICATION-2",
+                  "kind": "selector",
+                  "selector": "div.collapsable-content-container table",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "join",
+                      "sep": " > "
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "PRODUCT_SPECIFICATION-3",
+                  "kind": "selector",
+                  "selector": "div.nt1 > div",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "join",
+                      "sep": " > "
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "win",
+              "name": "WIN",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "WIN-1",
+                  "kind": "selector",
+                  "selector": "div.wm-item-number",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "[0-9]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "isbn_10",
+              "name": "ISBN-10",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "ISBN-10",
+                  "kind": "selector",
+                  "selector": "div.product-specifications",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.match(str,\"ISBN[-]?[1][0]%s[0-9]+\") then str = string.match(str,\"ISBN[-]?[1][0]%s[0-9]+\");num = string.sub(str,9); return num else return nil end;"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "walmart-w10",
+                  "kind": "selector",
+                  "selector": "div.collapsable-content-container table",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.match(str,\"ISBN[-]?[1][0]%s[0-9]+\") then str = string.match(str,\"ISBN[-]?[1][0]%s[0-9]+\");num = string.sub(str,9); return num else return nil end;"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "walmart-w11",
+                  "kind": "selector",
+                  "selector": "div.nt1",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=ISBN-10\\s)\\d{10}",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "walmart-w12",
+                  "kind": "selector",
+                  "selector": "section[data-testid=\"product-description\" i]  div.mb3",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=ISBN10: )\\d{10}",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "isbn_13",
+              "name": "ISBN-13",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "ISBN-13",
+                  "kind": "selector",
+                  "selector": "div.product-specifications",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.match(str,\"ISBN[-]?[1][3]%s[0-9]+\") then str = string.match(str,\"ISBN[-]?[1][3]%s[0-9]+\");num = string.sub(str,9); return num else return nil end;"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "walmart-w13",
+                  "kind": "selector",
+                  "selector": "div.collapsable-content-container table",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.match(str,\"ISBN[-]?[1][3]%s[0-9]+\") then str = string.match(str,\"ISBN[-]?[1][3]%s[0-9]+\");num = string.sub(str,9); return num else return nil end;"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "walmart-w14",
+                  "kind": "selector",
+                  "selector": "div.nt1",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=ISBN-13\\s)\\d{13}",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "walmart-w15",
+                  "kind": "selector",
+                  "selector": "section[data-testid=\"product-description\" i]  div.mb3",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=ISBN13: )\\d{13}",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "title",
+              "name": "TITLE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "TITLE",
+                  "kind": "selector",
+                  "selector": "div.hf-Bot > h1",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "book_format",
+              "name": "BOOK_FORMAT",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "BOOK_FORMAT-0",
+                  "kind": "selector",
+                  "selector": "div.mid-gray.mb2 > span.ml1",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.match(str, \"Hardcover\") or string.match(str, \"Paperback\") or string.match(str, \"Board Book\") then return str else return nil end"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "BOOK_FORMAT-2",
+                  "kind": "selector",
+                  "selector": "div.product-specifications",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.match(str,\"Book%sFormat%s[A-Za-z]+\") then str = string.match(str,\"Book%sFormat%s[A-Za-z]+\");format = string.sub(str,12); return format; else return nil end;"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "variant_flag",
+              "name": "VARIANT_FLAG",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "VARIANT-1",
+                  "kind": "selector",
+                  "selector": "#variants-section div.visuallyhidden",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if str then return \"Y\" else return \"N\" end"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "VARIANT-2",
+                  "kind": "selector",
+                  "selector": "#item-page-variant-group-bg-div",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if str then return \"Y\" else return \"N\" end"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "model_number",
+              "name": "MODEL_NUMBER",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "kind": "data",
+                  "binding": {
+                    "kind": "json",
+                    "label": "__NEXT_DATA__",
+                    "nth": 0,
+                    "path": [
+                      "props",
+                      "pageProps",
+                      "initialData",
+                      "data",
+                      "product",
+                      "model"
+                    ],
+                    "as": "text"
+                  },
+                  "id": "walmart-w16",
+                  "addedIn": 1
+                },
+                {
+                  "id": "MODEL_NUMBER-1",
+                  "kind": "selector",
+                  "selector": "div.nt1 > div",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*model\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "selected_color",
+              "name": "SELECTED_COLOR",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SELECTED_COLOR-1",
+                  "kind": "selector",
+                  "selector": "div.nt1 > div",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*color\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-2",
+                  "kind": "selector",
+                  "selector": "#item-page-variant-group-bg-div   div.mid-gray.mb1 > span",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*Actual Color:\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-3",
+                  "kind": "selector",
+                  "selector": "div.mt4 #item-page-variant-group-bg-div div[data-testid=\"variant-group-0\" i] div.mid-gray",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=Color:)(.*?)(?=-)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-4",
+                  "kind": "selector",
+                  "selector": "#item-page-variant-group-bg-div div[data-testid=\"variant-group-0\" i] div.mid-gray",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=Color:)(.*?)(?=-)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_COLOR-5",
+                  "kind": "selector",
+                  "selector": "div[class=\"flex flex-wrap dark-gray\" i] > div",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*Color\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "product_weight",
+              "name": "PRODUCT_WEIGHT",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PRODUCT_WEIGHT-1",
+                  "kind": "selector",
+                  "selector": "div.nt1 > div",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*assembled\\s+product\\s+weight\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "product_dimensions",
+              "name": "PRODUCT_DIMENSIONS",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PRODUCT_DIMENSIONS-1",
+                  "kind": "selector",
+                  "selector": "div.nt1 > div",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=\\s*assembled\\s+product\\s+dimensions\\s*\\(\\s*l\\s*x\\s*w\\s*x\\s*h\\s*\\)\\s*)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "material",
+              "name": "MATERIAL",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "MATERIAL-1",
+                  "kind": "selector",
+                  "selector": "div.nt1 > div",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*material\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "product_id",
+              "name": "PRODUCT_ID",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PRODUCT_ID-1",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"add-to-cart-section\" i] div[data-testid=\"atc-buynow-container\" i]  > div > div >  div",
+                  "read": "attr",
+                  "attr": "data-id",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "selected_size",
+              "name": "SELECTED_SIZE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SELECTED_SIZE-1",
+                  "kind": "selector",
+                  "selector": "#item-page-variant-group-bg-div   div.mid-gray",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*size:)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_SIZE-2",
+                  "kind": "selector",
+                  "selector": "div.mt4 #item-page-variant-group-bg-div div[data-testid=\"variant-group-1\" i] div.mid-gray",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=Size:)(.*?)(?=-)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "SELECTED_SIZE-3",
+                  "kind": "selector",
+                  "selector": "button[style*=\"box-shadow\" i][id^=\"clothing_size-\" i] span.w_V_DM > span",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "unit_count",
+              "name": "UNIT_COUNT",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "UNIT_COUNT-1",
+                  "kind": "selector",
+                  "selector": "div.nt1 > div",
+                  "read": "text",
+                  "pick": "firstFilled",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(?<=^\\s*unit count\\s)[^>]+",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "more_details_flag",
+              "name": "MORE_DETAILS_FLAG",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "MORE_DETAILS_FLAG-1",
+                  "kind": "selector",
+                  "selector": "div.w_rNem.expand-collapse-content > div > button[aria-label=\"More details\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if str then return \"Y\" else return \"N\" end"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "text_on_swatch",
+              "name": "TEXT_ON_SWATCH",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "TEXT_ON_SWATCH-1",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"variant-group-0\" i] div.flex.flex-wrap.nl1.nr1 div button div label.flex.dark-gray.pointer.relative.flex-column.items-center.h-100.bg-white.b span span",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "unit_price_raw_text",
+              "name": "UNIT_PRICE_RAW_TEXT",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "UNIT_PRICE_RAW_TEXT-0",
+                  "kind": "selector",
+                  "selector": "span[data-seo-id=\"hero-unit-price\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.find(str, \"/\") then return str else return null end;"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "unit_price",
+              "name": "UNIT_PRICE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "UNIT_PRICE-0",
+                  "kind": "selector",
+                  "selector": "span[data-seo-id=\"hero-unit-price\" i]",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": "(\\d+\\.\\d+)",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "is_price_string",
+              "name": "IS_PRICE_STRING",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "IS_PRICE_STRING-0",
+                  "kind": "selector",
+                  "selector": "span[data-seo-id=\"hero-price\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "IS_PRICE_STRING-1",
+                  "kind": "selector",
+                  "selector": "span[data-testid=\"\\\\\\\"variant-tile-price-text-Child\\\\\\\"\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "was_price_string",
+              "name": "WAS_PRICE_STRING",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "WAS_PRICE_STRING-0",
+                  "kind": "selector",
+                  "selector": "div .buy-box-container [data-seo-id=\"strike-through-price\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "WAS_PRICE_STRING-1",
+                  "kind": "selector",
+                  "selector": "div.nowrap.items-center.inline-flex.h1 > span.mr2.f6.gray.mr1.strike",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "shipping_charge",
+              "name": "SHIPPING_CHARGE",
+              "type": "list",
+              "read": "text_array",
+              "ways": [
+                {
+                  "id": "SHIPPING_CHARGE-0",
+                  "kind": "selector",
+                  "selector": "label[data-testid=\"shipping-tile\" i] div div",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "if string.match(str,\"$[0-9]\") then return str else return null end"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "zipcode",
+              "name": "ZIPCODE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "ZIPCODE-0",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"fulfillment-zone-2\" i] div div[class=\"mb2\" i] span",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "return string.gsub(str,\"%D\", \"\");"
+                    }
+                  ],
+                  "addedIn": 1
+                },
+                {
+                  "id": "ZIPCODE-1",
+                  "kind": "selector",
+                  "selector": "div[data-testid=\"fulfillment-zone-2\" i] span",
+                  "read": "text",
+                  "ops": [
+                    {
+                      "op": "lua",
+                      "code": "return string.gsub(str,\"%D\", \"\");"
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "shipping_message",
+              "name": "SHIPPING_MESSAGE",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "SHIPPING_MESSAGE-0",
+                  "kind": "selector",
+                  "selector": "div.f7.mt2",
+                  "read": "text",
+                  "addedIn": 1
+                },
+                {
+                  "id": "SHIPPING_MESSAGE-1",
+                  "kind": "selector",
+                  "selector": "li[data-testid=\"free-shipping\" i]",
+                  "read": "text",
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          },
+          {
+            "kind": "field",
+            "field": {
+              "id": "packaging_text",
+              "name": "PACKAGING_TEXT",
+              "type": "text",
+              "read": "text",
+              "ways": [
+                {
+                  "id": "PACKAGING_TEXT-0",
+                  "kind": "selector",
+                  "selector": "[class=\"ma3 mh0-l\" i] [class=\"f6\" i]",
+                  "read": "text",
+                  "pick": "all",
+                  "ops": [
+                    {
+                      "op": "regex",
+                      "pattern": ".*packaging.*",
+                      "flags": "is",
+                      "group": 0
+                    },
+                    {
+                      "op": "trim"
+                    },
+                    {
+                      "op": "join",
+                      "sep": " > "
+                    }
+                  ],
+                  "addedIn": 1
+                }
+              ],
+              "ops": []
+            }
+          }
+        ],
+        "rules": [
+          {
+            "name": "404",
+            "status": "not_found",
+            "when": {
+              "kind": "any",
+              "of": [
+                {
+                  "kind": "regex",
+                  "pattern": "We can't find the product you are looking for",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "This page may be missing or may have been retired",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "This item is no longer available",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "The page you are looking for could not be found",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "css",
+                  "selector": ".search-result-gridview-items .Grid-col",
+                  "op": "gt",
+                  "value": 1
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "Oops! This item is unavailable or on backorder.",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "Forbidden ([0-9]+)-([0-9]+)-([0-9]+)-([0-9]+)",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "css",
+                  "selector": "div[data-testid=\"item-not-found\" i]",
+                  "op": "eq",
+                  "value": 1
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "This page could not be found",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "css",
+                  "selector": "head > [content=\"homePage\" i]",
+                  "op": "gt",
+                  "value": 0
+                }
+              ]
+            }
+          },
+          {
+            "name": "ANONYMITY_ERROR_PAGE",
+            "status": "blocked",
+            "when": {
+              "kind": "any",
+              "of": [
+                {
+                  "kind": "regex",
+                  "pattern": "You don't have permission to access",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "Verify your identity",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "Help us keep your account safe by clicking on the checkbox below",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "Verify Your Identity",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "Robot or human?",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "Sign in to your ",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "<title>Login</title>",
+                  "op": "gt",
+                  "value": 0
+                }
+              ]
+            }
+          },
+          {
+            "name": "503",
+            "status": "error",
+            "when": {
+              "kind": "any",
+              "of": [
+                {
+                  "kind": "regex",
+                  "pattern": "An error occurred while attempting to load this content.",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "Could not connect to server",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "\\{\"statusCode\":500,\"error\":\"Internal Server Error\",\"message\":\"An internal server error occurred\"\\}",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "We're having technical difficulties and are looking into the problem now",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "This site can’t be reached",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "We’re having technical issues",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "Hang tight — you're in the right place.",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "Stay close, you're almost in",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "We're have technical issues, but we'll be back in a flash.",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "upstream connect error or disconnect/reset before headers. reset reason: connection failure",
+                  "op": "gt",
+                  "value": 0
+                },
+                {
+                  "kind": "regex",
+                  "pattern": "We\\?re having technical issues",
+                  "op": "gt",
+                  "value": 0
+                }
+              ]
+            }
+          },
+          {
+            "name": "Sign-in redirect",
+            "status": "blocked",
+            "when": {
+              "kind": "regex",
+              "in": "url",
+              "pattern": "/account/login",
+              "flags": "i",
+              "op": "gt",
+              "value": 0
+            }
+          },
+          {
+            "name": "Robot check",
+            "status": "blocked",
+            "when": {
+              "kind": "regex",
+              "in": "text",
+              "pattern": "Robot or human\\?|Press & Hold to confirm you are",
+              "flags": "i",
+              "op": "gt",
+              "value": 0
+            }
+          }
+        ],
+        "setup": {
+          "steps": [
+            {
+              "id": "s-open",
+              "name": "Change shipping address",
+              "ways": [
+                {
+                  "kind": "selector",
+                  "selector": "[aria-label$=\"Change shipping address\"]",
+                  "id": "walmart-w17",
+                  "addedIn": 1
+                },
+                {
+                  "kind": "selector",
+                  "selector": "button:contains(Ships to)",
+                  "id": "walmart-w18",
+                  "addedIn": 1
+                }
+              ]
+            },
+            {
+              "id": "s-zip",
+              "name": "Type ZIP",
+              "ways": [
+                {
+                  "kind": "selector",
+                  "selector": "input[autocomplete=\"postal-code\"]",
+                  "id": "walmart-w19",
+                  "addedIn": 1
+                },
+                {
+                  "kind": "selector",
+                  "selector": "input[name*=\"zip\" i]",
+                  "id": "walmart-w20",
+                  "addedIn": 1
+                },
+                {
+                  "kind": "selector",
+                  "selector": "input[aria-label*=\"ZIP\" i]",
+                  "id": "walmart-w21",
+                  "addedIn": 1
+                }
+              ],
+              "do": "type",
+              "value": "{zip}"
+            },
+            {
+              "id": "s-save",
+              "name": "Save",
+              "ways": [
+                {
+                  "kind": "selector",
+                  "selector": "[role=\"dialog\"] button:contains(Save)",
+                  "id": "walmart-w22",
+                  "addedIn": 1
+                },
+                {
+                  "kind": "selector",
+                  "selector": "button[type=\"submit\"]:contains(Save)",
+                  "id": "walmart-w23",
+                  "addedIn": 1
+                }
+              ]
+            }
+          ],
+          "check": {
+            "contains": "{zip}",
+            "ways": [
+              {
+                "kind": "selector",
+                "selector": "div[data-testid=\"fulfillment-zone-2\"]",
+                "id": "walmart-w24",
+                "addedIn": 1
+              },
+              {
+                "kind": "selector",
+                "selector": "[aria-label$=\"Change shipping address\"]",
+                "id": "walmart-w25",
+                "addedIn": 1
+              }
+            ]
+          }
+        },
+        "identity": {
+          "field": "SKU",
+          "url": [
+            "(?<=/ip/(?:[^/?#]+/)?)\\d+(?=[/?#]|$)"
+          ]
+        }
+      },
+      "settings": {},
+      "pages": {
+        "kind": "urls",
+        "urls": [
+          "https://www.walmart.com/ip/EG-4-BURNER-GRILL/17070020028"
+        ]
+      },
+      "output": {},
+      "digest": "8f4632ceb25d6a55cefade981a9c633fc9ecc9b904717d075614b951f88834ba",
+      "outputDigest": "8302aa40d4ddd47b70285163b1e7a26ffafac707ac2348dfb33511075d8bbad1",
+      "origin": "imported",
+      "note": "From the walmart Atlas export, with what Pro adds.\nAdded: the shipping ZIP ({zip}) set before reading, checked on every page (the dialog's selectors are not on the saved page: test them live)\nAdded: the page's data (__NEXT_DATA__) read first for the title, SKU, brand, UPC, model, price, was price, rating, reviews and description\nAdded: the identity check: SKU against the id in the /ip/ URL\nAdded: page rules: a sign-in redirect, robot-check wording\nAdded: checks: SKU and UPC are numbers, prices in US dollars, rating 0–5, review count\nAdded: PRODUCT_TITLE and SKU required\nNot carried over: Elements SEARCH_BOX, SEARCH_BUTTON, URL_SKU: page actions and search results are not part of a page recipe; left out.",
+      "author": "recipes",
+      "createdAt": "1970-01-01T00:00:00.000Z"
+    }
+  ]
+}

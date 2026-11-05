@@ -46,7 +46,8 @@ describe('data on this page (fixture)', () => {
     });
 });
 
-describe('data on corpus product pages', () => {
+// A saved product page is up to a megabyte of markup: parsing it in jsdom can take seconds on a CI runner.
+describe('data on corpus product pages', { timeout: 60_000 }, () => {
     for (const name of ['uniqlo', 'zara']) {
         it(`${name}: the Product shows with its price; paths read back; its schema is answered with no model`, async () => {
             loadPage(`corpus/pdp-${name}.html.gz`);
