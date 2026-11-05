@@ -15,6 +15,7 @@ import type { SiteProfile } from './config';
 import type { InPageRequest, InPageResult, ListPageResult } from './inPage';
 import type { ListTarget } from '../../shared/types/database';
 import type { ListRecipeSpec } from '../recipe/types';
+import type { PageRule } from '../../shared/types/ways';
 import type { ProxyConfig } from './proxies';
 
 export interface Visit {
@@ -295,6 +296,8 @@ export interface ListRead {
     nextHref?: string;
     /** Pages read here: clicked through, loaded more, or 1. */
     pages: number;
+    /** A page rule held on the first page: no row was read. On a later page, the rows so far are kept and paging stops. */
+    rule?: Pick<PageRule, 'name' | 'status'>;
 }
 
 /**
@@ -302,7 +305,7 @@ export interface ListRead {
  * controls that are buttons: clicked, waited for, and read again, up to `maxPages`, until nothing new comes.
  * Next controls that are links are left to a job of their own (`nextHref`). Rows seen twice count once.
  */
-export function readListPages(page: Page, script: string, req: { lists: ListTarget[]; pagination: ListRecipeSpec['pagination'] },
+export function readListPages(page: Page, script: string, req: { lists: ListTarget[]; pagination: ListRecipeSpec['pagination']; rules?: PageRule[] },
     o: { maxPages: number; settleMs: number; timeoutMs: number }): Promise<ListRead> {
     return withTimeout((async () => {
         const settle = Math.max(o.settleMs, 300);
@@ -320,8 +323,9 @@ export function readListPages(page: Page, script: string, req: { lists: ListTarg
             }));
             return added;
         };
-        const read = () => callInPage<ListPageResult>(page, script, 'readLists', [{ lists: req.lists, next, settleMs: settle }]);
+        const read = () => callInPage<ListPageResult>(page, script, 'readLists', [{ lists: req.lists, next, settleMs: settle, ...(req.rules?.length ? { pageRules: req.rules } : {}) }]);
         let r = await read();
+        if (r.rule) return { lists: merged.map(({ id }) => ({ id, rows: [] })), pages: 1, rule: r.rule };
         add(r);
         let pages = 1;
         const clicks = mode === 'loadMore' || (mode === 'pagination' && !r.nextHref);
@@ -330,6 +334,7 @@ export function readListPages(page: Page, script: string, req: { lists: ListTarg
             await page.waitForLoadState('domcontentloaded').catch(() => {});
             await page.waitForTimeout(settle);
             r = await read();
+            if (r.rule) break;
             pages++;
             if (add(r) === 0) break;
         }

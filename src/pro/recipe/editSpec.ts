@@ -2,7 +2,7 @@
  * Edits to a page recipe's spec, each returning a new spec (the editor keeps the old one for undo-free
  * compare). Page data stays the first way: the extractor reads it before any selector.
  */
-import type { Click, Field, FieldType, Identity, PageRecipeSpec, SessionSetup, Step, ValueCheck, Way } from './types';
+import type { Click, Field, FieldType, Identity, PageRecipeSpec, SessionSetup, Step, ValueCheck, Way, ListRecipeSpec } from './types';
 import type { PageRule } from '../../shared/types/ways';
 import { conditionProblems } from './conditions';
 import { checkProblems } from './valueChecks';
@@ -56,6 +56,27 @@ export const moveWay = (spec: PageRecipeSpec, id: string, index: number, delta: 
 });
 export const removeWay = (spec: PageRecipeSpec, id: string, index: number) => mapField(spec, id, f => ({ ...f, ways: f.ways.filter((_, i) => i !== index) }));
 export const setWay = (spec: PageRecipeSpec, id: string, index: number, way: Way) => mapField(spec, id, f => ({ ...f, ways: f.ways.map((w, i) => i === index ? way : w) }));
+/** A list recipe's page rules; none drops the key. */
+export function setListRules(spec: ListRecipeSpec, rules: PageRule[]): ListRecipeSpec {
+    const { rules: _, ...rest } = spec;
+    return rules.length ? { ...rest, rules } : rest;
+}
+
+/** What a list recipe's page rules lack: a name, a distinct name, a condition with something to look for. */
+export function listProblems(spec: ListRecipeSpec): string[] {
+    return rulesProblems(spec.rules ?? []);
+}
+
+function rulesProblems(rules: PageRule[]): string[] {
+    const out: string[] = [];
+    if (rules.some(r => !r.name.trim())) out.push('Every page rule needs a name.');
+    const names = rules.map(r => r.name.trim()).filter(Boolean);
+    const same = [...new Set(names.filter((n, i) => names.indexOf(n) !== i))];
+    if (same.length) out.push(`Two page rules are named ${same.map(n => `"${n}"`).join(', ')}.`);
+    for (const r of rules) out.push(...conditionProblems(r.when, `Rule "${r.name}"`));
+    return out;
+}
+
 export const setRules = (spec: PageRecipeSpec, rules: PageRule[]): PageRecipeSpec => {
     const { rules: _, ...rest } = spec;
     return rules.length ? { ...rest, rules } : rest;
@@ -116,11 +137,7 @@ export function problems(spec: PageRecipeSpec): string[] {
     for (const c of spec.setup?.dismiss ?? []) if (c.ways.length === 0) out.push(`Dismiss "${c.name}" has nothing to click.`);
     if (spec.setup?.check && !spec.setup.check.contains.trim()) out.push('The setup check needs the text it must contain.');
     if (spec.setup?.check && spec.setup.check.ways.length === 0) out.push('The setup check has no element to read.');
-    if (spec.rules?.some(r => !r.name.trim())) out.push('Every page rule needs a name.');
-    const ruleNames = (spec.rules ?? []).map(r => r.name.trim()).filter(Boolean);
-    const sameRule = [...new Set(ruleNames.filter((n, i) => ruleNames.indexOf(n) !== i))];
-    if (sameRule.length) out.push(`Two page rules are named ${sameRule.map(n => `"${n}"`).join(', ')}.`);
-    for (const r of spec.rules ?? []) out.push(...conditionProblems(r.when, `Rule "${r.name}"`));
+    out.push(...rulesProblems(spec.rules ?? []));
     for (const f of fields) out.push(...checkProblems(f, names));
     for (const f of fields) f.ways.forEach((w, i) => { if (w.when) out.push(...conditionProblems(w.when, `"${f.name}" way ${i + 1}`)); });
     const identity = spec.identity;

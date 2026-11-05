@@ -40,6 +40,10 @@ export function inPageRequest(spec: PageRecipeSpec, settings: RunSettings): InPa
 /** What a page rule's status makes of the attempt. */
 const RULE_CLASS: Record<RuleStatus, ErrorClass> = { not_found: 'not_found', unavailable: 'unavailable', blocked: 'blocked', error: 'server_error' };
 
+/** A page rule that held, as the verdict that classes the attempt: a page's or a list's. */
+export const ruleVerdict = (rule: { name: string; status: RuleStatus }): { errorClass: ErrorClass; message: string } =>
+    ({ errorClass: RULE_CLASS[rule.status], message: `Page rule "${rule.name}" held` });
+
 export interface RunRead {
     attributes: ScrapeDoc['attributes'];
     fieldStatus: ScrapeDoc['fieldStatus'];
@@ -56,7 +60,7 @@ export interface RunRead {
 export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult & Pick<StepsRead, 'options'>, setup?: SessionSetup): RunRead {
     const page = readStepsResult(spec, url, result);
     if (page.rule) {
-        return { attributes: {}, fieldStatus: {}, ways: [], filled: 0, total: 0, verdict: { errorClass: RULE_CLASS[page.rule.status], message: `Page rule "${page.rule.name}" held` } };
+        return { attributes: {}, fieldStatus: {}, ways: [], filled: 0, total: 0, verdict: ruleVerdict(page.rule) };
     }
     const named = (fields: FieldResult[]) => {
         const attributes: RunRead['attributes'] = {};

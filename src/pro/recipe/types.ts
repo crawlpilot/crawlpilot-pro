@@ -203,6 +203,8 @@ export interface ListRecipeSpec {
     /** Each item's page, read after the list and joined onto its row. */
     details?: { spec: PageRecipeSpec; urlColumn: string };
     setup?: SessionSetup;
+    /** Checked before any row is read, on each page of the list: an empty search, a captcha, an error page. */
+    rules?: PageRule[];
 }
 
 export type ProSpec = PageRecipeSpec | ListRecipeSpec;

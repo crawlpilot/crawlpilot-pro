@@ -30,7 +30,7 @@ import { readiness } from '../recipe/ready';
 import { diffVersions } from '../recipe/diff';
 import * as edits from '../recipe/editSpec';
 import { applyProOps, NEW_OP, opSummary, PRO_OP_LABELS, type ProOp } from '../recipe/ops';
-import type { Field, FieldType, Identity, OutputSpec, PageRecipeSpec, ProRecipe, Sample, Version, Way, WayPick } from '../recipe/types';
+import type { Field, FieldType, Identity, OutputSpec, PageRecipeSpec, ProRecipe, Sample, Version, Way, WayPick, ListRecipeSpec } from '../recipe/types';
 import type { PageRule, RuleStatus, WayRead } from '../../shared/types/ways';
 
 interface Props {
@@ -238,6 +238,8 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     const [output, setOutput] = useState<OutputSpec>({});
     const [note, setNote] = useState('');
     const [saving, setSaving] = useState(false);
+    /** A list recipe: its rows are picked again in the List Extractor; here, its page rules. */
+    const [listSpec, setListSpec] = useState<ListRecipeSpec | null>(null);
     const [error, setError] = useState<string | null>(null);
     const page = usePageTab();
     const [test, setTest] = useState<{ result: PageResult; spec: string } | null>(null);
@@ -257,6 +259,7 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
             setRecipe(r ?? null);
             setBase(v ?? null);
             if (v?.spec.kind === 'page') setSpec(v.spec);
+            if (v?.spec.kind === 'list') setListSpec(v.spec);
             if (v) setOutput(v.output);
             if (r) setSamples(await pro.samples.list(r.id));
             if (r) {
@@ -347,9 +350,36 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
     );
     if (!recipe || !base) return <div className="flex h-full flex-col">{header}</div>;
     if (!spec) {
+        if (!listSpec) return <div className="flex h-full flex-col">{header}</div>;
+        const listChanges = diffVersions(base, { ...base, spec: listSpec, version: base.version + 1 }).changes;
+        const listBlockers = edits.listProblems(listSpec);
+        const saveList = async () => {
+            setSaving(true);
+            setError(null);
+            try {
+                await saveSpecVersion(recipe, base, listSpec, output, note, 'edited');
+                onNavigate('pro-history');
+            } catch (e) {
+                setError(e instanceof Error ? e.message : String(e));
+            } finally {
+                setSaving(false);
+            }
+        };
         return (
             <div className="flex h-full flex-col">{header}
-                <div className="p-4"><Notice tone="info" action={<Button size="sm" onClick={repick}>Re-pick on page</Button>}>A list recipe's fields are edited by picking the list again.</Notice></div>
+                <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-4">
+                    <Notice tone="info" action={<Button size="sm" onClick={repick}>Re-pick on page</Button>}>A list recipe's rows are edited by picking the list again. Its page rules are here.</Notice>
+                    <Disclosure icon={<ShieldAlert />} defaultOpen summary={`Page rules (${listSpec.rules?.length ?? 0})`}>
+                        <PageRules rules={listSpec.rules ?? []} onChange={rules => setListSpec(edits.setListRules(listSpec, rules))} />
+                    </Disclosure>
+                </div>
+                <div className="flex flex-col gap-2 border-t border-line bg-bg p-4">
+                    {listBlockers.length > 0 && <Notice tone="warning">{listBlockers.join(' ')}</Notice>}
+                    {error && <Notice tone="danger">{error}</Notice>}
+                    <Text size="caption" tone="muted" data-testid="pro-editor-changes">{listChanges.length === 0 ? 'No changes yet.' : `${listChanges.length} change${listChanges.length === 1 ? '' : 's'}: ${listChanges.map(c => c.subject).join(', ')}`}</Text>
+                    <TextArea label="What changed" rows={2} value={note} onChange={e => setNote(e.target.value)} />
+                    <Button variant="primary" icon={<Save />} loading={saving} disabled={listChanges.length === 0 || listBlockers.length > 0} onClick={saveList}>Save version {base.version + 1}</Button>
+                </div>
             </div>
         );
     }

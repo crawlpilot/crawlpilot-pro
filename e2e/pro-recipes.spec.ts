@@ -688,6 +688,30 @@ test('atlas import: a condition it cannot carry over is listed at once and marke
     await expect(rules.nth(1).getByTestId('pro-condition-empty')).toContainText('An empty group never holds');
 });
 
+test('list rules: a list recipe\'s page rules are edited in Pro and saved as the next version', async ({ panel }) => {
+    const ui = panel.page;
+    await ui.setViewportSize({ width: 400, height: 1000 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html`);
+    await proClear(ui);
+    await ui.reload();
+    const file = { name: 'Lamp search', site: 'shop.test', built_on: 'https://shop.test/search?q=lamp', spec: { kind: 'list', pagination: { mode: 'auto' },
+        lists: [{ id: 'L', container: ['#results'], items: ['li'], mode: 'list', fields: [{ id: 't', name: 'title', type: 'text', selector: 'h3' }] }] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'list.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+
+    await ui.getByRole('button', { name: 'Edit Lamp search' }).click();
+    await expect(ui.getByText('A list recipe\'s rows are edited by picking the list again.')).toBeVisible();
+    const rules = ui.getByTestId('pro-page-rules');
+    await rules.getByRole('button', { name: 'Add a rule' }).click();
+    await rules.getByLabel('Name of rule 1').fill('No results');
+    await rules.getByLabel('Condition 1 looks for').fill('No lamps match');
+    await expect(ui.getByTestId('pro-editor-changes')).toHaveText('1 change: page rule No results');
+    await ui.getByLabel('What changed').fill('empty search');
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    await expect(ui.getByTestId('pro-diff')).toContainText('page rule No results');
+    const [v2] = (await proStore(ui, 'versions')).filter(v => v.version === 2);
+    expect(v2.spec.rules).toEqual([{ name: 'No results', status: 'not_found', when: { kind: 'regex', in: 'text', pattern: 'No lamps match', flags: 'i', op: 'gt', value: 0 } }]);
+});
+
 test('build new: picked fields come to the save step named and typed from the page, and can be changed there', async ({ panel, ext, origin }) => {
     const page = await ext.newPage();
     await page.goto(`${origin}/site/json-product.html`);
