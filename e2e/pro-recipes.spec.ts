@@ -83,19 +83,25 @@ test('edit: a version opens in the Page Extractor; unchanged is refused, an edit
     await expect(diff).toContainText('field heading');
     await expect(diff).toContainText('The output changes');
 
-    // v2 is not reviewed: it cannot be live, and its author cannot approve it. Someone else does.
+    // v2 is not reviewed: it cannot be live yet, and says why. Someone other than its author approves it, named in
+    // the dialog: the saved name stays the author's.
     const v2 = ui.getByTestId('pro-version').first();
     await expect(v2).toContainText('needs review');
     await expect(v2.getByRole('button', { name: 'Mark live' })).toBeDisabled();
-    await expect(v2.getByRole('button', { name: 'Approve' })).toHaveCount(0);
-    await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
-    await proSetName(ui, 'reviewer');
-    await ui.getByRole('button', { name: 'History of Local product' }).click();
+    await expect(v2.getByTestId('pro-live-block')).toHaveText('Mark live: someone other than its author approves it first.');
     await v2.getByRole('button', { name: 'Approve' }).click();
+    const reviewDialog = ui.getByRole('dialog');
+    await expect(reviewDialog.getByLabel('Approved by')).toHaveValue('');
+    await expect(reviewDialog.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    await reviewDialog.getByLabel('Approved by').fill('local');
+    await expect(reviewDialog).toContainText('local wrote this version: someone else reviews it.');
+    await expect(reviewDialog.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    await reviewDialog.getByLabel('Approved by').fill('reviewer');
     await ui.getByLabel('Note (optional)').fill('checked the grid');
-    await ui.getByRole('dialog').getByRole('button', { name: 'Approve' }).click();
+    await reviewDialog.getByRole('button', { name: 'Approve' }).click();
     await expect(v2).toContainText('approved by reviewer');
     await expect(v2.getByTestId('pro-review-note')).toHaveText('reviewer: checked the grid');
+    expect((await ui.evaluate(() => chrome.storage.local.get('pro.user')))['pro.user']).toBeUndefined();
 
     await v2.getByRole('button', { name: 'Mark live' }).click();
     await ui.getByLabel('Why').fill('checked by hand');
@@ -193,6 +199,9 @@ test('fields panel: rename, type, required, a selector and cleanup, saved as the
     await title.getByRole('button').first().click();
     await title.getByLabel('Name').fill('name');
     await title.getByLabel('Required').check();
+    // Ways and cleanup are folded under the name, type and value most edits need.
+    await expect(title.getByLabel('Add a selector')).toBeHidden();
+    await title.getByRole('button', { name: /^Ways and cleanup/ }).click();
     await title.getByLabel('Add a selector').fill('h1.product-title');
     await title.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(title).toContainText('h1.product-title');
@@ -200,6 +209,7 @@ test('fields panel: rename, type, required, a selector and cleanup, saved as the
     const specs = ui.getByTestId('pro-field').nth(1);
     await specs.getByRole('button').first().click();
     await specs.getByLabel('Type').selectOption('object');
+    await specs.getByRole('button', { name: /^Ways and cleanup/ }).click();
     await specs.getByLabel('Add a step').selectOption('toObject');
     await specs.getByLabel('Try on a value').fill('Fit: Relaxed\\nLength: Regular');
     await expect(specs.getByTestId('pro-try-result')).toHaveText('→ {"Fit":"Relaxed","Length":"Regular"}');
@@ -422,6 +432,7 @@ test('markup: a field read from the page\'s meta tags or microdata, chosen from 
     const card = (name: string) => ui.getByTestId('pro-field').filter({ has: ui.getByText(name, { exact: true }) });
     const fromMarkup = async (name: string, option: RegExp) => {
         await card(name).getByRole('button').first().click();
+        await card(name).getByRole('button', { name: /^Ways and cleanup/ }).click();
         await card(name).getByRole('button', { name: 'From the page\'s markup' }).click();
         const choose = card(name).getByLabel('Read it from the page\'s markup');
         const value = await choose.locator('option').filter({ hasText: option }).first().getAttribute('value');
@@ -756,7 +767,6 @@ test('submit: a ready version goes to the backend, becomes live, and its crawl i
     await ui.getByRole('button', { name: 'Submit' }).click();
     await expect(ui.getByRole('dialog')).toContainText('Not yet: Not reviewed: someone other than its author approves it first.');
     await ui.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
-    await expect(ui.getByTestId('pro-version').getByRole('button', { name: 'Approve' })).toHaveCount(0);
     await ui.getByRole('banner').getByRole('button', { name: 'Back' }).click();
     await proSetName(ui, 'reviewer');
     await ui.getByRole('button', { name: 'History of Submitted product' }).click();

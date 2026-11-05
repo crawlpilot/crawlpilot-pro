@@ -227,12 +227,18 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     <IconButton size="sm" label="Move down" onClick={() => setSpec(edits.moveStep(spec, i, 1))} disabled={i === spec.steps.length - 1}><ArrowDown /></IconButton>
                     <IconButton size="sm" label={`Remove field ${field.name}`} onClick={() => setSpec(edits.removeStep(spec, i))}><Trash2 /></IconButton>
                 </div>
-                <Ways ways={field.ways}
-                    onMove={(w, d) => setSpec(edits.moveWay(spec, field.id, w, d))}
-                    onRemove={w => setSpec(edits.removeWay(spec, field.id, w))}
-                    onAdd={s => setSpec(edits.addSelector(spec, field.id, s))} />
-                <MarkupSource onAdd={way => setSpec(edits.addWayFirst(spec, field.id, way))} />
-                <Cleanup field={field} onChange={ops => setSpec(edits.setOps(spec, field.id, ops))} />
+                {/* What most edits don't need, folded: how it is found, and its cleanup. */}
+                <div data-testid="pro-field-advanced"><Disclosure variant="plain" defaultOpen={repairing.has(field.name)}
+                    summary={`Ways and cleanup · ${field.ways.length} way${field.ways.length === 1 ? '' : 's'}${field.ops.length ? `, ${field.ops.length} cleanup step${field.ops.length === 1 ? '' : 's'}` : ''}`}>
+                    <div className="flex flex-col gap-3 pt-2">
+                        <Ways ways={field.ways}
+                            onMove={(w, d) => setSpec(edits.moveWay(spec, field.id, w, d))}
+                            onRemove={w => setSpec(edits.removeWay(spec, field.id, w))}
+                            onAdd={s => setSpec(edits.addSelector(spec, field.id, s))} />
+                        <MarkupSource onAdd={way => setSpec(edits.addWayFirst(spec, field.id, way))} />
+                        <Cleanup field={field} onChange={ops => setSpec(edits.setOps(spec, field.id, ops))} />
+                    </div>
+                </Disclosure></div>
             </div>
         </Disclosure></div>
     );
