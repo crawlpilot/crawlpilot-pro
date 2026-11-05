@@ -64,7 +64,7 @@ export function PageDataSource({ onPick, label = "From the page's data" }: { onP
             {entries && !entries.length && <Text size="caption" tone="faint">{query ? 'Nothing in the page\'s data matches.' : 'This page has no JSON data to read from (JSON-LD, __NEXT_DATA__, state).'}</Text>}
             <div className="flex max-h-72 flex-col overflow-y-auto">
                 {entries?.map(e => (
-                    <button key={e.where} type="button" data-testid="pro-page-data-entry" onClick={() => onPick(e)}
+                    <button key={`${e.where} · ${e.binding.as}`} type="button" data-testid="pro-page-data-entry" onClick={() => onPick(e)}
                         className="flex flex-col rounded-lg px-2 py-1 text-left hover:bg-ink/6">
                         <span className="flex items-center gap-1.5">
                             <Text size="caption" mono tone="muted" className="min-w-0 flex-1 break-all">{e.where}</Text>

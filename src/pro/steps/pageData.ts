@@ -64,7 +64,8 @@ export function listPageData(query = '', max = 50): PageDataEntry[] {
                     }
                 }
                 const value = `${items.length} rows: ${rows.keys.join(', ')}`;
-                if (!q || dotted.toLowerCase().includes(q) || rows.keys.some(k => k.toLowerCase().includes(q))) {
+                if (!q || dotted.toLowerCase().includes(q) || rows.keys.some(k => k.toLowerCase().includes(q))
+                    || items.some(i => rows.keys.some(k => text(i[k]).toLowerCase().includes(q)))) {
                     found.push({ binding: { kind: src.kind, label: src.label, nth: src.nth, path, as: 'rows', keys: rows.keys, names: rows.keys }, where, value, rank: base });
                 }
             }

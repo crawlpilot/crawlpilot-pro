@@ -944,10 +944,11 @@ test('page data on Walmart: its JSON specifications become one name → value fi
     const add = ui.getByTestId('pro-add-data-field');
     await add.getByRole('button', { name: 'Add a field from the page\'s data' }).click();
     await add.getByLabel('Find in the page\'s data').fill('Fuel type');
-    const specs = add.getByTestId('pro-page-data-entry').filter({ hasText: 'idml.specifications' }).filter({ hasText: 'name → value' });
+    const specs = add.getByTestId('pro-page-data-entry').filter({ hasText: /idml\.specifications\s*name → value/ });
     await expect(specs).toHaveCount(1);
     await expect(specs).toContainText('Fuel type: Propane');
-    await expect(add.getByTestId('pro-page-data-entry').filter({ hasText: 'idml.specifications' }).filter({ hasText: 'rows' })).toHaveCount(1);
+    // The same list as rows too (every spec a row of name and value).
+    await expect(add.getByTestId('pro-page-data-entry').filter({ hasText: /idml\.specifications\s*rows\s*17 rows: name, value/ })).toHaveCount(1);
     if (process.env.UX_SHOTS) await add.screenshot({ path: `${process.env.UX_SHOTS}/pro-page-data-specs.png` });
     await specs.click();
     const field = ui.getByTestId('pro-field').filter({ hasText: 'specifications' });
