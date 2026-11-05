@@ -2,9 +2,14 @@ import { ElementDefinition, ExtractionConfig } from './types';
 import { ElementProcessor } from './processors/ElementProcessor';
 import { buildPageRecord } from './processors/columnHelpers';
 import type { StepResult } from '../../../shared/listing/stepStats';
+import { hitFilled, type PageRule, type PageWay, type WayHit } from '../../../shared/types/ways';
+import { firstRule, PageProbe, readWays } from './ways';
 
-/** How one recipe step went on this page (`docs/plans/page-extractor-background-plan.md` P1, P5). */
-export type PageStep = StepResult & { error?: string };
+/**
+ * How one recipe step went on this page (`docs/plans/page-extractor-background-plan.md` P1, P5). An element
+ * with `ways` (Pro) is read way by way: `hits` holds what each way read, and its value is left to the caller.
+ */
+export type PageStep = StepResult & { error?: string; hits?: WayHit[] };
 
 const isEmpty = (v: unknown) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
 
@@ -16,12 +21,16 @@ const isEmpty = (v: unknown) => v === null || v === undefined || v === '' || (Ar
  */
 export async function extractPage(elements: ElementDefinition[], config: ExtractionConfig) {
     const processor = new ElementProcessor(config);
+    const probe = new PageProbe();
+    // Pro's page rules: a page that is not what the recipe reads (gone, a block page) is not read.
+    const rule = config?.pageRules?.length ? firstRule(config.pageRules as PageRule[], probe) : null;
+    if (rule) return { ...buildPageRecord({}, [], config?.listOutput), steps: [] as PageStep[], rule };
     const columns: any[] = [];
     const data: Record<string, any> = {};
     const steps: PageStep[] = [];
     let afterClick = false;
     // Fields bound to the page's data are read first: a click is only needed for what they don't give.
-    const fromData = new Map(elements.map(e => [e.id, processor.fromData(e)] as const).filter(([, r]) => r !== null));
+    const fromData = new Map(elements.filter(e => !e.ways).map(e => [e.id, processor.fromData(e)] as const).filter(([, r]) => r !== null));
     const revealsOnlyData = (i: number) => {
         const next = elements.slice(i + 1);
         const until = next.findIndex(e => e.action === 'click');
@@ -32,6 +41,12 @@ export async function extractPage(elements: ElementDefinition[], config: Extract
     for (const [i, element] of elements.entries()) {
         if (element.action === 'click' && revealsOnlyData(i)) {
             steps.push({ id: element.id, name: element.name, action: 'click', status: 'skipped' });
+            continue;
+        }
+        if (element.ways && element.action !== 'click') {
+            const hits = readWays(element.ways as PageWay[], probe);
+            data[element.id] = null;
+            steps.push({ id: element.id, name: element.name, action: 'extract', status: hits.some(hitFilled) ? 'ok' : 'not-found', hits });
             continue;
         }
         const result = fromData.get(element.id) ?? await processor.processElement(element, { waitFor: afterClick && element.action !== 'click' });

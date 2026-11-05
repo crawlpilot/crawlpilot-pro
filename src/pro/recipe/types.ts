@@ -4,6 +4,7 @@
  * and output live next to it, so the digest means "the same fields".
  */
 import type { Chain, Column, DataBinding, ListTarget } from '../../shared/types/database';
+import type { Condition, PageRule, WayRead } from '../../shared/types/ways';
 import type { ProOp } from './ops';
 import type { Shape } from '../../shared/extraction/shape';
 
@@ -56,12 +57,33 @@ export interface WayIdentity {
     addedIn?: number;
 }
 
+/** How a way's matches make one value: the first, the first not empty once cleaned, or all of them (a list). */
+export type WayPick = 'first' | 'firstFilled' | 'all';
+
+/**
+ * What makes a way more than "the first match, read as the field reads" (`docs/design/LLD.md` §2.3). A field
+ * with any of these on any way is read way by way (`pro/runner/ways.ts`) and never healed.
+ */
+export interface WayOptions {
+    /** Tried only when this holds on the page. */
+    when?: Condition;
+    pick?: WayPick;
+    /** This way's own cleanup, before the field's: a way that cleans to nothing gives way to the next. */
+    ops?: ProOp[];
+}
+
 /** One way of finding a field, tried in order; the first that gives a value wins. */
-export type Way = WayIdentity & (
+export type Way = WayIdentity & WayOptions & (
     /** The page's own data: JSON-LD, embedded JSON or state. Its `ops` clean that value only. */
     | { kind: 'data'; binding: DataBinding }
-    /** A CSS selector or an XPath. */
-    | { kind: 'selector'; selector: string }
+    /** A CSS selector or an XPath; CSS may use `:contains(text)`. */
+    | {
+        kind: 'selector'; selector: string;
+        /** Default: the field's reader; on a way read way by way, the match's text. */
+        read?: WayRead;
+        attr?: string;
+        pairs?: { key?: string; value?: string };
+    }
 );
 
 export interface Field {
@@ -92,6 +114,16 @@ export type Step = { kind: 'field'; field: Field } | { kind: 'click'; click: Cli
 export interface PageRecipeSpec {
     kind: 'page';
     steps: Step[];
+    /** Checked before any field is read: the first that holds says what the page is, and nothing is read. */
+    rules?: PageRule[];
+    /** The page is the product asked for: the field (by name) equals what the patterns find in its URL. */
+    identity?: Identity;
+}
+
+export interface Identity {
+    field: string;
+    /** Regexes on the page's URL; the first that matches gives the id (its whole match). */
+    url: string[];
 }
 
 export interface ListRecipeSpec {

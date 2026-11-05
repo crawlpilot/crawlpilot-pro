@@ -17,7 +17,7 @@ export type TransformOp =
     | { op: 'collapse' }
     | { op: 'lower' }
     | { op: 'upper' }
-    | { op: 'regex'; pattern: string; group?: number }
+    | { op: 'regex'; pattern: string; group?: number; flags?: string }
     | { op: 'replace'; find: string; with: string; regex?: boolean }
     | { op: 'split'; sep: string; index: number }
     | { op: 'prefix'; text: string }
@@ -54,7 +54,7 @@ function applyOp(v: string, o: TransformOp, base?: string): string {
         case 'upper': return v.toUpperCase();
         case 'regex': {
             try {
-                const m = new RegExp(o.pattern, 'i').exec(v);
+                const m = new RegExp(o.pattern, o.flags ?? 'i').exec(v);
                 return m ? (m[o.group ?? (m.length > 1 ? 1 : 0)] ?? '') : '';
             } catch { return v; }
         }

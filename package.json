@@ -46,6 +46,7 @@
     "@mozilla/readability": "^0.6.0",
     "ag-grid-community": "^35.0.0",
     "ag-grid-react": "^35.0.0",
+    "fengari": "^0.1.5",
     "fflate": "^0.8.3",
     "i18next": "^26.2.0",
     "lucide-react": "^0.562.0",

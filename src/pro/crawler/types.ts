@@ -36,7 +36,8 @@ export interface CrawlJob {
     parent?: { jobId: string; listId: string; row: number };
 }
 
-export type PageStatus = 'ok' | 'blocked' | 'not_found' | 'timeout' | 'error';
+/** `unavailable` and `mismatch` come from the recipe: a page rule (out of stock), or another product than the URL names. */
+export type PageStatus = 'ok' | 'blocked' | 'not_found' | 'unavailable' | 'mismatch' | 'timeout' | 'error';
 
 /** Why an attempt failed, or `none`. Each class has a fixed retry rule and outcome (`classify.ts`). */
 export type ErrorClass =
@@ -49,6 +50,8 @@ export type ErrorClass =
     | 'proxy' | 'proxy_auth'
     | 'rate_limited' | 'blocked' | 'captcha'
     | 'not_found' | 'gone' | 'client_error' | 'server_error'
+    /** The recipe says so: a page rule (`unavailable`), or the page is another product than its URL names (`mismatch`). */
+    | 'unavailable' | 'mismatch'
     | 'empty_page' | 'robots_disallowed'
     | 'extraction' | 'no_recipe' | 'recipe_store' | 'paused'
     /** The job was put back for longer than `retry.maxJobAgeMs` (a site that stays blocked): dead-lettered. */

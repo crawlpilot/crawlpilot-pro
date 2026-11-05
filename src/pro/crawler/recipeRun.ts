@@ -1,21 +1,24 @@
 /**
  * A recipe version as the in-page script runs it, and its result read back the way Pro's own tests read
- * it: `toPageSpec` makes the extractor's elements, `readPageResult` cleans and checks each field. So a page
- * gives the same values here as in Test on this page. A list recipe's rows are named by their columns, and
- * its details pages become jobs of their own, pinned to the same version.
+ * it: `pageRequest` makes the extractor's elements, `readPageResult` cleans and checks each field. So a page
+ * gives the same values here as in Test on this page. A page rule that holds, or a page that is another
+ * product than its URL names, is a verdict: the page's status, not a read. A list recipe's rows are named
+ * by their columns, and its details pages become jobs of their own, pinned to the same version.
  */
-import { toPageSpec } from '../recipe/fromPublic';
+import { hitFilled, type RuleStatus } from '../../shared/types/ways';
+import { readsByWay } from '../recipe/fromPublic';
 import type { ListRecipeSpec, PageRecipeSpec, ProSpec, RunSettings, Way } from '../recipe/types';
-import { readPageResult } from '../runner/testPage';
+import { pageRequest, readPageResult } from '../runner/testPage';
 import { CrawlError } from './classify';
 import type { InPageRequest, InPageResult, ListPageResult, WayProbe } from './inPage';
-import type { CrawlJob, RecipeRef, ScrapeDoc, SelectorUsageDoc } from './types';
+import type { CrawlJob, ErrorClass, RecipeRef, ScrapeDoc, SelectorUsageDoc } from './types';
 
 const wayId = (way: Way, owner: string, i: number) => way.id ?? `${owner}:${i}`;
 
 export function inPageRequest(spec: PageRecipeSpec, settings: RunSettings): InPageRequest {
-    const { elements } = toPageSpec(spec, settings);
-    const probes: WayProbe[] = spec.steps.map(s => {
+    const { elements, config } = pageRequest(spec, settings);
+    // A field read way by way reports its ways itself (`readRun`).
+    const probes: WayProbe[] = spec.steps.flatMap(s => s.kind === 'field' && readsByWay(s.field) ? [] : [s]).map(s => {
         const [id, ways] = s.kind === 'field' ? [s.field.id, s.field.ways] : [s.click.id, s.click.ways];
         const data = ways.findIndex(w => w.kind === 'data');
         const dataWay = ways[data];
@@ -25,8 +28,11 @@ export function inPageRequest(spec: PageRecipeSpec, settings: RunSettings): InPa
             selectors: ways.flatMap((w, i) => w.kind === 'selector' ? [{ wayId: wayId(w, id, i), selector: w.selector }] : []),
         };
     });
-    return { elements, config: { ...settings, listOutput: 'nested' }, probes };
+    return { elements, config, probes };
 }
+
+/** What a page rule's status makes of the attempt. */
+const RULE_CLASS: Record<RuleStatus, ErrorClass> = { not_found: 'not_found', unavailable: 'unavailable', blocked: 'blocked', error: 'server_error' };
 
 export interface RunRead {
     attributes: ScrapeDoc['attributes'];
@@ -34,10 +40,15 @@ export interface RunRead {
     ways: SelectorUsageDoc['ways'];
     filled: number;
     total: number;
+    /** The recipe's own word on the page (a page rule, another product): it is classed by this, not read. */
+    verdict?: { errorClass: ErrorClass; message: string };
 }
 
 export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult): RunRead {
-    const page = readPageResult(spec, url, result.item, result.steps);
+    const page = readPageResult(spec, url, result.item, result.steps, result.rule);
+    if (page.rule) {
+        return { attributes: {}, fieldStatus: {}, ways: [], filled: 0, total: 0, verdict: { errorClass: RULE_CLASS[page.rule.status], message: `Page rule "${page.rule.name}" held` } };
+    }
     const attributes: RunRead['attributes'] = {};
     const fieldStatus: RunRead['fieldStatus'] = {};
     for (const f of page.fields) {
@@ -47,11 +58,23 @@ export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult)
     const owner = new Map(spec.steps.flatMap(s => s.kind === 'field'
         ? s.field.ways.map((w, i) => [wayId(w, s.field.id, i), s.field.name] as const)
         : s.click.ways.map((w, i) => [wayId(w, s.click.id, i), `click: ${s.click.name}`] as const)));
+    // Ways read one by one: tried unless their condition did not hold, matched when they read something, won as `resolveWays` decided.
+    const byWay: RunRead['ways'] = [];
+    for (const s of spec.steps) {
+        if (s.kind !== 'field') continue;
+        const hits = result.steps.find(st => st.id === s.field.id)?.hits;
+        if (!hits) continue;
+        const won = page.fields.find(f => f.fieldId === s.field.id)?.way ?? -1;
+        s.field.ways.forEach((w, i) => byWay.push({
+            field: s.field.name, wayId: wayId(w, s.field.id, i), tried: !!hits[i] && !hits[i].skipped, matched: hitFilled(hits[i]), won: i === won,
+        }));
+    }
     return {
         attributes, fieldStatus,
-        ways: result.ways.map(w => ({ field: owner.get(w.wayId) ?? '', ...w })),
+        ways: [...result.ways.map(w => ({ field: owner.get(w.wayId) ?? '', ...w })), ...byWay],
         filled: page.fields.filter(f => f.filled).length,
         total: page.fields.length,
+        ...(page.mismatch ? { verdict: { errorClass: 'mismatch' as const, message: `Another product: the URL names ${page.mismatch.expected}, the page ${page.mismatch.found}` } } : {}),
     };
 }
 

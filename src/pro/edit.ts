@@ -7,7 +7,7 @@
 import { listRunInput, listSpec, pageSpec, type RunElement } from '../shared/recipes/spec';
 import type { ListPick, PaginationMode } from '../shared/types/extraction';
 import { pro } from './db';
-import { fromListSpec, fromPageSpec, toListSpec, toPageSpec } from './recipe/fromPublic';
+import { carryOver, fromListSpec, fromPageSpec, toListSpec, toPageSpec } from './recipe/fromPublic';
 import type { PageSource, ProRecipe, RecipeKind, RunSettings, Version, VersionDraft } from './recipe/types';
 import { currentUser } from './identity';
 
@@ -69,8 +69,10 @@ async function saveDraft(edit: ProEdit, name: string, draft: VersionDraft, note:
 }
 
 export function savePageVersion(edit: ProEdit, input: { name: string; elements: RunElement[]; urls: string[]; settings: RunSettings; note: string }) {
-    const { spec, settings } = fromPageSpec(pageSpec(input.elements, input.settings));
-    const draft: VersionDraft = { spec, settings, pages: { kind: 'urls', urls: input.urls }, output: edit.version?.output ?? {} };
+    const edited = fromPageSpec(pageSpec(input.elements, input.settings));
+    const base = edit.version?.spec;
+    const spec = base?.kind === 'page' ? carryOver(base, edited.spec) : edited.spec;
+    const draft: VersionDraft = { spec, settings: edited.settings, pages: { kind: 'urls', urls: input.urls }, output: edit.version?.output ?? {} };
     return saveDraft(edit, input.name, draft, input.note);
 }
 

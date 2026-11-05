@@ -16,6 +16,7 @@ import { readWhenReady, type ReaderColumn } from '../../content/services/extract
 import { resolveContainer, resolveItems, resolveOne } from '../../shared/selectors/resolve';
 import type { StepResult } from '../../shared/listing/stepStats';
 import type { Chain, DataBinding, ListTarget } from '../../shared/types/database';
+import type { PageRule, WayHit } from '../../shared/types/ways';
 
 /** One field's or click's ways, by id, in the order the extractor tries them. */
 export interface WayProbe {
@@ -40,8 +41,11 @@ export interface WayUse {
 
 export interface InPageResult {
     item: Record<string, unknown>;
-    steps: StepResult[];
+    /** A field read way by way has what each way read (`hits`); its usage is worked out from them (`recipeRun.ts`). */
+    steps: (StepResult & { hits?: WayHit[] })[];
     ways: WayUse[];
+    /** A page rule held: nothing was read. */
+    rule?: Pick<PageRule, 'name' | 'status'>;
 }
 
 const filled = (v: unknown) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
@@ -50,7 +54,8 @@ const filled = (v: unknown) => v !== undefined && v !== null && v !== '' && !(Ar
 const USED_SELECTOR = new Set(['ok', 'clicked', 'opened', 'already-open']);
 
 export async function run({ elements, config, probes }: InPageRequest): Promise<InPageResult> {
-    const { item, steps } = await extractPage(elements, config) as { item: Record<string, unknown>; steps: StepResult[] };
+    const { item, steps, rule } = await extractPage(elements, config) as Omit<InPageResult, 'ways'>;
+    if (rule) return { item, steps, ways: [], rule };
     const status = new Map(steps.map(s => [s.id, s.status as string]));
     const ways: WayUse[] = [];
     for (const probe of probes) {
