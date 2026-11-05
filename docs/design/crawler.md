@@ -80,6 +80,9 @@ worker does it with real browser input (`steps.ts`; design in `docs/plans/pro-da
   - Follow-up jobs inherit it.
 - **Telemetry:** request events carry `context` and `setup` (`ran`, `ms`, `failedStep`). The setup's, dismissals' and
   steps' selectors are counted in selector usage like fields'.
+- **Same as Pro:** waiting, optional steps, the setup and its check are one runner (`src/pro/steps/runner.ts`). The
+  worker drives it with Playwright; Pro's Test on this page drives the user's tab. A recipe tested in Pro runs its
+  steps the same way here.
 
 ## Block identification
 `detect.ts` reads each response for bot protection: the status, response headers, cookie **names** (values are never

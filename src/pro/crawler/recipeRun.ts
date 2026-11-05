@@ -7,7 +7,7 @@
 import { toPageSpec } from '../recipe/fromPublic';
 import { setupOwners } from '../recipe/actions';
 import type { ListRecipeSpec, PageRecipeSpec, ProSpec, RunSettings, SessionSetup, Way } from '../recipe/types';
-import { readPageResult } from '../runner/testPage';
+import { readPageResult } from '../runner/readPage';
 import { CrawlError } from './classify';
 import type { InPageRequest, InPageResult, ListPageResult, WayProbe } from './inPage';
 import type { CrawlJob, RecipeRef, ScrapeDoc, SelectorUsageDoc } from './types';

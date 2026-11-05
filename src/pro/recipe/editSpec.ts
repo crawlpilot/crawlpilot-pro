@@ -2,7 +2,7 @@
  * Edits to a page recipe's spec, each returning a new spec (the editor keeps the old one for undo-free
  * compare). Page data stays the first way: the extractor reads it before any selector.
  */
-import type { Click, Field, FieldType, PageRecipeSpec, Step } from './types';
+import type { Click, Field, FieldType, PageRecipeSpec, SessionSetup, Step } from './types';
 import type { ProOp } from './ops';
 
 const mapField = (spec: PageRecipeSpec, id: string, f: (field: Field) => Field): PageRecipeSpec => ({
@@ -39,6 +39,31 @@ export const addSelector = (spec: PageRecipeSpec, id: string, selector: string) 
     if (!s || f.ways.some(w => w.kind === 'selector' && w.selector === s)) return f;
     return { ...f, ways: [...f.ways, { kind: 'selector', selector: s }] };
 });
+
+/** A page step that acts (a click or another action), changed. */
+export const updateClick = (spec: PageRecipeSpec, id: string, f: (c: Click) => Click): PageRecipeSpec => ({
+    ...spec,
+    steps: spec.steps.map(s => s.kind === 'click' && s.click.id === id ? { kind: 'click', click: f(s.click) } : s),
+});
+
+/** A new action step, at the end of the page's steps (moved into place from there). */
+export const addAction = (spec: PageRecipeSpec, click: Click): PageRecipeSpec => ({ ...spec, steps: [...spec.steps, { kind: 'click', click }] });
+
+/** The session setup, changed; an empty one is dropped, so a recipe without it keeps its digest. */
+export function editSetup(spec: PageRecipeSpec, f: (s: SessionSetup) => SessionSetup): PageRecipeSpec {
+    const next = f(spec.setup ?? { steps: [] });
+    const { setup: _, ...rest } = spec;
+    const empty = next.steps.length === 0 && !next.check && !next.dismiss?.length;
+    const tidy: SessionSetup = { steps: next.steps, ...(next.dismiss?.length ? { dismiss: next.dismiss } : {}), ...(next.check ? { check: next.check } : {}) };
+    return empty ? rest : { ...rest, setup: tidy };
+}
+
+/** A list's item moved, replaced or removed: for the setup's steps and dismissals. */
+export const listEdit = {
+    move: <T,>(list: T[], index: number, delta: number) => move(list, index, index + delta),
+    replace: <T,>(list: T[], index: number, item: T) => list.map((x, i) => i === index ? item : x),
+    remove: <T,>(list: T[], index: number) => list.filter((_, i) => i !== index),
+};
 
 /** What stops a save: one line each. */
 export function problems(spec: PageRecipeSpec): string[] {

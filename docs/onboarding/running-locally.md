@@ -123,6 +123,15 @@ With the backend running (with or without the seed):
    **Backend** to another name, open **History**, **Approve** the version, then **Mark live**.
 5. Crawl it: copy `deploy/local/jobs.sample.jsonl`, set `"competitor": "demo2"`, and run step 4 again with your file.
 
+For a page that needs choices first (a delivery ZIP code, a store, a cookie banner), open **Before reading** in the
+editor:
+- add the setup steps and a check;
+- add the cookie banner's and pop-ups' close controls as dismissals;
+- give `{zip}` a test value;
+- run **Try setup on this page**.
+
+**Add a step** puts a choice (the *Delivery* tile) among the fields. `e2e/site/retailer.html` is a page to practise on.
+
 The exact clicks for each of these steps are in `e2e/pro-recipes.spec.ts`.
 
 ## Variations

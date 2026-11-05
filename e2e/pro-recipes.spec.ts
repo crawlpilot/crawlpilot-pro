@@ -271,6 +271,107 @@ test('test on this page: each field found, typed and checked; the run is kept fo
     await page.close();
 });
 
+test('steps before reading: a ZIP set through the page\'s dialog, checked, pop-ups dismissed, a tile chosen, then the fields', async ({ panel, ext, origin }) => {
+    test.setTimeout(120_000);
+    // The retailer page: a consent banner, "Deliver to" with a ZIP dialog that reloads, a promo pop-up, fulfilment tiles.
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/retailer.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1000 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    const file = {
+        name: 'Lamp', site: '127.0.0.1', built_on: page.url(),
+        spec: { kind: 'page', settings: {}, elements: [
+            { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1.product-title'] },
+            { id: 'b', name: 'price', action: 'extract', type: 'text', selectors: ['#price'] },
+            { id: 'c', name: 'delivery', action: 'extract', type: 'text', selectors: ['#fulfil-detail'] },
+        ] },
+    };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'lamp.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await ui.getByRole('button', { name: 'Edit Lamp' }).click();
+
+    // Before reading: three setup steps, a check, two dismissals, a test value.
+    const before = ui.getByTestId('pro-before-reading');
+    await before.getByRole('button', { name: /Before reading/ }).click(); // folded while there is none
+    const action = (n: number) => before.getByTestId('pro-action').nth(n);
+    const step = async (n: number, name: string, selector: string, what?: string, value?: string) => {
+        await before.getByRole('button', { name: 'Add setup step' }).click();
+        await action(n).getByLabel('Setup step name').fill(name);
+        if (what) await action(n).getByLabel('What it does').selectOption(what);
+        if (value) await action(n).getByLabel(/Text to type|The item that shows/).fill(value);
+        await action(n).getByLabel('Add a selector').fill(selector);
+        await action(n).getByRole('button', { name: 'Add', exact: true }).click();
+    };
+    await step(0, 'Open location', '#deliver-to');
+    await step(1, 'Type ZIP', '#zip-input', 'type', '{zip}');
+    await step(2, 'Apply', '#zip-apply');
+    await before.getByRole('button', { name: 'Add a check' }).click();
+    const check = before.getByTestId('pro-setup-check');
+    await check.getByLabel('Its text must contain').fill('{zip}');
+    await check.getByLabel('Add a selector').fill('#loc-label');
+    await check.getByRole('button', { name: 'Add', exact: true }).click();
+    for (const [n, selector] of [[3, '#consent-reject'], [4, '#promo-close']] as const) {
+        await before.getByRole('button', { name: 'Add dismissal' }).click();
+        await action(n).getByLabel('Add a selector').fill(selector);
+        await action(n).getByRole('button', { name: 'Add', exact: true }).click();
+        await expect(action(n).getByLabel('What it does')).toHaveCount(0); // a dismissal is a click
+    }
+    await before.getByTestId('pro-test-values').getByLabel('{zip}').fill('10001');
+
+    // Try setup: it runs on the tab, through the reload, and the check is met.
+    await before.getByRole('button', { name: 'Try setup on this page' }).click();
+    await expect(before.getByTestId('pro-try-setup')).toContainText('The setup worked on this page', { timeout: 30_000 });
+    await expect(page.locator('#loc-label')).toHaveText('10001');
+
+    // The check's element picked on the page too, as a second way.
+    if (await page.locator('#promo').isVisible()) await page.locator('#promo-close').click();
+    await check.getByRole('button', { name: 'Pick on page' }).click();
+    const label = page.locator('#loc-label');
+    const box = (await label.boundingBox())!;
+    await page.mouse.move(box.x + 2, box.y + 2);
+    await page.mouse.move(box.x + 4, box.y + 4);
+    await page.waitForTimeout(150);
+    await page.mouse.click(box.x + 4, box.y + 4);
+    await expect.poll(() => check.getByText('Selector').count()).toBeGreaterThan(1); // the picker gives a selector and fallbacks
+
+    // A page step: choose the Delivery tile, before the delivery field.
+    await ui.getByRole('button', { name: 'Add a step' }).click();
+    const tile = ui.getByTestId('pro-page-action');
+    await tile.getByLabel('Step name').fill('Delivery tile');
+    await tile.getByLabel('What it does').selectOption('choose');
+    await tile.getByLabel('The item that shows').fill('Delivery');
+    await tile.getByLabel('Add a selector').fill('.fulfil-tile');
+    await tile.getByRole('button', { name: 'Add', exact: true }).click();
+    await tile.getByRole('button', { name: 'Move up' }).click();
+
+    // Test on this page: the session is set already (the check is met), the tile is chosen, the fields read.
+    await ui.getByRole('button', { name: /^Test on this page/ }).click();
+    const summary = ui.getByTestId('pro-test-summary');
+    await expect(summary).toContainText('3 of 3 fields found', { timeout: 30_000 });
+    await expect(summary).toContainText('Session already set up.');
+    const card = (name: string) => ui.getByTestId('pro-field').filter({ has: ui.getByText(name, { exact: true }) });
+    await expect(card('price').getByTestId('pro-field-result')).toContainText('$12.99');
+    await expect(card('delivery').getByTestId('pro-field-result')).toContainText('Delivery tomorrow to 10001');
+
+    // Saved: the setup and the step are part of the version, their ways with ids.
+    await expect(ui.getByTestId('pro-editor-changes')).toContainText('session setup');
+    await ui.getByLabel('What changed').fill('ZIP code first');
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    await expect(ui.getByTestId('pro-diff')).toContainText('session setup');
+    const [v2] = (await proStore(ui, 'versions')).filter(v => v.version === 2);
+    expect(v2.spec.setup.steps.map((s: any) => [s.name, s.do ?? 'click', s.value ?? null])).toEqual([['Open location', 'click', null], ['Type ZIP', 'type', '{zip}'], ['Apply', 'click', null]]);
+    expect(v2.spec.setup.check).toMatchObject({ contains: '{zip}' });
+    expect(v2.spec.setup.dismiss).toHaveLength(2);
+    expect(v2.spec.setup.steps[1].ways[0].id).toEqual(expect.any(String));
+    expect(v2.spec.steps.map((s: any) => s.kind === 'field' ? s.field.name : `${s.click.do}:${s.click.value}`)).toEqual(['title', 'price', 'choose:Delivery', 'delivery']);
+    await ui.close();
+    await page.close();
+});
+
 test('test on sample pages: background tabs, a grid of fields × pages, the run kept', async ({ panel, ext, origin }) => {
     test.setTimeout(90_000);
     const page = await ext.newPage();
