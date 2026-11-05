@@ -16,7 +16,7 @@ export function Ways({ ways, onMove, onRemove, onAdd, title = 'Ways to find it, 
             <Text size="caption" weight="semibold" tone="muted">{title}</Text>
             {ways.map((w, i) => (
                 <div key={`${i}-${wayLabel(w)}`} className="flex items-center gap-1.5">
-                    <Chip tone={w.kind === 'data' ? 'info' : 'neutral'}>{w.kind === 'data' ? 'Page data' : 'Selector'}</Chip>
+                    <Chip tone={w.kind === 'selector' ? 'neutral' : 'info'}>{w.kind === 'data' ? 'Page data' : w.kind === 'markup' ? 'Markup' : 'Selector'}</Chip>
                     <Text size="caption" mono className="min-w-0 flex-1 break-all">{wayLabel(w)}</Text>
                     {w.kind === 'selector' && <>
                         <IconButton size="sm" label="Try it earlier" onClick={() => onMove(i, -1)} disabled={i <= firstSelector}><ArrowUp /></IconButton>

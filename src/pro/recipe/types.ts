@@ -62,7 +62,19 @@ export type Way = WayIdentity & (
     | { kind: 'data'; binding: DataBinding }
     /** A CSS selector or an XPath. */
     | { kind: 'selector'; selector: string }
+    /** The page's markup: a meta tag (`og:title`), or a microdata prop (`offers.price` of a `Product`). Read first. */
+    | MarkupWay
 );
+
+/** A field read from the page's markup (`src/pro/markup/markup.ts`). */
+export interface MarkupWay {
+    kind: 'markup';
+    source: 'meta' | 'microdata';
+    /** The meta tag's property or name; or the itemprop path, dotted through nested items. */
+    key: string;
+    /** Microdata: the item's type (`Product`), when the page has several. */
+    type?: string;
+}
 
 export interface Field {
     id: string;

@@ -372,6 +372,50 @@ test('steps before reading: a ZIP set through the page\'s dialog, checked, pop-u
     await page.close();
 });
 
+test('markup: a field read from the page\'s meta tags or microdata, chosen from what the open page has', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/microdata-product.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1000 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    // Selectors from an older layout: they find nothing on this page.
+    const file = { name: 'Overshirt', site: '127.0.0.1', built_on: page.url(), spec: { kind: 'page', settings: {}, elements: [
+        { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1.product-title'] },
+        { id: 'b', name: 'price', action: 'extract', type: 'text', selectors: ['.price'] },
+    ] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'o.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await ui.getByRole('button', { name: 'Edit Overshirt' }).click();
+
+    const card = (name: string) => ui.getByTestId('pro-field').filter({ has: ui.getByText(name, { exact: true }) });
+    const fromMarkup = async (name: string, option: RegExp) => {
+        await card(name).getByRole('button').first().click();
+        await card(name).getByRole('button', { name: 'From the page\'s markup' }).click();
+        const choose = card(name).getByLabel('Read it from the page\'s markup');
+        const value = await choose.locator('option').filter({ hasText: option }).first().getAttribute('value');
+        await choose.selectOption(value!);
+        await expect(card(name)).toContainText('Markup');
+    };
+    await fromMarkup('title', /^og:title = Linen overshirt$/);
+    await fromMarkup('price', /^Product · offers\.price = 79\.00$/);
+
+    await ui.getByRole('button', { name: /^Test on this page/ }).click();
+    await expect(ui.getByTestId('pro-test-summary')).toContainText('2 of 2 fields found');
+    await expect(card('title').getByTestId('pro-field-result')).toContainText('Linen overshirt');
+    await expect(card('price').getByTestId('pro-field-result')).toContainText('79.00');
+
+    await ui.getByLabel('What changed').fill('read from markup');
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    await expect(ui.getByTestId('pro-diff')).toContainText('way added: meta og:title');
+    const [v2] = (await proStore(ui, 'versions')).filter(v => v.version === 2);
+    expect(v2.spec.steps[1].field.ways[0]).toMatchObject({ kind: 'markup', source: 'microdata', type: 'Product', key: 'offers.price', id: expect.any(String) });
+    await ui.close();
+    await page.close();
+});
+
 test('test on sample pages: background tabs, a grid of fields × pages, the run kept', async ({ panel, ext, origin }) => {
     test.setTimeout(90_000);
     const page = await ext.newPage();

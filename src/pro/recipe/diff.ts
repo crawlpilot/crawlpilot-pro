@@ -48,6 +48,7 @@ function setupChanges(a: SessionSetup | undefined, b: SessionSetup | undefined):
 
 export function wayLabel(w: Way): string {
     if (w.kind === 'selector') return w.selector;
+    if (w.kind === 'markup') return w.source === 'meta' ? `meta ${w.key}` : `microdata${w.type ? ` ${w.type}` : ''} · ${w.key}`;
     const b = w.binding;
     const path = [...b.path.map(p => typeof p === 'object' ? `[${p.where}=${p.is}]` : String(p)), b.key].filter(Boolean).join('.');
     return `${b.kind === 'ld' ? `JSON-LD${b.type ? ` ${b.type}` : ''}` : b.label}${path ? ` · ${path}` : ''}`;

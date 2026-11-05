@@ -108,6 +108,13 @@ The detailed design is in [C1 in detail](#c1-in-detail-interactions-before-and-d
 - **Proposal:** data way kinds `microdata` and `meta`, read by `@itemtype` and `itemprop` path, or by meta
   name/property. The public metadata service (`src/content/services/metadata/`) already parses meta tags. These are
   the most stable ways a field can have, because they rarely change with a redesign.
+- **Done:**
+  - **The way:** a Pro way kind, `markup` (`source: 'meta' | 'microdata'`, `key`, `type`), read by Pro's own in-page
+    code (`src/pro/markup/markup.ts`) in the worker and in Pro's tests, before a field's other ways. It needs no change
+    to the public extractor.
+  - **The editor:** lists the open page's meta tags and microdata with their values (*From the page's markup*).
+  - **Usage:** selector usage credits the markup way when it wins.
+  - **Not yet:** RDFa.
 
 ### C9. Starter recipes (M)
 - **Fails today:** every recipe starts from an empty picker.

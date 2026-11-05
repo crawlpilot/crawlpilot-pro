@@ -15,7 +15,7 @@ import { toPageSpec } from '../recipe/fromPublic';
 import type { PageRecipeSpec, RunSettings, SessionSetup } from '../recipe/types';
 import { DEFAULT_STEP_OPTIONS, prepareSession, runAction, StepFailed } from '../steps/runner';
 import { readPageResult, type PageResult } from './readPage';
-import { dismissInTab, tabDriver } from './tabSteps';
+import { call as callInTab, dismissInTab, tabDriver } from './tabSteps';
 
 /** A setup with something to do. */
 export const setupOf = (spec: PageRecipeSpec): SessionSetup | undefined =>
@@ -39,13 +39,27 @@ async function readOnTab(tabId: number, spec: PageRecipeSpec, settings: RunSetti
             const reply = await sendToTab(tabId, 'CMD_EXTRACT_PAGE_BACKGROUND', pageTestRequest(spec, settings, url));
             if (!reply?.success) throw new Error(reply && 'error' in reply ? String(reply.error) : 'No reply from the page');
             const result = reply.result as { item?: Record<string, unknown>; steps?: StepResult[] };
-            return { item: result.item ?? {}, steps: result.steps ?? [] };
+            return withMarkup(tabId, spec, { item: result.item ?? {}, steps: result.steps ?? [] });
         } catch (e) {
             // After a step loaded a new page, its content script may not be listening yet.
             if (!notListening(e) || tries >= 10) throw e;
             await new Promise(r => setTimeout(r, 300));
         }
     }
+}
+
+/** Fields with markup ways read from the page's markup first: a value there is the field's, found in the page's data. */
+async function withMarkup(tabId: number, spec: PageRecipeSpec, read: { item: Record<string, unknown>; steps: StepResult[] }) {
+    const fields = spec.steps.flatMap(s => s.kind === 'field' && s.field.ways.some(w => w.kind === 'markup')
+        ? [{ id: s.field.id, ways: s.field.ways.flatMap(w => w.kind === 'markup' ? [{ source: w.source, key: w.key, ...(w.type ? { type: w.type } : {}) }] : []) }] : []);
+    if (!fields.length) return read;
+    const hits = await callInTab<Record<string, { value: string }>>(tabId, 'readMarkupFields', [fields]);
+    for (const [id, hit] of Object.entries(hits ?? {})) {
+        read.item[id] = hit.value;
+        const step = read.steps.find(s => s.id === id);
+        if (step) step.status = 'data';
+    }
+    return read;
 }
 
 /**
