@@ -62,7 +62,8 @@ describe.each(RECIPES)('%s', (file, make) => {
     });
 });
 
-describe('on the saved product pages', () => {
+// A saved product page is up to 1.2 MB of markup: parsing it in jsdom takes seconds on a CI runner.
+describe('on the saved product pages', { timeout: 60_000 }, () => {
     it('Amazon: the ASIN from the hidden input, title, brand, rating and reviews, every check passing', async () => {
         const { page, field } = await read(await amazonProduct(fixture('amz')), 'pdp-amazon', 'https://www.amazon.com/dp/B0HJCRV1J6');
         expect(page.rule).toBeUndefined();
