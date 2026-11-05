@@ -408,6 +408,11 @@ export async function processJob(job: CrawlJob, d: WorkerDeps): Promise<JobResul
                 for (const r of readListRows(part.list, listRead.lists).rows) {
                     confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape({ attributes: r.attributes, fieldStatus: r.fieldStatus, listId: r.listId, row: r.index, page: job.page ?? 1 }), `${docId}~${r.listId}~${r.index}`));
                 }
+            } else if (read?.rows) {
+                // One document per item a "for each" step went through: its id ends with the item.
+                for (const r of read.rows) {
+                    confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape({ attributes: r.attributes, fieldStatus: r.fieldStatus, option: r.option }), `${docId}~opt=${r.option.value}`));
+                }
             } else if (read || c.pageStatus === 'not_found') {
                 confirm(d.sink.writeConfirmed(indices.scrapes(job), scrape(read ? { attributes: read.attributes, fieldStatus: read.fieldStatus } : {}), docId));
             }

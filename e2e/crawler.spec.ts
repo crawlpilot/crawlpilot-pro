@@ -366,6 +366,56 @@ test('crawler worker: sets the location and store a retailer page needs, chooses
     mock.close();
 });
 
+test('crawler worker: reads a product once per fulfilment method, one document each', async () => {
+    test.setTimeout(120_000);
+    const RETAILER = readFileSync(path.join(ROOT, 'e2e/site/retailer.html'), 'utf8');
+    const shop = await serve((req, res) => req.url === '/robots.txt' ? html(res, 404, '') : html(res, 200, RETAILER));
+    const es = await fakeElasticsearch();
+    const mock = await serveMockBackend();
+    const sel = (selector: string) => ({ kind: 'selector', selector });
+    const act = (id: string, name: string, selector: string, extra = {}) => ({ id, name, ways: [sel(selector)], ...extra });
+    const field = (id: string, name: string, selector: string) => ({ kind: 'field', field: { id, name, type: 'text', read: 'text', ops: [], ways: [sel(selector)] } });
+    await publishRecipe(mock.backend, { competitor: 'retail', pageType: 'product', spec: {
+        kind: 'page',
+        setup: {
+            dismiss: [act('d1', 'Cookie banner', '#consent-reject'), act('d2', 'Promo', '#promo-close')],
+            steps: [act('s1', 'Open location', '#deliver-to'), act('s2', 'Type ZIP', '#zip-input', { do: 'type', value: '{zip}' }), act('s3', 'Apply', '#zip-apply'),
+                act('s4', 'Open stores', '#store-link'), act('s5', 'Choose store', '.store-list li button', { do: 'choose', value: '{store}' })],
+            check: { ways: [sel('#loc-label')], contains: '{zip}' },
+        },
+        steps: [
+            field('f-title', 'title', 'h1.product-title'),
+            // Every tile the page shows, in its order: the fields after it are read for each.
+            { kind: 'click', click: act('p-tile', 'Fulfilment', '.fulfil-tile', { do: 'choose', forEach: {} }) },
+            field('f-detail', 'detail', '#fulfil-detail'),
+            field('f-price', 'price', '#price'),
+        ],
+    } });
+    const dir = mkdtempSync(path.join(tmpdir(), 'crawler-each-'));
+    writeFileSync(path.join(dir, 'crawler.json'), JSON.stringify({
+        workerId: 'e2e-worker', concurrency: 1, navigationTimeoutMs: 15_000, settleMs: 0,
+        retry: { maxAttempts: 1, baseDelayMs: 100, maxDelayMs: 500, maxInlineWaitMs: 5000 },
+        sites: { default: { minDelayMs: 20 } },
+        recipeStore: { url: mock.origin, token: '${STORE_TOKEN}' },
+        search: { url: es.origin, flushMs: 200 },
+    }));
+    writeFileSync(path.join(dir, 'jobs.jsonl'), JSON.stringify({ jobId: 'lamp', url: `${shop.origin}/p/lamp`, competitor: 'retail', pageType: 'product', context: { zip: '10001', store: 'Chelsea' } }));
+
+    const out = await runCli(dir);
+    expect(out).toContain('1 jobs: 1 read');
+    const docs = es.docs.filter(d => d.index === 'scrapes-retail').sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    expect(docs.map(d => d.id)).toEqual([
+        'lamp~store=Chelsea,zip=10001~opt=Delivery', 'lamp~store=Chelsea,zip=10001~opt=Pickup', 'lamp~store=Chelsea,zip=10001~opt=Shipping',
+    ]);
+    const by = (v: string) => docs.find(d => d.doc.option?.value === v)!.doc;
+    expect(by('Pickup')).toMatchObject({ option: { step: 'Fulfilment', value: 'Pickup' }, context: { zip: '10001' }, attributes: { title: 'Brass desk lamp', price: '$12.99', detail: 'Pickup today at Chelsea: In stock' } });
+    expect(by('Delivery').attributes).toMatchObject({ detail: 'Delivery tomorrow to 10001', price: '$12.99' });
+    expect(by('Shipping').attributes).toMatchObject({ detail: 'Ships in 3–5 days' });
+
+    for (const s of [shop, es]) s.close();
+    mock.close();
+});
+
 test('crawler worker: goes through the site\'s proxy with its credentials, and fails over from a dead one', async () => {
     test.setTimeout(120_000);
     const shop = await serve((req, res) => req.url === '/robots.txt' ? html(res, 404, '') : html(res, 200, PRODUCT('Linen shirt')));

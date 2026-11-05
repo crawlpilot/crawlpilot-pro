@@ -104,6 +104,11 @@ export interface Click {
     optional?: boolean;
     /** wait: for the target to go away (a spinner), instead of to appear. */
     gone?: boolean;
+    /**
+     * choose: every item in turn instead of one (Pickup, Delivery, Shipping; each size). The fields after this step,
+     * up to the next action, are read once per item: one row each. `values` limits it to those items, in that order.
+     */
+    forEach?: { values?: string[]; max?: number };
 }
 
 /** A recipe's steps that set the browser session up (a location, a store), run once per session. */

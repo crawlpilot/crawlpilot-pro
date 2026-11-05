@@ -9,7 +9,6 @@
  *   close one that gets in the way of a step, and any showing is closed before each read.
  */
 import type { Page } from 'playwright';
-import { segments } from '../recipe/actions';
 import type { Click, PageRecipeSpec, RunSettings, SessionSetup } from '../recipe/types';
 import { callInPage, extract, type Session } from './browser';
 import type { InPageResult } from './inPage';
@@ -55,6 +54,7 @@ export function playwrightDriver(page: Page, script: string, sleep: (ms: number)
     return {
         find: (request: TargetRequest) => callInPage<TargetResult>(page, script, 'markTarget', [request]),
         isShown: selectors => callInPage<boolean>(page, script, 'isShown', [selectors]),
+        listItems: selectors => callInPage<string[]>(page, script, 'listItems', [selectors]),
         async act(c, mark, value, o) {
             const el = page.locator(`[${MARK}="${mark}"]`).first();
             const navigated = page.waitForEvent('framenavigated', { predicate: f => f === page.mainFrame(), timeout: o.navigationWaitMs }).then(() => true, () => false);
@@ -95,25 +95,11 @@ export function prepareSession(page: Page, script: string, setup: SessionSetup, 
 }
 
 /**
- * A page recipe with Pro's action steps: the runs of fields and plain clicks read by the extractor, the
- * actions between them done by the runner, and the results put together as one read.
+ * A page recipe with Pro's action steps (`runner.runPageSteps`): the runs of fields and plain clicks read by the
+ * extractor, the actions between them, a "for each" step's fields once per item.
  */
-export async function extractWithActions(page: Page, script: string, spec: PageRecipeSpec, settings: RunSettings, context: Record<string, string> | undefined, timeoutMs: number,
-    o: WorkerStepOptions = runner.DEFAULT_STEP_OPTIONS, dismiss?: Click[]): Promise<InPageResult> {
-    const driver = playwrightDriver(page, script, o.sleep);
-    const out: InPageResult = { item: {}, steps: [], ways: [] };
-    for (const seg of segments(spec)) {
-        if (seg.kind === 'read') {
-            await dismissNow(page, script, dismiss);
-            const r = await extract(page, script, inPageRequest(seg.spec, settings), timeoutMs);
-            Object.assign(out.item, r.item);
-            out.steps.push(...r.steps);
-            out.ways.push(...r.ways);
-        } else {
-            const r = await runner.runAction(driver, seg.click, context, o);
-            out.steps.push({ id: seg.click.id, name: seg.click.name, action: 'click', status: r.status === 'done' ? 'clicked' : 'skipped' } as InPageResult['steps'][number]);
-            out.ways.push(...r.ways);
-        }
-    }
-    return out;
+export function extractWithActions(page: Page, script: string, spec: PageRecipeSpec, settings: RunSettings, context: Record<string, string> | undefined, timeoutMs: number,
+    o: WorkerStepOptions = runner.DEFAULT_STEP_OPTIONS, dismiss?: Click[]): Promise<runner.StepsRead & InPageResult> {
+    return runner.runPageSteps(playwrightDriver(page, script, o.sleep), spec, context, o,
+        s => extract(page, script, inPageRequest(s, settings), timeoutMs), dismiss) as Promise<runner.StepsRead & InPageResult>;
 }

@@ -11,7 +11,7 @@ import { ArrowDown, ArrowUp, Crosshair, FlaskConical, Plus, Trash2, Workflow } f
 import { Button, Chip, Disclosure, IconButton, Notice, Select, Switch, Text, TextField } from '../../sidepanel/ui';
 import { on, sendToTab } from '../../shared/messages';
 import { pageTabId } from '../../sidepanel/hooks/usePageTab';
-import { describeAction, variablesOf } from '../recipe/actions';
+import { describeAction, MAX_EACH, variablesOf } from '../recipe/actions';
 import * as edits from '../recipe/editSpec';
 import type { ActionKind, Click, PageRecipeSpec, SessionSetup, Way } from '../recipe/types';
 import { trySetupOnTab } from '../runner/testPage';
@@ -71,11 +71,14 @@ const wayEdits = (ways: Way[], set: (ways: Way[]) => void) => ({
 });
 
 /** One action step: what it does, to what, with which value. */
-export function ActionEditor({ click, onChange, picker, pickKey, label = 'Step', clickOnly }: {
+export function ActionEditor({ click, onChange, picker, pickKey, label = 'Step', clickOnly, allowEach }: {
     click: Click; onChange: (c: Click) => void; picker: ReturnType<typeof usePicker>; pickKey: string; label?: string;
     /** A dismissal: always a click, never optional (it is done only when it shows anyway). */
     clickOnly?: boolean;
+    /** A page step: a choice can go through each item, one row each. */
+    allowEach?: boolean;
 }) {
+    const [eachText, setEachText] = useState((click.forEach?.values ?? []).join(', '));
     const what = click.do ?? 'click';
     const set = (patch: Partial<Click>) => {
         const next: Click = { ...click, ...patch };
@@ -83,6 +86,7 @@ export function ActionEditor({ click, onChange, picker, pickKey, label = 'Step',
         if (next.do === 'click') delete next.do;
         for (const k of ['value', 'enter', 'gone', 'index'] as const) if (next[k] === undefined || next[k] === '' || next[k] === false) delete next[k];
         if (!next.optional) delete next.optional;
+        if (!next.forEach || next.do !== 'choose') delete next.forEach;
         onChange(next);
     };
     return (
@@ -91,7 +95,7 @@ export function ActionEditor({ click, onChange, picker, pickKey, label = 'Step',
                 <TextField size="sm" className="flex-1" label={`${label} name`} value={click.name} onChange={e => set({ name: e.target.value })} />
                 {!clickOnly && <Select<ActionKind> size="sm" label="What it does" value={what} options={KINDS} onChange={k => set({ do: k })} />}
             </div>
-            {!clickOnly && VALUE_LABEL[what] && (
+            {!clickOnly && VALUE_LABEL[what] && !click.forEach && (
                 <TextField size="sm" label={VALUE_LABEL[what]} value={click.value ?? ''} placeholder={VALUE_PLACEHOLDER[what]}
                     hint={what === 'type' || what === 'choose' ? 'A variable in braces, {zip}, takes each job\'s value.' : undefined}
                     onChange={e => set({ value: e.target.value })} />
@@ -100,7 +104,18 @@ export function ActionEditor({ click, onChange, picker, pickKey, label = 'Step',
                 <Switch label="Optional: skip it when it isn't there" checked={!!click.optional} onChange={v => set({ optional: v })} />
                 {what === 'type' && <Switch label="Press Enter after" checked={!!click.enter} onChange={v => set({ enter: v })} />}
                 {what === 'wait' && <Switch label="Wait for it to go away" checked={!!click.gone} onChange={v => set({ gone: v })} />}
+                {what === 'choose' && allowEach && <Switch label="For each item: one row per item" checked={!!click.forEach}
+                    onChange={v => set(v ? { forEach: eachText.trim() ? { values: eachText.split(',').map(x => x.trim()).filter(Boolean) } : {}, value: undefined } : { forEach: undefined })} />}
             </div>}
+            {click.forEach && (
+                <TextField size="sm" label="Only these items, in order" value={eachText} placeholder="Pickup, Delivery, Shipping"
+                    hint={`Empty: every item the selector finds, up to ${MAX_EACH}. The fields after this step, up to the next step, are read for each.`}
+                    onChange={e => {
+                        setEachText(e.target.value);
+                        const values = e.target.value.split(',').map(x => x.trim()).filter(Boolean);
+                        set({ forEach: values.length ? { ...click.forEach, values } : (({ values: _, ...rest }) => rest)(click.forEach!) });
+                    }} />
+            )}
             <Ways ways={click.ways} title={what === 'choose' ? 'The items to choose from' : 'Its element'} {...wayEdits(click.ways, ways => set({ ways }))} />
             <div>
                 <Button size="sm" variant="ghost" icon={<Crosshair />} loading={picker.picking === pickKey}
@@ -113,15 +128,15 @@ export function ActionEditor({ click, onChange, picker, pickKey, label = 'Step',
 }
 
 /** A row of a list of steps: the editor in a disclosure, and move and remove. */
-function StepRow({ click, index, count, onChange, onMove, onRemove, picker, label, clickOnly }: {
+function StepRow({ click, index, count, onChange, onMove, onRemove, picker, label, clickOnly, allowEach }: {
     click: Click; index: number; count: number; onChange: (c: Click) => void; onMove: (d: number) => void; onRemove: () => void;
-    picker: ReturnType<typeof usePicker>; label: string; clickOnly?: boolean;
+    picker: ReturnType<typeof usePicker>; label: string; clickOnly?: boolean; allowEach?: boolean;
 }) {
     return (
         <Disclosure defaultOpen={click.ways.length === 0}
             summary={<span className="flex min-w-0 items-center gap-1.5"><span className="truncate font-semibold">{index + 1}. {click.name || 'unnamed'}</span><Chip>{describeAction(click)}</Chip></span>}>
             <div className="flex flex-col gap-2 pt-2">
-                <ActionEditor click={click} onChange={onChange} picker={picker} pickKey={click.id} label={label} clickOnly={clickOnly} />
+                <ActionEditor click={click} onChange={onChange} picker={picker} pickKey={click.id} label={label} clickOnly={clickOnly} allowEach={allowEach} />
                 <div className="flex items-center justify-end">
                     <IconButton size="sm" label="Move up" onClick={() => onMove(-1)} disabled={index === 0}><ArrowUp /></IconButton>
                     <IconButton size="sm" label="Move down" onClick={() => onMove(1)} disabled={index === count - 1}><ArrowDown /></IconButton>
@@ -228,7 +243,7 @@ export function PageAction({ spec, click, index, onChange, picker }: {
 }) {
     return (
         <div key={click.id} data-testid="pro-page-action">
-            <StepRow click={click} index={index} count={spec.steps.length} picker={picker} label="Step"
+            <StepRow click={click} index={index} count={spec.steps.length} picker={picker} label="Step" allowEach
                 onChange={next => onChange(edits.updateClick(spec, click.id, () => next))}
                 onMove={d => onChange(edits.moveStep(spec, index, d))}
                 onRemove={() => onChange(edits.removeStep(spec, index))} />
