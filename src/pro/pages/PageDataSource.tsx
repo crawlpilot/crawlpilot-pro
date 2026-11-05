@@ -5,7 +5,7 @@
  */
 import { useState } from 'react';
 import { Braces } from 'lucide-react';
-import { Button, Text, TextField } from '../../sidepanel/ui';
+import { Button, Chip, Text, TextField } from '../../sidepanel/ui';
 import { pageTabId } from '../../sidepanel/hooks/usePageTab';
 import type { DataBinding } from '../../shared/types/database';
 import type { Field, FieldType, Way } from '../recipe/types';
@@ -18,12 +18,18 @@ export function newFieldOf(e: PageDataEntry, taken: string[], id: string): Field
     const base = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').toLowerCase() || 'field';
     let name = base;
     for (let n = 2; taken.includes(name); n++) name = `${base}_${n}`;
-    const list = e.binding.as === 'list';
+    const as = e.binding.as;
+    if (as === 'rows') return { id, name, type: 'table', read: 'table', ways: [dataWay(e.binding)], ops: [] };
+    if (as === 'object') return { id, name, type: 'object', read: 'text', ways: [dataWay(e.binding)], ops: [] };
+    const list = as === 'list';
     const type: FieldType = list ? 'list' : /^-?\d+(\.\d+)?$/.test(e.value) ? 'number' : /^https?:\/\//.test(e.value) ? 'url' : 'text';
     return { id, name, type, read: list ? 'text_array' : 'text', ways: [dataWay(e.binding)], ops: [] };
 }
 
 export const dataWay = (binding: DataBinding): Way => ({ kind: 'data', binding });
+
+/** What an entry gives, beyond one value. */
+const KIND: Partial<Record<DataBinding['as'], string>> = { list: 'list', rows: 'rows', object: 'name → value' };
 
 export function PageDataSource({ onPick, label = "From the page's data" }: { onPick: (e: PageDataEntry) => void; label?: string }) {
     const [open, setOpen] = useState(false);
@@ -60,7 +66,10 @@ export function PageDataSource({ onPick, label = "From the page's data" }: { onP
                 {entries?.map(e => (
                     <button key={e.where} type="button" data-testid="pro-page-data-entry" onClick={() => onPick(e)}
                         className="flex flex-col rounded-lg px-2 py-1 text-left hover:bg-ink/6">
-                        <Text size="caption" mono tone="muted" className="break-all">{e.where}</Text>
+                        <span className="flex items-center gap-1.5">
+                            <Text size="caption" mono tone="muted" className="min-w-0 flex-1 break-all">{e.where}</Text>
+                            {KIND[e.binding.as] && <Chip tone="info">{KIND[e.binding.as]}</Chip>}
+                        </span>
                         <Text size="caption" className="break-all">{e.binding.as === 'list' ? `[${e.value}]` : e.value}</Text>
                     </button>
                 ))}
