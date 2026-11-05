@@ -16,7 +16,7 @@ Things to look up once you know your way around. The design docs ([HLD](../desig
 | `src/sidepanel/`, `src/background/`, `src/content/`, `src/shared/` | The public extension: UI, background worker, page scripts, extraction | Upstream |
 | `e2e/` | Playwright tests; `e2e/site/` holds the test pages; `pro.ts` and `harness.ts` are the helpers | Both |
 | `deploy/crawler/` | The worker's Dockerfile, ECS task definition, IAM policy, deployment steps | Pro |
-| `deploy/local/` | The local stack: Elasticsearch and Kibana compose file, local worker config, sample jobs | Pro |
+| `deploy/local/` | The local stack: Elasticsearch and Kibana compose file, local worker config, sample jobs; `live-check/` for trying a recipe on a few live pages | Pro |
 | `docs/design/` | HLD, LLD, crawler design, references | Pro |
 | `docs/onboarding/` | These pages | Pro |
 | `docs/plans/` | Plans, mostly the public extension's | Both |
@@ -37,7 +37,7 @@ Things to look up once you know your way around. The design docs ([HLD](../desig
 ## The worker's command line
 ```
 node src/pro/crawler/dist/worker.mjs --config <file>                        # jobs from the configured SQS queue
-node src/pro/crawler/dist/worker.mjs --config <file> --jobs <file.jsonl> [--dead-letter <file>]
+node src/pro/crawler/dist/worker.mjs --config <file> --jobs <file.jsonl> [--dead-letter <file>] [--print]
 node src/pro/crawler/dist/worker.mjs --config <file> --setup-elasticsearch  # index templates, once per cluster
 node src/pro/crawler/dist/worker.mjs --config <file> --rollup [YYYY-MM-DD]  # one day's selector usage (default: yesterday)
 ```
@@ -53,7 +53,7 @@ times in a row, so the container is replaced. SIGTERM stops it within ECS's 120 
 | `CHROMIUM_PATH` | Worker | Another Chromium binary |
 | `PLAYWRIGHT_BROWSERS_PATH` | Playwright | Where Playwright's browsers are |
 | `MOCK_PORT`, `MOCK_HOST`, `MOCK_TOKEN` | `npm run pro:mock` | Port (8787), address (127.0.0.1), token (`dev-token`) |
-| `MOCK_SEED=demo` | `npm run pro:mock` | Start with the demo recipe live |
+| `MOCK_SEED=demo` or `MOCK_SEED=<file.json>` | `npm run pro:mock` | Start with the demo recipe, or the recipe in that file (`name`, `site`, `competitor`, `pageType`, `spec`), live |
 | `HEADED=1` | e2e | Show the browser |
 | `CRAWLER_IMAGE` | `e2e/crawler.spec.ts` | Run the worker tests inside this image |
 

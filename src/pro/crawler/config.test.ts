@@ -36,6 +36,12 @@ describe('crawler config', () => {
         expect(() => parseConfig({ ...base, sites: { default: {} }, proxyPools: { a: [{ id: 'p', server: 's' }], b: [{ id: 'p', server: 's' }] } }, env)).toThrow('"p" is used twice');
     });
 
+    it('needs no search when the worker only prints (--print)', () => {
+        const { search: _, ...noSearch } = base;
+        expect(() => parseConfig(noSearch, env)).toThrow('search.url');
+        expect(parseConfig(noSearch, env, { noSearch: true }).search.url).toBe('unused');
+    });
+
     it('refuses FIFO queues', () => {
         const queue = { type: 'sqs', url: 'https://sqs.test/1/jobs.fifo', deadLetterUrl: 'https://sqs.test/1/dead' };
         expect(() => parseConfig({ ...base, queue }, env)).toThrow('FIFO queues are not supported');

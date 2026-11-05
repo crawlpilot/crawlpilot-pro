@@ -19,6 +19,11 @@ export interface CrawlJob {
     runId?: string;
     /** Passed through to the scrape document as is. */
     meta?: Record<string, string>;
+    /**
+     * The values of the recipe's variables (`{zip}`, `{store}`): where its session setup puts the browser.
+     * Its documents carry it, and their ids include it, so one URL read for two locations is two documents.
+     */
+    context?: Record<string, string>;
     /** Attempts already made by earlier deliveries (set by the worker when it puts a job back). */
     attempts?: number;
     /** Times the recipe store failed this job in a row: its wait grows, its attempts don't. */
@@ -53,6 +58,10 @@ export type ErrorClass =
     | 'not_found' | 'gone' | 'client_error' | 'server_error'
     | 'empty_page' | 'robots_disallowed'
     | 'extraction' | 'no_recipe' | 'recipe_store' | 'paused'
+    /** A session setup or action step failed: its element not found, or the setup check not met. */
+    | 'setup_failed'
+    /** The job lacks a value the recipe's steps need (`context.zip`): dead-lettered, for a person to fix the job. */
+    | 'missing_context'
     /** The job was put back for longer than `retry.maxJobAgeMs` (a site that stays blocked): dead-lettered. */
     | 'expired'
     | 'unknown';
@@ -78,6 +87,8 @@ export interface ScrapeDoc extends RecipeRef {
     attributes: Record<string, unknown>;
     fieldStatus: Record<string, 'ok' | 'empty' | 'check_failed'>;
     meta?: Record<string, string>;
+    /** The job's context: the location (or other values) the page was read for. */
+    context?: Record<string, string>;
     /** A list row: its list, its place on the page, and the page. */
     listId?: string;
     row?: number;
@@ -92,6 +103,7 @@ export interface SelectorUsageDoc extends RecipeRef {
     competitor: string;
     pageType: string;
     pageStatus: PageStatus;
+    context?: Record<string, string>;
     ways: { field: string; wayId: string; tried: boolean; matched: boolean; won: boolean }[];
 }
 
@@ -136,6 +148,10 @@ export interface RequestEvent {
     blockEvidence?: { title?: string; textSample?: string; resourceHosts?: string[]; cookieNames?: string[] };
     /** Length of the page's visible text. */
     textLength?: number;
+    /** The job's context (`{zip}`…). */
+    context?: Record<string, string>;
+    /** The recipe's session setup on this attempt: whether it ran, how long it took, and the step that failed. */
+    setup?: { ran: boolean; ms: number; failedStep?: string };
     retryAfterMs?: number;
     /** How long the worker waits before the next attempt, when there is one. */
     nextAttemptInMs?: number;

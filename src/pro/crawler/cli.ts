@@ -9,6 +9,9 @@
  * A second signal abandons the attempts at once.
  *   … --config crawler.json --jobs jobs.jsonl [--dead-letter dead.jsonl]
  * runs a file of jobs instead, until each is done, failed or dead-lettered, and prints a summary.
+ *   … --config crawler.json --jobs jobs.jsonl --print
+ * runs a file of jobs and prints each attempt and each page's values instead of writing them to Elasticsearch
+ * (no `search` needed): for trying a recipe on a few live pages.
  *   … --config crawler.json --setup-elasticsearch
  * puts the index templates (`templates.ts`) and exits.
  *   … --config crawler.json --rollup [YYYY-MM-DD]
@@ -28,7 +31,7 @@ import { ProxyPool } from './proxies';
 import { MemoryQueue, runWorker, type JobQueue } from './queue';
 import { SqsQueue } from './sqs';
 import { RobotsCache } from './robots';
-import { createSearchSink } from './search';
+import { createSearchSink, type SearchSink } from './search';
 import { createRecipeStore } from './store';
 import { installTemplates } from './templates';
 import { rollupDay, yesterday } from './rollup';
@@ -50,11 +53,28 @@ function arg(name: string, fallback?: string): string {
 
 const has = (name: string) => process.argv.includes(`--${name}`);
 
+/** `--print`: each attempt in a line, and each page's values as JSON, instead of Elasticsearch. */
+function printSink(): SearchSink {
+    const write = (index: string, doc: object, id?: string) => {
+        const d = doc as Record<string, any>;
+        if (index.includes('crawl-requests-')) {
+            const block = d.blockVendor ? `  block: ${d.blockVendor} ${d.blockKind} (${d.blockConfidence}) – ${d.blockSignal}` : '';
+            const setup = d.setup ? `  setup: ${d.setup.ran ? `ran in ${d.setup.ms} ms` : 'already set'}${d.setup.failedStep ? `, failed at "${d.setup.failedStep}"` : ''}` : '';
+            console.log(`attempt ${d.jobId} #${d.attempt} ${d.status ?? '–'} ${d.errorClass} → ${d.outcome}${d.context ? ` ${JSON.stringify(d.context)}` : ''}${setup}${block}`
+                + `${d.errorMessage && d.errorClass !== 'none' ? `\n  ${d.errorMessage}` : ''}${d.protection?.length ? `\n  protection seen: ${d.protection.join(', ')}` : ''}`);
+        } else if (index.includes('scrapes-')) {
+            console.log(`values  ${id}: ${JSON.stringify({ pageStatus: d.pageStatus, ...d.attributes }, null, 2).replace(/\n/g, '\n  ')}`);
+        }
+    };
+    return { write, writeConfirmed: async (index, doc, id) => write(index, doc, id), flush: async () => {}, close: async () => {} };
+}
+
 async function main() {
     // A stray rejection is a bug to log, not a reason to drop every job in flight.
     process.on('unhandledRejection', e => console.error('[unhandled]', e instanceof Error ? e.stack ?? e.message : e));
-    const config = has('config') ? await loadConfig(arg('config'))
-        : process.env.CRAWLER_CONFIG ? parseConfig(JSON.parse(process.env.CRAWLER_CONFIG))
+    const print = has('print');
+    const config = has('config') ? await loadConfig(arg('config'), process.env, { noSearch: print })
+        : process.env.CRAWLER_CONFIG ? parseConfig(JSON.parse(process.env.CRAWLER_CONFIG), process.env, { noSearch: print })
         : (() => { throw new Error('Give --config <file>, or the configuration in CRAWLER_CONFIG.'); })();
     if (has('setup-elasticsearch')) {
         for (const id of await installTemplates(config.search)) console.log(`template ${id}`);
@@ -71,7 +91,7 @@ async function main() {
     const here = path.dirname(fileURLToPath(import.meta.url));
     const script = await readFile(arg('script', path.join(here, 'inpage.js')), 'utf8');
 
-    const sink = createSearchSink(config.search);
+    const sink = print ? printSink() : createSearchSink(config.search);
     const pages = new BrowserPool({ pagesPerContext: config.pagesPerContext, idleMs: config.contextIdleMs, maxContexts: config.maxContexts, ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) });
     const governor = new SiteGovernor(host => sitePolicy(config, host), siteEventWriter(sink, config.workerId));
     const proxies = new Map(Object.entries(config.proxyPools).map(([name, list]) => [name, new ProxyPool(list)]));

@@ -59,13 +59,20 @@ async function cookiesOf(page: Page): Promise<string[]> {
 }
 
 /** What the worker needs from a browser: a page for a host through a proxy, and robots.txt through it. */
+/** A browser session's own state: whether a recipe's session setup has run in it. */
+export interface Session { prepared: boolean }
+
 export interface PageSource {
-    open(host: string, profile: SiteProfile, proxy?: ProxyConfig): Promise<{ page: Page; release: () => Promise<void> }>;
+    /**
+     * A page for a host through a proxy. `session` keeps sessions apart that must not share cookies: a
+     * recipe's setup for one location (ZIP 10001) never serves another (94105).
+     */
+    open(host: string, profile: SiteProfile, proxy?: ProxyConfig, session?: string): Promise<{ page: Page; release: () => Promise<void>; session?: Session }>;
     fetchText(url: string, profile: SiteProfile, proxy?: ProxyConfig): Promise<{ status: number; text: string }>;
     close(): Promise<void>;
 }
 
-interface ContextEntry { context: BrowserContext; pages: number; open: number; usedAt: number }
+interface ContextEntry { context: BrowserContext; pages: number; open: number; usedAt: number; session: Session }
 
 /** Request headers kept on request events. */
 const KEEP_REQUEST_HEADERS = ['user-agent', 'accept-language', 'referer'];
@@ -125,8 +132,8 @@ export class BrowserPool implements PageSource {
     }
 
     /** The site's context through this proxy; made once even when asked for at once, renewed when used up. */
-    private async context(host: string, profile: SiteProfile, proxy?: ProxyConfig): Promise<ContextEntry> {
-        const key = `${host}|${proxy?.id ?? 'direct'}`;
+    private async context(host: string, profile: SiteProfile, proxy?: ProxyConfig, session = ''): Promise<ContextEntry> {
+        const key = `${host}|${proxy?.id ?? 'direct'}${session ? `|${session}` : ''}`;
         const existing = this.contexts.get(key);
         if (existing) {
             const entry = await existing;
@@ -136,7 +143,7 @@ export class BrowserPool implements PageSource {
                 if (this.ready.get(key) === entry) this.ready.delete(key);
                 void entry.context.close().catch(() => {});
             }
-            return this.context(host, profile, proxy);
+            return this.context(host, profile, proxy, session);
         }
         const made = (async (): Promise<ContextEntry> => {
             const browser = await this.start();
@@ -150,7 +157,7 @@ export class BrowserPool implements PageSource {
             });
             const blocked = new Set(profile.blockResources ?? []);
             if (blocked.size) await context.route('**/*', route => blocked.has(route.request().resourceType()) ? route.abort() : route.continue());
-            return { context, pages: 0, open: 0, usedAt: this.now() };
+            return { context, pages: 0, open: 0, usedAt: this.now(), session: { prepared: false } };
         })();
         this.contexts.set(key, made);
         let entry: ContextEntry | undefined;
@@ -162,9 +169,9 @@ export class BrowserPool implements PageSource {
         return made;
     }
 
-    async open(host: string, profile: SiteProfile, proxy?: ProxyConfig) {
+    async open(host: string, profile: SiteProfile, proxy?: ProxyConfig, session?: string) {
         this.sweep();
-        const entry = await this.context(host, profile, proxy);
+        const entry = await this.context(host, profile, proxy, session);
         // Held from here, so a sweep can't close it under the page being made.
         entry.open++;
         entry.usedAt = this.now();
@@ -179,6 +186,7 @@ export class BrowserPool implements PageSource {
         entry.pages++;
         return {
             page,
+            session: entry.session,
             release: async () => {
                 entry.open--;
                 entry.usedAt = this.now();
@@ -268,7 +276,7 @@ async function withTimeout<T>(work: Promise<T>, ms: number, what: string): Promi
 }
 
 /** Calls one of the in-page functions, putting the script in first when the page does not have it (a new page, or one a click navigated). */
-async function callInPage<T>(page: Page, script: string, fn: 'run' | 'readLists' | 'clickNext' | 'scrollToEnd', args: unknown[]): Promise<T> {
+export async function callInPage<T>(page: Page, script: string, fn: 'run' | 'readLists' | 'clickNext' | 'scrollToEnd' | 'markTarget' | 'isShown', args: unknown[]): Promise<T> {
     const loaded = await page.evaluate(() => typeof (globalThis as { crawlpilot?: unknown }).crawlpilot === 'object');
     if (!loaded) await page.evaluate(script);
     const call = ({ name, a }: { name: string; a: unknown[] }) =>

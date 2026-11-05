@@ -80,10 +80,42 @@ export interface Field {
     shape?: Shape;
 }
 
+/** What an action step does to its target (`docs/plans/pro-data-collection-plan.md`, C1). */
+export type ActionKind = 'click' | 'type' | 'choose' | 'select' | 'press' | 'wait' | 'scroll';
+
+/**
+ * A step that acts on the page: a click, unless `do` says otherwise. Its ways find the target (for `choose`,
+ * the items to choose from). `value` may hold variables, `{zip}`, filled from the job's context.
+ * A plain click (no `do`, not optional) runs in the public extractor as before; any other action runs in
+ * Pro's step runner, between the fields around it.
+ */
 export interface Click {
     id: string;
     name: string;
     ways: Way[];
+    do?: ActionKind;
+    /** type: the text; choose: text the item contains; select: the option's text or value; press: a key. */
+    value?: string;
+    /** choose: the n-th item (from 0), when there is no value. */
+    index?: number;
+    /** type: press Enter after typing. */
+    enter?: boolean;
+    /** Skipped when its target isn't there (a banner, a prompt), instead of failing. */
+    optional?: boolean;
+    /** wait: for the target to go away (a spinner), instead of to appear. */
+    gone?: boolean;
+}
+
+/** A recipe's steps that set the browser session up (a location, a store), run once per session. */
+export interface SessionSetup {
+    steps: Click[];
+    /**
+     * Interruptions to close whenever they show, on every page: a consent banner, a promo pop-up, an
+     * "Is this your location?" prompt. Each is a click on its close control, done only when it is there.
+     */
+    dismiss?: Click[];
+    /** Read on every page: the element whose text must contain `contains` (with variables), or the setup runs again. */
+    check?: { ways: Way[]; contains: string };
 }
 
 /** A page recipe's steps in run order: a click, then what it reveals, then the next click. */
@@ -92,6 +124,7 @@ export type Step = { kind: 'field'; field: Field } | { kind: 'click'; click: Cli
 export interface PageRecipeSpec {
     kind: 'page';
     steps: Step[];
+    setup?: SessionSetup;
 }
 
 export interface ListRecipeSpec {
@@ -100,6 +133,7 @@ export interface ListRecipeSpec {
     pagination: { mode: 'auto' | 'pagination' | 'loadMore'; next?: Chain };
     /** Each item's page, read after the list and joined onto its row. */
     details?: { spec: PageRecipeSpec; urlColumn: string };
+    setup?: SessionSetup;
 }
 
 export type ProSpec = PageRecipeSpec | ListRecipeSpec;

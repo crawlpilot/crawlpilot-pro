@@ -6,6 +6,7 @@
  * - anything else is a new way, with a new id, first seen in the version being saved.
  * So an edited selector is a new way, and a renamed field keeps its ways (fields match by id, then name).
  */
+import { setupOwners } from './actions';
 import { canonicalString } from './canonical';
 import type { ProSpec, Step, Way } from './types';
 
@@ -37,16 +38,19 @@ export function wayKey(way: Way): string {
     return canonicalString(way);
 }
 
-/** Every way in a spec, with the field or click name it belongs to. */
+/** Every way in a spec, with the field, click or setup step it belongs to. */
 export function listWays(spec: ProSpec): { owner: string; way: Way }[] {
-    return owners(stepsOf(spec)).flatMap(o => o.ways.map(way => ({ owner: o.name.replace(/^(field|click):/, ''), way })));
+    return [
+        ...setupOwners(spec.setup).flatMap(o => o.ways.map(way => ({ owner: o.name, way }))),
+        ...owners(stepsOf(spec)).flatMap(o => o.ways.map(way => ({ owner: o.name.replace(/^(field|click):/, ''), way }))),
+    ];
 }
 
 export function assignWayIds(spec: ProSpec, version: number, base?: ProSpec, newId: () => string = () => crypto.randomUUID()): ProSpec {
-    const before = base ? owners(stepsOf(base)) : [];
+    const before: { key: string; name: string; ways: Way[] }[] = base ? [...owners(stepsOf(base)), ...setupOwners(base.setup)] : [];
     const byId = new Map(before.flatMap(o => o.ways.filter(w => w.id).map(w => [w.id!, w] as const)));
     const used = new Set<string>();
-    const steps = owners(stepsOf(spec)).map(owner => {
+    const withIds = (owner: { key: string; name: string; ways: Way[] }): Way[] => {
         const old = before.find(o => o.key === owner.key) ?? before.find(o => o.name === owner.name);
         const oldIds = new Set(old?.ways.map(w => w.id));
         const ways = owner.ways.map(way => {
@@ -59,7 +63,19 @@ export function assignWayIds(spec: ProSpec, version: number, base?: ProSpec, new
             const addedIn = kept ? way.addedIn ?? byId.get(id)?.addedIn ?? version : match?.addedIn ?? version;
             return { ...way, id, addedIn };
         });
-        return owner.setWays(ways);
-    });
-    return withSteps(spec, steps);
+        return ways;
+    };
+    const steps = owners(stepsOf(spec)).map(owner => owner.setWays(withIds(owner)));
+    const next = withSteps(spec, steps);
+    if (!spec.setup) return next;
+    const { setup } = spec;
+    return {
+        ...next,
+        setup: {
+            ...setup,
+            steps: setup.steps.map(c => ({ ...c, ways: withIds({ key: `setup:${c.id}`, name: `setup: ${c.name}`, ways: c.ways }) })),
+            ...(setup.dismiss ? { dismiss: setup.dismiss.map(c => ({ ...c, ways: withIds({ key: `dismiss:${c.id}`, name: `dismiss: ${c.name}`, ways: c.ways }) })) } : {}),
+            ...(setup.check ? { check: { ...setup.check, ways: withIds({ key: 'setup:check', name: 'setup: check', ways: setup.check.ways }) } } : {}),
+        },
+    };
 }

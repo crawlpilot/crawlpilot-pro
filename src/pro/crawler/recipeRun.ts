@@ -5,7 +5,8 @@
  * its details pages become jobs of their own, pinned to the same version.
  */
 import { toPageSpec } from '../recipe/fromPublic';
-import type { ListRecipeSpec, PageRecipeSpec, ProSpec, RunSettings, Way } from '../recipe/types';
+import { setupOwners } from '../recipe/actions';
+import type { ListRecipeSpec, PageRecipeSpec, ProSpec, RunSettings, SessionSetup, Way } from '../recipe/types';
 import { readPageResult } from '../runner/testPage';
 import { CrawlError } from './classify';
 import type { InPageRequest, InPageResult, ListPageResult, WayProbe } from './inPage';
@@ -36,7 +37,8 @@ export interface RunRead {
     total: number;
 }
 
-export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult): RunRead {
+/** `setup`: the version's session setup, whose ways' usage comes with the result. */
+export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult, setup?: SessionSetup): RunRead {
     const page = readPageResult(spec, url, result.item, result.steps);
     const attributes: RunRead['attributes'] = {};
     const fieldStatus: RunRead['fieldStatus'] = {};
@@ -44,9 +46,12 @@ export function readRun(spec: PageRecipeSpec, url: string, result: InPageResult)
         attributes[f.name] = f.value;
         fieldStatus[f.name] = !f.filled ? 'empty' : f.ok ? 'ok' : 'check_failed';
     }
-    const owner = new Map(spec.steps.flatMap(s => s.kind === 'field'
-        ? s.field.ways.map((w, i) => [wayId(w, s.field.id, i), s.field.name] as const)
-        : s.click.ways.map((w, i) => [wayId(w, s.click.id, i), `click: ${s.click.name}`] as const)));
+    const owner = new Map([
+        ...spec.steps.flatMap(s => s.kind === 'field'
+            ? s.field.ways.map((w, i) => [wayId(w, s.field.id, i), s.field.name] as const)
+            : s.click.ways.map((w, i) => [wayId(w, s.click.id, i), `click: ${s.click.name}`] as const)),
+        ...setupOwners(setup).flatMap(o => o.ways.map((w, i) => [wayId(w, o.key, i), o.name] as const)),
+    ]);
     return {
         attributes, fieldStatus,
         ways: result.ways.map(w => ({ field: owner.get(w.wayId) ?? '', ...w })),
@@ -94,7 +99,7 @@ export function followUps(job: CrawlJob, spec: ListRecipeSpec, ref: RecipeRef, r
     o: { maxPages: number; details: boolean }): CrawlJob[] {
     const out: CrawlJob[] = [];
     const page = job.page ?? 1;
-    const inherit = { competitor: job.competitor, pageType: job.pageType, ...(job.mode ? { mode: job.mode } : {}), ...(job.runId ? { runId: job.runId } : {}), ...(job.meta ? { meta: job.meta } : {}) };
+    const inherit = { competitor: job.competitor, pageType: job.pageType, ...(job.mode ? { mode: job.mode } : {}), ...(job.runId ? { runId: job.runId } : {}), ...(job.meta ? { meta: job.meta } : {}), ...(job.context ? { context: job.context } : {}) };
     const root = job.jobId.replace(/~p\d+$/, '');
     if (read.nextHref && page < o.maxPages) {
         // The same version for every page of one list, so a list is read with one recipe throughout.

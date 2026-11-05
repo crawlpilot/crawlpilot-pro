@@ -5,7 +5,7 @@
  */
 import { createServer } from 'node:http';
 import { specDigest } from '../recipe/canonical';
-import type { PageRecipeSpec } from '../recipe/types';
+import type { PageRecipeSpec, ProSpec } from '../recipe/types';
 import { createMockBackend, type MockBackend } from './mock';
 
 export interface MockServer {
@@ -44,25 +44,41 @@ export const DEMO_SPEC: PageRecipeSpec = { kind: 'page', steps: [
     { kind: 'field', field: { id: 'f-price', name: 'price', type: 'text', read: 'text', ops: [], ways: [{ id: 'w-price', addedIn: 1, kind: 'selector', selector: '.product-price' }] } },
 ] };
 
+/** A recipe to seed the mock with (`MOCK_SEED=<file>`): what it is for, and its spec. */
+export interface SeedRecipe {
+    name: string;
+    site: string;
+    competitor: string;
+    pageType: string;
+    matchRules?: { include: string[]; exclude?: string[] };
+    spec: ProSpec;
+}
+
 /**
  * Publishes the demo recipe as Pro would (upload, approval by a second person, `live`) for competitor `demo`,
  * page type `product`, so the crawler worker has something to resolve without clicking through Pro first.
  */
-export async function seedDemo(backend: MockBackend, token = 'dev-token'): Promise<{ recipeId: string; digest: string }> {
-    const digest = await specDigest(DEMO_SPEC);
+export function seedDemo(backend: MockBackend, token = 'dev-token'): Promise<{ recipeId: string; digest: string }> {
+    return seedRecipe(backend, { name: 'Demo lamps', site: '127.0.0.1', competitor: 'demo', pageType: 'product', spec: DEMO_SPEC }, token);
+}
+
+/** Publishes a recipe as Pro would: upload, approval by a second person, `live`. */
+export async function seedRecipe(backend: MockBackend, seed: SeedRecipe, token = 'dev-token'): Promise<{ recipeId: string; digest: string }> {
+    const { spec } = seed;
+    const digest = await specDigest(spec);
     const call = (method: string, path: string, body: unknown, headers: Record<string, string> = {}) => {
         const out = backend.handle({ method, path, headers: { authorization: `Bearer ${token}`, ...headers }, body: JSON.stringify(body) });
         if (out.status >= 300) throw new Error(`${method} ${path}: ${out.status} ${JSON.stringify(out.body)}`);
         return out.body as { id?: string };
     };
-    const recipe = { name: 'Demo lamps', site: '127.0.0.1', kind: 'page', competitor: 'demo', pageType: 'product' };
+    const recipe = { name: seed.name, site: seed.site, kind: spec.kind, competitor: seed.competitor, pageType: seed.pageType, ...(seed.matchRules ? { matchRules: seed.matchRules } : {}) };
     const { id } = call('POST', '/recipes', recipe);
     const recipeId = id!;
     call('POST', `/recipes/${recipeId}/versions`, {
         format: 3, recipe, labels: {}, samples: [],
-        versions: [{ version: 1, spec: DEMO_SPEC, settings: {}, pages: { kind: 'urls', urls: [] }, output: {}, digest, origin: 'built', note: 'demo', author: 'demo-author', createdAt: new Date(0).toISOString() }],
+        versions: [{ version: 1, spec, settings: {}, pages: { kind: 'urls', urls: [] }, output: {}, digest, origin: 'built', note: 'seeded', author: 'seed-author', createdAt: new Date(0).toISOString() }],
     }, { 'idempotency-key': digest });
-    call('POST', `/recipes/${recipeId}/versions/1/review`, { state: 'approved', by: 'demo-reviewer', note: 'seeded' });
-    call('POST', `/recipes/${recipeId}/labels/live`, { version: 1, reason: 'seeded demo' });
+    call('POST', `/recipes/${recipeId}/versions/1/review`, { state: 'approved', by: 'seed-reviewer', note: 'seeded' });
+    call('POST', `/recipes/${recipeId}/labels/live`, { version: 1, reason: 'seeded' });
     return { recipeId, digest };
 }
