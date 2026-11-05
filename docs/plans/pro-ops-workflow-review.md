@@ -111,7 +111,14 @@ be, and to propose a simpler flow. Findings are numbered and referenced in the p
      - each field's element outlined on the page with its name, coloured by its check;
      - one row per item for a "for each" step;
      - the sample pages' grid, and the *Ready to submit?* checklist with a link to each fix.
-2. **Names and types at pick time, and saving into Check** (1, 2, 5).
+2. **Names and types at pick time, and saving into Check** (1, 2, 5). **Done:**
+   - The save step lists each picked field with a proposed name and output type, both editable
+     (`src/pro/recipe/naming.ts`). Names come from the page's data, the words in the selector, the value's shape, or
+     the heading.
+   - Names someone gave are kept, and duplicate names can't be saved.
+   - Saving a page recipe offers *Check it on this page*.
+   - Found while doing it: a re-pick used to drop everything Pro adds (types, required, cleanup, markup ways, session
+     setup, action steps). Re-picks now keep it (`src/pro/recipe/repick.ts`).
 3. **New recipe form and no Pages step** (3, 4). The wizard is the public extension's, so this needs a Pro hook in
    it, or Pro's own picking screen.
 4. **Field editor folded down, recipe screen reordered, approving as someone else** (10–13).
