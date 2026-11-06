@@ -987,6 +987,44 @@ test('reveal steps in a dialog: one click opens it for some fields, a click insi
     await page.close();
 });
 
+test('page data on Walmart: its JSON specifications become one name → value field, rows offered too', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`${origin}/corpus/pdp-walmart`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1100 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    const file = { name: 'Grill', site: 'walmart.com', built_on: page.url(), spec: { kind: 'page', settings: {}, elements: [
+        { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] },
+    ] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'g.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await ui.getByRole('button', { name: 'Edit Grill' }).click();
+
+    const add = ui.getByTestId('pro-add-data-field');
+    await add.getByRole('button', { name: 'Add a field from the page\'s data' }).click();
+    await add.getByLabel('Find in the page\'s data').fill('Fuel type');
+    const specs = add.getByTestId('pro-page-data-entry').filter({ hasText: /idml\.specifications\s*name → value/ });
+    await expect(specs).toHaveCount(1);
+    await expect(specs).toContainText('Fuel type: Propane');
+    // The same list as rows too (every spec a row of name and value).
+    await expect(add.getByTestId('pro-page-data-entry').filter({ hasText: /idml\.specifications\s*rows\s*17 rows: name, value/ })).toHaveCount(1);
+    if (process.env.UX_SHOTS) await add.screenshot({ path: `${process.env.UX_SHOTS}/pro-page-data-specs.png` });
+    await specs.click();
+    const field = ui.getByTestId('pro-field').filter({ hasText: 'specifications' });
+    await expect(field).toContainText('object');
+
+    await ui.getByRole('button', { name: 'Test on this page' }).click();
+    await expect(ui.getByTestId('pro-test-summary')).toContainText('2 of 2 fields found');
+    await field.getByRole('button').first().click();
+    await expect(field.getByTestId('pro-field-result')).toContainText('"Fuel type":"Propane"');
+    await ui.close();
+    await page.close();
+});
+
 test('build new: picked fields come to the save step named and typed from the page, and can be changed there', async ({ panel, ext, origin }) => {
     const page = await ext.newPage();
     await page.goto(`${origin}/site/json-product.html`);
