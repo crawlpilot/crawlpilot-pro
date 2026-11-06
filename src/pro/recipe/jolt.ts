@@ -14,7 +14,7 @@
  * - `sort`: keys in alphabetical order, all the way down.
  * - `modify-overwrite-beta`, `modify-default-beta`, `modify-define-beta`: values set from literals, references
  *   (`@(n,path)`) or functions (`=toUpper`, `=concat(@(1,a),'-',@(1,b))`, `=split(',',@(1,list))`…), always, when
- *   missing or null, or when missing.
+ *   missing or null, or when missing. A key ending `?` is set only where the input has it.
  */
 
 type Json = unknown;
@@ -287,7 +287,10 @@ function modify(input: Json, spec: Json, mode: Mode, levels: Level[] = []): Json
     if (!isObj(spec)) return input;
     const target = isObj(input) || Array.isArray(input) ? input : {};
     const here: Level[] = levels.length ? levels : [{ key: 'root', captures: ['root'], value: target }];
-    for (const [rawKey, sub] of Object.entries(spec)) {
+    for (const [specKey, sub] of Object.entries(spec)) {
+        // `key?`: set only where the key is there (JOLT's optional modify key).
+        const optional = specKey.endsWith('?');
+        const rawKey = optional ? specKey.slice(0, -1) : specKey;
         const list = rawKey.endsWith('[]');
         const k = list ? rawKey.slice(0, -2) : rawKey;
         const keys = k.includes('*') || k.includes('|')
@@ -296,6 +299,7 @@ function modify(input: Json, spec: Json, mode: Mode, levels: Level[] = []): Json
         for (const key of keys) {
             const t = target as Record<string, Json>;
             const current = t[key];
+            if (optional && (!(key in (t as object)) || current === undefined)) continue;
             const level: Level = { key, captures: matcherOf(k, sub).test(key) ?? [key], value: current };
             if (isObj(sub)) {
                 // A list's items are its keys "0", "1"…: `*` in the spec matches them, as in JOLT.

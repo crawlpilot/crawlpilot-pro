@@ -766,6 +766,8 @@ test('page data and JOLT: a field added from the page\'s JSON, the record shaped
     const transform = ui.getByTestId('pro-transform-section');
     await transform.getByRole('button', { name: /^Transform \(JOLT\)/ }).click();
     await transform.getByRole('button', { name: 'Start from the fields' }).click();
+    await expect(transform.getByTestId('pro-mapping-row')).toHaveCount(3);
+    await transform.getByRole('tab', { name: 'JOLT' }).click();
     const jolt = transform.getByLabel('JOLT spec (JSON: one operation or a list)');
     await expect(jolt).toHaveValue(/"product_group_id": "product_group_id"/);
     await jolt.fill('not json');
@@ -792,6 +794,67 @@ test('page data and JOLT: a field added from the page\'s JSON, the record shaped
     const record = ui.getByTestId('pro-check-record');
     await expect(record).toContainText('"source": "overshirt"');
     await expect(record).toContainText('"price": "$79.00"');
+    await ui.close();
+    await page.close();
+});
+
+test('transform mapping: rows proposed from the retail product contract, each with its value, compiled to JOLT', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1100 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    const file = { name: 'Overshirt', site: '127.0.0.1', built_on: page.url(), spec: { kind: 'page', settings: {}, elements: [
+        { id: 'a', name: 'product_title', action: 'extract', type: 'text', selectors: ['h1'] },
+        { id: 'b', name: 'is_price', action: 'extract', type: 'text', selectors: ['p.price'] },
+    ] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'o.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await ui.getByRole('button', { name: 'Edit Overshirt' }).click();
+
+    await ui.getByRole('button', { name: /^Output contract/ }).click();
+    await ui.getByLabel('Output contract').selectOption({ label: 'Retail product' });
+    await ui.getByRole('button', { name: 'Test on this page' }).click();
+
+    const transform = ui.getByTestId('pro-transform-section');
+    await transform.getByRole('button', { name: /^Transform \(JOLT\)/ }).click();
+    await transform.getByRole('button', { name: 'Propose from Retail product' }).click();
+    const rows = transform.getByTestId('pro-mapping-row');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).getByLabel('Output 1')).toHaveValue('title');
+    await expect(rows.nth(0).getByLabel('From 1')).toHaveValue(/product_title/);
+    await expect(rows.nth(0).getByTestId('pro-mapping-value')).toHaveText('= "Linen Overshirt"');
+    await expect(rows.nth(1).getByLabel('Output 2')).toHaveValue('price');
+    await expect(rows.nth(1).getByTestId('pro-mapping-value')).toHaveText('= "$79.00"');
+
+    // A row of fixed text, and a conversion.
+    await transform.getByRole('button', { name: 'Add row' }).click();
+    await rows.nth(2).getByLabel('Output 3').fill('meta.source');
+    await rows.nth(2).getByLabel('From 3').selectOption({ label: 'Fixed text…' });
+    await rows.nth(2).getByLabel('Text 3').fill('json shop');
+    await rows.nth(2).getByLabel('How 3').selectOption({ label: 'in upper case' });
+    await expect(rows.nth(2).getByTestId('pro-mapping-value')).toHaveText('= "JSON SHOP"');
+    await expect(transform.getByTestId('pro-transform-output')).toContainText('"source": "JSON SHOP"');
+
+    if (process.env.UX_SHOTS) await transform.screenshot({ path: `${process.env.UX_SHOTS}/pro-transform-mapping.png` });
+
+    // The contract is checked on the output: title is there, by name.
+    const contract = ui.getByTestId('pro-contract');
+    await expect(contract).toContainText('The transform\'s output is checked');
+    await expect(contract.getByTestId('pro-contract-row').filter({ hasText: /^title/ })).toContainText('output');
+
+    // The JOLT the rows compile to; the version keeps both.
+    await transform.getByRole('tab', { name: 'JOLT' }).click();
+    await expect(transform.getByLabel('JOLT spec (JSON: one operation or a list)')).toHaveValue(/"#json shop": "meta.source"/);
+    await ui.getByLabel('What changed').fill('a mapped transform');
+    await ui.getByRole('button', { name: 'Save version 2' }).click();
+    await expect(ui.getByTestId('pro-diff')).toContainText('JOLT none → shift, modify-overwrite-beta');
+    const versions = await proStore(ui, 'versions');
+    const v2 = versions.find(v => v.version === 2)!;
+    expect(v2.spec.transform.mapping.map((r: { output: string }) => r.output)).toEqual(['title', 'price', 'meta.source']);
     await ui.close();
     await page.close();
 });

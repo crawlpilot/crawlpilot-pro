@@ -488,15 +488,15 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                     <div className="pt-2">
                         <ContractPanel output={output} onChange={setOutput}
                             fields={spec.steps.flatMap(st => st.kind === 'field' ? [st.field] : [])}
-                            results={pagesTest && !pagesStale ? pagesTest.results : undefined} />
+                            results={pagesTest && !pagesStale ? pagesTest.results : undefined} transform={spec.transform} />
                     </div>
                 </Disclosure>
                 <div data-testid="pro-transform-section"><Disclosure icon={<Shuffle />} summary="Transform (JOLT)"
-                    meta={spec.transform ? <Chip tone="info">{spec.transform.jolt.map(o => o.operation).join(', ')}</Chip> : <Text size="caption" tone="faint">none</Text>}>
-                    <TransformPanel jolt={spec.transform?.jolt} onValid={setTransformValid}
+                    meta={spec.transform ? <Chip tone="info">{spec.transform.mapping ? `${spec.transform.mapping.length} row${spec.transform.mapping.length === 1 ? '' : 's'}` : spec.transform.jolt.map(o => o.operation).join(', ')}</Chip> : <Text size="caption" tone="faint">none</Text>}>
+                    <TransformPanel transform={spec.transform} onValid={setTransformValid} contract={output.contract}
                         fields={spec.steps.flatMap(st => st.kind === 'field' ? [st.field.name] : [])}
                         {...(test ? { sample: recordOf(test.result.fields) } : {})}
-                        onChange={jolt => setSpec(edits.setTransform(spec, jolt))} />
+                        onChange={(jolt, mapping) => setSpec(edits.setTransform(spec, jolt, mapping))} />
                 </Disclosure></div>
                 <Disclosure icon={<ShieldAlert />} summary={`Page rules (${spec.rules?.length ?? 0})`}>
                     <PageRules rules={spec.rules ?? []} onChange={rules => setSpec(edits.setRules(spec, rules))} />
