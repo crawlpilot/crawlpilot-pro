@@ -798,6 +798,42 @@ test('page data and JOLT: a field added from the page\'s JSON, the record shaped
     await page.close();
 });
 
+test('test one field: its value alone on the page, before and after cleanup, and stale once changed', async ({ panel, ext, origin }) => {
+    const page = await ext.newPage();
+    await page.goto(`${origin}/site/json-product.html`);
+    const tabId = await panel.tabId(page.url());
+    await panel.toTab(tabId, 'PING');
+    const ui = await ext.newPage();
+    await ui.setViewportSize({ width: 400, height: 1100 });
+    await ui.goto(`chrome-extension://${panel.extensionId}/sidepanel.html?tabId=${tabId}`);
+    await proClear(ui);
+    await ui.reload();
+    const file = { name: 'Overshirt', site: '127.0.0.1', built_on: page.url(), spec: { kind: 'page', settings: {}, elements: [
+        { id: 'a', name: 'title', action: 'extract', type: 'text', selectors: ['h1'] },
+        { id: 'b', name: 'price', action: 'extract', type: 'text', selectors: ['p.price'] },
+    ] } };
+    await ui.getByTestId('recipe-import').setInputFiles({ name: 'o.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await ui.getByRole('button', { name: 'Edit Overshirt' }).click();
+
+    const price = ui.getByTestId('pro-field').filter({ has: ui.getByText('price', { exact: true }) });
+    await price.getByRole('button', { name: /^price/ }).first().click();
+    await price.getByLabel('Type').selectOption('money');
+    await price.getByRole('button', { name: 'Test this field' }).click();
+    const result = price.getByTestId('pro-field-test');
+    await expect(result).toContainText('This field alone on 127.0.0.1');
+    await expect(result).toContainText('found');
+    await expect(result.getByTestId('pro-field-test-value')).toHaveText('79');
+    await expect(result.getByTestId('pro-field-test-raw')).toHaveText('Read before cleanup: $79.00');
+    if (process.env.UX_SHOTS) await price.screenshot({ path: `${process.env.UX_SHOTS}/pro-field-test.png` });
+    // Only this field was read: the other has no result.
+    const title = ui.getByTestId('pro-field').filter({ has: ui.getByText('title', { exact: true }) });
+    await expect(title.getByTestId('pro-field-test')).toHaveCount(0);
+    await price.getByLabel('Type').selectOption('text');
+    await expect(result).toContainText('You changed this field since');
+    await ui.close();
+    await page.close();
+});
+
 test('transform mapping: rows proposed from the retail product contract, each with its value, compiled to JOLT', async ({ panel, ext, origin }) => {
     const page = await ext.newPage();
     await page.goto(`${origin}/site/json-product.html`);

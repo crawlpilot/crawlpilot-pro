@@ -61,6 +61,17 @@ export const setWay = (spec: PageRecipeSpec, id: string, index: number, way: Way
 /** A new field, after the recipe's other steps. */
 export const addField = (spec: PageRecipeSpec, field: Field): PageRecipeSpec => ({ ...spec, steps: [...spec.steps, { kind: 'field', field }] });
 
+/**
+ * The recipe cut down to one field, to test it alone: the field, after the clicks and other steps before it (they may
+ * reveal it), with the setup and page rules. The other fields, the identity check and the transform are left out.
+ */
+export function onlyField(spec: PageRecipeSpec, fieldId: string): PageRecipeSpec {
+    const at = spec.steps.findIndex(s => s.kind === 'field' && s.field.id === fieldId);
+    if (at < 0) throw new Error(`No field ${fieldId}.`);
+    const { identity: _i, transform: _t, ...rest } = spec;
+    return { ...rest, steps: [...spec.steps.slice(0, at).filter(s => s.kind !== 'field'), spec.steps[at]] };
+}
+
 /** The JOLT chain the page's record goes through, with the mapping rows it was compiled from; none drops it. */
 export function setTransform(spec: PageRecipeSpec, jolt: JoltOperation[] | undefined, mapping?: MappingRow[]): PageRecipeSpec {
     const { transform: _, ...rest } = spec;
