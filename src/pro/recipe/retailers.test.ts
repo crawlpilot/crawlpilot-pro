@@ -6,10 +6,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { extractPage } from '../../content/services/page/extractPage';
-import { pageRequest, readPageResult, type PageStepReply, type RuleHit } from '../runner/readPage';
+import { pageRequest, readPageResult, recordOf, type PageStepReply, type RuleHit } from '../runner/readPage';
 import { seedOf } from '../backend/mockServer';
 import { problems } from './editSpec';
+import { RETAIL_PRODUCT } from './contract';
 import { readRecipeFile } from './file';
+import { mappingOutput, proposeMapping } from './mapping';
 import { amazonProduct, fileOf, walmartProduct, type RetailerRecipe } from './retailers';
 import type { PageRecipeSpec } from './types';
 
@@ -104,6 +106,20 @@ describe('on the saved product pages', { timeout: 60_000 }, () => {
         // Its shipping tiles show no charge ("Free"): the Lua returns nil for each, so the list is empty, not blanks.
         expect(field('SHIPPING_CHARGE')).toMatchObject({ filled: false });
         expect(page.fields.filter(f => !f.ok).map(f => `${f.name}: ${f.problem}`)).toEqual([]);
+    });
+
+    it('Walmart: the retail product record proposed from its fields, with a value for each row', async () => {
+        const { page } = await read(await walmartProduct(fixture('wmart')), 'pdp-walmart', 'https://www.walmart.com/ip/EG-4-BURNER-GRILL/17070020028');
+        const rows = proposeMapping(RETAIL_PRODUCT, page.fields.map(f => f.name), recordOf(page.fields));
+        const output = mappingOutput(rows, recordOf(page.fields)).value!;
+        expect(output).toMatchObject({
+            product_id: '17070020028',
+            title: 'Expert Grill 4-Burner Propane Gas Grill with Side Shelves and Wheels, Stainless Steel',
+            brand: 'Expert Grill', upc: '044376300333', price: '$194.00', rating: 4.2, reviews_count: 6968, model_number: 'EX5704430716002',
+        });
+        expect(output.features).toHaveLength(6);
+        // Every row writes its output; what the page lacks (no was-price, no breadcrumb) is null, for the contract to count.
+        expect(Object.keys(output).sort()).toEqual(rows.map(r => r.output).sort());
     });
 
     it('Walmart: another id in the /ip/ URL is another product', async () => {

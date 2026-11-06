@@ -7,6 +7,7 @@ import type { Chain, Column, DataBinding, ListTarget } from '../../shared/types/
 import type { Condition, PageRule, WayRead } from '../../shared/types/ways';
 import type { ProOp } from './ops';
 import type { JoltOperation } from './jolt';
+import type { MappingRow } from './mapping';
 import type { Shape } from '../../shared/extraction/shape';
 
 export type RecipeKind = 'page' | 'list';
@@ -191,9 +192,10 @@ export interface PageRecipeSpec {
     identity?: Identity;
     /**
      * The page's record (its fields by name, as read) turned into the schema consumers want, by a JOLT chain
-     * (`jolt.ts`), as Atlas does. The crawler writes it as the scrape's `record`, next to `attributes`.
+     * (`jolt.ts`), as Atlas does. The crawler writes it as the scrape's `record`, next to `attributes`. When `mapping`
+     * is there, the chain is what its rows compile to (`mapping.ts`); a chain edited by hand has none.
      */
-    transform?: { jolt: JoltOperation[] };
+    transform?: { jolt: JoltOperation[]; mapping?: MappingRow[] };
 }
 
 export interface Identity {
