@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import zara from '../../shared/samples/recipes/zara-product.json';
 import type { PageSpec } from '../../shared/types/database';
 import { fromPageSpec } from './fromPublic';
-import { addSelector, moveStep, moveWay, problems, removeStep, removeWay, renameField, setFieldType, setIdentity, setOps, setRequired, setRules, setWay } from './editSpec';
+import { addSelector, onlyField, moveStep, moveWay, problems, removeStep, removeWay, renameField, setFieldType, setIdentity, setOps, setRequired, setRules, setWay } from './editSpec';
 import type { Field, PageRecipeSpec } from './types';
 
 const spec = fromPageSpec(zara.spec as unknown as PageSpec).spec;
@@ -78,5 +78,23 @@ describe('a list recipe\'s page rules', () => {
         const ruled = setListRules(list, [{ name: 'Empty', status: 'not_found', when: { kind: 'regex', in: 'text', pattern: '', op: 'gt', value: 0 } }, { name: 'Empty', status: 'blocked', when: { kind: 'css', selector: '#c', op: 'gt', value: 0 } }]);
         expect(listProblems(ruled)).toEqual(['Two page rules are named "Empty".', 'Rule "Empty": a condition has nothing to look for.']);
         expect(setListRules(ruled, [])).toEqual(list);
+    });
+});
+
+describe('one field alone', () => {
+    it('keeps the steps before it and the page rules, and leaves out the other fields, identity and transform', () => {
+        const f = (id: string): Field => ({ id, name: id, type: 'text', read: 'text', ways: [], ops: [] });
+        const click = (id: string) => ({ kind: 'click' as const, click: { id, name: id, selectors: ['button'] } });
+        const spec = {
+            kind: 'page', steps: [{ kind: 'field', field: f('a') }, click('open'), { kind: 'field', field: f('b') }, click('later'), { kind: 'field', field: f('c') }],
+            rules: [{ name: 'gone', status: 'not-found', when: { kind: 'css', selector: '.gone' } }],
+            identity: { field: 'a', patterns: ['/p/(\\d+)'] }, transform: { jolt: [{ operation: 'shift', spec: { a: 'x' } }] },
+        } as unknown as PageRecipeSpec;
+        const one = onlyField(spec, 'b');
+        expect(one.steps.map(s => s.kind === 'field' ? s.field.id : s.click.id)).toEqual(['open', 'b']);
+        expect(one.rules).toEqual(spec.rules);
+        expect(one.identity).toBeUndefined();
+        expect(one.transform).toBeUndefined();
+        expect(() => onlyField(spec, 'nope')).toThrow();
     });
 });

@@ -51,6 +51,28 @@ function ResultChip({ result }: { result?: FieldResult }) {
     return result.filled ? <Chip tone="success">found</Chip> : <Chip>empty</Chip>;
 }
 
+/** One field tested alone: what it read before and after cleanup, and whether it passes its type and checks. */
+function FieldTestResult({ test, stale }: { test: { url: string; result?: FieldResult; error?: string; rule?: string }; stale: boolean }) {
+    const host = (() => { try { return new URL(test.url).host; } catch { return test.url; } })();
+    const r = test.result;
+    return (
+        <div className="flex flex-col gap-0.5 rounded-xl border border-line px-2.5 py-2" data-testid="pro-field-test">
+            <span className="flex flex-wrap items-center gap-1.5">
+                <Text size="caption" tone="muted">This field alone on {host}{r ? ` (${r.status}${r.way !== undefined && r.way >= 0 ? ` · way ${r.way + 1}` : ''})` : ''}</Text>
+                {r && <ResultChip result={r} />}
+            </span>
+            {test.error && <Text size="caption" tone="danger">{test.error}</Text>}
+            {test.rule && <Text size="caption" tone="warning">Page rule "{test.rule}" holds: nothing was read.</Text>}
+            {!test.error && !test.rule && !r && <Text size="caption" tone="warning">The field was not read.</Text>}
+            {r && <Text size="caption" mono className="break-all" lines={4} data-testid="pro-field-test-value">{preview(r.value)}</Text>}
+            {r && preview(r.raw) !== preview(r.value) && (
+                <Text size="caption" tone="faint" className="break-all" lines={2} data-testid="pro-field-test-raw">Read before cleanup: {preview(r.raw)}</Text>
+            )}
+            {stale && <Text size="caption" tone="warning">You changed this field since: test it again.</Text>}
+        </div>
+    );
+}
+
 /** Sample pages a multi-page test reads, at most. */
 const TEST_PAGES = 5;
 
@@ -258,6 +280,21 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
         await pro.tests.save({ recipeId: recipe.id, digest: await specDigest(spec), kind: 'page', results: [result], passed: passed([result]), at: Date.now() });
         setTesting(false);
     };
+    /** One field tested alone on the open page, by field id: what it read, and the field as it was then. */
+    const [fieldTests, setFieldTests] = useState<Record<string, { field: string; url: string; result?: FieldResult; error?: string; rule?: string }>>({});
+    const [testingField, setTestingField] = useState<string | null>(null);
+    /** Runs one field on the open page, after the steps before it: its value, without testing the whole recipe. */
+    const runFieldTest = async (field: Field) => {
+        if (!base || !spec || !page.tab?.id) return;
+        setTestingField(field.id);
+        try {
+            const r = await testOnTab(page.tab.id, page.url, edits.onlyField(spec, field.id), base.settings, context);
+            const result = r.fields.find(f => f.fieldId === field.id);
+            setFieldTests(t => ({ ...t, [field.id]: { field: JSON.stringify(field), url: r.url, ...(r.error ? { error: r.error } : r.rule ? { rule: r.rule.name } : { result }) } }));
+        } finally {
+            setTestingField(null);
+        }
+    };
     /** A page a failing field failed on: opened in the page's tab, and kept as a sample to test on. */
     const openFailing = async (url: string) => {
         if (page.tab?.id) await chrome.tabs.update(page.tab.id, { url });
@@ -361,13 +398,18 @@ export default function EditorPage({ onBack, onNavigate }: Props) {
                         <Text size="caption" mono className="break-all" lines={3}>{preview(results.get(field.id)!.value)}</Text>
                     </div>
                 )}
+                {fieldTests[field.id] && <FieldTestResult test={fieldTests[field.id]} stale={fieldTests[field.id].field !== JSON.stringify(field)} />}
                 <div className="flex items-end gap-2">
                     <TextField size="sm" className="flex-1" label="Name" value={field.name} onChange={e => setSpec(edits.renameField(spec, field.id, e.target.value))} />
                     <Select size="sm" label="Type" value={field.type} options={TYPES.map(t => ({ value: t, label: t }))} onChange={t => setSpec(edits.setFieldType(spec, field.id, t))} />
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1">
                     <Switch label="Required" checked={!!field.required} onChange={r => setSpec(edits.setRequired(spec, field.id, r))} />
                     <span className="flex-1" />
+                    <Button size="sm" variant="ghost" icon={<FlaskConical />} loading={testingField === field.id}
+                        disabled={!page.web || !field.ways.length || testingField !== null}
+                        title={page.host ? `Reads only this field on ${page.host}, after the steps before it` : 'Open a web page to test on'}
+                        onClick={() => void runFieldTest(field)}>Test this field</Button>
                     <Button size="sm" variant="ghost" icon={<MousePointerClick />} title="A click that reveals this field (a tab, a 'More details' button), run just before it is read"
                         onClick={() => {
                             const n = spec.steps.filter(st => st.kind === 'click' && st.click.name.startsWith(`Reveal ${field.name}`)).length;
